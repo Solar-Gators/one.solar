@@ -1,6 +1,7 @@
 /**
  * OneSolar home screen: a card per app (js/apps.js), shown or hidden by who's
- * signed in. Sign-in uses the Order Form's accounts (its Supabase project).
+ * signed in. Signing in happens on the Order Form's sign-in page (its accounts and
+ * Supabase project), which sends you back here (?next=/one.solar/).
  * Every app lives on solar-gators.github.io, so signing in here, in the Order
  * Form or in Solar Evals signs you in to all of them; so does the Light / Dark choice.
  *
@@ -99,11 +100,11 @@ function draw() {
   $('#account').innerHTML = me.user
     ? `<span class="who" title="${esc(me.user.email)}">${esc(me.name)}</span>
        <button type="button" class="btn btn-ghost btn-sm" id="sign-out">Sign out</button>`
-    : '<button type="button" class="btn btn-primary btn-sm" id="sign-in-open">Sign in</button>';
+    : `<a class="btn btn-primary btn-sm" href="${esc(signInUrl())}">Sign in</a>`;
   $('#hello').innerHTML = greeting();
   $('#lede').textContent = me.user
     ? 'Everything Solar Gators, in one place. Pick an app.'
-    : 'Solar Gators\' team apps, in one place. Sign in with your Order Form account to see everything you have access to.';
+    : 'Solar Gators\' team apps, in one place. Sign in with your OneSolar account to see everything you have access to.';
   $('#apps').innerHTML = shown
     .map((a) => {
       const links = (a.links || []).filter((l) => allowed(l.access || a.access));
@@ -123,7 +124,7 @@ function draw() {
     .join('');
   const forAll = locked.filter((a) => (choiceOf(a).show === 'default' ? a.access === 'signedIn' : choiceOf(a).show === 'signedIn'));
   $('#more').innerHTML = !me.user && locked.length
-    ? `<p class="muted"><button type="button" class="link-btn" id="sign-in-open">Sign in</button> for ${forAll.length ? `${forAll.map((a) => esc(a.name)).join(', ')}, and ` : ''}the apps your position can use.</p>`
+    ? `<p class="muted"><a class="link-btn" href="${esc(signInUrl())}">Sign in</a> for ${forAll.length ? `${forAll.map((a) => esc(a.name)).join(', ')}, and ` : ''}the apps your position can use.</p>`
     : '';
   if (!shown.length) $('#apps').innerHTML = `<p class="muted">No apps to show${me.user ? ' for your position yet' : ''}.</p>`;
   $('#customize-open').hidden = !canCustomize() || customizing;
@@ -229,44 +230,19 @@ function bindCustomize() {
   });
 }
 
-// ---- Sign in (the Order Form's accounts) -----------------------------------------------
+// ---- Sign in: the Order Form's sign-in page, which comes back here afterwards ------------
 
-function bindSignIn() {
-  const dialog = $('#sign-in');
-  const form = $('#sign-in-form');
-  const err = $('#sign-in-error');
-  $('#sign-up-link').href = url(ORDERS);
-  $('#forgot-link').href = url(ORDERS);
+/** Sign in (and create an account, or reset a password) on the Order Form's page; it returns to this page. */
+const signInUrl = () => url(`${ORDERS}?next=${encodeURIComponent(SITE ? '/one.solar/' : location.pathname)}`);
+
+function bindSignOut() {
   document.addEventListener('click', async (e) => {
-    if (e.target.closest('#sign-in-open')) {
-      err.hidden = true;
-      form.reset();
-      dialog.showModal();
-      form.email.focus();
-    }
-    if (e.target.closest('#sign-in-cancel')) dialog.close();
     if (e.target.closest('#sign-out')) {
       await sb.auth.signOut();
       await loadMe();
       customizing = false;
       draw();
     }
-  });
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const btn = form.querySelector('[type=submit]');
-    btn.disabled = true;
-    err.hidden = true;
-    const { error } = await sb.auth.signInWithPassword({ email: form.email.value.trim(), password: form.password.value });
-    btn.disabled = false;
-    if (error) {
-      err.textContent = /invalid/i.test(error.message) ? 'That email and password don\'t match an Order Form account.' : error.message;
-      err.hidden = false;
-      return;
-    }
-    dialog.close();
-    await loadMe();
-    draw();
   });
 }
 
@@ -289,7 +265,7 @@ function bindTheme() {
 }
 
 bindTheme();
-bindSignIn();
+bindSignOut();
 bindCustomize();
 try {
   await Promise.all([loadMe(), loadSettings()]);

@@ -14,8 +14,9 @@ The apps themselves stay where they are, each in its own repo:
 
 ## One sign-in
 Everything is on `solar-gators.github.io`, so the browser treats it as one site: signing in here,
-in the Order Form or in Solar Evals signs you in to all of them (Order Form accounts). The Light / Dark
-choice is shared the same way. New accounts and password resets are done in the Order Form.
+in the Order Form or in Solar Evals signs you in to all of them (OneSolar accounts, which are the Order Form's).
+**Sign in** opens the Order Form's sign-in page (also for new accounts and password resets) and comes back
+here afterwards. The Light / Dark choice is shared the same way.
 
 Signed in, the home screen shows the apps your Order Form role can use: Sponsors needs **See / Edit
 sponsors**, Finances needs **See / Edit Finances**, and the Queue shortcut needs **Review** or
