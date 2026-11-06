@@ -1,0 +1,2673 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Solar Gators Technical Responsibility Map</title>
+<!--
+  ============================================================
+  SOLAR GATORS TECHNICAL RESPONSIBILITY MAP
+  Single-file, self-contained reference tool.
+
+  HOW TO EDIT: open this file in any text editor, search for
+  "SOLAR GATORS ORGANIZATION DATA", edit the arrays there,
+  save, and refresh the page in your browser.
+
+  You should not need to touch anything below the line marked
+  "RENDERING LOGIC" unless you are changing how the page behaves.
+  ============================================================
+-->
+<style>
+/* ============================================================
+   DESIGN TOKENS
+   Change these to restyle the whole page.
+   (Chief Engineer colors live in the DATA section, not here.)
+   ============================================================ */
+:root{
+  --bg:#f5f7f9;
+  --panel:#ffffff;
+  --panel-2:#fbfcfd;
+  --ink:#16191d;
+  --ink-2:#3d454e;
+  --muted:#6b7681;
+  --line:#e3e8ed;
+  --line-2:#eef1f4;
+  --accent:#1f2937;
+  --flag:#9a6200;
+  --flag-bg:#fdf6e7;
+  --radius:12px;
+  --radius-sm:8px;
+  --shadow:0 1px 2px rgba(16,24,40,.05), 0 6px 16px -6px rgba(16,24,40,.12);
+  --shadow-lg:0 12px 40px -8px rgba(16,24,40,.22);
+  --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg);
+  color:var(--ink);
+  font-family:var(--font);
+  font-size:15px;
+  line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3,h4{margin:0;font-weight:650;letter-spacing:-.01em}
+p{margin:0 0 .6em}
+button{font:inherit;color:inherit}
+a{color:#1f5fa8}
+
+/* ---------- Layout shell ---------- */
+.wrap{max-width:1440px;margin:0 auto;padding:0 24px 80px}
+header.site{
+  background:var(--panel);
+  border-bottom:1px solid var(--line);
+  position:sticky;top:0;z-index:40;
+}
+.site-inner{max-width:1440px;margin:0 auto;padding:14px 24px 0}
+.brandrow{display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap;justify-content:space-between}
+.brand h1{font-size:19px;line-height:1.2}
+.brand .sub{color:var(--muted);font-size:12.5px;margin-top:3px}
+.verpill{
+  font-size:11.5px;font-weight:600;color:var(--muted);
+  border:1px solid var(--line);border-radius:999px;padding:3px 10px;background:var(--panel-2);
+  white-space:nowrap;
+}
+
+/* ---------- Controls ---------- */
+.controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:12px 0 12px}
+.search{position:relative;flex:1 1 260px;min-width:200px;max-width:380px}
+.search input{
+  width:100%;padding:8px 30px 8px 32px;border:1px solid var(--line);border-radius:var(--radius-sm);
+  background:var(--panel-2);font-size:14px;outline:none;
+}
+.search input:focus{border-color:#9db4d4;background:#fff;box-shadow:0 0 0 3px rgba(47,95,168,.12)}
+.search .ico{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--muted);pointer-events:none}
+.search .clr{position:absolute;right:6px;top:50%;transform:translateY(-50%);border:0;background:none;color:var(--muted);cursor:pointer;padding:2px 5px;border-radius:5px;line-height:1}
+.search .clr:hover{background:var(--line-2);color:var(--ink)}
+
+/* ---------- Tabs ---------- */
+nav.tabs{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none}
+nav.tabs::-webkit-scrollbar{display:none}
+nav.tabs button{
+  border:0;background:none;padding:10px 14px 12px;font-size:14px;font-weight:550;color:var(--muted);
+  cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;transition:color .15s,border-color .15s;
+}
+nav.tabs button:hover{color:var(--ink)}
+nav.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+
+/* ---------- Generic panels ---------- */
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+.section-head{margin:26px 0 12px}
+.section-head h2{font-size:16px}
+.section-head .hint{color:var(--muted);font-size:13px;margin-top:3px;max-width:82ch}
+.view{display:none;padding-top:18px}
+.view.active{display:block}
+
+/* ---------- Legend ---------- */
+.legend{display:flex;gap:18px;flex-wrap:wrap;align-items:center;font-size:12.5px;color:var(--ink-2);
+  background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:10px 14px;margin-bottom:12px}
+.legend .k{display:flex;align-items:center;gap:7px}
+.legend .sw{width:11px;height:11px;border-radius:3px;background:var(--ce,#999)}
+
+/* ============================================================
+   FOUR-WAY VENN DIAGRAM
+   The SVG holds the four ellipses; an absolutely positioned
+   HTML layer on top holds the clickable labels. Both use the
+   same coordinate box, so percentages line up exactly.
+   ============================================================ */
+.vennscroll{overflow-x:auto;overflow-y:hidden;background:var(--panel);border:1px solid var(--line);
+  border-radius:var(--radius);box-shadow:var(--shadow);padding:6px}
+.vennstage{
+  position:relative;width:100%;max-width:1400px;min-width:1120px;margin:0 auto;
+  aspect-ratio:1400/900;   /* must match vennGeometry.viewBox */
+  container-type:inline-size;
+  --u:1px;                 /* one viewBox unit, as a real CSS length (fallback) */
+}
+/* Labels are sized in viewBox units so they always scale exactly with the
+   diagram, no JavaScript involved. 1400 = vennGeometry.viewBox.w */
+@supports (width:1cqw){
+  .vennstage{ --u:calc(100cqw / 1400); }
+}
+.vennstage svg.vennsvg{position:absolute;inset:0;width:100%;height:100%;display:block}
+.vlobe{cursor:pointer;transition:opacity .18s}
+.vlobe .fill{fill:var(--ce);fill-opacity:.11;transition:fill-opacity .18s}
+.vlobe .edge{fill:none;stroke:var(--ce);stroke-opacity:.6;stroke-width:2.2;transition:stroke-width .18s,stroke-opacity .18s}
+.vlobe:hover .fill{fill-opacity:.2}
+.vlobe:hover .edge{stroke-width:4;stroke-opacity:1}
+.vcelabel{cursor:pointer}
+.vcelabel .nm{font-weight:750;letter-spacing:.01em;fill:var(--ce)}
+.vcelabel:hover .nm{text-decoration:underline}
+
+/* label layer */
+.vlabels{position:absolute;inset:0;pointer-events:none}
+.vchip{
+  --ce:#8892a0;
+  position:absolute;transform:translate(-50%,-50%);pointer-events:auto;
+  display:flex;align-items:center;
+  padding:calc(3 * var(--u)) calc(9 * var(--u));
+  font-size:calc(11.9 * var(--u));font-weight:570;line-height:1.25;
+  background:rgba(255,255,255,.9);
+  border:1px solid color-mix(in srgb,var(--ce) 62%,#c8d0d8);
+  border-radius:999px;cursor:pointer;white-space:nowrap;
+  box-shadow:0 1px 2px rgba(16,24,40,.08);
+  transition:box-shadow .15s,border-color .15s,background .15s,opacity .18s,filter .18s;
+}
+.vchip:hover{background:#fff;border-color:var(--ce);box-shadow:0 3px 12px -2px color-mix(in srgb,var(--ce) 55%,transparent);z-index:6}
+.vchip .lbl{overflow:hidden;text-overflow:ellipsis}
+.vchip.is-match{box-shadow:0 0 0 2px #f0b429, 0 2px 8px rgba(16,24,40,.16);z-index:7}
+
+/* hover highlight / dim (per-CE rules are generated in JS) */
+[data-hl] .node{opacity:.16;filter:grayscale(.6)}
+[data-hl] .node.hl{opacity:1;filter:none}
+
+
+
+
+/* ---------- content blocks (How to Edit) ---------- */
+.block{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:15px 16px;box-shadow:var(--shadow);margin-bottom:14px}
+.block h3{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:9px}
+.block ul{margin:0;padding-left:18px}
+.block li{margin-bottom:5px;font-size:13.4px;color:var(--ink-2)}
+.twocol{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
+
+/* ---------- Detail drawer ---------- */
+.scrim{position:fixed;inset:0;background:rgba(16,24,40,.34);opacity:0;pointer-events:none;transition:opacity .2s;z-index:60}
+.scrim.open{opacity:1;pointer-events:auto}
+aside.drawer{
+  position:fixed;top:0;right:0;height:100%;width:440px;max-width:94vw;background:var(--panel);
+  border-left:1px solid var(--line);box-shadow:var(--shadow-lg);z-index:70;
+  transform:translateX(104%);transition:transform .24s cubic-bezier(.4,0,.2,1);
+  display:flex;flex-direction:column;
+}
+aside.drawer.open{transform:none}
+.dhead{--ce:#888;padding:16px 18px 13px;border-bottom:1px solid var(--line);border-top:4px solid var(--ce);position:relative}
+.dhead .kind{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.dhead h2{font-size:18px;margin-top:3px;padding-right:30px}
+.dclose{position:absolute;top:12px;right:12px;border:1px solid var(--line);background:var(--panel-2);
+  width:28px;height:28px;border-radius:7px;cursor:pointer;color:var(--muted);line-height:1;font-size:16px}
+.dclose:hover{background:var(--line-2);color:var(--ink)}
+.dbody{overflow-y:auto;padding:16px 18px 40px;flex:1}
+.dsec{margin-bottom:18px}
+.dsec h4{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:7px}
+.dsec p{font-size:13.6px;color:var(--ink-2);line-height:1.55}
+.dsec ul{margin:0;padding-left:17px}
+.dsec li{font-size:13.3px;color:var(--ink-2);margin-bottom:4px;line-height:1.45}
+.ownergrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.ocell{--ce:#7a8593;border:1px solid var(--line);border-radius:var(--radius-sm);padding:8px 10px;background:var(--panel-2)}
+.ocell .k{font-size:9.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.ocell .v{font-size:13.4px;font-weight:620;color:color-mix(in srgb,var(--ce) 70%,#000);margin-top:2px;display:flex;align-items:center;gap:6px}
+.ocell .v .bul{width:8px;height:8px;border-radius:50%;background:var(--ce);flex:none}
+.respblock{--ce:#888;border-left:3px solid var(--ce);padding:2px 0 2px 11px;margin-bottom:12px}
+.respblock .who{font-size:12.5px;font-weight:680;color:color-mix(in srgb,var(--ce) 70%,#000);margin-bottom:4px}
+.callout{background:var(--panel-2);border:1px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px;font-size:13px;color:var(--ink-2);line-height:1.5}
+.callout.flag{background:var(--flag-bg);border-color:#f0dfb8;color:#6b4a10}
+
+/* ---------- Help / code ---------- */
+pre.code{
+  background:#1e232b;color:#dfe6ee;border-radius:var(--radius-sm);padding:14px 16px;overflow-x:auto;
+  font-family:var(--mono);font-size:12.2px;line-height:1.55;margin:0;
+}
+ol.steps{margin:0;padding-left:20px}
+ol.steps li{margin-bottom:7px;font-size:13.8px;color:var(--ink-2)}
+code.inl{font-family:var(--mono);font-size:12.5px;background:var(--line-2);padding:1px 5px;border-radius:4px;color:#333}
+table.keys{width:100%;border-collapse:collapse;font-size:12.6px}
+table.keys td{padding:5px 6px;border-bottom:1px solid var(--line-2);vertical-align:top}
+table.keys td:first-child{font-family:var(--mono);font-size:11.5px;color:#2f5fa8;white-space:nowrap}
+table.keys td:last-child{color:var(--muted);text-align:right;white-space:nowrap}
+.scrollhint{display:none;font-size:12px;color:var(--muted);padding:6px 2px 0}
+
+/* ============================================================
+   EDITOR
+   Everything below styles the in-browser editing mode.
+   ============================================================ */
+.tools{display:flex;gap:6px;align-items:center;margin-left:auto;flex-wrap:wrap}
+.tbtn{
+  border:1px solid var(--line);background:var(--panel-2);border-radius:var(--radius-sm);
+  padding:7px 12px;font-size:13px;font-weight:600;color:var(--ink-2);cursor:pointer;white-space:nowrap;
+  transition:background .15s,border-color .15s,color .15s;
+}
+.tbtn:hover{background:#fff;border-color:#b9c4cf;color:var(--ink)}
+.tbtn[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+.tbtn.danger{color:#b3261e;border-color:#eccdc9;background:#fdf6f5}
+.tbtn.danger:hover{background:#b3261e;border-color:#b3261e;color:#fff}
+.tbtn.primary{background:var(--accent);border-color:var(--accent);color:#fff;position:relative}
+.tbtn.primary:hover{background:#0f1620;color:#fff}
+.tbtn.primary.dirty::after{
+  content:"";position:absolute;top:-3px;right:-3px;width:9px;height:9px;border-radius:50%;
+  background:#f0b429;border:2px solid var(--panel);
+}
+#verPill{cursor:default}
+body.editing #verPill{cursor:pointer;border-style:dashed}
+body.editing #verPill:hover{background:#fff;color:var(--ink)}
+
+.toast{
+  position:fixed;left:50%;bottom:26px;transform:translate(-50%,14px);z-index:90;
+  background:var(--accent);color:#fff;font-size:13.5px;font-weight:550;
+  padding:10px 16px;border-radius:999px;box-shadow:var(--shadow-lg);
+  opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;max-width:90vw;text-align:center;
+  display:flex;align-items:center;gap:14px;
+}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+.toast.hasaction{pointer-events:auto}
+.toastbtn{
+  border:1px solid rgba(255,255,255,.45);background:transparent;color:#fff;border-radius:999px;
+  padding:4px 13px;font-size:12.5px;font-weight:650;cursor:pointer;flex:none;
+}
+.toastbtn:hover{background:#fff;color:var(--accent);border-color:#fff}
+
+/* drag affordances */
+body.editing .vchip{cursor:grab}
+body.editing .vcelabel{cursor:grab}
+.vchip.dragging{cursor:grabbing;z-index:30;box-shadow:0 8px 24px -4px rgba(16,24,40,.35);background:#fff}
+.vchip.selected{box-shadow:0 0 0 2px var(--ce),0 2px 8px rgba(16,24,40,.16);z-index:8}
+body.editing .vlabels{pointer-events:none}
+.legend .editnote{color:var(--flag);font-weight:600}
+
+/* forms in the drawer */
+.formgrid{display:grid;gap:13px}
+.fld{display:block}
+.flab{display:block;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+.fld input[type=text],.fld textarea,.fld select,.addrow select{
+  width:100%;border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--panel-2);
+  padding:7px 9px;font-family:inherit;font-size:13.4px;color:var(--ink);outline:none;
+}
+.fld textarea{resize:vertical;line-height:1.45}
+.fld input[type=text]:focus,.fld textarea:focus,.fld select:focus{
+  border-color:#9db4d4;background:#fff;box-shadow:0 0 0 3px rgba(47,95,168,.12);
+}
+.fhint{display:block;font-size:11.5px;color:var(--muted);margin-top:4px;line-height:1.4}
+.fsep{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-2);
+  border-top:1px solid var(--line);padding-top:12px;margin-top:2px}
+.checkrow{display:flex;flex-wrap:wrap;gap:6px}
+.chk{--ce:#888;display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:550;cursor:pointer;
+  border:1px solid var(--line);border-radius:999px;padding:5px 11px 5px 8px;background:var(--panel-2)}
+.chk:hover{border-color:var(--ce);background:#fff}
+.chk input{margin:0;accent-color:var(--ce)}
+.chk .bul{width:8px;height:8px;border-radius:50%;background:var(--ce)}
+.addrow{display:flex;gap:6px;margin-top:7px}
+.btn{
+  border:1px solid var(--line);background:var(--panel-2);border-radius:var(--radius-sm);
+  padding:8px 14px;font-size:13.4px;font-weight:600;color:var(--ink-2);cursor:pointer;
+}
+.btn:hover{background:#fff;border-color:#b9c4cf;color:var(--ink)}
+.btn.sm{padding:7px 12px;font-size:13px;white-space:nowrap}
+.btn.danger{color:#b3261e;border-color:#eccdc9;background:#fdf6f5}
+.btn.danger:hover{background:#b3261e;border-color:#b3261e;color:#fff}
+.formactions{display:flex;gap:8px;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:14px}
+.filerow{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+
+/* ---------- Responsive ---------- */
+@media (max-width:1080px){
+  .twocol{grid-template-columns:1fr}
+}
+@media (max-width:1120px){ .scrollhint{display:block} }
+@media (max-width:860px){
+  .wrap,.site-inner{padding-left:14px;padding-right:14px}
+  .ownergrid{grid-template-columns:1fr}
+  aside.drawer{width:100%}
+}
+@media print{
+  header.site,.controls,nav.tabs,aside.drawer,.scrim{display:none!important}
+  .view{display:block!important;page-break-inside:avoid}
+  .vennstage{min-width:0}
+  .tools{display:none!important}
+}
+</style>
+
+<!-- Data written by the "Save file" button lives here. Leave it alone when
+     hand-editing; the page falls back to the data section in the script
+     below whenever this says null. -->
+<script type="application/json" id="savedData">null</script>
+</head>
+<body>
+
+<header class="site">
+  <div class="site-inner">
+    <div class="brandrow">
+      <div class="brand">
+        <h1 id="pageTitle">Solar Gators Technical Responsibility Map</h1>
+        <div class="sub" id="pageSub"></div>
+      </div>
+      <div class="verpill" id="verPill"></div>
+    </div>
+
+    <div class="controls">
+      <div class="search">
+        <span class="ico">&#9906;</span>
+        <input id="q" type="search" placeholder="Search the diagram&hellip;" autocomplete="off" aria-label="Search">
+        <button class="clr" id="qclear" title="Clear search" hidden>&times;</button>
+      </div>
+      <div class="tools">
+        <button class="tbtn" id="btnEdit" aria-pressed="false" title="Turn editing on and off">&#9998; Edit</button>
+        <button class="tbtn" id="btnAdd" hidden title="Add a new topic to the diagram">+ Add topic</button>
+        <button class="tbtn" id="btnArrange" hidden title="Lay every label out again automatically">Auto-arrange</button>
+        <button class="tbtn danger" id="btnClear" hidden title="Remove every topic from the diagram">Clear all</button>
+        <button class="tbtn primary" id="btnSave" title="Download this page with your changes saved into it">&#8595; Save file</button>
+      </div>
+    </div>
+
+    <nav class="tabs" id="tabs" role="tablist"></nav>
+  </div>
+</header>
+
+<div class="wrap" id="app">
+
+  <!-- ===================== OVERVIEW (VENN) ===================== -->
+  <section class="view" id="view-overview" role="tabpanel">
+    <div class="legend" id="legend"></div>
+    <div class="vennscroll">
+      <div class="vennstage" id="vennStage">
+        <svg class="vennsvg" id="vennSvg" role="img" aria-label="Four-way Venn diagram of Chief Engineer responsibilities"></svg>
+        <div class="vlabels" id="vennLabels"></div>
+      </div>
+    </div>
+    <div class="scrollhint">Scroll the diagram sideways to see the whole Venn, or use the Systems and Interfaces tabs on a small screen.</div>
+  </section>
+
+  <!-- ===================== HOW TO EDIT ===================== -->
+  <section class="view" id="view-help" role="tabpanel">
+    <div class="section-head" style="margin-top:4px">
+      <h2>How to edit this page</h2>
+      <div class="hint">You can edit everything from the browser &mdash; no text editor needed. The data section inside the file is still there as the starting point, and you can still hand-edit it if you prefer.</div>
+    </div>
+    <div class="twocol">
+      <div>
+        <div class="block">
+          <h3>Editing in the browser</h3>
+          <ol class="steps">
+            <li>Press <b>&#9998; Edit</b> in the top bar.</li>
+            <li><b>Move a topic:</b> drag its label anywhere in the diagram. Where you drop it decides which region it counts as being in. The four Chief Engineer names can be dragged too.</li>
+            <li><b>Change a topic:</b> click its label. The side panel becomes a form &mdash; name, owners, description, responsibilities, notes. Changes show up immediately.</li>
+            <li><b>Add a topic:</b> press <b>+ Add topic</b>. It appears in the middle of the diagram with the form open; fill it in and drag it where it belongs.</li>
+            <li><b>Delete a topic:</b> open it and press <b>Delete topic</b> at the bottom of the form.</li>
+            <li><b>Start from a blank diagram:</b> press <b>Clear all</b> to remove every topic at once. An <b>Undo</b> button appears for a few seconds if you change your mind.</li>
+            <li><b>Edit a domain:</b> click a Chief Engineer name or ellipse, then edit its tagline and mission.</li>
+            <li><b>Edit the page title or version:</b> click the version pill in the top-right while editing.</li>
+          </ol>
+        </div>
+        <div class="block">
+          <h3>Saving &mdash; read this part</h3>
+          <p style="font-size:13.4px;color:var(--ink-2);margin:0 0 10px">Your edits are kept in this browser automatically, but that copy does not travel with the file. To make a change permanent and shareable, press <b>&#8595; Save file</b>. That downloads a fresh copy of this page with your data written into it. <b>Replace the old file with the downloaded one</b> &mdash; that new file is now the living document, and it opens with your changes on any computer.</p>
+          <p style="font-size:13.4px;color:var(--ink-2);margin:0">The amber dot on the Save button means you have changes that are not in a downloaded file yet.</p>
+        </div>
+        <div class="block">
+          <h3>Backup, transfer, and starting over</h3>
+          <div class="filerow">
+            <button class="btn sm" id="btnExportJSON">Download data (.json)</button>
+            <label class="btn sm" for="importFile">Load data (.json)</label>
+            <input type="file" id="importFile" accept=".json,application/json" hidden>
+            <button class="btn sm danger" id="btnReset">Reset to file defaults</button>
+          </div>
+          <p style="font-size:12.6px;color:var(--muted);margin:10px 0 0">The JSON holds only the organisational data, which is handy for moving content between versions of this page. <b>Reset</b> throws away every browser edit and goes back to the data written in the script.</p>
+        </div>
+      </div>
+      <div>
+        <div class="block">
+          <h3>Regions of the diagram</h3>
+          <p style="font-size:13.4px;color:var(--ink-2);margin:0 0 10px">Dropping a label inside one of these areas puts it in that region. The form also has a <b>Move into region</b> dropdown that drops a topic into a free spot automatically.</p>
+          <table class="keys" id="regionKeyTable"></table>
+        </div>
+        <div class="block">
+          <h3>Editing the file by hand instead</h3>
+          <ul>
+            <li>Open the file in any text editor and search for <code class="inl">SOLAR GATORS ORGANIZATION DATA</code>.</li>
+            <li>That section is the <b>starting point</b>. If the <code class="inl">savedData</code> block near the top of the file holds saved data, that wins &mdash; press <b>Reset to file defaults</b> to go back to the hand-written version.</li>
+            <li><code class="inl">primaryCE</code> and everything in <code class="inl">supportingCEs</code> must be a CE id: <code class="inl">aero</code>, <code class="inl">vd</code>, <code class="inl">powertrain</code>, <code class="inl">electrical</code>. Use <code class="inl">"shared"</code> for whole-car items.</li>
+            <li>Every topic needs a unique <code class="inl">id</code>.</li>
+            <li>If the page renders blank you almost certainly have a missing comma or quote. Press F12 and read the red error.</li>
+          </ul>
+        </div>
+        <div id="templates"></div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<div class="scrim" id="scrim"></div>
+<aside class="drawer" id="drawer" role="dialog" aria-modal="false" aria-labelledby="dTitle">
+  <div class="dhead" id="dHead">
+    <div class="kind" id="dKind"></div>
+    <h2 id="dTitle"></h2>
+    <button class="dclose" id="dClose" aria-label="Close">&times;</button>
+  </div>
+  <div class="dbody" id="dBody"></div>
+</aside>
+
+<script>
+"use strict";
+
+/* =========================================================
+   A PRISTINE COPY OF THIS FILE
+   Grabbed before anything on the page changes, so the
+   "Save file" button can write a fresh copy of this page with
+   the current data baked into it. Must stay the first thing
+   the script does.
+   ========================================================= */
+const PRISTINE_HTML = "<!DOCTYPE html>\n" + document.documentElement.outerHTML;
+
+/* =========================================================
+   =========================================================
+   SOLAR GATORS ORGANIZATION DATA
+   EDIT THIS SECTION TO UPDATE RESPONSIBILITIES
+   =========================================================
+   Everything the page displays comes from the structures
+   below. Nothing organizational is hard-coded anywhere else.
+   ========================================================= */
+
+const metadata = {
+  version: "2026-2027",
+  lastUpdated: "September 2026",
+  title: "Solar Gators Technical Responsibility Map",
+  subtitle: "Chief Engineer domains, ownership, and cross-domain interfaces"
+};
+
+/* ---------------------------------------------------------
+   CHIEF ENGINEERS
+   Four domains. "color" drives every visual accent for that
+   domain — change it here and the whole page follows.
+   The ORDER of this array defines the order used to build
+   Venn region keys (aero-vd, powertrain-electrical, ...).
+   --------------------------------------------------------- */
+const chiefEngineers = [
+  {
+    id: "aero",
+    name: "Aero / Structures CE",
+    shortName: "Aero / Structures",
+    color: "#1F7A6B",
+    tagline: "Structural and aerodynamic systems",
+    mission: "Own the shape and the structure of the car: aerodynamic development, the composite and metallic structure that carries every load, and the mounting and packaging interfaces that every other domain bolts into."
+  },
+  {
+    id: "vd",
+    name: "Vehicle Dynamics CE",
+    shortName: "Vehicle Dynamics",
+    color: "#C2622A",
+    tagline: "Dynamic and driver-interface systems",
+    mission: "Own how the car behaves and how the driver commands it: suspension and handling, braking, steering, and the mechanical driver interfaces and cockpit package."
+  },
+  {
+    id: "powertrain",
+    name: "Powertrain CE",
+    shortName: "Powertrain",
+    color: "#8A3F7A",
+    tagline: "HV energy and propulsion integration",
+    mission: "Own the vehicle-level energy and propulsion system end to end — Solar Array to MPPT to HV Bus and Battery to Motor Controller to Motor — including its architecture, requirements, safety behavior, and integration into the mechanical and electrical car. Powertrain is the deliberate bridge between Mechanical and Electrical."
+  },
+  {
+    id: "electrical",
+    name: "Electrical CE",
+    shortName: "Electrical",
+    color: "#2F5FA8",
+    tagline: "LV, electronics, communications, controls",
+    mission: "Own the functional development of every electronic system on the car: LV architecture, PCB design, embedded firmware, communications, vehicle controls, telemetry, and the electronics inside the BMS, MPPT, and motor-controller interfaces."
+  }
+];
+
+/* =========================================================
+   VENN DIAGRAM GEOMETRY
+   Four overlapping ellipses. This is the ONLY place the shape
+   of the diagram is defined.
+
+   The left-to-right order below is deliberate:
+       Vehicle Dynamics — Aero/Structures — Powertrain — Electrical
+   which runs mechanical -> electrical across the page, so
+   Powertrain physically sits between the mechanical and the
+   electrical domains. It is also the arrangement in which all
+   six two-way overlap regions come out big enough to hold
+   their labels.
+
+   If you move an ellipse, every label repositions itself
+   automatically — you do not have to touch anything else.
+   ========================================================= */
+const vennGeometry = {
+  viewBox: { w: 1400, h: 900 },
+  sampleStep: 3,        // grid resolution used to find label spots (smaller = slower, more precise)
+
+  // cx, cy = center; rx, ry = radii; rotate = degrees clockwise.
+  // labelAt = where that CE's name plate sits (keep it inside its own outer lobe).
+  ellipses: [
+    { ce: "vd",         cx: 530, cy: 515, rx: 420, ry: 220, rotate:  34, labelAt: { x: 285,  y: 874 } },
+    { ce: "aero",       cx: 660, cy: 395, rx: 420, ry: 220, rotate:  34, labelAt: { x: 350,  y: 52  } },
+    { ce: "powertrain", cx: 740, cy: 395, rx: 420, ry: 220, rotate: -34, labelAt: { x: 1050, y: 52  } },
+    { ce: "electrical", cx: 870, cy: 515, rx: 420, ry: 220, rotate: -34, labelAt: { x: 1115, y: 874 } }
+  ]
+};
+
+/* ---------------------------------------------------------
+   VENN REGION OVERRIDES  (optional — usually leave alone)
+   Label positions inside each region are calculated from the
+   ellipse math above. Use this only to hand-tune a region.
+
+     chip: { w, h }   space reserved per label, in viewBox units.
+                      Smaller = labels pack tighter.
+   --------------------------------------------------------- */
+const vennRegionOverrides = {
+  "aero":                 { chip: { w: 158, h: 24 } },
+  "vd":                   { chip: { w: 115, h: 24 } },
+  "powertrain":           { chip: { w: 132, h: 24 } },
+  "electrical":           { chip: { w: 150, h: 24 } },
+  "aero-vd":              { chip: { w: 148, h: 24 } },
+  "aero-powertrain":      { chip: { w: 150, h: 24 } },
+  "aero-electrical":      { chip: { w: 132, h: 23 } },
+  "vd-powertrain":        { chip: { w: 128, h: 23 } },
+  "vd-electrical":        { chip: { w: 138, h: 24 } },
+  "powertrain-electrical":{ chip: { w: 155, h: 24 } },
+  "all":                  { chip: { w: 182, h: 25 } }
+};
+
+/* ---------------------------------------------------------
+   SYSTEMS
+   Every ownable thing on the car, plus whole-car program items.
+
+   Field reference:
+     id               unique, lowercase-with-dashes, stable forever
+     name             display name
+     shortName        optional shorter label used in the Venn diagram
+     primaryCE        CE id, or "shared" for whole-car items
+     supportingCEs    array of CE ids
+     description      1-2 sentences, plain language
+     responsibilities object keyed by CE id, each an array of bullets
+     notes            rationale, history, decisions
+     vennRegion       which region of the Venn this label sits in.
+                      See the region key table on the How to Edit tab.
+     vennOffset       optional { x, y } nudge in viewBox units
+     flag             optional: shows an amber "needs confirmation" badge
+   --------------------------------------------------------- */
+const systems = [
+
+  /* ---------- AERO / STRUCTURES ---------- */
+  {
+    id: "aero-body",
+    name: "Aero Body",
+    primaryCE: "aero",
+    supportingCEs: ["powertrain", "electrical"],
+    vennRegion: "aero",
+    description: "The external aerodynamic surface and body panels, including the canopy and every opening, closeout, and clearance in the outer shape.",
+    responsibilities: {
+      aero: [
+        "Aerodynamic shape development and drag/lift targets",
+        "Body panel design, composite layup, and fit",
+        "Canopy, access panels, and closeouts",
+        "Body-to-wheel and body-to-suspension clearances"
+      ],
+      powertrain: ["States the solar array area, curvature limits, and cell layout the body must accommodate"],
+      electrical: ["States antenna, light, and sensor locations that must break the surface"]
+    },
+    notes: "Body surface and array integration is a standing Aero/Powertrain negotiation: Aero owns the surface, Powertrain owns what the array needs from it."
+  },
+  {
+    id: "chassis",
+    name: "Chassis / Structures",
+    shortName: "Chassis",
+    primaryCE: "aero",
+    supportingCEs: ["vd", "powertrain"],
+    vennRegion: "aero",
+    description: "The primary load-carrying structure of the car and the load paths between suspension, occupant, battery, and body.",
+    responsibilities: {
+      aero: [
+        "Structural architecture and load path definition",
+        "Structural analysis, margins, and mass budget",
+        "Roll structure and occupant protection structure",
+        "Composite and metallic joint design"
+      ],
+      vd: ["Supplies suspension, steering, and brake hardpoint locations and load cases"],
+      powertrain: ["Supplies battery enclosure mass, mounting loads, and crash/retention requirements"]
+    },
+    notes: ""
+  },
+  {
+    id: "mounting-structures",
+    name: "Component Mounting & Enclosure Structures",
+    shortName: "Mounting Structures",
+    primaryCE: "aero",
+    supportingCEs: ["electrical", "powertrain"],
+    vennRegion: "aero",
+    description: "The brackets, trays, enclosure shells, and mounting hardware that hold electrical boxes, HV components, and the battery enclosure to the structure.",
+    responsibilities: {
+      aero: [
+        "Enclosure shell structure, brackets, and fastening",
+        "Mounting loads, vibration, and retention",
+        "Harness routing paths, tie-downs, and penetration locations",
+        "Serviceability and access clearance"
+      ],
+      electrical: ["Specifies box internal volume, connector faces, penetration count, and thermal needs"],
+      powertrain: ["Specifies HV component packaging envelopes, isolation clearances, and service access"]
+    },
+    notes: "Split rule of thumb: Aero owns the box and how it attaches; Electrical or Powertrain owns what goes inside it.",
+    flag: "Confirm the enclosure split (structure vs. internals) with leadership."
+  },
+
+  /* ---------- VEHICLE DYNAMICS ---------- */
+  {
+    id: "suspension",
+    name: "Suspension",
+    primaryCE: "vd",
+    supportingCEs: ["aero"],
+    vennRegion: "vd",
+    description: "Suspension geometry, springs and damping, uprights, hubs, and the resulting handling behavior of the car.",
+    responsibilities: {
+      vd: [
+        "Suspension kinematics and geometry",
+        "Spring, damper, and compliance selection",
+        "Upright, hub, and wheel bearing design",
+        "Handling targets and dynamic validation"
+      ],
+      aero: ["Designs and validates the structure that reacts suspension loads at the hardpoints"]
+    },
+    notes: ""
+  },
+  {
+    id: "brakes",
+    name: "Brakes",
+    primaryCE: "vd",
+    supportingCEs: ["aero", "electrical", "powertrain"],
+    vennRegion: "vd",
+    description: "The friction braking system: pedal, hydraulics, calipers, rotors, and stopping performance, plus how friction braking blends with regen.",
+    responsibilities: {
+      vd: [
+        "Brake system sizing and stopping distance performance",
+        "Pedal assembly, hydraulics, and brake balance",
+        "Regen blending behavior from the driver's point of view"
+      ],
+      aero: ["Brake mounting structure and caliper mounting"],
+      electrical: ["Brake sensing electronics, brake light actuation, and signal to controls"],
+      powertrain: ["Defines the regen torque envelope the motor and pack can accept"]
+    },
+    notes: "Regen is a three-way item: VD owns the driver-facing behavior, Powertrain owns the energy envelope, Electrical owns the sensing and control implementation."
+  },
+  {
+    id: "steering",
+    name: "Steering",
+    primaryCE: "vd",
+    supportingCEs: ["aero", "electrical"],
+    vennRegion: "vd",
+    description: "The steering system from wheel to tie rod, including steering ratio, feel, and the mechanical mounting of the steering wheel assembly.",
+    responsibilities: {
+      vd: [
+        "Steering geometry, ratio, and feel",
+        "Rack, column, and tie rod design",
+        "Steering wheel mechanical assembly and mounting"
+      ],
+      aero: ["Steering column and rack mounting structure"],
+      electrical: ["Steering-wheel electronics: buttons, display, and the wiring across the column"]
+    },
+    notes: ""
+  },
+  {
+    id: "cockpit",
+    name: "Cockpit / Driver Packaging",
+    shortName: "Cockpit",
+    primaryCE: "vd",
+    supportingCEs: ["aero", "electrical"],
+    vennRegion: "vd",
+    description: "Driver seating position, ergonomics, visibility, restraints, and the mechanical layout of everything the driver reaches or looks at, plus auxiliary mechanical systems in the compartment.",
+    responsibilities: {
+      vd: [
+        "Driver position, reach, and visibility",
+        "Seat, restraints, and egress",
+        "Placement of controls and displays from an ergonomics standpoint",
+        "Auxiliary mechanical systems (driver cooling, ventilation)"
+      ],
+      aero: ["Driver compartment structure, canopy geometry, and egress opening"],
+      electrical: ["Electronics behind the displays, switches, and driver fan control"]
+    },
+    notes: ""
+  },
+
+  /* ---------- POWERTRAIN ---------- */
+  {
+    id: "battery-pack",
+    name: "Battery Pack",
+    primaryCE: "powertrain",
+    supportingCEs: ["electrical", "aero"],
+    vennRegion: "powertrain",
+    description: "The HV energy storage system: cells, module architecture, internal HV path, thermal behavior, and the enclosure requirements that make it safe and serviceable.",
+    responsibilities: {
+      powertrain: [
+        "Cell selection, pack topology, and energy/power sizing",
+        "Module and interconnect design, internal HV path, and fusing",
+        "Thermal behavior and pack-level safety requirements",
+        "Enclosure requirements, service disconnect, and regulation compliance for the pack",
+        "Charge and discharge limits at the system level"
+      ],
+      electrical: ["BMS electronics, cell sensing hardware, and pack instrumentation"],
+      aero: ["Battery enclosure structure, mounting, and retention into the chassis"]
+    },
+    notes: ""
+  },
+  {
+    id: "solar-array",
+    name: "Solar Array",
+    primaryCE: "powertrain",
+    supportingCEs: ["electrical", "aero"],
+    vennRegion: "powertrain",
+    description: "The photovoltaic energy source: cell layout, string architecture, encapsulation, and how array power reaches the MPPTs and the HV bus.",
+    responsibilities: {
+      powertrain: [
+        "Array sizing, string architecture, and MPPT allocation",
+        "Array-to-bus power path, contactors, and protection",
+        "Encapsulation and array power performance targets"
+      ],
+      electrical: ["Array wiring, bypass/blocking protection, and MPPT input interface"],
+      aero: ["Body surface geometry, array bonding, and surface integration"]
+    },
+    notes: "",
+    flag: "Confirm the split of array encapsulation and cell-string layout between Powertrain, Electrical, and Aero."
+  },
+  {
+    id: "motor",
+    name: "Motor",
+    primaryCE: "powertrain",
+    supportingCEs: ["aero", "vd"],
+    vennRegion: "powertrain",
+    description: "The traction motor, its selection, its mechanical mounting and drivetrain interface, and the torque it delivers to the wheel.",
+    responsibilities: {
+      powertrain: [
+        "Motor selection and efficiency targets",
+        "Motor mounting requirements and drivetrain interface",
+        "Torque and power delivery envelope, including regen capability",
+        "Motor thermal behavior and protection"
+      ],
+      aero: ["Motor mounting structure and reaction of drive torque into the chassis"],
+      vd: ["Motor/wheel interface, unsprung mass, and the handling effect of drive and regen torque"]
+    },
+    notes: ""
+  },
+  {
+    id: "hv-architecture",
+    name: "HV Architecture",
+    primaryCE: "powertrain",
+    supportingCEs: ["electrical"],
+    vennRegion: "powertrain",
+    description: "The system-level design of the high-voltage side of the car: bus topology, isolation strategy, contactor and precharge scheme, and startup/shutdown behavior.",
+    responsibilities: {
+      powertrain: [
+        "HV bus topology and source/load arrangement",
+        "Isolation strategy, creepage/clearance, and HV safety concept",
+        "Contactor and precharge scheme, fusing strategy",
+        "System startup, shutdown, and fault-response sequencing",
+        "HV requirements flowed down to BMS, MPPT, and motor controller"
+      ],
+      electrical: ["Contactor drive, interlock, and HV sensing electronics that implement the architecture"]
+    },
+    notes: "This is the clearest example of the Powertrain role: it owns the concept and requirements, Electrical builds the boards that execute them."
+  },
+  {
+    id: "hv-distribution",
+    name: "HV Distribution",
+    primaryCE: "powertrain",
+    supportingCEs: ["electrical", "aero"],
+    vennRegion: "powertrain",
+    description: "The physical HV power path outside the pack: HV cabling, connectors, terminations, fusing hardware, and the service disconnect.",
+    responsibilities: {
+      powertrain: [
+        "HV cable sizing, routing requirements, and connector selection",
+        "Fusing and protection hardware placement",
+        "Service disconnect and safe-state procedures"
+      ],
+      electrical: ["Termination workmanship, HV harness build, and continuity/isolation verification"],
+      aero: ["Routing paths, strain relief, and structural penetrations for HV cable"]
+    },
+    notes: ""
+  },
+
+  /* ---------- SHARED HV ELECTRONICS (Powertrain <-> Electrical) ----------
+     These three sit in the powertrain-electrical overlap of the Venn.
+     Primary Owner = Electrical (it designs and validates the hardware).
+     Integration Owner = Powertrain (it sets the requirements and owns
+     the behavior of the energy chain in the vehicle).
+     ---------------------------------------------------------------- */
+  {
+    id: "bms",
+    name: "BMS",
+    primaryCE: "electrical",
+    supportingCEs: ["powertrain"],
+    vennRegion: "powertrain-electrical",
+    description: "Battery management electronics and firmware: cell monitoring, protection, balancing, state estimation, and the fault path that opens the pack.",
+    responsibilities: {
+      electrical: [
+        "BMS hardware design, cell sensing, and PCB layout",
+        "BMS firmware: measurement, balancing, state estimation, fault detection",
+        "CAN reporting of pack state to the vehicle",
+        "Bench validation of protection thresholds and trip behavior"
+      ],
+      powertrain: [
+        "Defines protection thresholds, charge/discharge limits, and required trip behavior",
+        "Defines the pack safety concept the BMS must enforce",
+        "Owns validation of BMS behavior installed in the pack and in the car"
+      ]
+    },
+    notes: "Electrical is Primary Owner because it designs and validates the electronics. Powertrain is Integration Owner because the numbers the BMS enforces come from the pack safety concept."
+  },
+  {
+    id: "mppt",
+    name: "MPPT",
+    primaryCE: "electrical",
+    supportingCEs: ["powertrain"],
+    vennRegion: "powertrain-electrical",
+    description: "Maximum power point tracking converters between the solar array strings and the HV bus, including their tracking algorithm and protection behavior.",
+    responsibilities: {
+      electrical: [
+        "MPPT hardware design or selection, and converter electronics",
+        "Tracking algorithm, efficiency, and thermal behavior",
+        "MPPT telemetry and CAN reporting",
+        "Bench validation across array operating conditions"
+      ],
+      powertrain: [
+        "Defines number of channels, input/output voltage windows, and power targets",
+        "Defines array string allocation to each MPPT",
+        "Defines behavior on HV bus fault and during startup/shutdown"
+      ]
+    },
+    notes: ""
+  },
+  {
+    id: "motor-controller",
+    name: "Motor Controller",
+    primaryCE: "electrical",
+    supportingCEs: ["powertrain"],
+    vennRegion: "powertrain-electrical",
+    description: "The inverter/controller that converts HV bus power into motor phase current, including its configuration, comms interface, and fault handling in the vehicle.",
+    responsibilities: {
+      electrical: [
+        "Controller electrical interface, configuration, and parameter set",
+        "Comms integration (CAN) and fault/status handling",
+        "Throttle and regen command path from vehicle controls",
+        "Bring-up, diagnostics, and validation of controller behavior"
+      ],
+      powertrain: [
+        "Defines torque, current, and regen limits and the operating envelope",
+        "Defines HV connection, precharge interaction, and shutdown behavior",
+        "Owns motor/controller pairing and integrated propulsion validation"
+      ]
+    },
+    notes: "When the controller is a purchased unit, Electrical's functional ownership is configuration, comms integration, and fault handling rather than internal circuit design. Update this note if a controller is ever developed in house.",
+    flag: "Wording assumes a commercial controller. Revisit if the team builds its own."
+  },
+
+  /* ---------- ELECTRICAL ---------- */
+  {
+    id: "lv-architecture",
+    name: "LV Architecture",
+    primaryCE: "electrical",
+    supportingCEs: ["powertrain"],
+    vennRegion: "electrical",
+    description: "The low-voltage power system: supplemental battery, LV generation and distribution, protection, and the power budget for every electronic load on the car.",
+    responsibilities: {
+      electrical: [
+        "LV power source, charging, and supplemental battery management",
+        "LV distribution, fusing, and protection",
+        "LV power budget and load management",
+        "Grounding and reference scheme across the vehicle"
+      ],
+      powertrain: ["States LV supply needs for HV-side control electronics and contactor drive"]
+    },
+    notes: ""
+  },
+  {
+    id: "embedded-controls",
+    name: "Embedded Systems & Vehicle Controls",
+    shortName: "Embedded Systems",
+    primaryCE: "electrical",
+    supportingCEs: ["powertrain", "vd"],
+    vennRegion: "electrical",
+    description: "The vehicle control units, their firmware, and the control logic that turns driver input and system state into commands for the rest of the car.",
+    responsibilities: {
+      electrical: [
+        "VCU hardware and PCB design",
+        "Firmware architecture, state machines, and fault handling",
+        "Control logic for drive, regen, lighting, and auxiliary systems",
+        "Software validation and version control"
+      ],
+      powertrain: ["Defines required drive states, HV enable conditions, and shutdown sequencing"],
+      vd: ["Defines pedal mapping, regen blending feel, and driver-facing control behavior"]
+    },
+    notes: ""
+  },
+  {
+    id: "comms-network",
+    name: "Communications Network",
+    shortName: "Comms Network",
+    primaryCE: "electrical",
+    supportingCEs: ["powertrain"],
+    vennRegion: "electrical",
+    description: "The vehicle CAN network: physical layer, node addressing, message set, and the contract every node communicates against.",
+    responsibilities: {
+      electrical: [
+        "Network topology, termination, and physical layer",
+        "CAN message dictionary (DBC) and versioning",
+        "Node bring-up, bus loading, and diagnostics"
+      ],
+      powertrain: ["Defines what HV system state must be reported, at what rate, and what must trigger action"]
+    },
+    notes: ""
+  },
+  {
+    id: "telemetry",
+    name: "Telemetry & Data Acquisition",
+    shortName: "Telemetry",
+    primaryCE: "electrical",
+    supportingCEs: ["aero", "powertrain"],
+    vennRegion: "electrical",
+    description: "On-car data logging, the radio link to the chase vehicle, and the ground-side tools used to watch the car during testing and racing.",
+    responsibilities: {
+      electrical: [
+        "Telemetry hardware, radio link, and antenna selection",
+        "Logging, data pipeline, and ground station software",
+        "Channel list and sample rates"
+      ],
+      aero: ["Antenna and telemetry component packaging and mounting"],
+      powertrain: ["Defines the energy and HV channels that must be visible during a race"]
+    },
+    notes: ""
+  },
+  {
+    id: "wiring-harness",
+    name: "Wiring Harness",
+    primaryCE: "electrical",
+    supportingCEs: ["aero"],
+    vennRegion: "electrical",
+    description: "The LV wiring harness: circuit definition, wire sizing, connectors, terminations, and the build and verification of every loom on the car.",
+    responsibilities: {
+      electrical: [
+        "Circuit definition, wire gauge, and connector selection",
+        "Harness drawings, build, and labeling",
+        "Continuity and insulation verification"
+      ],
+      aero: ["Routing paths, clips and tie-downs, penetration locations, and clearance from moving parts"]
+    },
+    notes: "The harness itself is Electrical's. Where it physically runs is a shared item — see Harness Routing in the Aero/Structures ↔ Electrical overlap."
+  },
+  {
+    id: "driver-controls",
+    name: "Driver Controls & Instrumentation",
+    shortName: "Driver Controls",
+    primaryCE: "electrical",
+    supportingCEs: ["vd"],
+    vennRegion: "vd-electrical",
+    description: "The electronics the driver touches and reads: throttle and brake sensing, switches, steering-wheel electronics, displays, and indicator lighting.",
+    responsibilities: {
+      electrical: [
+        "Throttle and brake sensor electronics and signal conditioning",
+        "Switches, steering-wheel electronics, and their wiring",
+        "Display, fault indicators, and lighting control",
+        "Redundancy and plausibility checks on driver inputs"
+      ],
+      vd: [
+        "Defines pedal travel, force, and mechanical mounting",
+        "Defines control placement and reach from the driver seat",
+        "Defines what the driver needs to see and when"
+      ]
+    },
+    notes: "Split rule of thumb: Vehicle Dynamics decides what the control is and where it lives; Electrical decides how it senses, signals, and displays.",
+    flag: "Confirm the driver-controls split between VD and Electrical."
+  },
+
+  /* ---------- WHOLE-CAR / PROGRAM ITEMS ----------
+     primaryCE: "shared" means all four CEs hold this jointly.
+     vennRegion: "all" puts them in the center of the Venn,
+     where all four ellipses overlap.
+     ---------------------------------------------- */
+  {
+    id: "vehicle-packaging",
+    name: "Vehicle Packaging",
+    primaryCE: "shared",
+    supportingCEs: ["aero", "vd", "powertrain", "electrical"],
+    vennRegion: "all",
+    description: "Making everything physically fit at once: volume claims, clearances, mass and CG targets, service access, and resolving conflicts between domains.",
+    responsibilities: {
+      aero: ["Owns the master package space, volume allocation, and clearance arbitration"],
+      vd: ["Owns driver package and suspension travel envelopes"],
+      powertrain: ["Owns HV component and pack envelopes and their mass placement"],
+      electrical: ["Owns electronics box volumes and harness routing volume"]
+    },
+    notes: "Held jointly by all four CEs. Escalate unresolved conflicts to team leadership."
+  },
+  {
+    id: "vehicle-safety",
+    name: "Vehicle Safety",
+    primaryCE: "shared",
+    supportingCEs: ["aero", "vd", "powertrain", "electrical"],
+    vennRegion: "all",
+    description: "Occupant protection, HV safety, fire and fault response, safe shutdown, and the operating procedures that keep people safe around the car.",
+    responsibilities: {
+      aero: ["Roll structure, occupant protection, and egress"],
+      vd: ["Braking performance, restraint integration, and driver egress time"],
+      powertrain: ["HV isolation, contactor and interlock concept, and safe-state behavior"],
+      electrical: ["Fault detection, indication, and the electronics that execute safe shutdown"]
+    },
+    notes: ""
+  },
+  {
+    id: "regulation-compliance",
+    name: "Regulation Compliance",
+    shortName: "Regulations",
+    primaryCE: "shared",
+    supportingCEs: ["aero", "vd", "powertrain", "electrical"],
+    vennRegion: "all",
+    description: "Meeting and documenting the competition regulations that apply to each domain, and passing scrutineering.",
+    responsibilities: {
+      aero: ["Dimensional, structural, visibility, and body-related regulations"],
+      vd: ["Braking, steering, stability, and driver-space regulations"],
+      powertrain: ["Battery, array, HV isolation, and energy-storage regulations"],
+      electrical: ["Electrical safety, wiring, lighting, and BPS-related regulations"]
+    },
+    notes: "Keep a clause-by-clause owner list alongside this file."
+  },
+  {
+    id: "system-requirements",
+    name: "System-Level Requirements",
+    shortName: "System Requirements",
+    primaryCE: "shared",
+    supportingCEs: ["aero", "vd", "powertrain", "electrical"],
+    vennRegion: "all",
+    description: "The vehicle-level targets each domain designs against, and the flow-down from vehicle targets to subsystem requirements.",
+    responsibilities: {
+      aero: ["Drag, mass, and structural margin targets"],
+      vd: ["Handling, braking, and driver-ergonomics targets"],
+      powertrain: ["Energy, range, and propulsion performance targets"],
+      electrical: ["Power budget, reliability, and controls behavior targets"]
+    },
+    notes: ""
+  },
+  {
+    id: "vehicle-testing",
+    name: "Vehicle Testing",
+    primaryCE: "shared",
+    supportingCEs: ["aero", "vd", "powertrain", "electrical"],
+    vennRegion: "all",
+    description: "Planning and running subsystem, integration, and full-vehicle testing, and closing the loop from test results back into design.",
+    responsibilities: {
+      aero: ["Structural and aero validation testing"],
+      vd: ["Handling, braking, and dynamic testing"],
+      powertrain: ["Pack, array, and propulsion energy testing"],
+      electrical: ["Bench, HIL, and vehicle electrical validation"]
+    },
+    notes: ""
+  },
+  {
+    id: "competition-readiness",
+    name: "Competition Readiness",
+    primaryCE: "shared",
+    supportingCEs: ["aero", "vd", "powertrain", "electrical"],
+    vennRegion: "all",
+    description: "Getting the car and the team ready to race: scrutineering preparation, spares, documentation, race procedures, and trackside support capability.",
+    responsibilities: {
+      aero: ["Body spares, repair capability, and structural scrutineering evidence"],
+      vd: ["Setup sheets, alignment, and dynamic scrutineering readiness"],
+      powertrain: ["Pack documentation, charging procedures, and energy strategy"],
+      electrical: ["Diagnostics, telemetry at the track, and electrical spares"]
+    },
+    notes: ""
+  }
+];
+
+/* ---------------------------------------------------------
+   INTERFACES
+   A named boundary between two or more CE domains, and the
+   concrete shared items that live on it.
+
+   Every entry in "items" is drawn inside that interface's
+   overlap region of the Venn — you never set a region on an
+   item, it inherits the interface's.
+
+   An item can be written three ways:
+     1. { ref: "bms" }               reuse a system defined above,
+                                     so nothing is defined twice
+     2. { id: ..., name: ..., ... }  a full shared item
+     3. "Just a label"               quick placeholder, still shown
+   --------------------------------------------------------- */
+const interfaces = [
+  {
+    id: "aero-vd",
+    name: "Aero/Structures ↔ Vehicle Dynamics",
+    ces: ["aero", "vd"],
+    description: "Where suspension, steering, and braking loads meet the structure, and where the driver package meets the body.",
+    ownershipRule: "Vehicle Dynamics defines hardpoint locations and load cases; Aero/Structures owns the structure that reacts them and can require a geometry change if the structure cannot meet its margins.",
+    notes: "",
+    items: [
+      {
+        id: "suspension-hardpoints", name: "Suspension Hardpoints", shortName: "Susp. Hardpoints",
+        primaryCE: "aero", supportingCEs: ["vd"],
+        description: "The attachment points where suspension loads enter the structure, and the local reinforcement that carries them.",
+        responsibilities: {
+          vd: ["Defines hardpoint locations from suspension kinematics", "Supplies peak load cases and load directions"],
+          aero: ["Designs local reinforcement and the surrounding load path", "Verifies structural margin at every attachment", "Signs off before hardpoint locations are frozen"]
+        },
+        notes: "Neither CE can move a hardpoint alone. Freeze these early — they drive both the suspension geometry and the chassis design."
+      },
+      {
+        id: "chassis-load-paths", name: "Chassis Load Paths", shortName: "Load Paths",
+        primaryCE: "aero", supportingCEs: ["vd"],
+        description: "How suspension, braking, and cornering loads travel from the wheels through the structure to the rest of the car.",
+        responsibilities: {
+          aero: ["Defines and analyses the primary load paths", "Sets structural margins and the mass budget"],
+          vd: ["Supplies the load cases the structure must survive", "Flags handling effects of structural compliance"]
+        },
+        notes: ""
+      },
+      {
+        id: "steering-mounting", name: "Steering Mounting",
+        primaryCE: "aero", supportingCEs: ["vd"],
+        description: "The structural mounting of the steering rack and column, and the stiffness it needs to preserve steering feel.",
+        responsibilities: {
+          vd: ["Defines rack and column positions, loads, and required mounting stiffness"],
+          aero: ["Designs the mounting structure and verifies stiffness and margin"]
+        },
+        notes: ""
+      },
+      {
+        id: "brake-mounting", name: "Brake Mounting",
+        primaryCE: "aero", supportingCEs: ["vd"],
+        description: "Caliper mounting, pedal box mounting, and the structure that reacts braking torque.",
+        responsibilities: {
+          vd: ["Defines caliper and pedal box positions and braking loads"],
+          aero: ["Designs caliper mounts, pedal box structure, and the torque reaction path"]
+        },
+        notes: ""
+      },
+      {
+        id: "driver-packaging", name: "Driver Packaging",
+        primaryCE: "vd", supportingCEs: ["aero"],
+        description: "Fitting the driver into the car: seating position, reach, visibility, and the structure and canopy built around them.",
+        responsibilities: {
+          vd: ["Defines seating position, reach envelope, visibility, and the egress requirement"],
+          aero: ["Designs the compartment structure, canopy geometry, and egress opening"]
+        },
+        notes: ""
+      },
+      {
+        id: "wheel-body-clearance", name: "Wheel / Body Clearance", shortName: "Wheel Clearance",
+        primaryCE: "aero", supportingCEs: ["vd"],
+        description: "Keeping the body clear of the wheels through full suspension travel and steering lock.",
+        responsibilities: {
+          vd: ["Supplies the swept envelope through full travel and lock"],
+          aero: ["Shapes the body and wheel fairings around that envelope"]
+        },
+        notes: ""
+      }
+    ]
+  },
+  {
+    id: "aero-powertrain",
+    name: "Aero/Structures ↔ Powertrain",
+    ces: ["aero", "powertrain"],
+    description: "Where HV energy hardware gets physically carried by the car: pack mounting, array-on-body integration, and motor mounting.",
+    ownershipRule: "Powertrain defines the envelope, mass, retention, and access requirements; Aero/Structures owns the structure and mounting that satisfies them.",
+    notes: "",
+    items: [
+      {
+        id: "battery-enclosure-mounting", name: "Battery Enclosure Mounting", shortName: "Pack Mounting",
+        primaryCE: "aero", supportingCEs: ["powertrain"],
+        description: "How the battery enclosure attaches to the chassis and stays attached under load.",
+        responsibilities: {
+          powertrain: ["Defines pack mass, retention loads, and required service access", "Defines isolation and clearance requirements at the mounts"],
+          aero: ["Designs the mounts, verifies retention margin, and integrates them into the load path"]
+        },
+        notes: ""
+      },
+      {
+        id: "battery-packaging", name: "Battery Packaging",
+        primaryCE: "powertrain", supportingCEs: ["aero"],
+        description: "Where the pack sits in the car, how big it is allowed to be, and what that does to the rest of the vehicle package.",
+        responsibilities: {
+          powertrain: ["Sets pack envelope, orientation, and service access needs"],
+          aero: ["Arbitrates the volume claim against every other system and the body surface"]
+        },
+        notes: ""
+      },
+      {
+        id: "array-body-integration", name: "Solar Array / Body Integration", shortName: "Array / Body",
+        primaryCE: "aero", supportingCEs: ["powertrain", "electrical"],
+        description: "Getting the array onto the body surface: curvature limits, bonding, encapsulation, and the surface area available.",
+        responsibilities: {
+          powertrain: ["Defines required array area, string layout, and curvature limits"],
+          aero: ["Owns the body surface geometry, bonding method, and surface finish"],
+          electrical: ["Owns array wiring exit points and protection hardware"]
+        },
+        notes: "",
+        flag: "Confirm who owns encapsulation and cell-string layout."
+      },
+      {
+        id: "motor-mounting", name: "Motor Mounting",
+        primaryCE: "aero", supportingCEs: ["powertrain"],
+        description: "The structure that holds the motor and reacts drive and regen torque into the chassis.",
+        responsibilities: {
+          powertrain: ["Defines motor position, mounting pattern, and torque reaction requirement"],
+          aero: ["Designs the mount and torque reaction structure and verifies margin"]
+        },
+        notes: ""
+      },
+      {
+        id: "hv-component-packaging", name: "HV Component Packaging", shortName: "HV Packaging",
+        primaryCE: "powertrain", supportingCEs: ["aero"],
+        description: "Where HV boxes, contactors, fuses, and cabling physically live, with the isolation and service clearances they need.",
+        responsibilities: {
+          powertrain: ["Defines HV component envelopes, isolation clearances, and service access"],
+          aero: ["Provides mounting locations and routing space inside the package"]
+        },
+        notes: ""
+      }
+    ]
+  },
+  {
+    id: "powertrain-electrical",
+    name: "Powertrain ↔ Electrical",
+    ces: ["powertrain", "electrical"],
+    description: "The densest boundary on the car. Electrical builds the electronics of the energy chain; Powertrain owns what those electronics must accomplish in the vehicle.",
+    ownershipRule: "Electrical owns the electronics and their functionality — hardware, firmware, configuration, comms, and bench validation. Powertrain owns the system requirements, the HV architecture those electronics serve, and validation of the integrated energy chain in the car. Neither can change a shared interface unilaterally.",
+    notes: "This is the interface that most often causes confusion. When in doubt, ask: is the question about how the board works (Electrical) or about what the car needs it to do (Powertrain)?",
+    major: true,
+    items: [
+      { ref: "bms" },
+      { ref: "motor-controller" },
+      { ref: "mppt" },
+      {
+        id: "hv-sensing", name: "HV Sensing",
+        primaryCE: "electrical", supportingCEs: ["powertrain"],
+        description: "Measuring HV bus voltage, current, and isolation, and reporting it accurately enough for the system to act on.",
+        responsibilities: {
+          electrical: ["Designs sensing hardware, isolation barriers, and signal conditioning", "Validates accuracy and failure modes on the bench"],
+          powertrain: ["Defines what must be measured, to what accuracy, and how fast", "Defines what a sensing fault must cause the car to do"]
+        },
+        notes: ""
+      },
+      {
+        id: "contactor-interlock", name: "Contactor / Interlock Controls", shortName: "Contactor / Interlock",
+        primaryCE: "electrical", supportingCEs: ["powertrain"],
+        description: "The drive electronics and interlock chain that physically open and close the HV contactors, including precharge.",
+        responsibilities: {
+          electrical: ["Designs contactor drive, precharge control, and the interlock chain", "Validates that the electronics fail to a safe state"],
+          powertrain: ["Defines the contactor and precharge scheme and the sequencing it must follow", "Defines every condition that must open the contactors"]
+        },
+        notes: ""
+      },
+      {
+        id: "hv-comms", name: "HV System Communications", shortName: "HV Comms",
+        primaryCE: "electrical", supportingCEs: ["powertrain"],
+        description: "The CAN traffic between HV systems and vehicle controls: what BMS, MPPT, and the controller report, and what the vehicle commands back.",
+        responsibilities: {
+          electrical: ["Owns the message dictionary, bus segmentation, and node implementation", "Owns timeout and bus-fault behavior"],
+          powertrain: ["Defines which HV states must be reported, at what rate, and what must trigger action"]
+        },
+        notes: ""
+      }
+    ]
+  },
+  {
+    id: "vd-electrical",
+    name: "Vehicle Dynamics ↔ Electrical",
+    ces: ["vd", "electrical"],
+    description: "Everything the driver touches: the mechanical interface belongs to Vehicle Dynamics, the sensing and signaling belongs to Electrical.",
+    ownershipRule: "Vehicle Dynamics defines what control exists, where it sits, and how it feels; Electrical owns the sensing, signal path, redundancy, and display implementation.",
+    notes: "",
+    items: [
+      { ref: "driver-controls" },
+      {
+        id: "steering-wheel-electronics", name: "Steering Wheel Electronics", shortName: "Wheel Electronics",
+        primaryCE: "electrical", supportingCEs: ["vd"],
+        description: "Buttons, indicators, and wiring carried on the steering wheel, and how signals cross the rotating column.",
+        responsibilities: {
+          electrical: ["Designs the wheel board, switch matrix, and the column wiring solution"],
+          vd: ["Defines which controls live on the wheel, their layout, and reach"]
+        },
+        notes: ""
+      },
+      {
+        id: "throttle-sensing", name: "Throttle Sensing",
+        primaryCE: "electrical", supportingCEs: ["vd"],
+        description: "Turning pedal position into a trustworthy torque request, including redundancy and plausibility checking.",
+        responsibilities: {
+          electrical: ["Designs sensor selection, redundancy, signal conditioning, and plausibility logic"],
+          vd: ["Defines pedal travel, force, and the mapping from travel to requested torque"]
+        },
+        notes: ""
+      },
+      {
+        id: "brake-sensing", name: "Brake Sensing",
+        primaryCE: "electrical", supportingCEs: ["vd"],
+        description: "Detecting brake application for brake lights, regen cut, and control logic.",
+        responsibilities: {
+          electrical: ["Designs the sensor or switch, its signal path, and brake light actuation"],
+          vd: ["Defines the actuation point and how braking must interact with regen"]
+        },
+        notes: ""
+      },
+      {
+        id: "displays", name: "Displays",
+        primaryCE: "electrical", supportingCEs: ["vd"],
+        description: "What the driver can see: speed, state of charge, fault indication, and any strategy information shown while driving.",
+        responsibilities: {
+          electrical: ["Designs display hardware, firmware, and the data path that feeds it"],
+          vd: ["Defines what the driver needs to see, when, and where it must sit to be readable"]
+        },
+        notes: ""
+      }
+    ]
+  },
+  {
+    id: "aero-electrical",
+    name: "Aero/Structures ↔ Electrical",
+    ces: ["aero", "electrical"],
+    description: "Where electronics have to live inside a structure: boxes, routing, penetrations, and anything that breaks the body surface.",
+    ownershipRule: "Electrical specifies volume, connector faces, penetration count, and antenna placement; Aero/Structures owns the enclosure structure, routing paths, and sealing.",
+    notes: "",
+    items: [
+      {
+        id: "electronics-enclosure-mounting", name: "Electronics Enclosure Mounting", shortName: "Enclosure Mount",
+        primaryCE: "aero", supportingCEs: ["electrical"],
+        description: "The front and rear electrical boxes: their shells, where they mount, and how they are opened for service.",
+        responsibilities: {
+          electrical: ["Specifies internal volume, board layout, connector faces, and thermal needs"],
+          aero: ["Designs the enclosure shell, mounting, sealing, and service access"]
+        },
+        notes: ""
+      },
+      {
+        id: "harness-routing", name: "Harness Routing",
+        primaryCE: "aero", supportingCEs: ["electrical"],
+        description: "Where every loom physically runs through the car, and how it is supported and kept clear of moving parts.",
+        responsibilities: {
+          electrical: ["Defines loom count, bundle diameter, connector locations, and separation rules"],
+          aero: ["Owns routing paths, clips and tie-downs, and clearance from moving structure"]
+        },
+        notes: ""
+      },
+      {
+        id: "enclosure-penetrations", name: "Enclosure Penetrations", shortName: "Penetrations",
+        primaryCE: "aero", supportingCEs: ["electrical"],
+        description: "Every hole through a structural panel or box wall for wiring, and how each one is sealed.",
+        responsibilities: {
+          electrical: ["Specifies where wiring must pass through and the grommet or gland required"],
+          aero: ["Owns hole placement in structure, local reinforcement, and sealing"]
+        },
+        notes: ""
+      },
+      {
+        id: "antenna-telemetry-packaging", name: "Antenna / Telemetry Packaging", shortName: "Antenna",
+        primaryCE: "aero", supportingCEs: ["electrical"],
+        description: "Where the telemetry antenna sits so it can actually transmit, without wrecking the body surface or the array.",
+        responsibilities: {
+          electrical: ["Specifies antenna type, ground plane, and the placement needed for link margin"],
+          aero: ["Provides a mounting location and surface treatment the body can accept"]
+        },
+        notes: ""
+      }
+    ]
+  },
+  {
+    id: "vd-powertrain",
+    name: "Vehicle Dynamics ↔ Powertrain",
+    ces: ["vd", "powertrain"],
+    description: "How propulsion and energy hardware change the way the car drives and stops.",
+    ownershipRule: "Powertrain defines the torque and regen envelope the hardware can deliver; Vehicle Dynamics defines the behavior the driver should experience within that envelope. Electrical implements the resulting control logic.",
+    notes: "Regen is the classic three-way item — see the Brakes and Motor Controller entries.",
+    items: [
+      {
+        id: "regen-behavior", name: "Regen Behavior",
+        primaryCE: "vd", supportingCEs: ["powertrain", "electrical"],
+        description: "How much the car slows when the driver lifts or brakes, and how regen blends with friction braking.",
+        responsibilities: {
+          vd: ["Defines the deceleration the driver should feel and the blend with friction braking"],
+          powertrain: ["Defines the regen torque and current the motor and pack can accept"],
+          electrical: ["Implements the blending logic and the command path to the controller"]
+        },
+        notes: "Three CEs touch this. Vehicle Dynamics owns the feel, but it cannot exceed the envelope Powertrain sets."
+      },
+      {
+        id: "torque-delivery", name: "Torque Delivery",
+        primaryCE: "powertrain", supportingCEs: ["vd"],
+        description: "How much drive torque is available, how it is limited, and how smoothly it is applied.",
+        responsibilities: {
+          powertrain: ["Sets the torque and power envelope and any derating behavior"],
+          vd: ["Defines the driveability and smoothness the car should have within it"]
+        },
+        notes: ""
+      },
+      {
+        id: "motor-wheel-interface", name: "Motor / Wheel Interface", shortName: "Motor / Wheel",
+        primaryCE: "powertrain", supportingCEs: ["vd", "aero"],
+        description: "The mechanical join between the motor and the driven wheel, and the unsprung mass it adds.",
+        responsibilities: {
+          powertrain: ["Owns the motor-to-wheel mechanical interface and its torque capacity"],
+          vd: ["Owns the handling consequences of unsprung mass and rotating inertia"],
+          aero: ["Owns the surrounding structure and fairing clearance"]
+        },
+        notes: ""
+      },
+      {
+        id: "mass-cg-effects", name: "Mass / CG Effects", shortName: "Mass / CG",
+        primaryCE: "vd", supportingCEs: ["powertrain", "aero"],
+        description: "What the pack's mass and position do to weight distribution, CG height, and how the car handles.",
+        responsibilities: {
+          vd: ["Sets the mass and CG targets the car must hit to handle acceptably"],
+          powertrain: ["Owns pack mass and works its placement toward those targets"],
+          aero: ["Owns whether the structure can carry the pack where it is wanted"]
+        },
+        notes: ""
+      }
+    ]
+  },
+  {
+    id: "all-domains",
+    name: "Whole-Car Responsibilities",
+    ces: ["aero", "vd", "powertrain", "electrical"],
+    description: "Work no single domain can own, held jointly by all four Chief Engineers. These sit in the center of the Venn, where all four ellipses overlap.",
+    ownershipRule: "All four CEs hold these jointly. Each CE owns its own slice and is responsible for raising conflicts early; unresolved conflicts escalate to team leadership.",
+    notes: "",
+    items: [
+      { ref: "vehicle-packaging" },
+      { ref: "vehicle-safety" },
+      { ref: "regulation-compliance" },
+      { ref: "system-requirements" },
+      { ref: "vehicle-testing" },
+      { ref: "competition-readiness" }
+    ]
+  }
+];
+
+/* ---------------------------------------------------------
+   OPTIONAL FIELDS
+   Any of these added to a system or shared item renders
+   automatically in the detail panel. Nothing else changes.
+   --------------------------------------------------------- */
+const OPTIONAL_FIELDS = [
+  { key:"lead",          label:"Subsystem Lead",        type:"text" },
+  { key:"members",       label:"Current Members",       type:"list" },
+  { key:"docs",          label:"Documentation",         type:"links" },
+  { key:"requirements",  label:"Design Requirements",   type:"list" },
+  { key:"regulations",   label:"Applicable Regulations",type:"list" },
+  { key:"tests",         label:"Test Procedures",       type:"list" },
+  { key:"knowledgeDocs", label:"Knowledge Retention",   type:"links" },
+  { key:"carScope",      label:"Applies To",            type:"text" }
+];
+
+/* =========================================================
+   COPY-PASTE TEMPLATES FOR FUTURE MAINTAINERS
+   These strings are displayed on the "How to Edit" tab, so
+   editing them here updates the on-page instructions too.
+   ========================================================= */
+const EDIT_TEMPLATES = [
+{
+  title: "Add a topic by hand",
+  hint: "Paste inside the systems = [ ... ] array. Faster in the browser with + Add topic, but this works too.",
+  code:
+`{
+  id: "new-topic-id",             // unique, lowercase-with-dashes, never reuse
+  name: "New Topic Name",
+  shortName: "New Topic",         // optional: the label shown in the diagram
+  primaryCE: "electrical",        // aero | vd | powertrain | electrical | "shared"
+  supportingCEs: ["powertrain"],  // [] if none
+  vennRegion: "powertrain-electrical",   // starting spot; drag it afterwards
+  description: "One or two plain sentences.",
+  responsibilities: {
+    electrical: ["What Electrical does here"],
+    powertrain: ["What Powertrain does here"]
+  },
+  notes: ""
+},`
+},
+{
+  title: "Change the shape of the diagram",
+  hint: "In vennGeometry. This is the only place the four ellipses are defined.",
+  code:
+`const vennGeometry = {
+  viewBox: { w: 1400, h: 900 },
+  ellipses: [
+    { ce: "vd", cx: 522, cy: 516, rx: 423, ry: 242, rotate: 35,
+      labelAt: { x: 300, y: 874 } },   // the CE name plate (also draggable)
+    // ...
+  ]
+};
+
+// Bigger rx/ry = more overlap. Changing "rotate" changes which pairs
+// overlap most. labelAt values here are only the starting positions:
+// once you drag a name plate and save, the saved position wins.`
+}
+];
+
+/* =========================================================
+   =========================================================
+   END OF EDITABLE DATA
+   RENDERING + EDITOR LOGIC BELOW
+
+   You do not have to read any of this. Everything above can
+   be edited by hand, and everything above can also be edited
+   directly in the browser with the "Edit" button.
+   =========================================================
+   ========================================================= */
+
+/* ---------- tiny helpers ---------- */
+const $  = (sel, root) => (root || document).querySelector(sel);
+const $$ = (sel, root) => Array.prototype.slice.call((root || document).querySelectorAll(sel));
+
+function esc(s) {
+  return String(s == null ? "" : s)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+function slug(s) {
+  return String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "item";
+}
+function lines(s) {
+  return String(s || "").split("\n").map(function (t) { return t.trim(); }).filter(Boolean);
+}
+function downloadFile(name, text, mime) {
+  try {
+    const blob = new Blob([text], { type: mime || "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = name;
+    document.body.appendChild(a); a.click();
+    setTimeout(function () { URL.revokeObjectURL(url); a.remove(); }, 100);
+  } catch (err) {
+    alert("Could not start the download: " + err.message);
+  }
+}
+
+/* =========================================================
+   VENN GEOMETRY MODEL
+   Samples the four ellipses onto a grid, works out which of
+   the regions every point belongs to, and finds well-separated
+   spots inside a region for new labels.
+   ========================================================= */
+const CE_IDS = chiefEngineers.map(function (c) { return c.id; });
+
+const VENN = (function () {
+  const G = vennGeometry, W = G.viewBox.w, H = G.viewBox.h, S = G.sampleStep || 3;
+  const GW = Math.ceil(W / S), GH = Math.ceil(H / S);
+  const bitOf = {};
+  G.ellipses.forEach(function (e, i) { bitOf[e.ce] = 1 << i; });
+
+  function maskAtPoint(x, y) {
+    let m = 0;
+    for (let i = 0; i < G.ellipses.length; i++) {
+      const e = G.ellipses[i], a = e.rotate * Math.PI / 180, dx = x - e.cx, dy = y - e.cy;
+      const lx = dx * Math.cos(a) + dy * Math.sin(a);
+      const ly = -dx * Math.sin(a) + dy * Math.cos(a);
+      if ((lx * lx) / (e.rx * e.rx) + (ly * ly) / (e.ry * e.ry) <= 1) m |= (1 << i);
+    }
+    return m;
+  }
+
+  /* membership bitmask for every grid cell */
+  const mask = new Uint8Array(GW * GH);
+  for (let gy = 0; gy < GH; gy++)
+    for (let gx = 0; gx < GW; gx++)
+      mask[gy * GW + gx] = maskAtPoint(gx * S, gy * S);
+
+  function maskOfKey(key) {
+    const ids = (key === "all") ? CE_IDS : String(key).split("-");
+    let m = 0;
+    for (let i = 0; i < ids.length; i++) {
+      if (bitOf[ids[i]] === undefined) return null;
+      m |= bitOf[ids[i]];
+    }
+    return m;
+  }
+  function keyOfMask(m) {
+    if (!m) return "outside";
+    const ids = CE_IDS.filter(function (id) { return m & bitOf[id]; });
+    return ids.length === CE_IDS.length ? "all" : ids.join("-");
+  }
+  /* which region of the diagram is this point in? drives drag-and-drop */
+  function regionAt(x, y) { return keyOfMask(maskAtPoint(x, y)); }
+
+  /* distance from each cell of region m to the edge of that region */
+  function distanceTransform(m) {
+    const d = new Float32Array(GW * GH);
+    for (let i = 0; i < d.length; i++) d[i] = (mask[i] === m) ? 1e6 : 0;
+    const at = function (x, y) { return (x < 0 || y < 0 || x >= GW || y >= GH) ? 0 : d[y * GW + x]; };
+    for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) {
+      const i = y * GW + x; if (!d[i]) continue;
+      d[i] = Math.min(d[i], at(x - 1, y) + 1, at(x, y - 1) + 1, at(x - 1, y - 1) + 1.414, at(x + 1, y - 1) + 1.414);
+    }
+    for (let y = GH - 1; y >= 0; y--) for (let x = GW - 1; x >= 0; x--) {
+      const i = y * GW + x; if (!d[i]) continue;
+      d[i] = Math.min(d[i], at(x + 1, y) + 1, at(x, y + 1) + 1, at(x + 1, y + 1) + 1.414, at(x - 1, y + 1) + 1.414);
+    }
+    return d;
+  }
+  function clearBox(d, cx, cy, halfW, halfH) {
+    const x0 = Math.max(0, Math.floor((cx - halfW) / S)), x1 = Math.min(GW - 1, Math.ceil((cx + halfW) / S));
+    const y0 = Math.max(0, Math.floor((cy - halfH) / S)), y1 = Math.min(GH - 1, Math.ceil((cy + halfH) / S));
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) d[y * GW + x] = 0;
+  }
+
+  /* n well-separated interior spots for a region, ordered top to bottom.
+     "blocked" is an optional list of { x, y, w, h } already-taken boxes. */
+  function slotsFor(key, n, chip, blocked) {
+    const m = maskOfKey(key);
+    if (m == null || n <= 0) return [];
+    const d = distanceTransform(m);
+    (blocked || []).forEach(function (b) {
+      clearBox(d, b.x, b.y, (b.w + chip.w) / 2, (b.h + chip.h) / 2);
+    });
+    const pts = [];
+    for (let k = 0; k < n; k++) {
+      let best = 0, bi = -1;
+      for (let i = 0; i < d.length; i++) if (d[i] > best) { best = d[i]; bi = i; }
+      if (bi < 0) break;
+      const gx = bi % GW, gy = (bi / GW) | 0;
+      pts.push({ x: gx * S, y: gy * S });
+      clearBox(d, gx * S, gy * S, chip.w, chip.h);
+    }
+    pts.sort(function (a, b) { return (a.y - b.y) || (a.x - b.x); });
+    return pts;
+  }
+
+  const regionKeys = (function () {
+    const seen = {};
+    for (let i = 0; i < mask.length; i++) if (mask[i]) seen[mask[i]] = (seen[mask[i]] || 0) + 1;
+    return Object.keys(seen).map(function (m) {
+      return { key: keyOfMask(+m), mask: +m, area: seen[m] * S * S };
+    }).sort(function (a, b) { return b.area - a.area; });
+  })();
+
+  return { W: W, H: H, slotsFor: slotsFor, regionAt: regionAt, regionKeys: regionKeys };
+})();
+
+const REGION_KEYS = VENN.regionKeys.map(function (r) { return r.key; });
+function chipSizeFor(region) {
+  const ov = vennRegionOverrides[region] || {};
+  return ov.chip || { w: 150, h: 24 };
+}
+function regionLabel(key) {
+  if (!key || key === "outside") return "Outside the diagram";
+  if (key === "all") return "All four domains";
+  return key.split("-").map(function (c) { return ceName(c); }).join(" + ");
+}
+
+/* =========================================================
+   THE LIVE DATABASE
+   Everything on screen reads from DB. The authored data above
+   is only the starting point: it gets normalized into DB once,
+   and from then on the editor works on DB.
+   ========================================================= */
+let DB = null;
+let byId = {}, itemById = {};
+
+function ceName(id) {
+  if (id === "shared") return "All four CEs";
+  return byId[id] ? byId[id].shortName : "—";
+}
+function ceColor(id) { return byId[id] ? byId[id].color : "#8892a0"; }
+function shortOf(item) { return item.shortName || item.name; }
+
+/* Build DB from the authored data section (the "factory defaults"). */
+function buildSeedDB() {
+  const db = {
+    schema: 2,
+    savedAt: null,
+    metadata: JSON.parse(JSON.stringify(metadata)),
+    ces: chiefEngineers.map(function (c) {
+      return {
+        id: c.id, name: c.name, shortName: c.shortName, color: c.color,
+        tagline: c.tagline, mission: c.mission,
+        labelAt: null            // set below from the geometry, then draggable
+      };
+    }),
+    items: []
+  };
+
+  vennGeometry.ellipses.forEach(function (e) {
+    const ce = db.ces.filter(function (c) { return c.id === e.ce; })[0];
+    if (ce && e.labelAt) ce.labelAt = { x: e.labelAt.x, y: e.labelAt.y };
+  });
+
+  const push = function (raw, region) {
+    const it = {
+      id: raw.id,
+      name: raw.name,
+      shortName: raw.shortName || "",
+      primaryCE: raw.primaryCE || null,
+      supportingCEs: (raw.supportingCEs || []).slice(),
+      description: raw.description || "",
+      responsibilities: JSON.parse(JSON.stringify(raw.responsibilities || {})),
+      notes: raw.notes || "",
+      flag: raw.flag || "",
+      region: region,
+      pos: null                  // filled in by the initial auto-arrange
+    };
+    OPTIONAL_FIELDS.forEach(function (f) { if (raw[f.key] != null) it[f.key] = raw[f.key]; });
+    db.items.push(it);
+    return it;
+  };
+
+  systems.forEach(function (s) {
+    push(s, s.vennRegion || (s.primaryCE === "shared" ? "all" : s.primaryCE));
+  });
+
+  const seen = {};
+  db.items.forEach(function (i) { seen[i.id] = true; });
+
+  interfaces.forEach(function (itf) {
+    const region = itf.vennRegion || regionKeyFromCEs(itf.ces);
+    (itf.items || []).forEach(function (raw, idx) {
+      if (typeof raw === "string") {
+        push({
+          id: itf.id + "-item-" + idx, name: raw,
+          primaryCE: itf.ces[0], supportingCEs: itf.ces.slice(1),
+          description: ""
+        }, region);
+        return;
+      }
+      if (raw.ref) return;                 // already defined as a system above
+      if (seen[raw.id]) raw.id = raw.id + "-2";
+      seen[raw.id] = true;
+      push(raw, region);
+    });
+  });
+
+  return db;
+}
+function regionKeyFromCEs(ces) {
+  const ids = CE_IDS.filter(function (id) { return ces.indexOf(id) >= 0; });
+  return ids.length === CE_IDS.length ? "all" : ids.join("-");
+}
+
+function reindex() {
+  byId = {}; itemById = {};
+  DB.ces.forEach(function (c) { byId[c.id] = c; });
+  DB.items.forEach(function (i) { itemById[i.id] = i; });
+}
+function anyById(id) { return itemById[id] || null; }
+
+/* ---------------------------------------------------------
+   POSITIONS
+   Every item ends up with a concrete pos { x, y } in viewBox
+   units, so dragging one label never moves any other one.
+   --------------------------------------------------------- */
+function occupiedBoxes(exceptId) {
+  return DB.items.filter(function (i) { return i.pos && i.id !== exceptId; })
+    .map(function (i) {
+      const c = chipSizeFor(i.region);
+      return { x: i.pos.x, y: i.pos.y, w: c.w, h: c.h };
+    });
+}
+/* find one free spot inside a region */
+function findSpot(region) {
+  const chip = chipSizeFor(region);
+  const pts = VENN.slotsFor(region, 1, chip, occupiedBoxes(null));
+  if (pts.length) return pts[0];
+  const loose = VENN.slotsFor(region, 1, { w: 40, h: 16 }, []);
+  return loose.length ? loose[0] : { x: VENN.W / 2, y: VENN.H / 2 };
+}
+/* lay every item out from scratch, grouped by its region */
+function autoArrange() {
+  const groups = {};
+  DB.items.forEach(function (i) {
+    const r = i.region && i.region !== "outside" ? i.region : "all";
+    (groups[r] = groups[r] || []).push(i);
+  });
+  Object.keys(groups).forEach(function (region) {
+    const chip = chipSizeFor(region);
+    const list = groups[region];
+    const pts = VENN.slotsFor(region, list.length, chip, []);
+    if (pts.length < list.length) {
+      console.warn("[venn] region '" + region + "' fits " + pts.length + " of " + list.length +
+        " labels. Drag some elsewhere, or give the region a smaller chip size in vennRegionOverrides.");
+    }
+    list.forEach(function (item, i) {
+      item.pos = pts[i] ? { x: pts[i].x, y: pts[i].y } : { x: VENN.W / 2, y: VENN.H / 2 };
+    });
+  });
+}
+
+/* =========================================================
+   SAVING AND LOADING
+   Three places data can come from, newest wins:
+     1. the data section at the top of this file (defaults)
+     2. a JSON block baked in by "Save file"
+     3. this browser's local storage (autosave)
+   ========================================================= */
+const LS_KEY = "sg-respmap-data-v2";
+let dirty = false;
+
+function readEmbedded() {
+  try {
+    const el = $("#savedData");
+    if (!el) return null;
+    const txt = (el.textContent || "").trim();
+    if (!txt || txt === "null") return null;
+    return JSON.parse(txt);
+  } catch (e) { console.warn("[save] embedded data could not be read:", e); return null; }
+}
+function readLocal() {
+  try {
+    const txt = localStorage.getItem(LS_KEY);
+    return txt ? JSON.parse(txt) : null;
+  } catch (e) { return null; }
+}
+function saveLocal() {
+  DB.savedAt = new Date().toISOString();
+  try { localStorage.setItem(LS_KEY, JSON.stringify(DB)); } catch (e) { /* file:// may block this */ }
+}
+function markDirty() {
+  dirty = true;
+  saveLocal();
+  const b = $("#btnSave");
+  if (b) b.classList.add("dirty");
+}
+function clearDirty() {
+  dirty = false;
+  const b = $("#btnSave");
+  if (b) b.classList.remove("dirty");
+}
+function loadDB() {
+  const seed = buildSeedDB();
+  const candidates = [readEmbedded(), readLocal()].filter(Boolean);
+  let chosen = null;
+  candidates.forEach(function (c) {
+    if (!chosen || String(c.savedAt || "") > String(chosen.savedAt || "")) chosen = c;
+  });
+  if (chosen && chosen.items && chosen.items.length) {
+    DB = chosen;
+    DB.metadata = DB.metadata || seed.metadata;
+    DB.ces = DB.ces && DB.ces.length ? DB.ces : seed.ces;
+  } else {
+    DB = seed;
+  }
+  reindex();
+  const unplaced = DB.items.filter(function (i) { return !i.pos; });
+  if (unplaced.length === DB.items.length) autoArrange();
+  else unplaced.forEach(function (i) { i.pos = findSpot(i.region || "all"); });
+  DB.items.forEach(function (i) {
+    if (!i.region) i.region = VENN.regionAt(i.pos.x, i.pos.y);
+  });
+}
+
+/* "Save file" writes a fresh copy of this page with the current
+   data baked into it. That copy is the thing to share and keep. */
+function exportHTML() {
+  DB.savedAt = new Date().toISOString();
+  const json = JSON.stringify(DB).replace(/</g, "\\u003c");
+  const marker = /(<script type="application\/json" id="savedData">)[\s\S]*?(<\/script>)/;
+  if (!marker.test(PRISTINE_HTML)) {
+    alert("Could not find the savedData block in this page, so the file could not be written.\n" +
+          "Use “Download data (.json)” on the How to Edit tab instead.");
+    return;
+  }
+  const html = PRISTINE_HTML.replace(marker, function (_m, a, b) { return a + json + b; });
+  downloadFile("solar-gators-responsibility-map.html", html, "text/html;charset=utf-8");
+  saveLocal();
+  clearDirty();
+  toast("Saved. Replace the old file with the one you just downloaded.");
+}
+function exportJSON() {
+  DB.savedAt = new Date().toISOString();
+  downloadFile("solar-gators-responsibility-map-data.json", JSON.stringify(DB, null, 2), "application/json");
+}
+function importJSON(file) {
+  const r = new FileReader();
+  r.onload = function () {
+    try {
+      const obj = JSON.parse(r.result);
+      if (!obj || !obj.items) throw new Error("that file has no “items” list");
+      DB = obj;
+      reindex();
+      DB.items.forEach(function (i) { if (!i.pos) i.pos = findSpot(i.region || "all"); });
+      markDirty(); renderEverything();
+      toast("Imported " + DB.items.length + " topics.");
+    } catch (e) { alert("Could not read that file: " + e.message); }
+  };
+  r.readAsText(file);
+}
+function resetToFileDefaults() {
+  if (!confirm("Throw away every change and go back to the data written in this file?")) return;
+  try { localStorage.removeItem(LS_KEY); } catch (e) {}
+  DB = buildSeedDB();
+  reindex();
+  autoArrange();
+  DB.items.forEach(function (i) { i.region = VENN.regionAt(i.pos.x, i.pos.y); });
+  clearDirty(); renderEverything();
+  toast("Back to the version built into this file.");
+}
+
+let toastTimer = null;
+/* toast("done") — or toast("done", "Undo", fn) to offer one action */
+function toast(msg, actionLabel, actionFn) {
+  let el = $("#toast");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "toast"; el.className = "toast";
+    document.body.appendChild(el);
+  }
+  el.innerHTML = "";
+  const span = document.createElement("span");
+  span.textContent = msg;
+  el.appendChild(span);
+  const acting = !!(actionLabel && actionFn);
+  if (acting) {
+    const b = document.createElement("button");
+    b.className = "toastbtn";
+    b.textContent = actionLabel;
+    b.addEventListener("click", function () {
+      el.classList.remove("show", "hasaction");
+      actionFn();
+    });
+    el.appendChild(b);
+  }
+  el.classList.toggle("hasaction", acting);
+  el.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function () {
+    el.classList.remove("show", "hasaction");
+  }, acting ? 12000 : 3200);
+}
+
+/* =========================================================
+   UI STATE
+   ========================================================= */
+const state = {
+  tab: "overview",
+  q: "",
+  edit: false,
+  openId: null,      // id currently shown in the drawer
+  openKind: null     // "item" | "iface" | "ce" | "meta"
+};
+
+/* ---------- per-CE colors and highlight rules ---------- */
+function injectCEStyles() {
+  let el = $("#ceStyles");
+  if (!el) { el = document.createElement("style"); el.id = "ceStyles"; document.head.appendChild(el); }
+  el.textContent = DB.ces.map(function (ce) {
+    return "[data-ce=\"" + ce.id + "\"]{--ce:" + ce.color + "}\n" +
+           "[data-hl=\"" + ce.id + "\"] .node[data-ces~=\"" + ce.id + "\"]{opacity:1;filter:none}";
+  }).join("\n");
+}
+
+/* =========================================================
+   SEARCH
+   ========================================================= */
+function cesOf(item) {
+  if (item.ces) return item.ces.slice();
+  const out = [];
+  if (item.primaryCE === "shared") CE_IDS.forEach(function (c) { out.push(c); });
+  else if (item.primaryCE) out.push(item.primaryCE);
+  (item.supportingCEs || []).forEach(function (c) { if (out.indexOf(c) < 0) out.push(c); });
+  return out;
+}
+function haystack(item) {
+  const parts = [item.name, item.shortName, item.description, item.notes];
+  if (item.responsibilities) {
+    Object.keys(item.responsibilities).forEach(function (k) {
+      parts.push(byId[k] ? byId[k].name : k);
+      (item.responsibilities[k] || []).forEach(function (t) { parts.push(t); });
+    });
+  }
+  cesOf(item).forEach(function (c) { if (byId[c]) parts.push(byId[c].name, byId[c].shortName); });
+  return parts.join(" · ").toLowerCase();
+}
+function matchesQuery(item) {
+  if (!state.q) return true;
+  return haystack(item).indexOf(state.q.toLowerCase()) >= 0;
+}
+function nameMatches(item) {
+  return !!state.q && item.name.toLowerCase().indexOf(state.q.toLowerCase()) >= 0;
+}
+
+
+/* =========================================================
+   THE FOUR-WAY VENN
+   ========================================================= */
+function ellAttrs(e) {
+  return 'cx="' + e.cx + '" cy="' + e.cy + '" rx="' + e.rx + '" ry="' + e.ry +
+         '" transform="rotate(' + e.rotate + ' ' + e.cx + ' ' + e.cy + ')"';
+}
+function renderVennSvg() {
+  const G = vennGeometry;
+  let s = '';
+
+  G.ellipses.forEach(function (e) {
+    s += '<g class="vlobe node" data-ce="' + e.ce + '" data-ces="' + e.ce + '" data-ceopen="' + e.ce + '">' +
+         '<ellipse class="fill" ' + ellAttrs(e) + '/></g>';
+  });
+
+  G.ellipses.forEach(function (e) {
+    s += '<g class="vlobe node" data-ce="' + e.ce + '" data-ces="' + e.ce + '" data-ceopen="' + e.ce + '">' +
+         '<ellipse class="edge" ' + ellAttrs(e) + '/></g>';
+  });
+
+  /* CE name plates, sitting just outside their own lobe */
+  DB.ces.forEach(function (ce) {
+    const at = ce.labelAt;
+    if (!at) return;
+    s += '<g class="vcelabel node" data-ce="' + ce.id + '" data-ces="' + ce.id + '" data-ceopen="' + ce.id +
+      '" data-celabel="' + ce.id + '">' +
+      '<text class="nm" x="' + at.x + '" y="' + at.y + '" text-anchor="middle" font-size="23">' +
+        esc(ce.shortName) + '</text></g>';
+  });
+
+  const svg = $("#vennSvg");
+  svg.setAttribute("viewBox", "0 0 " + G.viewBox.w + " " + G.viewBox.h);
+  svg.innerHTML = s;
+}
+
+function renderVennLabels() {
+  let html = "";
+  DB.items.forEach(function (it) {
+    if (!matchesQuery(it)) return;
+    if (!it.pos) return;
+    const cls = ["vchip", "node"];
+    if (nameMatches(it)) cls.push("is-match");
+    if (state.openId === it.id) cls.push("selected");
+    const chip = chipSizeFor(it.region);
+    html += '<button class="' + cls.join(" ") + '" data-ce="' +
+      esc(it.primaryCE === "shared" ? "" : it.primaryCE) + '" data-ces="' + esc(cesOf(it).join(" ")) +
+      '" data-item="' + esc(it.id) + '"' +
+      ' style="left:' + (it.pos.x / VENN.W * 100).toFixed(3) + '%;top:' + (it.pos.y / VENN.H * 100).toFixed(3) +
+      '%;max-width:calc(' + chip.w + ' * var(--u))"' +
+      ' title="' + esc(it.name + " — Primary: " + ceName(it.primaryCE)) + '">' +
+      '<span class="lbl">' + esc(shortOf(it)) + '</span></button>';
+  });
+  $("#vennLabels").innerHTML = html;
+}
+
+function renderLegend() {
+  let h = DB.ces.map(function (ce) {
+    return '<span class="k node" data-ce="' + ce.id + '" data-ces="' + ce.id + '" data-ceopen="' + ce.id +
+      '" style="cursor:pointer"><span class="sw"></span>' + esc(ce.shortName) + '</span>';
+  }).join("");
+  if (state.edit) h += '<span class="k editnote">Edit mode: drag any label to move it, click to edit it.</span>';
+  $("#legend").innerHTML = h;
+}
+
+/* =========================================================
+   HOW TO EDIT TAB
+   ========================================================= */
+function renderTemplates() {
+  $("#templates").innerHTML = EDIT_TEMPLATES.map(function (t) {
+    return '<div class="block"><h3>' + esc(t.title) + '</h3>' +
+      '<p style="font-size:12.8px;color:var(--muted);margin-bottom:9px">' + esc(t.hint) + '</p>' +
+      '<pre class="code">' + esc(t.code) + '</pre></div>';
+  }).join("");
+}
+function renderRegionKeys() {
+  const counts = {};
+  DB.items.forEach(function (i) { counts[i.region] = (counts[i.region] || 0) + 1; });
+  $("#regionKeyTable").innerHTML = REGION_KEYS.map(function (key) {
+    const n = counts[key] || 0;
+    return '<tr><td>' + esc(key) + '</td><td style="color:var(--ink-2)">' + esc(regionLabel(key)) + '</td><td>' +
+      (n ? n + " label" + (n === 1 ? "" : "s") : "empty") + '</td></tr>';
+  }).join("");
+}
+
+/* =========================================================
+   DRAWER — shared shell
+   ========================================================= */
+function openDrawer(kind, title, ceIdForColor, bodyHTML) {
+  $("#dKind").textContent = kind;
+  $("#dTitle").textContent = title;
+  $("#dHead").setAttribute("data-ce", ceIdForColor || "");
+  $("#dBody").innerHTML = bodyHTML;
+  $("#dBody").scrollTop = 0;
+  $("#drawer").classList.add("open");
+  $("#scrim").classList.add("open");
+}
+function closeDrawer() {
+  $("#drawer").classList.remove("open");
+  $("#scrim").classList.remove("open");
+  state.openId = null; state.openKind = null;
+  renderVennLabels();
+}
+function reopenDrawer() {
+  if (state.openKind === "item") openItem(state.openId, true);
+  else if (state.openKind === "ce") openCE(state.openId, true);
+  else if (state.openKind === "meta") openMeta();
+}
+function sec(title, inner) {
+  if (!inner) return "";
+  return '<div class="dsec"><h4>' + esc(title) + '</h4>' + inner + '</div>';
+}
+function listHTML(arr) {
+  if (!arr || !arr.length) return "";
+  return '<ul>' + arr.map(function (t) { return '<li>' + esc(t) + '</li>'; }).join("") + '</ul>';
+}
+function optionalFieldsHTML(s) {
+  return OPTIONAL_FIELDS.map(function (f) {
+    const v = s[f.key];
+    if (v == null || v === "" || (Array.isArray(v) && !v.length)) return "";
+    if (f.type === "text") return sec(f.label, '<p>' + esc(v) + '</p>');
+    if (f.type === "list") return sec(f.label, listHTML(Array.isArray(v) ? v : [v]));
+    if (f.type === "links") {
+      const arr = Array.isArray(v) ? v : [v];
+      return sec(f.label, '<ul>' + arr.map(function (d) {
+        const url = typeof d === "string" ? d : d.url;
+        const label = typeof d === "string" ? d : (d.label || d.url);
+        return '<li><a href="' + esc(url) + '" target="_blank" rel="noopener">' + esc(label) + '</a></li>';
+      }).join("") + '</ul>');
+    }
+    return "";
+  }).join("");
+}
+
+/* =========================================================
+   FORM CONTROLS
+   Every control carries data-edit="<kind>:<id>:<field>", and one
+   delegated listener writes the value straight back into DB.
+   ========================================================= */
+function fpath(kind, id, field) { return esc(kind + ":" + id + ":" + field); }
+function fText(kind, id, field, label, value, hint) {
+  return '<label class="fld"><span class="flab">' + esc(label) + '</span>' +
+    '<input type="text" data-edit="' + fpath(kind, id, field) + '" value="' + esc(value || "") + '">' +
+    (hint ? '<span class="fhint">' + esc(hint) + '</span>' : '') + '</label>';
+}
+function fArea(kind, id, field, label, value, rows, hint) {
+  return '<label class="fld"><span class="flab">' + esc(label) + '</span>' +
+    '<textarea rows="' + (rows || 3) + '" data-edit="' + fpath(kind, id, field) + '">' + esc(value || "") + '</textarea>' +
+    (hint ? '<span class="fhint">' + esc(hint) + '</span>' : '') + '</label>';
+}
+function fSelect(kind, id, field, label, value, options, hint) {
+  return '<label class="fld"><span class="flab">' + esc(label) + '</span>' +
+    '<select data-edit="' + fpath(kind, id, field) + '">' + options.map(function (o) {
+      return '<option value="' + esc(o.v) + '"' + (String(o.v) === String(value == null ? "" : value) ? " selected" : "") +
+        '>' + esc(o.t) + '</option>';
+    }).join("") + '</select>' +
+    (hint ? '<span class="fhint">' + esc(hint) + '</span>' : '') + '</label>';
+}
+function ceOptions(includeShared, includeNone) {
+  const o = [];
+  if (includeNone) o.push({ v: "", t: "— none —" });
+  DB.ces.forEach(function (c) { o.push({ v: c.id, t: c.shortName }); });
+  if (includeShared) o.push({ v: "shared", t: "All four (whole-car)" });
+  return o;
+}
+function fCheckboxes(kind, id, field, label, values, hint) {
+  return '<div class="fld"><span class="flab">' + esc(label) + '</span><div class="checkrow">' +
+    DB.ces.map(function (c) {
+      const on = (values || []).indexOf(c.id) >= 0;
+      return '<label class="chk" data-ce="' + c.id + '"><input type="checkbox" data-edit="' +
+        fpath(kind, id, field) + '" value="' + c.id + '"' + (on ? " checked" : "") + '><span class="bul"></span>' +
+        esc(c.shortName) + '</label>';
+    }).join("") + '</div>' + (hint ? '<span class="fhint">' + esc(hint) + '</span>' : '') + '</div>';
+}
+
+/* one delegated listener for every form control in the drawer */
+function onFormEdit(e) {
+  const el = e.target.closest("[data-edit]");
+  if (!el) return;
+  const parts = el.getAttribute("data-edit").split(":");
+  const kind = parts[0], id = parts[1], field = parts.slice(2).join(":");
+  const target = kind === "item" ? itemById[id]
+               : kind === "ce"   ? byId[id]
+               : kind === "meta" ? DB.metadata : null;
+  if (!target) return;
+
+  if (el.type === "checkbox") {
+    const cur = (target[field] || []).slice();
+    const i = cur.indexOf(el.value);
+    if (el.checked && i < 0) cur.push(el.value);
+    if (!el.checked && i >= 0) cur.splice(i, 1);
+    target[field] = CE_IDS.filter(function (c) { return cur.indexOf(c) >= 0; });
+  } else if (field.indexOf("responsibilities.") === 0) {
+    target.responsibilities = target.responsibilities || {};
+    const ce = field.split(".")[1];
+    const arr = lines(el.value);
+    if (arr.length) target.responsibilities[ce] = arr; else delete target.responsibilities[ce];
+  } else {
+    target[field] = el.value;
+  }
+
+  markDirty();
+  injectCEStyles();
+  if (kind === "meta") applyMetadata();
+  renderVennSvg();
+  renderVennLabels();
+  renderLegend();
+  if (el.type === "checkbox" || field === "primaryCE") {
+    /* owners changed: the responsibility boxes in the form need to follow */
+    clearTimeout(onFormEdit._t);
+    onFormEdit._t = setTimeout(function () {
+      const scroll = $("#dBody").scrollTop;
+      reopenDrawer();
+      $("#dBody").scrollTop = scroll;
+    }, 400);
+  }
+}
+
+/* =========================================================
+   DRAWER — a topic
+   ========================================================= */
+function openItem(id, keepScroll) {
+  const s = anyById(id);
+  if (!s) return;
+  state.openId = id; state.openKind = "item";
+  const h = state.edit ? itemFormHTML(s) : itemViewHTML(s);
+  openDrawer(state.edit ? "Editing topic" : "Topic", s.name,
+             s.primaryCE === "shared" ? "" : s.primaryCE, h);
+  if (!keepScroll) renderVennLabels();
+}
+
+function itemViewHTML(s) {
+  const oc = function (key, label) {
+    const v = s[key];
+    return '<div class="ocell" data-ce="' + esc(v && v !== "shared" ? v : "") + '"><div class="k">' + esc(label) + '</div>' +
+      '<div class="v">' + (v ? '<span class="bul"></span>' : '') + esc(v ? ceName(v) : "Not applicable") + '</div></div>';
+  };
+  let h = '<div class="dsec"><div class="ownergrid">' +
+      oc("primaryCE", "Primary Owner") +
+      '<div class="ocell"><div class="k">Supporting CEs</div><div class="v" style="font-size:13px;font-weight:550;flex-wrap:wrap;gap:8px">' +
+        ((s.supportingCEs || []).length
+          ? s.supportingCEs.map(function (c) {
+              return '<span style="display:inline-flex;align-items:center;gap:5px"><span class="bul" style="background:' + ceColor(c) + '"></span>' + esc(ceName(c)) + '</span>';
+            }).join("")
+          : "None") +
+      '</div></div>' +
+    '</div></div>';
+
+  if (s.flag) h += '<div class="dsec"><div class="callout flag"><b>Needs confirmation.</b> ' + esc(s.flag) + '</div></div>';
+  h += sec("Description", s.description ? '<p>' + esc(s.description) + '</p>' : "");
+
+  const respKeys = Object.keys(s.responsibilities || {}).filter(function (k) {
+    return (s.responsibilities[k] || []).length;
+  });
+  if (respKeys.length) {
+    h += '<div class="dsec"><h4>Responsibilities by domain</h4>' + respKeys.map(function (k) {
+      return '<div class="respblock" data-ce="' + esc(k) + '"><div class="who">' + esc(ceName(k)) + '</div>' +
+        listHTML(s.responsibilities[k]) + '</div>';
+    }).join("") + '</div>';
+  }
+  h += optionalFieldsHTML(s);
+  if (s.notes) h += sec("Notes & rationale", '<div class="callout">' + esc(s.notes) + '</div>');
+  h += '<div class="dsec"><button class="btn" data-act="edit-this">Edit this topic</button></div>';
+  return h;
+}
+
+function itemFormHTML(s) {
+  const involved = cesOf(s);
+  let h = '<div class="formgrid">';
+  h += fText("item", s.id, "name", "Name", s.name);
+  h += fText("item", s.id, "shortName", "Short label in the diagram", s.shortName,
+             "Optional. Leave blank to use the full name.");
+
+  h += '<div class="fsep">Ownership</div>';
+  h += fSelect("item", s.id, "primaryCE", "Primary Owner", s.primaryCE, ceOptions(true, true),
+               "The one CE accountable for this. Never two.");
+  h += fCheckboxes("item", s.id, "supportingCEs", "Supporting CEs", s.supportingCEs,
+                   "Contribute and review, but are not accountable.");
+  h += '<div class="fsep">Detail</div>';
+  h += fArea("item", s.id, "description", "Description", s.description, 3);
+  involved.forEach(function (ce) {
+    h += fArea("item", s.id, "responsibilities." + ce, ceName(ce) + " responsibilities",
+      (s.responsibilities[ce] || []).join("\n"), 3, "One per line.");
+  });
+  h += fArea("item", s.id, "notes", "Notes & rationale", s.notes, 3);
+  h += fText("item", s.id, "flag", "Needs-confirmation note", s.flag,
+             "Leave blank unless this ownership is still unsettled.");
+
+  h += '</div>';
+
+  h += '<div class="dsec formactions">' +
+    '<button class="btn" data-act="done">Done</button>' +
+    '<button class="btn danger" data-act="delete-item" data-arg="' + esc(s.id) + '">Delete topic</button></div>';
+  return h;
+}
+
+/* =========================================================
+   DRAWER — a boundary, a CE, the page details
+   ========================================================= */
+
+function openCE(id, keepScroll) {
+  const ce = byId[id];
+  if (!ce) return;
+  state.openId = id; state.openKind = "ce";
+  let h;
+  if (state.edit) {
+    h = '<div class="formgrid">' +
+      fText("ce", ce.id, "name", "Full name", ce.name) +
+      fText("ce", ce.id, "shortName", "Short name (used on the diagram)", ce.shortName) +
+      fArea("ce", ce.id, "tagline", "Tagline", ce.tagline, 2, "The one-line summary of the domain.") +
+      fArea("ce", ce.id, "mission", "Mission", ce.mission, 6) +
+      fText("ce", ce.id, "color", "Colour", ce.color, "Any CSS colour, e.g. #8A3F7A.") +
+      '</div><div class="dsec formactions"><button class="btn" data-act="done">Done</button></div>';
+  } else {
+    h = sec("Tagline", '<p>' + esc(ce.tagline) + '</p>');
+    h += sec("Mission", '<p>' + esc(ce.mission) + '</p>');
+    h += '<div class="dsec"><button class="btn" data-act="edit-this">Edit this domain</button></div>';
+  }
+  openDrawer(state.edit ? "Editing domain" : "Chief Engineer domain", ce.name, ce.id, h);
+  if (!keepScroll) renderVennLabels();
+}
+
+function openMeta() {
+  state.openId = "meta"; state.openKind = "meta";
+  const m = DB.metadata;
+  const h = '<div class="formgrid">' +
+    fText("meta", "meta", "title", "Page title", m.title) +
+    fText("meta", "meta", "subtitle", "Subtitle", m.subtitle) +
+    fText("meta", "meta", "version", "Version", m.version) +
+    fText("meta", "meta", "lastUpdated", "Last updated", m.lastUpdated) +
+    '</div><div class="dsec formactions"><button class="btn" data-act="done">Done</button></div>';
+  openDrawer("Page details", "Page details", "", h);
+}
+
+/* =========================================================
+   EDITOR ACTIONS
+   ========================================================= */
+function uniqueId(base) {
+  let id = slug(base), n = 2;
+  while (itemById[id]) { id = slug(base) + "-" + n; n++; }
+  return id;
+}
+function addItem() {
+  if (!state.edit) setEdit(true);
+  const region = "all";
+  const it = {
+    id: uniqueId("new-topic"), name: "New topic", shortName: "",
+    primaryCE: DB.ces[0].id, supportingCEs: [],
+    description: "", responsibilities: {},
+    notes: "", flag: "", region: region, pos: findSpot(region)
+  };
+  DB.items.push(it);
+  reindex(); markDirty();
+  renderVennLabels(); renderRegionKeys();
+  openItem(it.id);
+  setTimeout(function () {
+    const f = $('#dBody input[data-edit$=":name"]');
+    if (f) { f.focus(); f.select(); }
+  }, 260);
+}
+function deleteItem(id) {
+  const it = itemById[id];
+  if (!it) return;
+  if (!confirm("Delete “" + it.name + "”? This cannot be undone.")) return;
+  DB.items = DB.items.filter(function (i) { return i.id !== id; });
+  reindex(); markDirty(); closeDrawer();
+  renderVennLabels(); renderRegionKeys();
+  toast("Deleted.");
+}
+/* Remove every topic. The four domains, the ellipses, and the page
+   details all stay — only the labels go. Undoable from the toast,
+   because the autosave means reloading will not bring them back. */
+let clearedTopics = null;
+function clearAllTopics() {
+  const n = DB.items.length;
+  if (!n) { toast("There are no topics to clear."); return; }
+  if (!confirm("Remove all " + n + " topics from the diagram?\n\n" +
+      "The four Chief Engineer domains and the diagram itself stay. " +
+      "Use Undo in the message that appears, or “Reset to file defaults” " +
+      "on the How to Edit tab, to get the original list back.")) return;
+  clearedTopics = DB.items;
+  DB.items = [];
+  reindex(); markDirty(); closeDrawer();
+  renderVennLabels(); renderRegionKeys();
+  toast("Cleared " + n + " topics.", "Undo", function () {
+    DB.items = clearedTopics || [];
+    clearedTopics = null;
+    reindex(); markDirty();
+    renderVennLabels(); renderRegionKeys();
+    toast("Restored " + DB.items.length + " topics.");
+  });
+}
+function setEdit(on) {
+  state.edit = on;
+  document.body.classList.toggle("editing", on);
+  const b = $("#btnEdit");
+  b.setAttribute("aria-pressed", String(on));
+  b.textContent = on ? "✓ Done editing" : "✎ Edit";
+  $("#btnAdd").hidden = !on;
+  $("#btnArrange").hidden = !on;
+  $("#btnClear").hidden = !on;
+  renderLegend();
+  if (state.openId) reopenDrawer();
+}
+
+/* =========================================================
+   DRAG AND DROP
+   Works for topic labels and for the four CE name plates.
+   ========================================================= */
+let drag = null;
+function stageToViewBox(clientX, clientY) {
+  const r = $("#vennStage").getBoundingClientRect();
+  return {
+    x: (clientX - r.left) / r.width * VENN.W,
+    y: (clientY - r.top) / r.height * VENN.H
+  };
+}
+function onPointerDown(e) {
+  if (!state.edit || e.button !== 0) return;
+  const chip = e.target.closest(".vchip[data-item]");
+  const plate = e.target.closest("[data-celabel]");
+  const node = chip || plate;
+  if (!node) return;
+  const id = chip ? chip.getAttribute("data-item") : plate.getAttribute("data-celabel");
+  const obj = chip ? itemById[id] : byId[id];
+  if (!obj) return;
+  const start = stageToViewBox(e.clientX, e.clientY);
+  const anchor = chip ? obj.pos : obj.labelAt;
+  if (!anchor) return;
+  drag = {
+    kind: chip ? "item" : "ce", obj: obj, node: node, moved: false,
+    dx: anchor.x - start.x, dy: anchor.y - start.y
+  };
+  try { node.setPointerCapture(e.pointerId); } catch (err) { /* pointer already released */ }
+  e.preventDefault();
+}
+function onPointerMove(e) {
+  if (!drag) return;
+  const p = stageToViewBox(e.clientX, e.clientY);
+  const x = Math.max(6, Math.min(VENN.W - 6, p.x + drag.dx));
+  const y = Math.max(10, Math.min(VENN.H - 6, p.y + drag.dy));
+  if (!drag.moved) {
+    const a = drag.kind === "item" ? drag.obj.pos : drag.obj.labelAt;
+    if (Math.abs(x - a.x) < 4 && Math.abs(y - a.y) < 4) return;
+    drag.moved = true;
+    drag.node.classList.add("dragging");
+  }
+  if (drag.kind === "item") {
+    drag.obj.pos = { x: x, y: y };
+    drag.node.style.left = (x / VENN.W * 100).toFixed(3) + "%";
+    drag.node.style.top  = (y / VENN.H * 100).toFixed(3) + "%";
+  } else {
+    drag.obj.labelAt = { x: x, y: y };
+    const t = drag.node.querySelector("text");
+    if (t) { t.setAttribute("x", x); t.setAttribute("y", y); }
+  }
+}
+function onPointerUp() {
+  if (!drag) return;
+  const d = drag; drag = null;
+  d.node.classList.remove("dragging");
+  if (!d.moved) return;
+  if (d.kind === "item") {
+    d.obj.region = VENN.regionAt(d.obj.pos.x, d.obj.pos.y);
+    renderRegionKeys();
+    if (state.openId === d.obj.id && state.openKind === "item") reopenDrawer();
+  }
+  markDirty();
+  /* swallow the click that follows the drag */
+  window.__justDragged = Date.now();
+}
+
+/* =========================================================
+   TABS
+   ========================================================= */
+const TABS = [
+  { id: "overview", label: "Overview" },
+  { id: "help",     label: "How to Edit" }
+];
+function renderTabs() {
+  $("#tabs").innerHTML = TABS.map(function (t) {
+    return '<button role="tab" data-tab="' + t.id + '" aria-selected="' + (state.tab === t.id) + '">' + esc(t.label) + '</button>';
+  }).join("");
+  TABS.forEach(function (t) { $("#view-" + t.id).classList.toggle("active", state.tab === t.id); });
+}
+function setTab(id) {
+  state.tab = id;
+  try { localStorage.setItem("sg-tab", id); } catch (e) {}
+  renderTabs(); renderAll();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+function applyMetadata() {
+  const m = DB.metadata;
+  document.title = m.title;
+  $("#pageTitle").textContent = m.title;
+  $("#pageSub").textContent = m.subtitle;
+  $("#verPill").textContent = m.version + " · updated " + m.lastUpdated;
+}
+function renderAll() {
+  $("#qclear").hidden = !state.q;
+  if (state.tab === "overview") { renderLegend(); renderVennLabels(); }
+  if (state.tab === "help") renderRegionKeys();
+}
+function renderEverything() {
+  injectCEStyles();
+  applyMetadata();
+  renderVennSvg();
+  renderRegionKeys();
+  renderAll();
+}
+
+/* ---------- search: jump to the best match on Enter ---------- */
+function bestMatch() {
+  if (!state.q) return null;
+  const q = state.q.toLowerCase();
+  const pool = DB.items;
+  let exact = null, starts = null, contains = null;
+  pool.forEach(function (it) {
+    const n = it.name.toLowerCase();
+    if (n === q && !exact) exact = it;
+    else if (n.indexOf(q) === 0 && !starts) starts = it;
+    else if (n.indexOf(q) >= 0 && !contains) contains = it;
+  });
+  const hit = exact || starts || contains;
+  if (hit) return hit;
+  const deep = pool.filter(matchesQuery);
+  return deep.length ? deep[0] : null;
+}
+
+/* =========================================================
+   EVENTS
+   ========================================================= */
+document.addEventListener("click", function (e) {
+  if (window.__justDragged && Date.now() - window.__justDragged < 250) return;
+  const t = e.target;
+
+  const act = t.closest("[data-act]");
+  if (act) {
+    const a = act.getAttribute("data-act"), arg = act.getAttribute("data-arg");
+    if (a === "edit-this") { setEdit(true); return; }
+    if (a === "done")      { closeDrawer(); return; }
+    if (a === "delete-item") { deleteItem(arg); return; }
+    return;
+  }
+
+  const tab = t.closest("[data-tab]");
+  if (tab) { setTab(tab.getAttribute("data-tab")); return; }
+
+  const item = t.closest("[data-item]");
+  if (item) { openItem(item.getAttribute("data-item")); return; }
+
+  const ceo = t.closest("[data-ceopen]");
+  if (ceo) { openCE(ceo.getAttribute("data-ceopen")); return; }
+});
+
+$("#dBody").addEventListener("input", onFormEdit);
+$("#dBody").addEventListener("change", onFormEdit);
+
+$("#scrim").addEventListener("click", closeDrawer);
+$("#dClose").addEventListener("click", closeDrawer);
+document.addEventListener("keydown", function (e) {
+  if (e.key === "Escape") closeDrawer();
+  if (e.key === "/" && document.activeElement !== $("#q") &&
+      !/^(INPUT|TEXTAREA|SELECT)$/.test((document.activeElement || {}).tagName || "")) {
+    e.preventDefault(); $("#q").focus();
+  }
+});
+
+/* hover highlight: dim everything not touching the hovered domain */
+$("#app").addEventListener("mouseover", function (e) {
+  if (drag) return;
+  const z = e.target.closest("[data-ces]");
+  if (!z) return;
+  const ces = (z.getAttribute("data-ces") || "").trim().split(/\s+/).filter(Boolean);
+  if (!ces.length) return;
+  if (ces.length === 1) {
+    $$(".node.hl").forEach(function (n) { n.classList.remove("hl"); });
+    $("#app").setAttribute("data-hl", ces[0]);
+  } else {
+    $$(".node").forEach(function (n) {
+      const nc = (n.getAttribute("data-ces") || "").split(/\s+/);
+      n.classList.toggle("hl", ces.some(function (c) { return nc.indexOf(c) >= 0; }));
+    });
+    $("#app").setAttribute("data-hl", "multi");
+  }
+});
+$("#app").addEventListener("mouseout", function (e) {
+  if (e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest("[data-ces]")) return;
+  $("#app").removeAttribute("data-hl");
+  $$(".node.hl").forEach(function (n) { n.classList.remove("hl"); });
+});
+
+/* drag */
+const stage = $("#vennStage");
+stage.addEventListener("pointerdown", onPointerDown);
+stage.addEventListener("pointermove", onPointerMove);
+stage.addEventListener("pointerup", onPointerUp);
+stage.addEventListener("pointercancel", onPointerUp);
+
+/* toolbar */
+let qTimer = null;
+$("#q").addEventListener("input", function (e) {
+  state.q = e.target.value.trim();
+  clearTimeout(qTimer);
+  qTimer = setTimeout(renderAll, 110);
+});
+$("#q").addEventListener("keydown", function (e) {
+  if (e.key !== "Enter") return;
+  const hit = bestMatch();
+  if (!hit) return;
+  openItem(hit.id);
+});
+$("#qclear").addEventListener("click", function () { state.q = ""; $("#q").value = ""; renderAll(); });
+
+$("#btnEdit").addEventListener("click", function () { setEdit(!state.edit); });
+$("#btnAdd").addEventListener("click", addItem);
+$("#btnSave").addEventListener("click", exportHTML);
+$("#btnClear").addEventListener("click", clearAllTopics);
+$("#btnArrange").addEventListener("click", function () {
+  if (!confirm("Re-arrange every label automatically? This throws away positions you dragged by hand.")) return;
+  autoArrange(); markDirty(); renderVennLabels();
+  toast("Labels re-arranged.");
+});
+$("#verPill").addEventListener("click", function () { if (state.edit) openMeta(); });
+$("#btnExportJSON").addEventListener("click", exportJSON);
+$("#btnReset").addEventListener("click", resetToFileDefaults);
+$("#importFile").addEventListener("change", function (e) {
+  if (e.target.files && e.target.files[0]) importJSON(e.target.files[0]);
+  e.target.value = "";
+});
+window.addEventListener("beforeunload", function (e) {
+  if (!dirty) return;
+  e.preventDefault(); e.returnValue = "";
+});
+
+/* =========================================================
+   BOOT
+   ========================================================= */
+(function init() {
+  loadDB();
+  try {
+    const saved = localStorage.getItem("sg-tab");
+    if (saved && TABS.some(function (t) { return t.id === saved; })) state.tab = saved;
+  } catch (e) {}
+
+  renderTabs();
+  renderTemplates();
+  renderEverything();
+
+  /* ---- data sanity check (open the console with F12 to see it) ---- */
+  const ceIds = CE_IDS.concat(["shared"]);
+  DB.items.forEach(function (s) {
+    if (!s.id || !s.name) console.warn("[data] topic missing id or name:", s);
+    if (s.primaryCE && ceIds.indexOf(s.primaryCE) < 0) console.warn("[data] " + s.id + ": unknown primaryCE '" + s.primaryCE + "'");
+    (s.supportingCEs || []).forEach(function (c) {
+      if (ceIds.indexOf(c) < 0) console.warn("[data] " + s.id + ": unknown supporting CE '" + c + "'");
+    });
+  });
+})();
+</script>
+</body>
+</html>
