@@ -28,6 +28,8 @@ import { renderExport } from './views/exportPage.js';
 import { renderArchive } from './views/archive.js';
 import { errorBox } from './ui.js';
 import { confirmLeave } from './leaveGuard.js';
+import { APP, appOf, homePath } from './appMode.js';
+import { appUrl } from '../../shared/onesolar.js';
 
 // Either workflow permission lets you view both queues (actions are still limited by role).
 const LEADS = ['request.review', 'request.order'];
@@ -79,14 +81,20 @@ let renderToken = 0;
 export function startRouter(ctx, { onRender } = {}) {
   const render = async () => {
     const token = ++renderToken;
-    // No address (the site was just opened): Home is the default page.
-    const path = location.hash.replace(/^#/, '') || '/home';
+    // No address (the app was just opened): the app's own first page (Orders' Home, the Sponsors board…).
+    const path = location.hash.replace(/^#/, '') || homePath();
+    // A page of another OneSolar app (e.g. an old orders/#/sponsors/… link): open it there.
+    const owner = appOf(path);
+    if (owner && owner !== APP) {
+      location.replace(`${appUrl(`${owner}/`)}${location.search}#${path}`);
+      return;
+    }
     let route = ROUTES.find((r) => r.pattern.test(path));
 
     if (auth.signedIn && auth.recovering) route = { view: renderResetPassword };
     else if (!auth.signedIn) route = { view: renderLogin, bare: true };
     else if (!route) {
-      location.hash = '#/home';
+      location.hash = `#${homePath()}`;
       return;
     } else if (route.redirect) {
       location.hash = route.redirect();

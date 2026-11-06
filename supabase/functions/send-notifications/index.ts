@@ -68,6 +68,9 @@ export function placeholders(payload: Record<string, unknown>, siteUrl: string):
   // Solar Evals moved from /Custom-Apps/solarevals to evals/ when the apps were combined (2026-11).
   if (root) appPath = appPath.replace(/^\/Custom-Apps\/solarevals\/?/, 'evals/');
   const appLink = !appPath ? '' : appPath.startsWith('/') ? (origin ? origin + appPath : '') : root ? root + appPath : '';
+  // Sponsors, Finances and Admin are their own apps next to Orders (…/one.solar/sponsors/#/sponsors/…).
+  const own = s('path').match(/^\/(sponsors|finances|admin)(\/|$)/)?.[1];
+  const pathLink = root && own ? `${root}${own}/#${s('path')}` : '';
   return {
     request_number: s('request_number'),
     title: s('title'),
@@ -96,7 +99,7 @@ export function placeholders(payload: Record<string, unknown>, siteUrl: string):
     details: s('details'),
     member: s('member'),
     semester: s('semester'),
-    link: appLink ? appLink : base && s('path') ? `${base}#${s('path')}` : base && s('request_number') ? `${base}#/requests/${encodeURIComponent(s('request_number'))}` : base,
+    link: appLink ? appLink : pathLink ? pathLink : base && s('path') ? `${base}#${s('path')}` : base && s('request_number') ? `${base}#/requests/${encodeURIComponent(s('request_number'))}` : base,
   };
 }
 

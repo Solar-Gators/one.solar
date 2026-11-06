@@ -116,7 +116,7 @@ Changed your mind? Open a submitted request and click **Withdraw request** to tu
 - **Edit costs:** if a price or shipping cost turns out different from what was requested, open the request and click **Edit costs**. This works on Approved, Ordered, and Received requests. Change any item's unit price or the order's shipping, and add a reason. The new total is previewed before saving. Every change is logged in the request's History (who, when, old → new, and why), and the item list is tagged **Costs adjusted**.
 
 ### Finances (Treasurer)
-The **Finances** tab follows the Treasurer's own spreadsheet, so it can replace it. At the top: the season's budget, spent, in the pipeline, left, funds received and the rainy-day fund. Then five tabs:
+**Finances** (its own app, `/one.solar/finances/`, from the OneSolar home screen) follows the Treasurer's own spreadsheet, so it can replace it. At the top: the season's budget, spent, in the pipeline, left, funds received and the rainy-day fund. Then five tabs:
 - **Purchases:** the ledger. Every request shows up here once it's approved, plus anything bought outside the site (**+ Add a purchase**: a PayPal invoice, a quote over the phone).
   - Each line has its **purchasing step**, colored like the old sheet's legend: To submit → Request sent (to MAE / ECE purchasing) → Dept approved → Ordered → Received, or Cancelled. Purchases added on Finances can also be **Paid**: a payment with nothing to order (a debt, a reimbursement); it counts as spent (needs `022_paid_status.sql`). Click a step at the top to see only those lines.
   - **Edit steps…** (next to the steps) renames them to match your legend (e.g. "Approved", "MAE ordered"), changes their colors, reorders or hides them, or adds your own. A new step counts either as in the pipeline (before ordering; requests can be set to it) or as spent (for purchases added here). Removing one moves its purchases back to To submit (or Paid). (Needs `025_treasurer_tools.sql`.)
@@ -149,7 +149,7 @@ The **Finances** tab follows the Treasurer's own spreadsheet, so it can replace 
 - Who can see and edit it is set in Admin → Team → Roles & permissions (**See finances** / **Edit finances**). By default the Treasurer edits, Chief Engineers can look, and Members can't see it.
 
 ### Sponsors (Business Coordinator)
-The **Sponsors** tab tracks sponsorships and donations on a board, and keeps every season for future teams.
+**Sponsors** (its own app, `/one.solar/sponsors/`) tracks sponsorships and donations on a board, and keeps every season for future teams.
 - **Board:** one column per stage: Prospect → Contacted → In talks → Committed → Received → Thanked, plus Not this year. Drag cards between columns (on a phone, use the small menu on each card). Each column shows its count and total. **Board settings** renames, adds or reorders stages, and sets the list of types (Sponsorship, Donation, In-kind…).
 - **Cards:** sponsor name, type, amount, season, lead, follow-up date, tags (e.g. aerospace, local, alumni), contact name / email / phone, website, plus two write-ups:
   - **About this sponsor:** who they are, what they gave, what they asked for in return.
@@ -185,7 +185,7 @@ The **Sponsors** tab tracks sponsorships and donations on a board, and keeps eve
 
 ### Admin
 
-Admin has four tabs, each with a few pages (on a phone, one menu lists them all). Each page appears only for people whose roles allow it, and each has a **History** link (top right) listing earlier versions of its settings, with who changed what and when. **Restore** puts back any earlier version, and a restore can itself be undone; if something looks wrong after a change, that's the first place to go.
+**Admin** is its own app (`/one.solar/admin/`, the Admin card on the OneSolar home screen) and covers every app. It has four tabs, each with a few pages (on a phone, one menu lists them all). Each page appears only for people whose roles allow it, and each has a **History** link (top right) listing earlier versions of its settings, with who changed what and when. **Restore** puts back any earlier version, and a restore can itself be undone; if something looks wrong after a change, that's the first place to go.
 
 **Team**
 - **Users:** tick the roles each person has; someone can hold several.

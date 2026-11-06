@@ -5,6 +5,7 @@
  * The database enforces both (migration 010); the send-notifications Edge
  * Function delivers the messages (docs/MAINTAINING.md).
  */
+import { appUrl } from '../../../shared/onesolar.js';
 import { api } from '../api.js';
 import { auth } from '../auth.js';
 import { esc, errorBox, setFlash, takeFlash, fmtMoney, fmtDateTime } from '../ui.js';
@@ -274,7 +275,7 @@ export async function renderNotifications(el, { config, rerender, reloadConfig }
   const saved = config.notifications || {};
   const state = {
     enabled: !!saved.enabled,
-    siteUrl: saved.siteUrl || location.origin + location.pathname,
+    siteUrl: saved.siteUrl || appUrl('orders/'),
     approvalDelayMinutes: saved.approvalDelayMinutes ?? 30,
     events: structuredClone(saved.events || {}),
     templates: structuredClone(saved.templates || {}),

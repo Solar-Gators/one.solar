@@ -1,0 +1,60 @@
+<!doctype html>
+<!-- Sponsors: a OneSolar app built from the same code as Orders (../orders/js, see appMode.js). -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sponsors · OneSolar</title>
+  <link rel="icon" type="image/png" href="../shared/assets/favicon.png">
+  <link rel="apple-touch-icon" href="../shared/assets/apple-touch-icon.png">
+  <meta name="theme-color" content="#ffffff">
+  <!-- Light or dark before the page draws (shared by every OneSolar app); the account menu's Appearance changes it (js/main.js applyTheme). -->
+  <script src="../shared/theme.js"></script>
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="OneSolar">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <!-- Relative paths, so it works at /one.solar/orders/, on a custom domain and on localhost. -->
+  <link rel="stylesheet" href="../shared/onesolar.css">
+  <link rel="stylesheet" href="../orders/css/styles.css">
+</head>
+<body class="signed-out" data-app="sponsors">
+  <header class="topbar">
+    <div class="topbar-inner">
+      <!-- The logo goes to the OneSolar home screen (every Solar Gators app); Home in the menu is this app's dashboard. -->
+      <a class="brand" href="../" aria-label="OneSolar: all Solar Gators apps">
+        <img class="brand-logo" src="../shared/assets/solar-gators-logo.png" alt="Solar Gators" width="800" height="237">
+        <span class="brand-divider" aria-hidden="true"></span>
+        <span id="brand-name">One<span class="brand-accent">Solar</span></span>
+        <span class="brand-app">Sponsors</span>
+      </a>
+
+      <div class="account-menu signed-in-only">
+        <button type="button" class="account-link" id="account-btn" aria-expanded="false" aria-controls="account-pop" aria-haspopup="true"></button>
+        <div class="account-pop" id="account-pop" hidden>
+          <a href="#/account" data-nav="account">My account &amp; notifications</a>
+          <a href="#/help" data-nav="help" id="nav-help" hidden>Help</a>
+          <div class="theme-pick" role="group" aria-label="Appearance">
+            <span>Appearance</span>
+            <div class="theme-options">
+              <button type="button" data-theme-set="auto" title="Follow this device's setting">Auto</button>
+              <button type="button" data-theme-set="light">Light</button>
+              <button type="button" data-theme-set="dark">Dark</button>
+            </div>
+          </div>
+          <button type="button" id="menu-install" hidden>Install the app</button>
+          <button type="button" id="menu-sign-out">Sign out</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="banner" id="banner" hidden></div>
+  <div class="announcement" id="announcement" role="status" hidden></div>
+
+  <main id="app" class="container" tabindex="-1"></main>
+
+  <footer class="footer container" id="footer"></footer>
+
+  <script type="module" src="../orders/js/main.js"></script>
+</body>
+</html>

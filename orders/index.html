@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>OneSolar</title>
+  <title>Orders · OneSolar</title>
   <link rel="icon" type="image/png" href="../shared/assets/favicon.png">
   <link rel="apple-touch-icon" href="../shared/assets/apple-touch-icon.png">
   <!-- Installable as an app (PWA): manifest.webmanifest + sw.js. -->
@@ -18,7 +18,7 @@
   <link rel="stylesheet" href="../shared/onesolar.css">
   <link rel="stylesheet" href="css/styles.css">
 </head>
-<body class="signed-out">
+<body class="signed-out" data-app="orders">
   <header class="topbar">
     <div class="topbar-inner">
       <!-- The logo goes to the OneSolar home screen (every Solar Gators app); Home in the menu is this app's dashboard. -->
@@ -26,6 +26,7 @@
         <img class="brand-logo" src="../shared/assets/solar-gators-logo.png" alt="Solar Gators" width="800" height="237">
         <span class="brand-divider" aria-hidden="true"></span>
         <span id="brand-name">One<span class="brand-accent">Solar</span></span>
+        <span class="brand-app">Orders</span>
       </a>
 
       <!-- Phones and tablets: the links fold into this menu. -->
@@ -34,14 +35,12 @@
       </button>
 
       <!-- Each role only sees what it uses. Requests also holds the Archive and Excel download;
-           Queue holds approving (Chief Engineer) and ordering (Treasurer). -->
+           Queue holds approving (Chief Engineer) and ordering (Treasurer). Finances, Sponsors and Admin
+           are their own apps (../finances/ …), opened from the OneSolar home screen. -->
       <nav class="nav signed-in-only" id="main-nav" aria-label="Main">
         <a href="#/home" data-nav="home">Home</a>
         <a href="#/requests" data-nav="requests">Requests <span class="nav-count" id="count-requests" hidden title="Your requests sent back for changes"></span></a>
         <a href="#/queue" data-nav="queue" data-perm="request.review request.order" hidden>Queue <span class="nav-count" id="count-queue" hidden title="Waiting on you"></span></a>
-        <a href="#/finances" data-nav="finances" data-perm="finances.view finances.edit" hidden>Finances</a>
-        <a href="#/sponsors" data-nav="sponsors" data-perm="sponsors.view sponsors.edit" hidden>Sponsors</a>
-        <a href="#/admin" data-nav="admin" data-perm="users.manage settings.edit site.customize seasons.manage workflow.edit" hidden>Admin</a>
       </nav>
 
       <a class="btn btn-primary new-cta signed-in-only" href="#/new" data-nav="new" aria-label="New request"><span aria-hidden="true">+</span><span class="cta-label"> New Request</span></a>

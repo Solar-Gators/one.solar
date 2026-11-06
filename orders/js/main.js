@@ -3,6 +3,7 @@ import { isConfigured } from './supabase.js';
 import { api, setNotificationsOn } from './api.js';
 import { auth } from './auth.js';
 import { startRouter } from './router.js';
+import { APP, APPS, homePath } from './appMode.js';
 import { hasHelp } from './views/help.js';
 import { setLedgerSettings } from './ledger.js';
 import { STATUS, STATUSES, EDITABLE_STATUSES, esc, errorBox, setCurrentSeason, setAppearance, renderRichText, fitTables } from './ui.js';
@@ -40,7 +41,7 @@ async function reloadConfig() {
     ledger: settings.ledger || {}, // Finances: purchasing steps, category notes (migration 025)
   });
   setLedgerSettings(config.ledger);
-  document.title = 'OneSolar';
+  document.title = `${APPS[APP].name} · OneSolar`;
   setCurrentSeason(config.season);
   setNotificationsOn(config.notifications.enabled);
   setAppearance(config.appearance, { defaultPriority: config.defaultPriority });
@@ -101,7 +102,7 @@ function updateChrome() {
 }
 
 async function refreshNavCounts() {
-  if (!auth.signedIn) return;
+  if (!auth.signedIn || APP !== 'orders') return; // the counts are on Orders' menu
   let total = 0;
   const set = (id, n) => {
     const badge = document.getElementById(id);
@@ -135,7 +136,7 @@ async function refreshNavCounts() {
  */
 function setMenu(open) {
   document.body.classList.toggle('nav-open', open);
-  document.getElementById('menu-btn').setAttribute('aria-expanded', String(open));
+  document.getElementById('menu-btn')?.setAttribute('aria-expanded', String(open));
 }
 function setAccountMenu(open) {
   document.getElementById('account-pop').hidden = !open;
@@ -143,7 +144,8 @@ function setAccountMenu(open) {
 }
 const closeMenus = () => (setMenu(false), setAccountMenu(false));
 function bindMenu() {
-  document.getElementById('menu-btn').addEventListener('click', () => setMenu(!document.body.classList.contains('nav-open')));
+  // Finances, Sponsors and Admin have no page links in the top bar, so no Menu button.
+  document.getElementById('menu-btn')?.addEventListener('click', () => setMenu(!document.body.classList.contains('nav-open')));
   document.getElementById('account-btn').addEventListener('click', () => setAccountMenu(document.getElementById('account-pop').hidden));
   document.getElementById('menu-sign-out').addEventListener('click', () => (closeMenus(), auth.signOut()));
   bindInstall();
@@ -200,7 +202,8 @@ function bindTheme() {
  * have no prompt: the button explains Share → Add to Home Screen instead.
  */
 function bindInstall() {
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+  // Only Orders is installable as an app (orders/manifest.webmanifest, orders/sw.js).
+  if (APP === 'orders' && 'serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
   const btn = document.getElementById('menu-install');
   const installed = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
   const ios = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -257,7 +260,7 @@ async function main() {
       if (event === 'SIGNED_IN' && goNext()) return;
       await reloadConfig().catch(() => {});
       updateChrome();
-      if (event === 'SIGNED_OUT') location.hash = '#/home';
+      if (event === 'SIGNED_OUT') location.hash = `#${homePath()}`;
       render();
     });
     await reloadConfig();

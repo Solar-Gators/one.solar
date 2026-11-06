@@ -99,10 +99,11 @@ shared/                  What every app shares:
   account-menu.js        the account menu at the top right
   config.js              Supabase URL + anon key            ← set during setup
   assets/                Solar Gators logo (light + dark), favicon
-orders/                  Orders, Sponsors, Finances (the Orders app)
+orders/                  Orders; its js/ and css/ also run Finances, Sponsors and Admin
   index.html             Page shell + navigation
   css/styles.css         Orders' own styling (on top of shared/onesolar.css)
   js/
+    appMode.js           which app this page is (Orders / Finances / Sponsors / Admin) and which pages belong to each
     site-config.js       re-exports shared/config.js
     supabase.js          Supabase client
     auth.js              Current user, role, permissions; sign in/up/out
@@ -116,6 +117,7 @@ orders/                  Orders, Sponsors, Finances (the Orders app)
     workflow.js          Approval rules + budgets (who approves, what's left)
     views/               One file per page (login, account, admin, requests, …)
   manifest.webmanifest, sw.js, assets/   Installing it as an app
+finances/, sponsors/, admin/   index.html only: the same code as Orders, as its own app
 evals/index.html         Solar Evals (one page; evals/dev/ is a local fake, not committed)
 gatorwire/index.html     GatorWire (a built file: upload new builds here)
 scope-map/index.html     CE Scope Map

@@ -1,4 +1,5 @@
 /** "My account": name, role, notifications, change password, sign out. Also the password-reset landing page. */
+import { homePath } from '../appMode.js';
 import { api } from '../api.js';
 import { auth } from '../auth.js';
 import { esc, errorBox, setFlash, takeFlash } from '../ui.js';
@@ -188,6 +189,6 @@ export async function renderResetPassword(el) {
     </div>`;
   bindPasswordForm(el, () => {
     setFlash('Password updated. You are signed in.');
-    location.hash = '#/home';
+    location.hash = `#${homePath()}`;
   });
 }

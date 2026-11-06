@@ -104,6 +104,8 @@ test('with the OneSolar address (…/one.solar/orders/), Solar Evals links go to
   assert.equal(ev('evals/#/evals'), 'https://solar-gators.github.io/one.solar/evals/#/evals');
   const r = render({ event: 'submitted', payload: { request_number: 'SG-001', recipient_name: 'Kit' } }, site);
   assert.equal(r.link, 'https://solar-gators.github.io/one.solar/orders/#/requests/SG-001');
+  const sp = render({ event: 'sponsor_update', payload: { sponsor: 'Acme', path: '/sponsors/abc', recipient_name: 'Kit' } }, site);
+  assert.equal(sp.link, 'https://solar-gators.github.io/one.solar/sponsors/#/sponsors/abc');
 });
 
 test('the team logo sits under the email and the Teams card (when the website address is set)', () => {

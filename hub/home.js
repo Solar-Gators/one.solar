@@ -105,14 +105,14 @@ function draw() {
     .map((a) => {
       const links = (a.links || []).filter((l) => allowed(l.access || a.access));
       return `<article class="app-card app-${esc(a.id)}">
-        <a class="app-main" href="${esc(url(a.href))}">
+        <a class="app-main" href="${esc(url(a.href))}"${/^https?:/.test(a.href) ? ' target="_blank" rel="noopener"' : ''}>
           <span class="app-icon" aria-hidden="true">${esc(a.icon)}</span>
           <span class="app-text">
             <span class="app-name">${esc(a.name)}</span>
             <span class="app-blurb">${esc(a.blurb)}</span>
             ${a.note ? `<span class="app-note">${esc(a.note)}</span>` : ''}
           </span>
-          <span class="app-go" aria-hidden="true">→</span>
+          <span class="app-go" aria-hidden="true">${/^https?:/.test(a.href) ? '↗' : '→'}</span>
         </a>
         ${links.length ? `<nav class="app-links" aria-label="${esc(a.name)} shortcuts">${links.map((l) => `<a href="${esc(url(l.href))}">${esc(l.label)}</a>`).join('')}</nav>` : ''}
       </article>`;

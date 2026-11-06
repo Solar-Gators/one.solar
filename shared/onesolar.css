@@ -400,3 +400,5 @@ dialog::backdrop { background: #0b254566; }
 [data-theme="dark"] .alert-warning { background: #2a2108; border-color: #6b5212; color: #ffd98a; }
 [data-theme="dark"] .alert.flash { box-shadow: var(--d-shadow); }
 [data-theme="dark"] dialog::backdrop { background: #000000a0; }
+/* Apps without page links in the top bar (Finances, Sponsors, Admin): the account menu still goes right. */
+.brand + .account-menu { margin-left: auto; }

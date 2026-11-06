@@ -9,7 +9,7 @@
  */
 const PERMS = {
   member: [],
-  admin: ['site.customize', 'settings.edit', 'request.review', 'request.order', 'finances.view', 'sponsors.view'],
+  admin: ['users.manage', 'workflow.edit', 'site.customize', 'settings.edit', 'request.review', 'request.order', 'finances.view', 'sponsors.view'],
   ce: ['request.review', 'sponsors.view', 'evals.write', 'evals.view'],
   treasurer: ['request.order', 'finances.view', 'finances.edit', 'sponsors.view'],
   coordinator: ['sponsors.view', 'sponsors.edit', 'finances.view'],

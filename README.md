@@ -5,12 +5,22 @@ Every Solar Gators team app, in one place and one repo: **https://solar-gators.g
 | App | Address | Folder | Guide |
 | --- | --- | --- | --- |
 | Home screen | `/one.solar/` | `index.html`, [`hub/`](hub) | below |
-| Orders, Sponsors, Finances | `/one.solar/orders/` | [`orders/`](orders) | [docs/orders.md](docs/orders.md) |
+| Orders | `/one.solar/orders/` | [`orders/`](orders) | [docs/orders.md](docs/orders.md) |
+| Finances | `/one.solar/finances/` | [`finances/`](finances) | [docs/orders.md](docs/orders.md#finances-treasurer) |
+| Sponsors | `/one.solar/sponsors/` | [`sponsors/`](sponsors) | [docs/orders.md](docs/orders.md#sponsors-business-coordinator) |
+| Admin (people, permissions, settings) | `/one.solar/admin/` | [`admin/`](admin) | [docs/orders.md](docs/orders.md#admin) |
 | Solar Evals | `/one.solar/evals/` | [`evals/`](evals) | [docs/solar-evals.md](docs/solar-evals.md) |
 | GatorWire | `/one.solar/gatorwire/` | [`gatorwire/`](gatorwire) | [docs/gatorwire.md](docs/gatorwire.md) |
 | CE Scope Map | `/one.solar/scope-map/` | [`scope-map/`](scope-map) | an editable four-way Venn diagram of Chief Engineer responsibilities |
+| Solar Gators website | https://ufsolargators.org/ | (its own repo, Advertisement-Website) | a card on the home screen |
 
-Orders, Sponsors, Finances and Solar Evals share one Supabase database ([`supabase/`](supabase)). For setting it up,
+Orders, Finances, Sponsors and Admin are separate apps (each its own address, top bar and menu) built from the same
+code in `orders/js/`: each app's `index.html` says which it is (`<body data-app="finances">`), and
+[`orders/js/appMode.js`](orders/js/appMode.js) decides which pages belong where. A link to another app's page
+(e.g. an old `orders/#/sponsors/…` email link) opens it in that app. Admin covers every app: people, positions and
+permissions, the request form, approval rules, notifications and the season.
+
+Orders, Finances, Sponsors, Admin and Solar Evals share one Supabase database ([`supabase/`](supabase)). For setting it up,
 running it locally, database updates and how the code fits together, see **[docs/MAINTAINING.md](docs/MAINTAINING.md)**.
 
 The old addresses (`/Orders-Form/…`, `/Custom-Apps/…`) still work: those repos now only send people here.
