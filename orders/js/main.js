@@ -51,7 +51,7 @@ async function reloadConfig() {
 /** Logo and accent color from Admin → Display → Colors & logo (also shown on the sign-in page). */
 function applyBranding() {
   const a = config.appearance || {};
-  document.querySelector('.brand-logo').src = a.logo || (isDark() ? 'assets/solar-gators-logo-dark.png' : 'assets/solar-gators-logo.png');
+  document.querySelector('.brand-logo').src = a.logo || (isDark() ? '../shared/assets/solar-gators-logo-dark.png' : '../shared/assets/solar-gators-logo.png');
   const root = document.documentElement.style;
   if (/^#[0-9a-f]{6}$/i.test(a.accent || '')) {
     const [r, g, b] = [1, 3, 5].map((i) => parseInt(a.accent.slice(i, i + 2), 16));

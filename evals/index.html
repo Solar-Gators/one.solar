@@ -1,0 +1,1761 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Solar Evals</title>
+<meta name="description" content="Solar Gators semester member reviews: CE rubrics and evaluations, signed in with OneSolar accounts.">
+<link rel="icon" href="../shared/assets/favicon.png">
+<link rel="apple-touch-icon" href="../shared/assets/apple-touch-icon.png">
+<script src="../shared/theme.js"></script>
+<link rel="stylesheet" href="../shared/onesolar.css">
+<!-- Lato is only for the rubric pages, so they match the paper form. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lato:ital,wght@0,400;0,700;0,900;1,400&display=swap" rel="stylesheet">
+<style>
+/* =========================================================
+   APP CHROME: the shared OneSolar look (../shared/onesolar.css),
+   under the names this page already used. The rubric pages
+   themselves always stay white paper.
+   ========================================================= */
+:root{
+  --panel:var(--surface); --panel-2:var(--surface-2); --ink:var(--text); --line:var(--border);
+  --accent:var(--orange); --accent-hover:var(--orange-dark); --accent-ink:#ffffff; --sel:var(--nav-active);
+  --flag:var(--amber); --ok:var(--green); --bad:var(--red);
+  --ink-2:#34414e; --flag-bg:#fdf3e4; --ins:#dff3e6; --ins-ink:#11603a; --del:#fbe3e1; --del-ink:#9b2c24;
+  --paper-font:"Lato",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+  --topbar-h:65px;
+}
+:root[data-theme="dark"]{
+  --ink-2:#d3deef; --flag-bg:#2a2410; --ins:#123a28; --ins-ink:#8fe0b3; --del:#3f1d1b; --del-ink:#ff9b93;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0}
+body{-webkit-font-smoothing:antialiased}
+input[type=checkbox],input[type=radio]{width:auto}
+.badge::before{content:none}
+button,input,select,textarea{font:inherit;color:inherit}
+h1,h2,h3,h4{margin:0}
+
+/* The shared top bar stays at the top here, above the sticky division list. */
+.topbar{position:sticky;top:0;z-index:20}
+#tabs.nav{flex:0 1 auto}
+.status{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--panel-2);
+  border-radius:999px;padding:6px 13px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap}
+.status .dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+.status[data-s="ok"] .dot{background:var(--ok)}
+.status[data-s="saving"] .dot{background:var(--orange)}
+.status[data-s="error"] .dot,.status[data-s="missing"] .dot{background:var(--bad)}
+.status[data-s="readonly"] .dot,.status[data-s="local"] .dot{background:var(--flag)}
+
+.layout{display:grid;grid-template-columns:270px minmax(0,1fr);min-height:calc(100vh - var(--topbar-h))}
+aside.side{border-right:1px solid var(--line);background:var(--panel);padding:16px 12px 24px;position:sticky;top:var(--topbar-h);
+  height:calc(100vh - var(--topbar-h));overflow:auto}
+.sb-h{font-size:11px;font-weight:900;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin:14px 8px 7px}
+.sb-h:first-child{margin-top:0}
+.trk{display:flex;gap:10px;align-items:flex-start;width:100%;text-align:left;border:1px solid transparent;background:none;
+  border-radius:10px;padding:9px 10px;cursor:pointer;color:var(--ink)}
+.trk:hover{background:var(--panel-2)}
+.trk.on{background:var(--sel);border-color:transparent}
+.trk.on .nm{color:var(--navy)}
+.trk .sw{width:4px;align-self:stretch;border-radius:2px;background:var(--c,#888);flex:none}
+.trk .nm{font-weight:700;font-size:14px;line-height:1.25}
+.trk .mt{font-size:12.3px;color:var(--muted);margin-top:2px}
+.badge{display:inline-block;font-size:10.5px;font-weight:900;letter-spacing:.05em;text-transform:uppercase;border-radius:5px;
+  padding:1px 6px;background:var(--flag-bg);color:var(--flag);margin-left:4px;vertical-align:1px}
+.sb-foot{margin-top:18px;padding:12px 8px 0;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:7px}
+.linkbtn{background:none;border:0;padding:4px 0;color:var(--muted);font-size:13px;cursor:pointer;text-align:left}
+.linkbtn:hover{color:var(--ink);text-decoration:underline}
+
+main{padding:20px 24px 60px;min-width:0}
+.tb{display:flex;flex-wrap:wrap;gap:14px 18px;align-items:flex-end;justify-content:space-between;margin-bottom:14px}
+.tb-t{min-width:0;border-left:4px solid var(--c,#888);padding-left:12px}
+.tb-t h2{font-size:22px;font-weight:900;line-height:1.15;color:var(--navy)}
+.tb-t .meta{font-size:13px;color:var(--muted);margin-top:4px;max-width:80ch}
+.tb-t .meta b{color:var(--ink-2)}
+.tb-a{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+/* Buttons are the shared .btn; "primary", "danger" and "sm" are this page's names for .btn-primary, .btn-danger, .btn-sm. */
+.btn.primary{background:var(--orange);border-color:var(--orange);color:#fff}
+.btn.primary:hover{background:var(--orange-dark);border-color:var(--orange-dark)}
+.btn.danger{color:var(--red)}
+select.sel{border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:8px 10px;font-size:13.5px;font-weight:700;max-width:100%}
+
+.banner{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between;border:1px solid var(--line);
+  border-left:4px solid var(--orange);background:var(--panel);border-radius:10px;padding:11px 14px;margin-bottom:14px;font-size:14px}
+.banner.note{border-left-color:var(--flag);background:var(--flag-bg)}
+.banner .bt{color:var(--ink-2)}
+.banner .bt b{color:var(--ink)}
+
+.empty{background:var(--panel);border:1px dashed var(--line);border-radius:14px;padding:34px 26px;text-align:center;max-width:640px;margin:30px auto}
+.empty h3{font-size:18px;margin-bottom:6px}
+.empty p{color:var(--muted);margin:0 0 18px}
+.empty .row{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+
+/* ---------- compare ---------- */
+.cmp{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 20px;box-shadow:var(--shadow);max-width:1056px}
+.cmp-bar{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;margin-bottom:14px}
+.cmp-bar label{font-size:12px;font-weight:900;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.cmp h3{font-size:13px;font-weight:900;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin:18px 0 8px}
+.cmp ul{list-style:none;margin:0;padding:0}
+.cmp li{border-top:1px solid var(--line);padding:9px 0;font-size:14px}
+.cmp li .k{font-weight:700;color:var(--ink)}
+.cmp li .v{color:var(--ink-2);margin-top:3px}
+.cmp .none{color:var(--muted);font-size:14px;padding:6px 0}
+.tag{display:inline-block;font-size:10.5px;font-weight:900;letter-spacing:.05em;text-transform:uppercase;border-radius:5px;padding:1px 6px;margin-right:6px;vertical-align:1px}
+.tag.add{background:var(--ins);color:var(--ins-ink)} .tag.rem{background:var(--del);color:var(--del-ink)} .tag.chg{background:var(--flag-bg);color:var(--flag)}
+ins{background:var(--ins);color:var(--ins-ink);text-decoration:none;border-radius:3px;padding:0 1px}
+del{background:var(--del);color:var(--del-ink);border-radius:3px;padding:0 1px}
+
+/* ---------- dialogs ---------- */
+dialog{border:1px solid var(--line);border-radius:14px;background:var(--panel);color:var(--ink);padding:0;width:min(560px,calc(100vw - 32px));box-shadow:0 20px 60px -10px rgba(0,0,0,.4)}
+dialog::backdrop{background:rgba(10,20,30,.45)}
+.dlg{padding:20px 22px}
+.dlg h3{font-size:18px;font-weight:900;margin-bottom:4px}
+.dlg .lead{color:var(--muted);font-size:13.5px;margin:0 0 14px}
+.fl{display:block;font-size:11.5px;font-weight:900;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin:12px 0 5px}
+.fi{width:100%;border:1px solid var(--line);background:var(--panel-2);border-radius:8px;padding:9px 11px;font-size:14px;outline:none}
+.fi:focus{border-color:var(--accent)}
+.fh{font-size:12.3px;color:var(--muted);margin-top:4px}
+.dlg-a{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:18px}
+.hist{list-style:none;margin:0;padding:0;max-height:60vh;overflow:auto}
+.hist li{border-top:1px solid var(--line);padding:11px 2px;display:flex;gap:12px;justify-content:space-between;align-items:flex-start}
+.hist .hl{font-weight:900}
+.hist .hm{font-size:12.8px;color:var(--muted);margin-top:2px}
+.hist .hn{font-size:13.4px;color:var(--ink-2);margin-top:4px}
+.hist .ha{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;flex:none}
+.hist .btn{padding:5px 10px;font-size:12.5px}
+ol.steps{margin:6px 0 0;padding-left:20px;font-size:13.4px;color:var(--ink-2)}
+ol.steps li{margin-bottom:4px}
+code{font-family:ui-monospace,Consolas,monospace;font-size:12.5px;background:var(--panel-2);border:1px solid var(--line);border-radius:4px;padding:0 4px}
+
+#toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(20px);opacity:0;pointer-events:none;
+  background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-size:14px;font-weight:700;transition:.2s;z-index:50;max-width:calc(100vw - 32px)}
+#toast.on{opacity:1;transform:translateX(-50%)}
+
+/* =========================================================
+   THE PAPER (matches the master PDF; always light)
+   1 u = one point of an 11in-wide sheet drawn 1056 units wide.
+   In print the sheet is 11in, so 1u is exactly 1px.
+   ========================================================= */
+.sheets{overflow-x:auto;padding-bottom:6px}
+.sheetwrap{container-type:inline-size;width:100%;max-width:1056px;min-width:760px}
+.ptools{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;margin:0 0 7px;font-size:12.5px;color:var(--muted)}
+.ptools .warn{color:var(--bad);font-weight:700}
+.ptools .btn{padding:4px 10px;font-size:12.3px}
+.page{--u:calc(100cqw / 1056);--navy:#0b2545;--pmut:#5d6d7e;--pline:#cfd8df;--cat:#e8eef8;--zeb:#f6f8fb;--orng:#f26b1d;
+  position:relative;background:#fff;color:#1d2a36;font-family:var(--paper-font);min-height:calc(816 * var(--u));
+  display:flex;flex-direction:column;padding:calc(20 * var(--u)) calc(37 * var(--u)) calc(44 * var(--u));
+  box-shadow:var(--shadow);border-radius:3px;margin-bottom:26px;border-top:calc(8 * var(--u)) solid var(--orng);
+  font-size:calc(10.4 * var(--u));line-height:1.28}
+.page .ph{display:flex;justify-content:space-between;align-items:flex-start;gap:calc(20*var(--u))}
+.page .ph-l{display:flex;gap:calc(17*var(--u));align-items:stretch}
+.page .ph-l .bar{width:calc(5*var(--u));background:var(--navy);flex:none}
+.page h1{font-size:calc(24.7*var(--u));font-weight:900;color:var(--navy);text-transform:uppercase;line-height:1.05;letter-spacing:.005em}
+.page .psub{font-size:calc(11.7*var(--u));color:var(--pmut);margin-top:calc(5*var(--u))}
+.page .ph-r{text-align:right}
+.page .pcode{font-size:calc(10.7*var(--u));font-weight:900;color:var(--navy);text-transform:uppercase;letter-spacing:.02em}
+.page .pver{font-size:calc(9.3*var(--u));color:var(--pmut);text-transform:uppercase;margin-top:calc(6*var(--u));letter-spacing:.02em}
+.page .fields{display:grid;grid-template-columns:repeat(3,1fr);gap:calc(4*var(--u)) calc(26*var(--u));margin-top:calc(16*var(--u))}
+.page .fld{display:flex;align-items:flex-end;gap:calc(9*var(--u));min-height:calc(26*var(--u))}
+.page .fld .fl2{font-size:calc(10.2*var(--u));font-weight:900;color:#3a4c5b;text-transform:uppercase;white-space:nowrap}
+.page .fld .ln{flex:1;border-bottom:1px solid var(--pline);min-width:calc(40*var(--u));height:calc(14*var(--u))}
+.page .instr{display:flex;justify-content:space-between;gap:calc(20*var(--u));margin:calc(16*var(--u)) 0 calc(12*var(--u));font-size:calc(10.8*var(--u))}
+.page .instr i{color:var(--pmut)}
+.page .instr b{color:var(--navy);white-space:nowrap}
+table.rub{width:100%;border-collapse:collapse;table-layout:fixed;border:1px solid var(--pline)}
+table.rub th{background:var(--navy);color:#fff;font-weight:900;padding:calc(6*var(--u)) calc(6*var(--u));text-align:center;vertical-align:middle}
+table.rub th.c0{text-align:left;padding-left:calc(14*var(--u));width:18%}
+table.rub th .n{display:block;font-size:calc(15.5*var(--u));line-height:1.1}
+table.rub th .l{display:block;font-size:calc(8.7*var(--u));text-transform:uppercase;letter-spacing:.02em;margin-top:calc(3*var(--u))}
+table.rub th .ch{display:block;font-size:calc(12*var(--u));text-transform:uppercase}
+table.rub th .cs{display:block;font-size:calc(9.5*var(--u));font-weight:400;margin-top:calc(3*var(--u))}
+table.rub td{border:1px solid var(--pline);vertical-align:top;padding:calc(8*var(--u)) calc(12*var(--u)) calc(6*var(--u));position:relative}
+table.rub tr:nth-child(even) td.lv{background:var(--zeb)}
+table.rub td.cat{background:var(--cat);padding-left:calc(13*var(--u))}
+table.rub td.lv{padding-top:calc(21*var(--u));font-size:calc(10.4*var(--u));color:#24323f}
+table.rub td.lv::after{content:"";position:absolute;top:calc(9*var(--u));right:calc(10*var(--u));width:calc(10*var(--u));height:calc(10*var(--u));
+  border:1px solid #6b7b88;border-radius:50%}
+.cat .ctag{font-size:calc(9.5*var(--u));font-weight:900;color:#13315c;text-transform:uppercase;display:block;margin-bottom:calc(2*var(--u))}
+.cat .cn{font-size:calc(11*var(--u));font-weight:900;color:var(--navy);display:block;line-height:1.2}
+.cat.caps .cn{text-transform:uppercase}
+.cat .cs{font-size:calc(9.4*var(--u));color:var(--pmut);display:block;margin-top:calc(3*var(--u))}
+.cat .wl{border-bottom:1px solid #8a99a6;margin:calc(9*var(--u)) calc(4*var(--u)) 0 0}
+.cat .no{display:flex;align-items:center;gap:calc(5*var(--u));font-size:calc(9*var(--u));color:#3a4c5b;margin-top:calc(10*var(--u))}
+.cat .no::before{content:"";width:calc(9*var(--u));height:calc(9*var(--u));border:1px solid #6b7b88}
+.page .boxes{display:grid;grid-template-columns:1fr 1fr;gap:calc(16*var(--u)) calc(32*var(--u));margin-top:calc(12*var(--u))}
+.page .box .bt2{font-size:calc(10.8*var(--u));font-weight:900;color:#13315c;text-transform:uppercase}
+.page .box .bl{border-bottom:1px solid var(--pline);height:calc(23*var(--u))}
+.page .notes{margin-top:auto;padding-top:calc(14*var(--u))}
+.page .notes .nt{font-size:calc(10.4*var(--u));font-weight:900;color:var(--navy);text-transform:uppercase;margin-bottom:calc(5*var(--u))}
+.page .notes .nl{font-size:calc(9.9*var(--u));color:#33424f;margin-bottom:calc(3*var(--u))}
+.page .notes.plain .nl{color:var(--pmut)}
+.page .pf{position:absolute;right:calc(37*var(--u));bottom:calc(20*var(--u));font-size:calc(9.6*var(--u));color:var(--pmut);text-transform:uppercase;letter-spacing:.02em}
+
+/* editing inside the paper */
+.editing .page [data-path]{outline:1px dashed transparent;border-radius:2px;cursor:text;min-width:1em;display:inline-block}
+.editing .page .cn[data-path],.editing .page .cs[data-path],.editing .page .ctag[data-path],.editing .page .nl[data-path],
+.editing .page td.lv>[data-path]{display:block}
+.editing .page [data-path]:hover{outline-color:#9fb3c4;background:rgba(239,135,45,.06)}
+.editing .page [data-path]:focus{outline:2px solid var(--orng);background:#fff8f0;color:#15212c}
+.editing .page th [data-path]:focus{background:#13315c;color:#fff}
+.editing .page [data-path]:empty::before{content:attr(data-ph);color:#9aa8b4;font-style:italic;font-weight:400}
+.page .ed,.measure .page .ed{display:none}
+.editing .page .ed{display:inline-flex}
+.measure .page [data-path]:empty{display:none}
+.etools{gap:3px;flex-wrap:wrap;margin-top:calc(8*var(--u))}
+.eb{border:1px solid #b9c6d1;background:#fff;color:#2b3e50;border-radius:4px;font-size:11px;line-height:1;padding:3px 6px;cursor:pointer;font-family:var(--paper-font);font-weight:700}
+.eb:hover{border-color:var(--orng);color:#a14e05}
+.eb.x:hover{border-color:#b4372f;color:#b4372f}
+.eb.on{background:#0b2545;color:#fff;border-color:#0b2545}
+.eadd{margin-top:8px;gap:6px}
+.eadd .eb{padding:5px 10px;font-size:12px}
+.fld .eb.x{padding:2px 5px;margin-left:2px}
+.box .bh{display:flex;gap:6px;align-items:center;justify-content:space-between}
+
+/* ---------- header tabs, account ---------- */
+.btn.sm{padding:5px 12px;font-size:13px}
+.layout.nosb{grid-template-columns:minmax(0,1fr)}
+.layout.nosb aside.side{display:none}
+.layout.nosb main{max-width:1180px;width:100%;margin:0 auto}
+
+
+/* ---------- sign in ---------- */
+.signin{max-width:440px;margin:40px auto;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:24px 26px;box-shadow:var(--shadow)}
+.signin h2{font-size:22px;font-weight:900;color:var(--navy);margin-bottom:6px}
+.signin .lead{color:var(--muted);font-size:14px;margin:0 0 6px}
+.signin .linkbtn{font-size:12.8px;text-decoration:underline}
+
+/* ---------- evaluations list ---------- */
+.filters{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;margin-bottom:12px}
+.filters .fi{max-width:320px;flex:1 1 220px;padding:8px 11px}
+.chk2{display:inline-flex;gap:7px;align-items:center;font-size:13.5px;color:var(--ink-2);cursor:pointer}
+.tablewrap{overflow-x:auto;background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow)}
+table.list{width:100%;border-collapse:collapse;font-size:14px;min-width:720px}
+table.list th{text-align:left;font-size:11.5px;font-weight:900;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+table.list td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:middle}
+table.list tbody tr:last-child td{border-bottom:0}
+table.list tbody tr[data-act]{cursor:pointer}
+table.list tbody tr[data-act]:hover td,table.list tbody tr[data-act]:focus-visible td{background:var(--panel-2)}
+table.list tbody tr:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+table.list .none{color:var(--muted);text-align:center;padding:22px}
+.st{display:inline-block;font-size:11.5px;font-weight:900;border-radius:999px;padding:2px 9px;white-space:nowrap}
+.st.draft{background:var(--flag-bg);color:var(--flag)}
+.st.final{background:var(--sel);color:var(--navy)}
+.st.shared{background:var(--ins);color:var(--ins-ink)}
+.st.self{background:var(--panel-2);color:var(--ink-2);border:1px solid var(--line)}
+
+/* ---------- the member's self-eval: a few written questions ---------- */
+.qa{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 22px 22px;box-shadow:var(--shadow);max-width:820px;margin-bottom:18px}
+.qa .hdr{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:2px 16px;padding-bottom:14px;border-bottom:1px solid var(--line)}
+.qa .hdr .fl{margin-top:8px}
+.qa .hdr .hv{font-size:14px;color:var(--ink-2);min-height:20px}
+.qa .q{margin-top:20px}
+.qa .qt{font-weight:900;color:var(--navy);font-size:15.5px;line-height:1.35}
+.qa .qn{color:var(--orange);margin-right:6px}
+.qa .qh{color:var(--muted);font-size:12.8px;margin-top:2px}
+.qa textarea.fi{margin-top:8px;min-height:96px;resize:vertical;line-height:1.5}
+.qa .ansv{white-space:pre-wrap;margin-top:6px;color:var(--ink-2);font-size:14.5px}
+.qa .ansv.none{color:var(--muted);font-style:italic}
+
+/* ---------- a CE's questions ---------- */
+.qe{max-width:900px}
+.qrow{display:grid;grid-template-columns:26px minmax(0,1fr) auto;gap:6px 10px;align-items:start;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 12px;margin-bottom:8px}
+.qrow .qi{font-weight:900;color:var(--orange);padding-top:9px;text-align:right}
+.qrow textarea.fi{resize:vertical;min-height:44px;line-height:1.4}
+.qrow .fi + .fi{margin-top:6px}
+.qrow .qb{display:flex;gap:4px;padding-top:4px}
+.qrow .qb .btn{padding:5px 9px;font-size:12.5px}
+.qsets{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;margin-top:8px}
+.qset{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.qset .qsh{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:6px}
+.qset .qsh b{color:var(--navy)}
+.qset ol{margin:0;padding-left:20px;font-size:13.6px;color:var(--ink-2)}
+.qset li{margin:5px 0}
+.qset li .link{background:none;border:0;padding:0 0 0 4px;color:var(--accent);font-weight:700;cursor:pointer;font-size:12.5px}
+.qset li .link:hover{text-decoration:underline}
+.qset .btn{padding:4px 10px;font-size:12.3px}
+h3.sec{font-size:12px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:26px 0 4px}
+
+/* ---------- self-evals waiting for a CE ---------- */
+.inbox{margin-bottom:18px}
+.inbox h3,.rv h3{font-size:12px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+.inbox table.list{min-width:640px}
+.inbox .btn{padding:5px 11px;font-size:12.8px}
+
+/* ---------- the member's version next to the CE's ---------- */
+.rv{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px;box-shadow:var(--shadow);max-width:1056px;margin-bottom:18px}
+.rv summary{cursor:pointer;font-weight:900;color:var(--navy);font-size:15px}
+.rv .rvsub{color:var(--muted);font-size:13px;margin:4px 0 12px}
+.rv table{width:100%;border-collapse:collapse;font-size:14px}
+.rv th{text-align:left;font-size:11.5px;font-weight:900;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);padding:7px 8px;border-bottom:1px solid var(--line)}
+.rv td{padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+.rv td.n{white-space:nowrap;font-weight:700}
+.rv td.n .lbl{display:block;font-weight:400;font-size:12px;color:var(--muted)}
+.rv tr.gap td{background:var(--flag-bg)}
+.rv tr.gap td:last-child{color:var(--flag);font-weight:900}
+.rv .ans{display:grid;grid-template-columns:1fr 1fr;gap:10px 18px;margin-top:14px}
+.rv .ans .k{font-size:11.5px;font-weight:900;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);grid-column:1 / -1;margin-top:6px}
+.rv .ans .who{font-size:12px;color:var(--muted);font-weight:700}
+.rv .ans .v{white-space:pre-wrap;font-size:14px;color:var(--ink-2)}
+.rv .ans .v.none{color:var(--muted);font-style:italic}
+@media (max-width:640px){
+  .rv{padding:14px 12px}
+  .rv .ans{grid-template-columns:1fr}
+  .rv table{font-size:13px}
+  .rv th,.rv td{padding:6px 4px}
+  .rv td.n .lbl{display:none}
+}
+.savest{color:var(--muted)} .savest.bad{color:var(--bad);font-weight:700}
+.banner .inl{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;font-weight:900;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.banner .inl .fi{width:240px;padding:6px 9px;text-transform:none;letter-spacing:0;font-weight:400}
+
+/* ---------- filling in the paper ---------- */
+.page input,.page select,.page textarea{border-radius:0;box-shadow:none}
+.page .fld .ln{position:relative}
+.page .fld .ln.val{height:auto;min-height:calc(14*var(--u));font-size:calc(10.6*var(--u));color:#14202c;padding:0 calc(2*var(--u)) calc(1*var(--u))}
+.page .fin{position:absolute;left:0;right:0;bottom:0;width:100%;border:0;background:transparent;font:inherit;font-size:calc(10.6*var(--u));
+  color:#14202c;padding:0 calc(2*var(--u)) calc(1*var(--u));height:calc(17*var(--u));outline:none;-webkit-appearance:none;appearance:none;color-scheme:light}
+.page .fin:focus{background:#fff4ec;box-shadow:0 1px 0 var(--orng)}
+.page select.fin{cursor:pointer}
+table.rub td.lv.pick{padding:0}
+.lvb{display:block;width:100%;height:100%;min-height:calc(60*var(--u));text-align:left;border:0;background:transparent;font:inherit;color:inherit;cursor:pointer;
+  padding:calc(21*var(--u)) calc(12*var(--u)) calc(6*var(--u))}
+td.lv.pick:hover{background:#fff4ec!important}
+.lvb:focus-visible{outline:2px solid var(--orng);outline-offset:-2px}
+table.rub td.lv.on{background:#fde8d9!important}
+table.rub td.lv.on::after{background:var(--navy);border-color:var(--navy);box-shadow:inset 0 0 0 calc(2*var(--u)) #fff}
+.cat .nob{border:0;background:none;padding:0;font:inherit;font-size:calc(9*var(--u));cursor:pointer;color:#3a4c5b}
+.cat .nob:hover{color:var(--navy);text-decoration:underline}
+.cat .no.on{color:var(--navy);font-weight:900}
+.cat .no.on::before{background:var(--navy);box-shadow:inset 0 0 0 calc(1.5*var(--u)) #fff}
+.page .bta{display:block;width:100%;border:0;resize:none;outline:none;font:inherit;font-size:calc(10.4*var(--u));color:#14202c;padding:0 calc(2*var(--u));
+  line-height:calc(23*var(--u));min-height:calc(var(--lines,2) * 23 * var(--u));white-space:pre-wrap;overflow:hidden;color-scheme:light;
+  background:repeating-linear-gradient(to bottom,transparent 0,transparent calc(23*var(--u) - 1px),var(--pline) calc(23*var(--u) - 1px),var(--pline) calc(23*var(--u)))}
+.page textarea.bta:focus{background-color:#fff8f2}
+.page .mc{margin-top:calc(6*var(--u));font-size:calc(9.8*var(--u));color:#33424f}
+.page .mc b{color:var(--navy)}
+.page .mc.hint{color:var(--pmut);font-style:italic}
+.page .mc .mcs{color:var(--pmut);font-weight:400}
+
+@media (max-width:860px){
+  /* Only two or three tabs: keep them showing under the logo instead of folding into a menu. */
+  #tabs.nav{display:flex;flex-direction:row;order:4;width:100%;padding:4px 0 0}
+  #tabs.nav a{padding:7px 12px;font-size:14px}
+  .banner .inl .fi{width:100%}
+  .layout{grid-template-columns:1fr}
+  aside.side{position:static;height:auto;border-right:0;border-bottom:1px solid var(--line);padding:12px 16px}
+  .sb-list{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px}
+  .sb-list .trk{min-width:190px;border-color:var(--line)}
+  .sb-h{margin:8px 2px 6px}
+  .sb-foot{flex-direction:row;flex-wrap:wrap;gap:4px 16px;margin-top:10px}
+  main{padding:16px 16px 50px}
+}
+
+/* =========================================================
+   PRINT: just the sheets, one per landscape page
+   ========================================================= */
+@page{size:letter landscape;margin:0}
+@media print{
+  html,body{background:#fff!important}
+  .topbar,aside.side,.tb,.banner,.ptools,.cmp,.rv,.inbox,.empty,#toast,dialog,.ed{display:none!important}
+  .qa{box-shadow:none;border:0;max-width:none}
+  .layout{display:block}
+  main{padding:0}
+  .sheets{overflow:visible;padding:0}
+  .sheetwrap{width:11in;max-width:none;min-width:0}
+  .page{box-shadow:none;border-radius:0;margin:0;height:8.5in;min-height:0;overflow:hidden;break-after:page;
+    -webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .page:last-child{break-after:auto}
+  .page [data-path]:empty{display:none!important}
+  .editing .page [data-path]{outline:0!important;background:none!important}
+}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="brand" href="../" aria-label="OneSolar: all Solar Gators apps">
+      <img class="brand-logo" data-auto-logo src="../shared/assets/solar-gators-logo.png" alt="Solar Gators" width="800" height="237">
+      <span class="brand-divider" aria-hidden="true"></span>
+      <span>One<span class="brand-accent">Solar</span></span>
+      <span class="brand-app">Solar Evals</span>
+    </a>
+    <nav class="nav" id="tabs" aria-label="Solar Evals" hidden>
+      <a href="#/evals" data-tab="evals">Evaluations</a>
+      <a href="#/rubrics" data-tab="rubrics">Rubrics</a>
+      <a href="#/questions" data-tab="questions" id="tabQ" hidden>Questions</a>
+    </nav>
+    <div class="topbar-end" id="acct"></div>
+  </div>
+</header>
+
+<div class="layout" id="layout">
+  <aside class="side" id="side"></aside>
+  <main id="main"><div class="empty"><h3>Loading…</h3></div></main>
+</div>
+
+<!-- Save a new rubric version -->
+<dialog id="dSave"><form class="dlg" method="dialog">
+  <h3>Save as a new version</h3>
+  <p class="lead" id="saveLead"></p>
+  <label class="fl" for="sLabel">Version name</label>
+  <input class="fi" id="sLabel" required maxlength="40" autocomplete="off">
+  <div class="fh" id="sLabelHint"></div>
+  <label class="fl" for="sNote">What changed, and why</label>
+  <textarea class="fi" id="sNote" rows="3" maxlength="600" placeholder="So the next CE knows what you changed and why."></textarea>
+  <div class="dlg-a"><button class="btn" value="cancel" formnovalidate>Cancel</button><button class="btn primary" value="ok">Save version</button></div>
+</form></dialog>
+
+<!-- Rubric history -->
+<dialog id="dHist"><div class="dlg">
+  <h3 id="histTitle">History</h3>
+  <p class="lead">Every saved version is kept. Nothing here is ever overwritten.</p>
+  <ul class="hist" id="histList"></ul>
+  <div class="dlg-a"><button class="btn" data-close>Close</button></div>
+</div></dialog>
+
+<!-- Add / rename a division -->
+<dialog id="dTrack"><form class="dlg" method="dialog">
+  <h3 id="trackTitle">Add a division</h3>
+  <p class="lead" id="trackLead"></p>
+  <label class="fl" for="tName">Name</label>
+  <input class="fi" id="tName" required maxlength="50" placeholder="e.g. Strategy CE" autocomplete="off">
+  <label class="fl" for="tColor">Colour</label>
+  <input class="fi" id="tColor" type="color" value="#5d6d7e" style="height:42px;padding:4px">
+  <div class="dlg-a"><button class="btn" value="cancel" formnovalidate>Cancel</button><button class="btn primary" value="ok">Save</button></div>
+</form></dialog>
+
+<!-- Start a rubric version from another one -->
+<dialog id="dPick"><form class="dlg" method="dialog">
+  <h3>Start from another version</h3>
+  <p class="lead">Your new version begins as a copy of the one you pick. The one you copy is not changed.</p>
+  <label class="fl" for="pSel">Copy</label>
+  <select class="fi" id="pSel"></select>
+  <div class="dlg-a"><button class="btn" value="cancel" formnovalidate>Cancel</button><button class="btn primary" value="ok">Start</button></div>
+</form></dialog>
+
+<!-- New evaluation -->
+<dialog id="dNew"><form class="dlg" method="dialog">
+  <h3>New evaluation</h3>
+  <p class="lead">It starts as a draft that only you can see. It saves as you go.</p>
+  <label class="fl" for="nRubric">Rubric</label>
+  <select class="fi" id="nRubric" required></select>
+  <div class="fh">Your division's latest version, unless you pick another. The eval keeps its own copy, so later rubric changes won't alter it.</div>
+  <label class="fl" for="nName">Member's name</label>
+  <input class="fi" id="nName" required maxlength="120" autocomplete="off">
+  <label class="fl" for="nEmail">Member's email (optional)</label>
+  <input class="fi" id="nEmail" type="email" maxlength="200" autocomplete="off" placeholder="gator@ufl.edu">
+  <div class="fh">Needed only if you want to share the finished eval with them. They'll read it by signing in to OneSolar with this email.</div>
+  <label class="fl" for="nSem">Semester</label>
+  <input class="fi" id="nSem" required maxlength="40" autocomplete="off">
+  <div class="dlg-a"><button class="btn" value="cancel" formnovalidate>Cancel</button><button class="btn primary" value="ok">Start</button></div>
+</form></dialog>
+
+<!-- New self-evaluation (any member) -->
+<dialog id="dSelf"><form class="dlg" method="dialog">
+  <h3>Fill out your self-evaluation</h3>
+  <p class="lead">Answer a few questions from your CE about your semester. Only you can see it until you submit it to them. It saves as you go.</p>
+  <label class="fl" for="sfTrack">Your division</label>
+  <select class="fi" id="sfTrack" required></select>
+  <div class="fh">Your CE's evaluation of you uses this division's rubric.</div>
+  <label class="fl" for="sfSem">Semester</label>
+  <input class="fi" id="sfSem" required maxlength="40" autocomplete="off">
+  <label class="fl" for="sfSub">Subsystem</label>
+  <input class="fi" id="sfSub" maxlength="80" autocomplete="off" placeholder="e.g. BMS">
+  <label class="fl" for="sfCe">Your CE</label>
+  <select class="fi" id="sfCe" required></select>
+  <div class="fh">You answer their questions. They're emailed when you submit, and fill out their own eval of you.</div>
+  <label class="fl" for="sfLead">Your subsystem lead (optional)</label>
+  <select class="fi" id="sfLead"></select>
+  <div class="dlg-a"><button class="btn" value="cancel" formnovalidate>Cancel</button><button class="btn primary" value="ok">Start</button></div>
+</form></dialog>
+
+<!-- Schedule the eval meeting (CE) -->
+<dialog id="dMeet"><form class="dlg" method="dialog">
+  <h3>Schedule the eval meeting</h3>
+  <p class="lead" id="meetLead"></p>
+  <label class="fl" for="mAt">When</label>
+  <input class="fi" id="mAt" type="datetime-local" required>
+  <label class="fl" for="mPlace">Where (optional)</label>
+  <input class="fi" id="mPlace" maxlength="200" autocomplete="off" placeholder="e.g. MAE-B lab, or a Teams link">
+  <div class="dlg-a"><button class="btn danger" value="clear" formnovalidate id="mClear">Remove meeting</button><span style="flex:1"></span>
+    <button class="btn" value="cancel" formnovalidate>Cancel</button><button class="btn primary" value="ok">Save and email them</button></div>
+</form></dialog>
+
+<div id="toast" role="status"></div>
+
+<script type="module">
+/* =========================================================
+   SOLAR EVALS
+   Signs in with OneSolar accounts (the Order Form's) and keeps everything in
+   the Order Form's database (migrations 028_solar_evals.sql, 030_onesolar_wording.sql,
+   031_eval_self_reviews.sql, 032_eval_questions.sql).
+   A semester review: the member answers their CE's questions (each CE sets
+   their own on the Questions tab) and submits them to their CE → the CE
+   writes theirs (with the lead's input) → once it's finished the CE sees the
+   self-eval and schedules the meeting → after the meeting the CE shares, and
+   the member reads both.
+   What each person can see is enforced by the database, not
+   by this page.
+   ========================================================= */
+import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm";
+/* The OneSolar Supabase project and links (../shared/config.js). The key is meant to be public:
+   row-level security in the database protects the data. */
+import { SUPABASE_URL, SUPABASE_ANON_KEY, appUrl, signInUrl } from "../shared/onesolar.js";
+import { renderAccount } from "../shared/account-menu.js";
+const ORDERS_URL = appUrl("orders/");
+// The shared sign-in page (new accounts, password resets) comes back here afterwards.
+const SIGN_UP_URL = signInUrl(location.pathname);
+const MASTER_SEED = "00000000-0000-4000-8000-0000000000a1";
+
+/* Local testing only: http://localhost/...?fake uses an in-memory stand-in. */
+const FAKE = ["localhost", "127.0.0.1"].includes(location.hostname) && new URLSearchParams(location.search).has("fake");
+const sb = FAKE ? (await import("./dev/fake-supabase.js")).createFakeClient() : createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+/* =========================================================
+   SMALL HELPERS
+   ========================================================= */
+const $  = (s, r=document) => r.querySelector(s);
+const $$ = (s, r=document) => [...r.querySelectorAll(s)];
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const clone = o => JSON.parse(JSON.stringify(o));
+const uid = () => (Date.now().toString(36) + Math.random().toString(36).slice(2, 8));
+const lsGet = (k, d=null) => { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } };
+const lsSet = (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } };
+const fmtDate = iso => iso ? new Date(iso).toLocaleDateString(undefined, {year:"numeric", month:"short", day:"numeric"}) : "";
+const norm = s => String(s || "").replace(/\s+/g, " ").trim();
+const differ = (a, b) => norm(a) !== norm(b);
+const PLAIN = (() => { const d = document.createElement("div"); d.contentEditable = "plaintext-only"; return d.contentEditable === "plaintext-only"; })();
+let toastT;
+function toast(msg, ms=3400){ const t = $("#toast"); t.textContent = msg; t.classList.add("on"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("on"), ms); }
+function openDlg(sel){ const d = $(sel); d.returnValue = ""; d.showModal(); }
+$$("dialog [data-close]").forEach(b => b.addEventListener("click", () => b.closest("dialog").close()));
+
+async function call(fn, args){
+  const { data, error } = await sb.rpc(fn, args);
+  if (error) throw new Error(error.message);
+  return data;
+}
+async function rows(q){ const { data, error } = await q; if (error) throw new Error(error.message); return data || []; }
+const fail = (what, e) => { console.error(e); toast(`${what}: ${e.message || e}`, 6000); };
+
+function semesterNow(){
+  const d = new Date(), m = d.getMonth(), y = d.getFullYear();
+  return (m <= 4 ? "Spring " : m <= 6 ? "Summer " : "Fall ") + y;
+}
+
+/* =========================================================
+   WHO IS SIGNED IN
+   Same accounts, roles and permissions as the Order Form.
+   ========================================================= */
+let me = null;              // {id, name, email, perms:Set}
+let people = [];            // every Order Form account: {id, full_name, email}
+let ceIds = new Set();      // accounts that can fill out evals (members pick their CE from these)
+const can = p => !!me && me.perms.has(p);
+const personName = id => { const p = people.find(x => x.id === id); return p ? (p.full_name || p.email) : ""; };
+
+async function loadMe(session){
+  const id = session.user.id;
+  const prof = (await rows(sb.from("profiles").select("*").eq("id", id)))[0];
+  if (!prof) throw new Error("This account has no OneSolar profile yet. Sign in on the OneSolar sign-in page once first.");
+  let roles = (await rows(sb.from("profile_roles").select("role").eq("user_id", id))).map(r => r.role);
+  if (!roles.length) roles = [prof.role || "member"];
+  const perms = (await rows(sb.from("role_permissions").select("permission").in("role", roles))).map(p => p.permission);
+  const labels = await rows(sb.from("roles").select("key, label")).catch(() => []);
+  // Shown under your name in the top bar, like the other OneSolar apps: "Chief Engineer".
+  const roleLabel = roles.map(r => labels.find(l => l.key === r)?.label || r).join(" · ");
+  me = {id, name:prof.full_name || prof.email, email:(prof.email || "").toLowerCase(), perms:new Set(perms), roleLabel};
+  people = await rows(sb.from("profiles").select("id, full_name, email").order("full_name"));
+  const [pr, rp] = await Promise.all([rows(sb.from("profile_roles").select("user_id, role")),
+    rows(sb.from("role_permissions").select("role, permission").eq("permission", "evals.write"))]);
+  const writerRoles = new Set(rp.map(r => r.role));
+  ceIds = new Set(pr.filter(r => writerRoles.has(r.role)).map(r => r.user_id));
+}
+const ces = () => people.filter(p => ceIds.has(p.id) && p.id !== me.id);
+/** Email / Teams messages the database queued (031): send them now. Failures are retried by the next run. */
+function sendQueued(){ try { sb.functions?.invoke("send-notifications", {body:{}}).catch(() => {}); } catch {} }
+
+function showSignIn(msg=""){
+  me = null; people = []; ceIds = new Set(); evals = []; inbox = []; evalState = null; qsets = []; qDraft = null; qDirty = false;   // nothing from the last person stays in memory
+  $("#tabs").hidden = true; drawAccount();
+  $("#layout").classList.add("nosb");
+  $("#main").innerHTML = `<form class="signin" id="fSignIn">
+      <h2>Sign in</h2>
+      <p class="lead">Use your <b>OneSolar</b> account. Members fill out their self-evaluation here, CEs write theirs, and leads and the e-board read the ones they're allowed to see.</p>
+      ${msg ? `<div class="banner note"><span class="bt">${esc(msg)}</span></div>` : ""}
+      <label class="fl" for="siEmail">UF email</label><input class="fi" id="siEmail" type="email" autocomplete="username" required>
+      <label class="fl" for="siPass">Password</label><input class="fi" id="siPass" type="password" autocomplete="current-password" required>
+      <div class="dlg-a" style="justify-content:space-between;align-items:center">
+        <a href="${SIGN_UP_URL}" class="linkbtn">No account, or forgot your password?</a>
+        <button class="btn primary" id="siGo">Sign in</button></div>
+    </form>`;
+  $("#fSignIn").addEventListener("submit", async e => {
+    e.preventDefault(); $("#siGo").disabled = true;
+    const { error } = await sb.auth.signInWithPassword({email:$("#siEmail").value.trim(), password:$("#siPass").value});
+    if (error) { $("#siGo").disabled = false; toast(error.message === "Invalid login credentials" ? "That email and password don't match a OneSolar account." : error.message, 5000); }
+  });
+  $("#siEmail").focus();
+}
+
+let booting = null;
+async function boot(session){
+  if (me && me.id === session.user.id) return;
+  if (booting) return booting;
+  booting = (async () => {
+    try {
+      evalState = null;
+      await loadMe(session);
+      await Promise.all([loadRubrics(), loadEvals(), loadQuestions()]);
+      $("#tabQ").hidden = !can("evals.write");
+      $("#tabs").hidden = false; drawAccount();
+      route();
+    } catch (e) { showSignIn(e.message || String(e)); }
+    finally { booting = null; }
+  })();
+  return booting;
+}
+/** The shared account menu (../shared/account-menu.js): My account, Appearance, Sign out. */
+function drawAccount(){
+  renderAccount($("#acct"), { user: me && { email: me.email }, name: me?.name, role: me?.roleLabel, signIn: false,
+    onSignOut: async () => {
+      if (evalState && (evalState.dirty || evalState.saving)) await flushEval();
+      await sb.auth.signOut();
+    } });
+}
+// The division list sticks under the top bar, whose height changes on phones.
+new ResizeObserver(([e]) => document.documentElement.style.setProperty("--topbar-h", e.target.offsetHeight + "px")).observe($(".topbar"));
+sb.auth.onAuthStateChange((event, session) => {
+  // supabase-js asks that we don't call it from inside this callback.
+  setTimeout(() => { if (session) boot(session); else showSignIn(); }, 0);
+});
+
+/* =========================================================
+   RUBRICS (templates)
+   db = { tracks:[{id,name,kind,color}], versions:[{id,trackId,label,author,savedAt,note,basedOn,rubric}] }
+   Versions are never edited once saved.
+   ========================================================= */
+let db = {tracks:[], versions:[]};
+async function loadRubrics(){
+  const [tr, tp] = await Promise.all([
+    rows(sb.from("eval_tracks").select("*").order("sort").order("created_at")),
+    rows(sb.from("eval_templates").select("id, track_id, label, note, based_on, rubric, author_name, created_at").order("created_at"))
+  ]);
+  db.tracks = tr.map(t => ({id:t.id, name:t.name, kind:t.kind, color:t.color}));
+  db.versions = tp.map(v => ({id:v.id, trackId:v.track_id, label:v.label, author:v.author_name, savedAt:v.id === MASTER_SEED ? "" : v.created_at,
+    note:v.note, basedOn:v.based_on ? {versionId:v.based_on} : null, rubric:v.rubric}));
+}
+const track = id => db.tracks.find(t => t.id === id);
+const version = id => db.versions.find(v => v.id === id);
+const versionsOf = id => db.versions.filter(v => v.trackId === id);
+const latest = id => { const v = versionsOf(id); return v[v.length - 1]; };
+function vName(v){ if (!v) return ""; const t = track(v.trackId); return `${t ? t.name : "?"} · ${v.label}`; }
+function masterRoot(v){
+  const seen = new Set();
+  while (v && !seen.has(v.id)) { if (v.trackId === "master") return v; seen.add(v.id); v = v.basedOn && version(v.basedOn.versionId); }
+  return null;
+}
+function nextMasterLabel(){
+  const m = (latest("master")?.label || "v1.0").match(/(\d+)\.(\d+)/);
+  return m ? `v${m[1]}.${+m[2] + 1}` : "v2.0";
+}
+
+/* =========================================================
+   ROUTES
+     #/evals            list
+     #/evals/<id>       one evaluation
+     #/rubrics/<track>[/<version>]
+   ========================================================= */
+let section = "evals";
+let view = {trackId:"master", versionId:null, mode:"view", cmpA:null, cmpB:null};
+let draft = lsGet("sg-evals-draft");   // unsaved rubric edits: {trackId, baseId, rubric}
+const saveDraft = () => lsSet("sg-evals-draft", draft);
+let draftT; const saveDraftSoon = () => { clearTimeout(draftT); draftT = setTimeout(saveDraft, 400); };
+
+let routeSeq = 0;
+async function route(){
+  if (!me) return;
+  const seq = ++routeSeq;                       // if a newer navigation starts while this one waits, it wins
+  const [a, b, c] = location.hash.replace(/^#\/?/, "").split("/");
+  if (evalState && !(a === "evals" && b === evalState.row.id)) { await flushEval(); evalState = null; }
+  if (seq !== routeSeq) return;
+  if (a === "rubrics") {
+    section = "rubrics";
+    view.trackId = track(b) ? b : "master";
+    view.versionId = c && version(c)?.trackId === view.trackId ? c : null;
+    if (view.mode !== "edit" || !draft || draft.trackId !== view.trackId) view.mode = "view";
+  } else if (a === "evals" && b) {
+    await openEval(b);
+    if (seq !== routeSeq) return;
+    section = "eval";
+  } else if (a === "questions" && can("evals.write")) section = "questions";
+  else section = "evals";
+  render();
+}
+window.addEventListener("hashchange", route);
+function go(trackId, versionId=null, mode="view"){
+  view.trackId = track(trackId) ? trackId : "master";
+  view.versionId = versionId && version(versionId)?.trackId === view.trackId ? versionId : null;
+  view.mode = mode; section = "rubrics";
+  const h = "#/rubrics/" + view.trackId + (view.versionId ? "/" + view.versionId : "");
+  if (location.hash !== h) history.pushState(null, "", h);
+  render(); window.scrollTo({top:0});
+}
+const shownVersion = () => view.versionId ? version(view.versionId) : latest(view.trackId);
+
+function render(){
+  $$("#tabs a").forEach(a => a.classList.toggle("active", a.dataset.tab === (section === "rubrics" || section === "questions" ? section : "evals")));
+  $("#layout").classList.toggle("nosb", section !== "rubrics");
+  $("#main").classList.remove("editing", "filling");
+  if (section === "rubrics") { renderSide(); renderRubric(); }
+  else if (section === "eval") renderEval();
+  else if (section === "questions") renderQuestions();
+  else renderList();
+}
+
+/* =========================================================
+   RUBRICS: SIDEBAR AND VIEW
+   ========================================================= */
+function renderSide(){
+  const item = t => {
+    const vs = versionsOf(t.id), l = vs[vs.length - 1];
+    const meta = l ? `${esc(l.label)} · ${vs.length} version${vs.length === 1 ? "" : "s"}` : "No version yet";
+    return `<button class="trk${t.id === view.trackId ? " on" : ""}" data-act="track" data-id="${esc(t.id)}" style="--c:${esc(t.color || "#888")}">
+      <span class="sw"></span><span><span class="nm">${esc(t.name)}</span>${draft && draft.trackId === t.id ? '<span class="badge">Draft</span>' : ""}
+      <span class="mt" style="display:block">${meta}</span></span></button>`;
+  };
+  $("#side").innerHTML = `
+    <div class="sb-h">Template</div><div class="sb-list">${item(track("master"))}</div>
+    <div class="sb-h">CE versions</div><div class="sb-list">${db.tracks.filter(t => t.kind !== "master").map(item).join("")}</div>
+    <div class="sb-foot">
+      ${can("evals.templates") ? `<button class="linkbtn" data-act="addTrack">+ Add a division</button>` : ""}
+      <button class="linkbtn" data-act="compareAny">Compare any two versions</button>
+      <button class="linkbtn" data-act="export">Download all rubrics (.json)</button>
+    </div>`;
+}
+
+function toolbarHTML(t, meta, acts, color){
+  return `<div class="tb"><div class="tb-t" style="--c:${esc(color || t?.color || "#888")}"><h2>${esc(t?.name != null ? t.name : t)}</h2>${meta}</div><div class="tb-a">${acts}</div></div>`;
+}
+function draftBanner(t){
+  if (!draft || draft.trackId !== t.id) return "";
+  const b = version(draft.baseId);
+  return `<div class="banner"><span class="bt">You have an <b>unsaved draft</b> here${b ? ` (started from ${esc(vName(b))})` : ""}.</span>
+    <span class="tb-a"><button class="btn" data-act="discard">Discard</button><button class="btn primary" data-act="resume">Keep editing</button></span></div>`;
+}
+
+function renderRubric(){
+  const m = $("#main"), t = track(view.trackId), edit = can("evals.templates");
+  if (view.mode === "compare") { m.innerHTML = compareHTML(); return; }
+  if (view.mode === "edit" && draft && draft.trackId === t.id && edit) { m.classList.add("editing"); m.innerHTML = editHTML(t); afterPages(); return; }
+  view.mode = "view";
+  const v = shownVersion(), vs = versionsOf(t.id), isLatest = v && v === vs[vs.length - 1];
+  let h = "";
+  if (!v) {
+    h += toolbarHTML(t, `<div class="meta">No one has saved a version for this division yet.</div>`, "");
+    h += draftBanner(t);
+    h += edit ? `<div class="empty"><h3>Start the first ${esc(t.name)} version</h3>
+      <p>It begins as a copy of the master template. Fill in your CE-specific criteria and subsystem goals, then save it for the next CEs.</p>
+      <div class="row"><button class="btn primary" data-act="startFrom" data-id="${esc(latest("master").id)}">Start from master ${esc(latest("master").label)}</button>
+      <button class="btn" data-act="startOther">Start from another version</button></div></div>`
+      : `<div class="empty"><h3>No ${esc(t.name)} version yet</h3><p>Evaluations for this division use the master template until its CE saves a version.</p></div>`;
+    m.innerHTML = h; return;
+  }
+  const based = v.basedOn && version(v.basedOn.versionId);
+  const meta = `<div class="meta"><b>${esc(v.label)}</b>${isLatest ? " (latest)" : " (older version)"}
+     · ${v.savedAt ? `saved by <b>${esc(v.author)}</b> on ${fmtDate(v.savedAt)}` : esc(v.author)}
+     ${based ? ` · based on ${esc(vName(based))}` : ""}${v.note ? `<br>“${esc(v.note)}”` : ""}</div>`;
+  const sel = `<select class="sel" data-act="pickVersion" aria-label="Version">${vs.slice().reverse().map(x =>
+     `<option value="${esc(x.id)}"${x === v ? " selected" : ""}>${esc(x.label)}${x === vs[vs.length - 1] ? " (latest)" : ""}${x.savedAt ? " · " + fmtDate(x.savedAt) : ""}</option>`).join("")}</select>`;
+  const acts = `${sel}
+     ${edit ? `<button class="btn primary" data-act="startFrom" data-id="${esc(v.id)}">${isLatest ? "Make a new version" : "New version from this one"}</button>` : ""}
+     <button class="btn" data-act="history">History</button>
+     <button class="btn" data-act="compare">Compare</button>
+     <button class="btn" data-act="print">Print blank form</button>
+     ${edit && t.kind !== "master" ? `<button class="btn" data-act="renameTrack">Rename</button>` : ""}`;
+  h += toolbarHTML(t, meta, acts) + draftBanner(t);
+  if (!isLatest) h += `<div class="banner note"><span class="bt">You're looking at an older version. The latest is <b>${esc(vs[vs.length - 1].label)}</b>.</span>
+     <button class="btn" data-act="pickLatest">Show latest</button></div>`;
+  if (t.kind !== "master") {
+    const root = masterRoot(v), ml = latest("master");
+    if (root && root.id !== ml.id && isLatest) h += `<div class="banner note"><span class="bt">The master template has changed since this version was made
+       (<b>${esc(root.label)}</b> → <b>${esc(ml.label)}</b>).</span><button class="btn" data-act="cmpPair" data-a="${esc(root.id)}" data-b="${esc(ml.id)}">See what changed</button></div>`;
+  } else h += `<div class="banner note"><span class="bt">This is the <b>general template</b> every CE version starts from. CE-specific changes belong in a CE version on the left.</span></div>`;
+  h += `<div class="sheets"><div class="sheetwrap">${pagesHTML(v.rubric, {mode:"view", who:t.kind === "master" ? "Master template" : t.name, label:v.label})}</div></div>`;
+  m.innerHTML = h; afterPages();
+}
+
+function editHTML(t){
+  const b = version(draft.baseId);
+  const meta = `<div class="meta"><b>Draft</b>, not saved yet${b ? ` · started from ${esc(vName(b))}` : ""}. Click any text on the pages to change it.</div>`;
+  const acts = `<button class="btn" data-act="discard">Discard draft</button>
+    <button class="btn" data-act="cmpDraft">Compare with ${b ? esc(b.label) : "start"}</button>
+    <button class="btn primary" data-act="openSave">Save as new version</button>`;
+  return toolbarHTML(t, meta, acts) +
+    (t.kind === "master" ? `<div class="banner note"><span class="bt">You're editing the <b>master template</b>. New CE versions will start from what you save here. Existing versions and evaluations are not changed.</span></div>` : "") +
+    `<div class="sheets"><div class="sheetwrap">${pagesHTML(draft.rubric, {mode:"edit", who:t.kind === "master" ? "Master template" : t.name, label:"Draft"})}</div></div>`;
+}
+
+/* =========================================================
+   THE PAGES
+   One renderer for three uses:
+     view  a rubric, read only (blank form)
+     edit  a rubric draft: text is editable, rows can be added
+     fill  an evaluation: the blanks and ratings are filled in
+           (opts.ev = the eval row, opts.live = you may change it)
+   ========================================================= */
+const BINDINGS = [
+  [/^member( name)?$/, "member_name"], [/^semester$/, "semester"], [/^(ce )?division$/, "division"],
+  [/^subsystem$/, "subsystem"], [/^(subsystem )?lead$/, "lead_id"], [/^(evaluating ce|evaluator|evaluated by)$/, "evaluator"],
+  [/^(review )?date$/, "review_date"]
+];
+const bindingFor = label => (BINDINGS.find(([re]) => re.test(norm(label).toLowerCase())) || [])[1] || null;
+const isMemberBox = b => b.id === "comments" || /member.*comment/i.test(b.title);
+const isEvidenceBox = b => b.id === "evidence" || /evidence|contribution/i.test(b.title);
+
+function pagesHTML(r, opts){
+  const {mode, who, label} = opts, editing = mode === "edit", filling = mode === "fill", ev = opts.ev, live = !!opts.live;
+  const E = (path, val, ph="", tag="span", cls="") => editing
+    ? `<${tag} class="${cls}" data-path="${path}" data-ph="${esc(ph)}" contenteditable="${PLAIN ? "plaintext-only" : "true"}" spellcheck="true">${esc(val)}</${tag}>`
+    : `<${tag} class="${cls}">${esc(val)}</${tag}>`;
+  const B = (act, txt, attrs="", cls="") => `<button class="eb ${cls}" data-act="${act}" ${attrs} type="button">${txt}</button>`;
+  const n = r.pages.length;
+
+  // A header blank: an input while filling, its value when reading, an empty line on a blank form.
+  const blank = f => {
+    if (!filling) return `<span class="ln"></span>`;
+    const b = bindingFor(f);
+    const self = ev.kind === "self";
+    let val = b === "lead_id" ? personName(ev.lead_id) : b === "evaluator" ? personName(self ? ev.ce_id : ev.evaluator_id) : b ? (ev[b] || "") : (ev.fields?.[f] || "");
+    if (b === "review_date" && val) val = live ? val : fmtDate(val + "T12:00:00");
+    if (live && self && b === "evaluator") return `<span class="ln"><select class="fin" data-bind="ce_id" aria-label="${esc(f)}"><option value="">—</option>${
+      ces().map(p => `<option value="${esc(p.id)}"${p.id === ev.ce_id ? " selected" : ""}>${esc(p.full_name || p.email)}</option>`).join("")}</select></span>`;
+    if (!live || b === "evaluator") return `<span class="ln val">${esc(val)}</span>`;
+    if (b === "lead_id") return `<span class="ln"><select class="fin" data-bind="lead_id" aria-label="${esc(f)}"><option value="">—</option>${
+      people.map(p => `<option value="${esc(p.id)}"${p.id === ev.lead_id ? " selected" : ""}>${esc(p.full_name || p.email)}</option>`).join("")}</select></span>`;
+    if (b === "review_date") return `<span class="ln"><input class="fin" type="date" data-bind="review_date" value="${esc(val)}" aria-label="${esc(f)}"></span>`;
+    return `<span class="ln"><input class="fin" ${b ? `data-bind="${b}"` : `data-field="${esc(f)}"`} value="${esc(val)}" maxlength="120" aria-label="${esc(f)}"></span>`;
+  };
+
+  return r.pages.map((p, pi) => {
+    const fields = p.fields.map((f, fi) => `<div class="fld">${E(`pages.${pi}.fields.${fi}`, f, "Field", "span", "fl2")}
+        ${editing ? B("delField", "✕", `data-pi="${pi}" data-i="${fi}" title="Remove field"`, "x ed") : ""}${blank(f)}</div>`).join("");
+    const head = `<tr><th class="c0">${E("catHead", r.catHead, "Category", "span", "ch")}${E("catSub", r.catSub, "", "span", "cs")}</th>${
+      r.scale.map((s, si) => `<th><span class="n">${si + 1}</span>${E(`scale.${si}`, s, "Label", "span", "l")}</th>`).join("")}</tr>`;
+    const rows = p.criteria.map((c, ci) => {
+      const rating = filling ? ev.ratings?.[c.id] : undefined;
+      const tools = editing ? `<span class="ed etools">
+          ${B("moveCrit", "↑", `data-pi="${pi}" data-i="${ci}" data-d="-1" title="Move up"`)}${B("moveCrit", "↓", `data-pi="${pi}" data-i="${ci}" data-d="1" title="Move down"`)}
+          ${B("dupCrit", "Copy", `data-pi="${pi}" data-i="${ci}" title="Duplicate this row"`)}
+          ${B("lineCrit", "Write-in line", `data-pi="${pi}" data-i="${ci}" title="Show a blank line to write the criterion by hand"`, c.writeIn ? "on" : "")}
+          ${B("delCrit", "✕", `data-pi="${pi}" data-i="${ci}" title="Remove this row"`, "x")}</span>` : "";
+      const no = filling && live
+        ? `<button type="button" class="no nob${rating === "NO" ? " on" : ""}" data-rate="${esc(c.id)}" data-v="NO" aria-pressed="${rating === "NO"}">N/O</button>`
+        : `<span class="no${rating === "NO" ? " on" : ""}">N/O</span>`;
+      const level = (l, li) => {
+        const on = rating === li + 1, txt = E(`pages.${pi}.criteria.${ci}.levels.${li}`, l, "What a " + (li + 1) + " looks like", "span");
+        return filling && live
+          ? `<td class="lv pick${on ? " on" : ""}"><button type="button" class="lvb" data-rate="${esc(c.id)}" data-v="${li + 1}" aria-pressed="${on}"
+               aria-label="${esc(c.name)}: ${li + 1}, ${esc(r.scale[li])}">${txt}</button></td>`
+          : `<td class="lv${on ? " on" : ""}">${txt}</td>`;
+      };
+      return `<tr data-crit="${esc(c.id)}"><td class="cat${p.capsNames ? " caps" : ""}">
+          ${(c.tag || editing) ? E(`pages.${pi}.criteria.${ci}.tag`, c.tag, "Tag (optional)", "span", "ctag") : ""}
+          ${E(`pages.${pi}.criteria.${ci}.name`, c.name, "Criterion name", "span", "cn")}
+          ${(c.sub || editing) ? E(`pages.${pi}.criteria.${ci}.sub`, c.sub, "Short description (optional)", "span", "cs") : ""}
+          ${c.writeIn ? '<div class="wl"></div>' : ""}${no}${tools}</td>
+        ${c.levels.map(level).join("")}</tr>`;
+    }).join("");
+    const boxBody = b => {
+      const lines = Math.max(1, b.lines | 0);
+      if (!filling) return '<div class="bl"></div>'.repeat(lines);
+      const txt = ev.answers?.[b.id] || "";
+      let h = live
+        ? `<textarea class="bta" data-box="${esc(b.id)}" rows="${lines}" style="--lines:${lines}" aria-label="${esc(b.title)}" maxlength="4000">${esc(txt)}</textarea>`
+        : `<div class="bta" style="--lines:${lines}">${esc(txt)}</div>`;
+      if (isMemberBox(b) && ev.kind !== "self") {
+        const mine = ev.status === "shared" && ev.member_id === me.id;
+        if (mine) h += `<div class="mc"><b>Your comments</b> <span class="mcs" id="mcState"></span>
+            <textarea class="bta" data-mc rows="3" style="--lines:3" maxlength="4000" aria-label="Your comments">${esc(ev.member_comments || "")}</textarea></div>`;
+        else if (ev.member_comments) h += `<div class="mc"><b>${esc(ev.member_name || "Member")} wrote${ev.member_commented_at ? ` (${fmtDate(ev.member_commented_at)})` : ""}:</b>
+            <div class="bta" style="--lines:1">${esc(ev.member_comments)}</div></div>`;
+        else if (live) h += `<div class="mc hint">Once you share this eval, ${esc(ev.member_name || "the member")} can add their own comments here.</div>`;
+      }
+      return h;
+    };
+    const boxes = (p.boxes.length || editing) ? `<div class="boxes">${p.boxes.map((b, bi) => `<div class="box"><div class="bh">${E(`pages.${pi}.boxes.${bi}.title`, b.title, "Box title", "span", "bt2")}
+        ${editing ? `<span class="ed" style="gap:3px">${B("boxLines", "− line", `data-pi="${pi}" data-i="${bi}" data-d="-1"`)}${B("boxLines", "+ line", `data-pi="${pi}" data-i="${bi}" data-d="1"`)}${B("delBox", "✕", `data-pi="${pi}" data-i="${bi}" title="Remove box"`, "x")}</span>` : ""}</div>
+        ${boxBody(b)}</div>`).join("")}</div>` : "";
+    const notes = (p.notes.length || p.notesTitle || editing) ? `<div class="notes${p.notesTitle ? "" : " plain"}">
+        ${(p.notesTitle || editing) ? E(`pages.${pi}.notesTitle`, p.notesTitle, "Notes heading (optional)", "div", "nt") : ""}
+        ${p.notes.map((x, ni) => `<div style="display:flex;gap:6px;align-items:flex-start">${E(`pages.${pi}.notes.${ni}`, x, "Note", "div", "nl")}${editing ? B("delNote", "✕", `data-pi="${pi}" data-i="${ni}" title="Remove note"`, "x ed") : ""}</div>`).join("")}
+        ${editing ? `<span class="ed eadd">${B("addNote", "+ Note", `data-pi="${pi}"`)}</span>` : ""}</div>` : "";
+    const ptools = `<div class="ptools"><span>Page ${pi + 1} of ${n}<span class="warn" data-over="${pi}" hidden> · Too long for one printed page</span></span>${
+      editing && track(view.trackId)?.kind !== "master" ? `<button class="btn" data-act="resetPage" data-pi="${pi}" title="Replace this page with the latest master template's version of it">Reset page to master ${esc(latest("master").label)}</button>` : ""}</div>`;
+    return `${ptools}<section class="page" data-page="${pi}">
+      <div class="ph"><div class="ph-l"><div class="bar"></div><div>${E("title", r.title, "Title", "h1")}${E(`pages.${pi}.subtitle`, p.subtitle, "Subtitle", "div", "psub")}</div></div>
+        <div class="ph-r"><div class="pcode">${String(pi + 1).padStart(2, "0")}&nbsp; / &nbsp;${E(`pages.${pi}.name`, p.name, "Page name")}</div>
+        <div class="pver">${esc(who)} &nbsp;|&nbsp; <span style="text-transform:none">${esc(label)}</span></div></div></div>
+      <div class="fields">${fields}${editing ? `<div class="fld ed eadd">${B("addField", "+ Field", `data-pi="${pi}"`)}</div>` : ""}</div>
+      ${(p.instruction || p.legend || editing) ? `<div class="instr">${E(`pages.${pi}.instruction`, p.instruction, "Instructions (optional)", "i")}${E(`pages.${pi}.legend`, p.legend, "Legend (optional)", "b")}</div>` : ""}
+      <table class="rub"><thead>${head}</thead><tbody>${rows}</tbody></table>
+      ${editing ? `<span class="ed eadd">${B("addCrit", "+ Criterion row", `data-pi="${pi}"`)}${p.boxes.length ? "" : B("addBox", "+ Feedback box", `data-pi="${pi}"`)}</span>` : ""}
+      ${boxes}
+      ${editing && p.boxes.length ? `<span class="ed eadd">${B("addBox", "+ Feedback box", `data-pi="${pi}"`)}</span>` : ""}
+      ${notes}
+      <div class="pf">${esc(p.footer)}${p.footer ? " &nbsp;|&nbsp; " : ""}Page ${pi + 1} / ${n}</div>
+    </section>`;
+  }).join("");
+}
+/* Grow answer boxes to fit, and flag pages that won't fit on one printed sheet. */
+function afterPages(){
+  requestAnimationFrame(() => {
+    $$("textarea.bta").forEach(grow);
+    const m = $("#main"), ed = m.classList.contains("editing");
+    if (ed) m.classList.replace("editing", "measure");   // measure without edit buttons or empty fields, as it will print
+    $$(".page").forEach(pg => {
+      const u = pg.getBoundingClientRect().width / 1056;
+      const w = $(`[data-over="${pg.dataset.page}"]`);
+      pg.style.minHeight = "0";
+      const h = pg.offsetHeight;
+      pg.style.minHeight = "";
+      if (w) w.hidden = !(h > 816 * u + 2);
+    });
+    if (ed) m.classList.replace("measure", "editing");
+  });
+}
+function grow(t){ t.style.height = "auto"; t.style.height = t.scrollHeight + "px"; }
+window.addEventListener("resize", afterPages);
+
+/* =========================================================
+   RUBRIC EDITING
+   ========================================================= */
+function setPath(o, path, val){ const ks = path.split("."); const last = ks.pop(); ks.reduce((x, k) => x[k], o)[last] = val; }
+
+$("#main").addEventListener("input", e => {
+  const el = e.target.closest("[data-path]");
+  if (el && draft && view.mode === "edit") {
+    const val = el.textContent.replace(/\n+/g, " ");   // not innerText: that returns the CSS capitals
+    setPath(draft.rubric, el.dataset.path, val);
+    $$(`[data-path="${el.dataset.path}"]`).forEach(o => { if (o !== el) o.textContent = val; });   // title and scale appear on every page
+    saveDraftSoon(); afterPages();
+    return;
+  }
+  if (section === "eval") onEvalInput(e);
+});
+$("#main").addEventListener("keydown", e => {
+  if (e.target.closest("[data-path]") && e.key === "Enter") { e.preventDefault(); e.target.blur(); }
+});
+$("#main").addEventListener("paste", e => {
+  if (PLAIN || !e.target.closest("[data-path]")) return;
+  e.preventDefault(); document.execCommand("insertText", false, (e.clipboardData.getData("text/plain") || "").replace(/\s*\n\s*/g, " "));
+});
+
+function startDraft(trackId, baseId){
+  if (draft && draft.trackId !== trackId && !confirm(`You have an unsaved draft for ${track(draft.trackId)?.name}. Throw it away and start a new one?`)) return;
+  if (draft && draft.trackId === trackId && draft.baseId !== baseId && !confirm("You already have an unsaved draft here. Replace it with a fresh copy?")) { go(trackId, null, "edit"); return; }
+  if (!draft || draft.trackId !== trackId || draft.baseId !== baseId) { draft = {trackId, baseId, rubric:clone(version(baseId).rubric)}; saveDraft(); }
+  go(trackId, null, "edit");
+}
+function editAct(act, d){
+  const p = draft.rubric.pages[+d.pi], i = +d.i;
+  switch (act) {
+    case "addCrit": {
+      const last = p.criteria[p.criteria.length - 1];
+      p.criteria.push({id:uid(), tag:last ? last.tag : "", name:"", sub:"", writeIn:false, levels:last ? last.levels.slice() : ["","","","",""]});
+      break;
+    }
+    case "moveCrit": { const j = i + +d.d; if (j < 0 || j >= p.criteria.length) return; [p.criteria[i], p.criteria[j]] = [p.criteria[j], p.criteria[i]]; break; }
+    case "dupCrit": p.criteria.splice(i + 1, 0, {...clone(p.criteria[i]), id:uid()}); break;
+    case "lineCrit": p.criteria[i].writeIn = !p.criteria[i].writeIn; break;
+    case "delCrit": if (!confirm(`Remove the “${p.criteria[i].name || "untitled"}” row?`)) return; p.criteria.splice(i, 1); break;
+    case "addField": p.fields.push(""); break;
+    case "delField": p.fields.splice(i, 1); break;
+    case "addBox": p.boxes.push({id:uid(), title:"", lines:2}); break;
+    case "delBox": p.boxes.splice(i, 1); break;
+    case "boxLines": p.boxes[i].lines = Math.min(12, Math.max(1, (p.boxes[i].lines | 0) + +d.d)); break;
+    case "addNote": p.notes.push(""); break;
+    case "delNote": p.notes.splice(i, 1); break;
+    case "resetPage": {
+      const ml = latest("master").rubric, mp = ml.pages.find(x => x.id === p.id) || ml.pages[+d.pi];
+      if (!mp || !confirm(`Replace page ${+d.pi + 1} with the master template's (${latest("master").label})? Your changes on this page are lost.`)) return;
+      draft.rubric.pages[+d.pi] = clone(mp); break;
+    }
+  }
+  saveDraft(); renderRubric();
+  const focus = {addCrit:`.page[data-page="${d.pi}"] tbody tr:last-child .cn`, addField:`.page[data-page="${d.pi}"] .fld:nth-last-child(2) .fl2`,
+    addBox:`.page[data-page="${d.pi}"] .box:last-child .bt2`, addNote:`.page[data-page="${d.pi}"] .notes .nl`}[act];
+  if (focus) { const all = $$(focus); all[all.length - 1]?.focus(); }
+}
+function tidy(r){
+  const t = s => String(s ?? "").replace(/[\r\n\t]+/g, " ").trim();   // keeps the PDF's deliberate double spaces
+  r.title = t(r.title); r.catHead = t(r.catHead); r.catSub = t(r.catSub); r.scale = r.scale.map(t);
+  r.pages.forEach(p => {
+    ["name","subtitle","instruction","legend","notesTitle","footer"].forEach(k => p[k] = t(p[k]));
+    p.fields = p.fields.map(t).filter(Boolean);
+    p.notes = p.notes.map(t).filter(Boolean);
+    p.boxes = p.boxes.map(b => ({...b, title:t(b.title)})).filter(b => b.title);
+    p.criteria.forEach(c => { c.tag = t(c.tag); c.name = t(c.name); c.sub = t(c.sub); c.levels = c.levels.map(t); });
+  });
+  return r;
+}
+
+function openSave(){
+  const t = track(draft.trackId), isM = t.kind === "master";
+  $("#saveLead").textContent = `${t.name}: this becomes the newest version, saved under your name. Earlier versions stay available in History.`;
+  $("#sLabel").value = isM ? nextMasterLabel() : semesterNow();
+  $("#sLabelHint").textContent = isM ? "Master versions are numbered, e.g. v1.1." : "Usually the semester it's for, e.g. Spring 2027.";
+  $("#sNote").value = "";
+  openDlg("#dSave"); $("#sNote").focus();
+}
+$("#dSave").addEventListener("close", async () => {
+  if ($("#dSave").returnValue !== "ok" || !draft) return;
+  const t = track(draft.trackId), label = $("#sLabel").value.trim(), note = $("#sNote").value.trim();
+  if (!label) return;
+  try {
+    const id = await call("eval_template_save", {p_track:t.id, p_label:label, p_note:note, p_based_on:version(draft.baseId) ? draft.baseId : null, p_rubric:tidy(clone(draft.rubric))});
+    draft = null; saveDraft();
+    await loadRubrics();
+    go(t.id, null, "view");
+    toast(`Saved ${t.name} ${label}. The next CEs will see it.`);
+    return id;
+  } catch (e) { fail("Couldn't save the version", e); openDlg("#dSave"); $("#sLabel").value = label; $("#sNote").value = note; }
+});
+
+/* ---------- comparing rubric versions ---------- */
+function wdiff(a, b){
+  a = norm(a); b = norm(b);
+  const A = a.split(/(\s+)/), Bw = b.split(/(\s+)/);
+  const n = A.length, m = Bw.length, L = Array.from({length:n + 1}, () => new Int16Array(m + 1));
+  for (let i = n - 1; i >= 0; i--) for (let j = m - 1; j >= 0; j--) L[i][j] = A[i] === Bw[j] ? L[i + 1][j + 1] + 1 : Math.max(L[i + 1][j], L[i][j + 1]);
+  let i = 0, j = 0, out = "";
+  while (i < n && j < m) {
+    if (A[i] === Bw[j]) { out += esc(A[i]); i++; j++; }
+    else if (L[i + 1][j] >= L[i][j + 1]) out += `<del>${esc(A[i++])}</del>`;
+    else out += `<ins>${esc(Bw[j++])}</ins>`;
+  }
+  while (i < n) out += `<del>${esc(A[i++])}</del>`;
+  while (j < m) out += `<ins>${esc(Bw[j++])}</ins>`;
+  if (n + m > 12 && (2 * L[0][0]) / (n + m) < 0.45) return `<del>${esc(a)}</del><br><ins>${esc(b)}</ins>`;   // mostly rewritten
+  return out.replace(/<\/del><del>/g, "").replace(/<\/ins><ins>/g, "");
+}
+function listDiff(a, b){
+  const A = a.map(norm), B = b.map(norm);
+  return {add:b.filter(x => !A.includes(norm(x))), rem:a.filter(x => !B.includes(norm(x)))};
+}
+function diffRubrics(A, B){
+  const sec = [], top = [], item = (kind, k, v="") => ({kind, k, v});
+  const chg = (k, a, b) => { if (differ(a, b)) top.push(item("chg", k, wdiff(a, b))); };
+  chg("Title", A.title, B.title); chg("Category heading", A.catHead, B.catHead); chg("Category sub-heading", A.catSub, B.catSub);
+  B.scale.forEach((s, i) => chg(`Rating ${i + 1} label`, A.scale[i], s));
+  if (top.length) sec.push({h:"Whole rubric", items:top});
+  const Ap = Object.fromEntries(A.pages.map(p => [p.id, p]));
+  B.pages.forEach((bp, pi) => {
+    const ap = Ap[bp.id], items = [], h = `Page ${pi + 1} · ${bp.name}`;
+    if (!ap) { sec.push({h, items:[item("add", "New page")]}); return; }
+    const c = (k, a, b) => { if (differ(a, b)) items.push(item("chg", k, wdiff(a, b))); };
+    c("Page name", ap.name, bp.name); c("Subtitle", ap.subtitle, bp.subtitle); c("Instructions", ap.instruction, bp.instruction); c("Legend", ap.legend, bp.legend);
+    const f = listDiff(ap.fields, bp.fields);
+    f.add.forEach(x => items.push(item("add", "Header field", esc(x)))); f.rem.forEach(x => items.push(item("rem", "Header field", esc(x))));
+    const Ac = Object.fromEntries(ap.criteria.map(x => [x.id, x])), Bc = Object.fromEntries(bp.criteria.map(x => [x.id, x]));
+    bp.criteria.forEach(bc => {
+      const ac = Ac[bc.id];
+      if (!ac) { items.push(item("add", `Criterion: ${esc(bc.name || "untitled")}`, bc.levels.map((l, i) => `<b>${i + 1}</b> ${esc(l)}`).join("<br>"))); return; }
+      const nm = esc(bc.name || ac.name);
+      if (differ(ac.name, bc.name)) items.push(item("chg", "Criterion renamed", wdiff(ac.name, bc.name)));
+      if (differ(ac.tag, bc.tag)) items.push(item("chg", `${nm}: tag`, wdiff(ac.tag, bc.tag)));
+      if (differ(ac.sub, bc.sub)) items.push(item("chg", `${nm}: description`, wdiff(ac.sub, bc.sub)));
+      if (!!ac.writeIn !== !!bc.writeIn) items.push(item("chg", `${nm}: write-in line`, bc.writeIn ? "added" : "removed"));
+      bc.levels.forEach((l, i) => { if (differ(l, ac.levels[i])) items.push(item("chg", `${nm}: ${i + 1} (${esc(B.scale[i])})`, wdiff(ac.levels[i], l))); });
+    });
+    ap.criteria.forEach(ac => { if (!Bc[ac.id]) items.push(item("rem", `Criterion: ${esc(ac.name || "untitled")}`)); });
+    if (ap.criteria.filter(x => Bc[x.id]).map(x => x.id).join() !== bp.criteria.filter(x => Ac[x.id]).map(x => x.id).join()) items.push(item("chg", "Rows reordered"));
+    const Ab = Object.fromEntries(ap.boxes.map(x => [x.id, x])), Bb = Object.fromEntries(bp.boxes.map(x => [x.id, x]));
+    bp.boxes.forEach(bb => { const ab = Ab[bb.id];
+      if (!ab) items.push(item("add", "Feedback box", esc(bb.title)));
+      else { if (differ(ab.title, bb.title)) items.push(item("chg", "Feedback box renamed", wdiff(ab.title, bb.title)));
+             if ((ab.lines | 0) !== (bb.lines | 0)) items.push(item("chg", `${esc(bb.title)}: lines`, `${ab.lines} → ${bb.lines}`)); } });
+    ap.boxes.forEach(ab => { if (!Bb[ab.id]) items.push(item("rem", "Feedback box", esc(ab.title))); });
+    c("Notes heading", ap.notesTitle, bp.notesTitle);
+    const nd = listDiff(ap.notes, bp.notes);
+    if (nd.add.length === 1 && nd.rem.length === 1) items.push(item("chg", "Note", wdiff(nd.rem[0], nd.add[0])));
+    else { nd.add.forEach(x => items.push(item("add", "Note", esc(x)))); nd.rem.forEach(x => items.push(item("rem", "Note", esc(x)))); }
+    c("Footer", ap.footer, bp.footer);
+    sec.push({h, items});
+  });
+  const Bp = new Set(B.pages.map(p => p.id));
+  A.pages.forEach(ap => { if (!Bp.has(ap.id)) sec.push({h:`Page · ${ap.name}`, items:[item("rem", "Page removed")]}); });
+  return sec;
+}
+function compareHTML(){
+  const opts = sel => db.tracks.filter(t => versionsOf(t.id).length).map(t => `<optgroup label="${esc(t.name)}">${
+      versionsOf(t.id).slice().reverse().map(v => `<option value="${esc(v.id)}"${v.id === sel ? " selected" : ""}>${esc(t.name)} · ${esc(v.label)}</option>`).join("")}</optgroup>`).join("")
+    + (draft ? `<optgroup label="Unsaved"><option value="__draft"${sel === "__draft" ? " selected" : ""}>Your draft (${esc(track(draft.trackId)?.name)})</option></optgroup>` : "");
+  const get = id => id === "__draft" ? (draft && {rubric:draft.rubric}) : version(id);
+  const A = get(view.cmpA), B = get(view.cmpB);
+  let body = "";
+  if (A && B) {
+    const secs = diffRubrics(A.rubric, B.rubric), total = secs.reduce((s, x) => s + x.items.length, 0);
+    body = total ? `<div class="meta" style="color:var(--muted);font-size:13.5px">${total} change${total === 1 ? "" : "s"}. <ins>Green</ins> was added, <del>red</del> was removed.</div>` +
+      secs.filter(s => s.items.length).map(s => `<h3>${esc(s.h)}</h3><ul>${s.items.map(it =>
+        `<li><div class="k"><span class="tag ${it.kind}">${{add:"Added", rem:"Removed", chg:"Changed"}[it.kind]}</span>${it.k}</div>${it.v ? `<div class="v">${it.v}</div>` : ""}</li>`).join("")}</ul>`).join("")
+      : `<p class="none">These two are identical.</p>`;
+  }
+  return toolbarHTML(track(view.trackId), `<div class="meta">See exactly what changed between any two versions.</div>`, `<button class="btn" data-act="closeCompare">Done</button>`) +
+    `<div class="cmp"><div class="cmp-bar"><label for="cA">From</label><select class="sel" id="cA" data-act="cmpPick">${opts(view.cmpA)}</select>
+      <button class="btn" data-act="cmpSwap" title="Swap">⇄</button>
+      <label for="cB">To</label><select class="sel" id="cB" data-act="cmpPick">${opts(view.cmpB)}</select></div>${body}</div>`;
+}
+function openCompare(a, b){ view.cmpA = a; view.cmpB = b; view.back = view.mode === "edit" ? "edit" : "view"; view.mode = "compare"; section = "rubrics"; render(); window.scrollTo({top:0}); }
+
+function openHistory(){
+  const t = track(view.trackId), vs = versionsOf(t.id).slice().reverse();
+  $("#histTitle").textContent = `${t.name}: history`;
+  $("#histList").innerHTML = vs.map((v, i) => {
+    const prev = vs[i + 1], based = v.basedOn && version(v.basedOn.versionId);
+    return `<li><div><div class="hl">${esc(v.label)}${i === 0 ? ' <span class="badge">Latest</span>' : ""}</div>
+      <div class="hm">${v.savedAt ? `${esc(v.author)} · ${fmtDate(v.savedAt)}` : esc(v.author)}${based ? ` · from ${esc(vName(based))}` : ""}</div>
+      ${v.note ? `<div class="hn">${esc(v.note)}</div>` : ""}</div>
+      <div class="ha"><button class="btn" data-act="histView" data-id="${esc(v.id)}">View</button>
+      ${prev || based ? `<button class="btn" data-act="histCmp" data-a="${esc((prev || based).id)}" data-b="${esc(v.id)}">What changed</button>` : ""}
+      ${can("evals.templates") && v.id !== MASTER_SEED ? `<button class="btn danger" data-act="histRemove" data-id="${esc(v.id)}" title="Take out a version saved by mistake">Remove</button>` : ""}</div></li>`;
+  }).join("");
+  openDlg("#dHist");
+}
+function openPick(){
+  $("#pSel").innerHTML = db.tracks.filter(t => versionsOf(t.id).length).map(t => `<optgroup label="${esc(t.name)}">${
+    versionsOf(t.id).slice().reverse().map(v => `<option value="${esc(v.id)}">${esc(t.name)} · ${esc(v.label)}${v.savedAt ? " · " + fmtDate(v.savedAt) : ""}</option>`).join("")}</optgroup>`).join("");
+  const other = db.tracks.find(t => t.kind !== "master" && t.id !== view.trackId && versionsOf(t.id).length);
+  if (other) $("#pSel").value = latest(other.id).id;
+  openDlg("#dPick");
+}
+$("#dPick").addEventListener("close", () => { if ($("#dPick").returnValue === "ok" && $("#pSel").value) startDraft(view.trackId, $("#pSel").value); });
+async function removeVersion(id){
+  const v = version(id); if (!v) return;
+  if (!confirm(`Remove ${vName(v)}${v.author ? ` (saved by ${v.author})` : ""}?\n\nOnly do this for a version saved by mistake. It disappears for everyone. Evaluations already written on it keep their own copy.`)) return;
+  try { await call("eval_template_remove", {p_id:id}); $("#dHist").close(); await loadRubrics(); go(view.trackId); toast(`Removed ${vName(v)}.`); }
+  catch (e) { fail("Couldn't remove it", e); }
+}
+
+let trackEditing = null;
+function openTrackDlg(t){
+  trackEditing = t;
+  $("#trackTitle").textContent = t ? "Rename division" : "Add a division";
+  $("#trackLead").textContent = t ? "Its versions stay with it." : "For a CE role or division that isn't listed yet. It starts with no versions.";
+  $("#tName").value = t ? t.name : ""; $("#tColor").value = t ? (t.color || "#5d6d7e") : "#5d6d7e";
+  openDlg("#dTrack"); $("#tName").focus();
+}
+$("#dTrack").addEventListener("close", async () => {
+  if ($("#dTrack").returnValue !== "ok") return;
+  const name = $("#tName").value.trim(), color = $("#tColor").value; if (!name) return;
+  try { const id = await call("eval_track_save", {p_id:trackEditing ? trackEditing.id : null, p_name:name, p_color:color}); await loadRubrics(); go(id); }
+  catch (e) { fail("Couldn't save the division", e); }
+});
+function exportData(){
+  const blob = new Blob([JSON.stringify(db, null, 1)], {type:"application/json"});
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
+  a.download = `solar-evals-rubrics-${new Date().toISOString().slice(0, 10)}.json`; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+/* =========================================================
+   EVALUATIONS: THE LIST
+   The database decides which rows each person gets back.
+   ========================================================= */
+let evals = [];
+let filt = {q:"", semester:"", status:"", mine:false};
+let inbox = [];   // self-evals members submitted to me (CEs): who and when, not the answers
+const LIST_COLS = "id, kind, member_name, member_email, member_id, semester, division, subsystem, lead_id, evaluator_id, ce_id, self_eval_id, status, template_label, updated_at, finalized_at, shared_at, member_commented_at, meeting_at, meeting_place";
+async function loadEvals(){
+  const [list, box] = await Promise.all([
+    rows(sb.from("evals").select(LIST_COLS).order("updated_at", {ascending:false})),
+    can("evals.write") ? call("eval_inbox", {}) : []
+  ]);
+  evals = list; inbox = box || [];
+}
+const STATUS = {draft:"Draft", final:"Finished", shared:"Shared with member"};
+const SELF_STATUS = {draft:"Self-eval draft", final:"Self-eval submitted"};
+const statusBadge = (s, kind) => kind === "self" ? `<span class="st ${s === "draft" ? "draft" : "self"}">${SELF_STATUS[s] || s}</span>` : `<span class="st ${s}">${STATUS[s] || s}</span>`;
+const fmtWhen = iso => iso ? new Date(iso).toLocaleString(undefined, {weekday:"short", month:"short", day:"numeric", hour:"numeric", minute:"2-digit"}) : "";
+const writerOf = e => e.kind === "self" ? e.ce_id : e.evaluator_id;
+
+function inboxHTML(){
+  if (!inbox.length) return "";
+  const waiting = inbox.filter(r => !r.ce_eval_id || r.ce_status === "draft").length;
+  return `<section class="inbox"><h3>Self-evals sent to you${waiting ? ` · ${waiting} waiting for your eval` : ""}</h3>
+    <div class="tablewrap"><table class="list"><thead><tr><th>Member</th><th>Semester</th><th>Division · subsystem</th><th>Submitted</th><th>Your eval</th><th>Meeting</th><th></th></tr></thead><tbody>
+    ${inbox.map(r => `<tr>
+      <td><b>${esc(r.member_name || "Unnamed")}</b></td><td>${esc(r.semester)}</td>
+      <td>${esc([r.division, r.subsystem].filter(Boolean).join(" · "))}</td><td>${fmtDate(r.submitted_at)}</td>
+      <td>${r.ce_eval_id ? statusBadge(r.ce_status) : '<span class="st draft">Not started</span>'}</td>
+      <td>${r.meeting_at ? esc(fmtWhen(r.meeting_at)) : '<span class="savest">—</span>'}</td>
+      <td>${r.ce_eval_id ? `<a class="btn" href="#/evals/${esc(r.ce_eval_id)}">Open your eval</a>` : `<button class="btn primary" data-act="evStart" data-id="${esc(r.self_id)}">Start your eval</button>`}</td></tr>`).join("")}
+    </tbody></table></div></section>`;
+}
+
+function renderList(){
+  const m = $("#main"), writer = can("evals.write");
+  const sems = [...new Set(evals.map(e => e.semester).filter(Boolean))].sort().reverse();
+  const q = filt.q.toLowerCase();
+  const shown = evals.filter(e => (!filt.semester || e.semester === filt.semester) && (!filt.status || e.status === filt.status)
+    && (!filt.mine || e.evaluator_id === me.id)
+    && (!q || [e.member_name, e.member_email, e.subsystem, e.division, personName(writerOf(e))].join(" ").toLowerCase().includes(q)));
+  const who = can("evals.view") ? "Every finished evaluation, your own drafts, and self-evals once the CE's eval is finished."
+    : writer ? "Evaluations you wrote, ones where you're the subsystem lead, and your members' self-evals once your eval is finished."
+    : "Your self-evaluations, evaluations where you're the subsystem lead, and your CE's evaluation of you once it's shared.";
+  const acts = (writer ? `<button class="btn" data-act="newSelf">My self-eval</button><button class="btn primary" data-act="newEval">New evaluation</button>`
+    : `<button class="btn primary" data-act="newSelf">Fill out my self-eval</button>`);
+  let h = toolbarHTML("Evaluations", `<div class="meta">${who}</div>`, acts, "var(--orange)") + inboxHTML();
+  if (!evals.length) {
+    h += writer ? `<div class="empty"><h3>No evaluations yet</h3><p>When a member submits their self-eval to you it shows up above. You can also start an eval for a member yourself; it's a draft only you can see until you mark it finished.</p>
+        <div class="row"><button class="btn primary" data-act="newEval">New evaluation</button></div></div>`
+      : `<div class="empty"><h3>Start with your self-evaluation</h3><p>Rate yourself on your division's rubric and submit it to your CE. They fill out theirs, then you meet. After the meeting you'll see their evaluation here next to yours.</p>
+        <div class="row"><button class="btn primary" data-act="newSelf">Fill out my self-eval</button></div></div>`;
+    m.innerHTML = h; return;
+  }
+  h += `<div class="filters">
+      <input class="fi" type="search" id="fQ" placeholder="Search member, subsystem, CE…" value="${esc(filt.q)}" aria-label="Search">
+      <select class="sel" id="fSem" aria-label="Semester"><option value="">All semesters</option>${sems.map(s => `<option${s === filt.semester ? " selected" : ""}>${esc(s)}</option>`).join("")}</select>
+      <select class="sel" id="fSt" aria-label="Status"><option value="">Any status</option>${Object.entries(STATUS).map(([k, v]) => `<option value="${k}"${k === filt.status ? " selected" : ""}>${v}</option>`).join("")}</select>
+      ${writer ? `<label class="chk2"><input type="checkbox" id="fMine"${filt.mine ? " checked" : ""}> Only ones I wrote</label>` : ""}
+    </div>
+    <div class="tablewrap"><table class="list"><thead><tr><th>Member</th><th>Semester</th><th>Division · subsystem</th><th>Lead</th><th>CE</th><th>Status</th><th>Updated</th></tr></thead><tbody>
+    ${shown.map(e => `<tr data-act="openEval" data-id="${esc(e.id)}" tabindex="0">
+        <td><b>${esc(e.member_name || "Unnamed")}</b>${e.member_id === me.id ? ' <span class="badge">You</span>' : ""}</td>
+        <td>${esc(e.semester)}</td><td>${esc([e.division, e.subsystem].filter(Boolean).join(" · "))}</td>
+        <td>${esc(personName(e.lead_id))}</td><td>${esc(personName(writerOf(e)))}</td>
+        <td>${statusBadge(e.status, e.kind)}${e.member_commented_at ? ' <span class="badge" title="The member added comments">Comments</span>' : ""}${
+          e.meeting_at && e.status !== "shared" && new Date(e.meeting_at) > Date.now() - 6 * 3600e3 ? ` <span class="badge" title="Eval meeting">${esc(fmtWhen(e.meeting_at))}</span>` : ""}</td>
+        <td>${fmtDate(e.updated_at)}</td></tr>`).join("") || `<tr><td colspan="7" class="none">No evaluations match.</td></tr>`}
+    </tbody></table></div>`;
+  m.innerHTML = h;
+}
+$("#main").addEventListener("change", e => {
+  const s = e.target;
+  if (s.id === "fSem") { filt.semester = s.value; renderList(); }
+  if (s.id === "fSt") { filt.status = s.value; renderList(); }
+  if (s.id === "fMine") { filt.mine = s.checked; renderList(); }
+  if (s.dataset.act === "pickVersion") { const vs = versionsOf(view.trackId); go(view.trackId, s.value === vs[vs.length - 1].id ? null : s.value); }
+  if (s.dataset.act === "cmpPick") { view.cmpA = $("#cA").value; view.cmpB = $("#cB").value; renderRubric(); }
+  if (section === "eval") onEvalInput(e);
+});
+$("#main").addEventListener("input", e => {
+  const t = e.target;
+  if (section === "questions" && qDraft && (t.dataset.qtext != null || t.dataset.qhint != null)) {
+    const q = qDraft[+(t.dataset.qtext ?? t.dataset.qhint)];
+    if (q) { if (t.dataset.qtext != null) q.text = t.value; else q.hint = t.value; qChanged(false); }
+    return;
+  }
+  if (e.target.id === "fQ") { filt.q = e.target.value; const pos = e.target.selectionStart; renderList(); const q = $("#fQ"); q.focus(); q.setSelectionRange(pos, pos); }
+});
+$("#main").addEventListener("keydown", e => {
+  const tr = e.target.closest("tr[data-act='openEval']");
+  if (tr && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); location.hash = "#/evals/" + tr.dataset.id; }
+});
+
+/* ---------- starting one ---------- */
+function openNewEval(){
+  const groups = db.tracks.filter(t => versionsOf(t.id).length);
+  $("#nRubric").innerHTML = groups.map(t => `<optgroup label="${esc(t.name)}">${versionsOf(t.id).slice().reverse().map((v, i) =>
+    `<option value="${esc(v.id)}">${esc(t.name)} · ${esc(v.label)}${i === 0 ? " (latest)" : ""}</option>`).join("")}</optgroup>`).join("");
+  const lastTrack = lsGet("sg-evals-last-track");
+  const pick = (lastTrack && latest(lastTrack)) || groups.filter(t => t.kind !== "master").map(t => latest(t.id))[0] || latest("master");
+  $("#nRubric").value = pick.id;
+  $("#nName").value = ""; $("#nEmail").value = ""; $("#nSem").value = semesterNow();
+  openDlg("#dNew"); $("#nName").focus();
+}
+$("#dNew").addEventListener("close", async () => {
+  if ($("#dNew").returnValue !== "ok") return;
+  const v = version($("#nRubric").value), t = track(v.trackId);
+  lsSet("sg-evals-last-track", t.id);
+  try {
+    const id = await call("eval_save", {p_id:null, p:{template_id:v.id, member_name:$("#nName").value.trim(), member_email:$("#nEmail").value.trim(),
+      semester:$("#nSem").value.trim(), division:t.kind === "master" ? "" : t.name.replace(/\s+CE$/i, "")}});
+    await loadEvals();
+    location.hash = "#/evals/" + id;
+  } catch (e) { fail("Couldn't start the evaluation", e); }
+});
+
+/* ---------- the member starts their self-eval ---------- */
+function openNewSelf(){
+  // A division without its own rubric version yet uses the master template.
+  const ce = db.tracks.filter(t => t.kind !== "master"), last = lsGet("sg-evals-self-track");
+  $("#sfTrack").innerHTML = ce.map(t => `<option value="${esc(t.id)}">${esc(t.name.replace(/\s+CE$/i, ""))}</option>`).join("")
+    + `<option value="master">Not sure / other (general rubric)</option>`;
+  $("#sfTrack").value = track(last) ? last : (ce[0]?.id || "master");
+  $("#sfSem").value = semesterNow(); $("#sfSub").value = "";
+  const opt = (list, none) => `<option value="">${none}</option>` + list.map(p => `<option value="${esc(p.id)}">${esc(p.full_name || p.email)}</option>`).join("");
+  $("#sfCe").innerHTML = opt(ces(), "Pick your CE");
+  $("#sfLead").innerHTML = opt(people.filter(p => p.id !== me.id), "—");
+  openDlg("#dSelf");
+}
+$("#dSelf").addEventListener("close", async () => {
+  if ($("#dSelf").returnValue !== "ok") return;
+  const t = track($("#sfTrack").value) || track("master"), v = latest(t.id) || latest("master");
+  lsSet("sg-evals-self-track", t.id);
+  try {
+    const id = await call("eval_self_save", {p_id:null, p:{template_id:v.id, semester:$("#sfSem").value.trim(), subsystem:$("#sfSub").value.trim(),
+      division:t.kind === "master" ? "" : t.name.replace(/\s+CE$/i, ""), ce_id:$("#sfCe").value, lead_id:$("#sfLead").value}});
+    await loadEvals();
+    location.hash = "#/evals/" + id;
+  } catch (e) { fail("Couldn't start your self-eval", e); }
+});
+async function startReview(selfId){
+  try { const id = await call("eval_start_review", {p_self:selfId}); await loadEvals(); location.hash = "#/evals/" + id; }
+  catch (e) { fail("Couldn't start your eval", e); }
+}
+
+/* =========================================================
+   EVALUATIONS: ONE EVAL
+   The CE who wrote it edits it on the page; it saves as you go.
+   Everyone else who can see it reads it.
+   ========================================================= */
+let evalState = null;     // {row, other, dirty, saving, err, timer}; other = the linked self-eval / CE eval, if you may see it
+async function openEval(id){
+  if (evalState?.row.id === id) return;
+  const row = (await rows(sb.from("evals").select("*").eq("id", id)))[0];
+  let other = null;
+  if (row?.kind === "self") other = (await rows(sb.from("evals").select("*").eq("self_eval_id", row.id)))[0] || null;
+  else if (row?.self_eval_id) other = (await rows(sb.from("evals").select("*").eq("id", row.self_eval_id)))[0] || null;
+  evalState = row ? {row, other, dirty:false, saving:false, err:"", timer:null} : {row:{id, missing:true}};
+}
+const evalLive = () => {
+  const r = evalState?.row;
+  if (!r || r.missing || r.evaluator_id !== me.id) return false;
+  return r.kind === "self" ? r.status === "draft" : r.status !== "shared" && can("evals.write");
+};
+
+/* The member's answers (or, for a 031 self-eval, ratings) next to the CE's eval, once the CE's eval is finished. */
+const questionsOf = e => Array.isArray(e?.rubric?.questions) ? e.rubric.questions : null;
+function reviewHTML(ce, self){
+  if (!ce || !self) return "";
+  const qs = questionsOf(self);
+  if (qs) {
+    const memberName = esc(self.member_name || "The member");
+    return `<details class="rv" open><summary>${memberName}'s self-eval answers</summary>
+      <div class="rvsub">Submitted ${fmtDate(self.finalized_at)}. Good things to talk about in the meeting. <a href="#/evals/${esc(self.id)}">Open the self-eval</a></div>
+      ${qs.map((q, i) => { const a = (self.answers?.[q.id] || "").trim();
+        return `<div class="ans" style="grid-template-columns:1fr;margin-top:10px"><div class="k" style="text-transform:none;letter-spacing:0;font-size:14px;color:var(--navy)">${i + 1}. ${esc(q.text)}</div>
+          <div class="v${a ? "" : " none"}">${a ? esc(a) : "No answer"}</div></div>`; }).join("")}</details>`;
+  }
+  const r = ce.rubric, crit = r.pages.flatMap(p => p.criteria), boxes = r.pages.flatMap(p => p.boxes);
+  const show = v => v == null ? '<span class="savest">—</span>' : v === "NO" ? "N/O" : `${v}<span class="lbl">${esc(r.scale[v - 1] || "")}</span>`;
+  const rowsH = crit.map(c => {
+    const a = self.ratings?.[c.id], b = ce.ratings?.[c.id];
+    const gap = typeof a === "number" && typeof b === "number" ? a - b : null;
+    return `<tr class="${gap != null && Math.abs(gap) >= 2 ? "gap" : ""}"><td>${esc(c.name || "Untitled")}</td><td class="n">${show(a)}</td><td class="n">${show(b)}</td>
+      <td>${gap == null || gap === 0 ? "" : gap > 0 ? `Member +${gap}` : `CE +${-gap}`}</td></tr>`;
+  }).join("");
+  const memberName = esc(self.member_name || "Member"), ceName = esc(personName(ce.evaluator_id) || "CE");
+  const ans = boxes.filter(b => (self.answers?.[b.id] || "").trim() || (ce.answers?.[b.id] || "").trim()).map(b => {
+    const v = t => (t || "").trim() ? `<div class="v">${esc(t)}</div>` : `<div class="v none">Nothing written</div>`;
+    return `<div class="k">${esc(b.title)}</div><div><div class="who">${memberName}</div>${v(self.answers?.[b.id])}</div><div><div class="who">${ceName}</div>${v(ce.answers?.[b.id])}</div>`;
+  }).join("");
+  return `<details class="rv" open><summary>${memberName}'s self-eval next to ${ceName}'s eval</summary>
+    <div class="rvsub">Rows where they're 2 or more apart are highlighted: good things to talk about in the meeting.
+      <a href="#/evals/${esc(self.id)}">Self-eval</a> · <a href="#/evals/${esc(ce.id)}">CE's eval</a></div>
+    <table><thead><tr><th>Criterion</th><th>${memberName}</th><th>${ceName}</th><th></th></tr></thead><tbody>${rowsH}</tbody></table>
+    ${ans ? `<div class="ans">${ans}</div>` : ""}</details>`;
+}
+const meetingText = r => r.meeting_at ? `<b>${esc(fmtWhen(r.meeting_at))}</b>${r.meeting_place ? ` · ${esc(r.meeting_place)}` : ""}` : "";
+
+function renderEval(){
+  const m = $("#main"), e = evalState?.row;
+  if (!e || e.missing) {
+    m.innerHTML = toolbarHTML("Evaluation", "", `<a class="btn" href="#/evals">All evaluations</a>`, "var(--orange)") +
+      `<div class="empty"><h3>Can't open this evaluation</h3><p>It may have been deleted, moved back to draft, or it isn't one you're allowed to see.</p></div>`;
+    return;
+  }
+  if (e.kind === "self") { renderSelf(); return; }
+  const live = evalLive(), mineToWrite = e.evaluator_id === me.id, self = evalState.other, linked = !!e.self_eval_id;
+  const who = esc(e.member_name || "the member");
+  m.classList.toggle("filling", live);
+  const meta = `<div class="meta">${statusBadge(e.status)} · ${esc(e.template_label)} · written by <b>${esc(personName(e.evaluator_id) || "a former member")}</b>
+     · updated ${fmtDate(e.updated_at)}${e.shared_at ? ` · shared ${fmtDate(e.shared_at)}` : ""} <span class="savest" id="saveState"></span></div>`;
+  let acts = `<a class="btn" href="#/evals">All evaluations</a>`;
+  if (mineToWrite) {
+    if (e.status === "draft") acts += `<button class="btn danger" data-act="evDelete">Delete draft</button><button class="btn primary" data-act="evStatus" data-s="final">Mark finished</button>`;
+    if (e.status === "final" && linked) acts += `<button class="btn" data-act="evStatus" data-s="draft">Back to draft</button>
+      <button class="btn" data-act="evMeet">${e.meeting_at ? "Change meeting" : "Schedule meeting"}</button><button class="btn primary" data-act="evShare">Meeting done: share with ${who}</button>`;
+    else if (e.status === "final") acts += `<button class="btn" data-act="evStatus" data-s="draft">Back to draft</button><button class="btn primary" data-act="evShare">Share with member</button>`;
+    if (e.status === "shared") acts += `<button class="btn" data-act="evStatus" data-s="final">Stop sharing</button>`;
+  }
+  acts += `<button class="btn" data-act="evPrint">Print / PDF</button>`;
+  let h = toolbarHTML(e.member_name || "Unnamed member", meta, acts, "var(--orange)");
+  if (mineToWrite && linked) {
+    const lead = e.lead_id ? `<b>${esc(personName(e.lead_id))}</b>` : "their subsystem lead";
+    const tip = {draft:`Started from ${who}'s self-evaluation. Fill out yours with ${lead}'s input; you'll see ${who}'s answers once you mark yours finished. Only you can see this draft.`,
+      final:`Finished. You can now see ${who}'s self-eval below; so can ${lead}, the e-board and other CEs. ${e.meeting_at ? `Eval meeting: ${meetingText(e)}.` : "Next, schedule the eval meeting."} After the meeting, share your eval so ${who} can read it.`,
+      shared:`Shared with ${who} after the meeting. They can read it next to their self-eval and add comments. You can't change it while it's shared; stop sharing to edit.`}[e.status];
+    h += `<div class="banner note"><span class="bt">${tip}</span></div>`;
+  } else if (mineToWrite) {
+    const tip = {draft:"Only you can see this draft. When you mark it finished, other CEs, the e-board and the subsystem lead you picked can read it.",
+      final:"Finished: other CEs, the e-board and the subsystem lead can read it. Share it when the member should see it too.",
+      shared:`Shared with ${esc(e.member_name || "the member")}. You can't change it while it's shared; stop sharing to edit.`}[e.status];
+    h += `<div class="banner note"><span class="bt">${tip}</span>${live && !e.self_eval_id ? `<label class="inl">Member's email <input class="fi" id="evEmail" type="email" value="${esc(e.member_email)}" placeholder="for sharing" maxlength="200"></label>` : ""}</div>`;
+  } else if (e.member_id === me.id) {
+    h += `<div class="banner note"><span class="bt">This is your evaluation from <b>${esc(personName(e.evaluator_id))}</b>. Add your own comments in <b>Member comments</b> at the end; they save as you type.</span></div>`;
+  } else if (linked && e.meeting_at && e.status !== "shared") {
+    h += `<div class="banner note"><span class="bt">Eval meeting: ${meetingText(e)}.</span></div>`;
+  }
+  h += reviewHTML(e, self);
+  h += `<div class="sheets"><div class="sheetwrap">${pagesHTML(e.rubric, {mode:"fill", ev:e, live, who:e.template_label.split(" · ")[0] || "Solar Evals", label:e.semester || ""})}</div></div>`;
+  m.innerHTML = h; afterPages(); showSaveState();
+}
+
+/* A self-evaluation: the member fills it out; their CE (and lead, e-board) read it once the CE's eval is finished. */
+function renderSelf(){
+  const m = $("#main"), e = evalState.row, live = evalLive(), mine = e.evaluator_id === me.id, ce = evalState.other;
+  const ceName = esc(personName(e.ce_id) || "your CE");
+  m.classList.toggle("filling", live);
+  const meta = `<div class="meta">${statusBadge(e.status, "self")} · ${esc(e.template_label)} · ${mine ? "your self-evaluation" : `by <b>${esc(e.member_name)}</b>`}
+     · CE <b>${esc(personName(e.ce_id) || "not picked yet")}</b>${e.finalized_at ? ` · submitted ${fmtDate(e.finalized_at)}` : ""} <span class="savest" id="saveState"></span></div>`;
+  let acts = `<a class="btn" href="#/evals">All evaluations</a>`;
+  if (mine && e.status === "draft") acts += `<button class="btn danger" data-act="evDelete">Delete draft</button><button class="btn primary" data-act="selfSubmit">Submit to ${e.ce_id ? ceName : "your CE"}</button>`;
+  if (mine && e.status !== "draft" && !ce) acts += `<button class="btn" data-act="selfBack">Take back</button>`;
+  acts += `<button class="btn" data-act="evPrint">Print / PDF</button>`;
+  let h = toolbarHTML(mine ? "Your self-evaluation" : `${e.member_name || "Member"}'s self-evaluation`, meta, acts, "var(--orange)");
+  const qs = questionsOf(e);
+  let tip;
+  if (mine && e.status === "draft" && qs) tip = `Answer ${e.ce_id ? `${ceName}'s` : "your CE's"} questions in your own words. Only you can see this. ${e.ce_id ? "When you're done, submit it" : "Pick your CE first, then submit"}: ${ceName} is emailed and fills out their own eval of you.`;
+  else if (mine && e.status === "draft") tip = `Rate yourself honestly; a 3 means you fully meet expectations. Only you can see this. ${e.ce_id ? "When you're done, submit it" : "Pick your CE in <b>Evaluating CE</b>, then submit"}: ${ceName} is emailed and fills out their own eval of you.`;
+  else if (mine && ce) tip = `<b>${esc(personName(ce.evaluator_id))}</b> shared your evaluation after your meeting. <a href="#/evals/${esc(ce.id)}">Open it</a> to read it and add your comments.`;
+  else if (mine) tip = `Submitted to ${ceName}. They fill out their eval of you next${e.meeting_at ? "" : " and then schedule your eval meeting"}. You'll see their evaluation here after the meeting.`
+    + (e.meeting_at ? ` <br>Your eval meeting: ${meetingText(e)}.` : "");
+  else tip = `${esc(e.member_name)}'s own answers.${e.meeting_at ? ` Eval meeting: ${meetingText(e)}.` : ""}${ce ? ` <a href="#/evals/${esc(ce.id)}">Open the CE's eval</a>` : ""}`;
+  h += `<div class="banner note"><span class="bt">${tip}</span></div>`;
+  if (qs) { m.innerHTML = h + selfFormHTML(e, live, qs); showSaveState(); return; }
+  h += reviewHTML(ce, e);
+  h += `<div class="sheets"><div class="sheetwrap">${pagesHTML(e.rubric, {mode:"fill", ev:e, live, who:"Self-evaluation", label:e.semester || ""})}</div></div>`;
+  m.innerHTML = h; afterPages(); showSaveState();
+}
+function selfFormHTML(e, live, qs){
+  const opts = (list, val) => `<option value="">—</option>` + list.map(p => `<option value="${esc(p.id)}"${p.id === val ? " selected" : ""}>${esc(p.full_name || p.email)}</option>`).join("");
+  const f = (label, key, ctl) => `<div><label class="fl">${label}</label>${live ? ctl : `<div class="hv">${esc(key)}</div>`}</div>`;
+  const hdr = `<div class="hdr">
+    ${f("Member", e.member_name, `<div class="hv">${esc(e.member_name)}</div>`)}
+    ${f("Semester", e.semester, `<input class="fi" data-sf="semester" value="${esc(e.semester)}" maxlength="40" aria-label="Semester">`)}
+    ${f("Division", e.division || "—", `<div class="hv">${esc(e.division || "General")}</div>`)}
+    ${f("Subsystem", e.subsystem, `<input class="fi" data-sf="subsystem" value="${esc(e.subsystem)}" maxlength="80" aria-label="Subsystem">`)}
+    ${f("Your CE", personName(e.ce_id) || "—", `<select class="fi" data-sf="ce_id" aria-label="Your CE">${opts(ces(), e.ce_id)}</select>`)}
+    ${f("Subsystem lead", personName(e.lead_id) || "—", `<select class="fi" data-sf="lead_id" aria-label="Subsystem lead">${opts(people.filter(p => p.id !== me.id), e.lead_id)}</select>`)}
+  </div>`;
+  const body = qs.map((q, i) => {
+    const a = e.answers?.[q.id] || "";
+    return `<div class="q"><div class="qt"><span class="qn">${i + 1}.</span>${esc(q.text)}</div>${q.hint ? `<div class="qh">${esc(q.hint)}</div>` : ""}
+      ${live ? `<textarea class="fi" data-qa="${esc(q.id)}" rows="4" maxlength="4000" aria-label="${esc(q.text)}">${esc(a)}</textarea>`
+             : `<div class="ansv${a.trim() ? "" : " none"}">${a.trim() ? esc(a) : "No answer"}</div>`}</div>`;
+  }).join("");
+  return `<div class="qa">${hdr}${body}</div>`;
+}
+/* Picking another CE changes the questions (a draft follows its CE's list). */
+async function refreshQuestions(){
+  const st = evalState; if (!st || st.row.kind !== "self") return;
+  await flushEval();
+  const fresh = (await rows(sb.from("evals").select("rubric").eq("id", st.row.id)))[0];
+  if (fresh && evalState === st) { st.row.rubric = fresh.rubric; renderSelf(); }
+}
+async function submitSelf(on){
+  const r = evalState.row;
+  await flushEval();
+  if (on) {
+    if (!r.ce_id) { toast("Pick your CE first.", 5000); ($('[data-sf="ce_id"]') || $('[data-bind="ce_id"]'))?.focus(); return; }
+    const qs = questionsOf(r);
+    const p = qs ? qs.filter(q => !(r.answers?.[q.id] || "").trim() && !/optional/i.test(q.hint || "")).map(q => `No answer yet for “${q.text}”`)
+      : evalProblems(r).filter(x => !/need specific examples/.test(x));
+    if (!confirm(`${p.length ? `Before you submit:\n\n• ${p.join("\n• ")}\n\n` : ""}Submit your self-eval to ${personName(r.ce_id)}?\n\nThey're emailed, and see your answers once they've finished their own eval. You can take it back until they start theirs.`)) return;
+  }
+  try {
+    await call("eval_self_submit", {p_id:r.id, p_submit:on});
+    if (on) sendQueued();
+    await reloadEval();
+    toast(on ? `Submitted to ${personName(r.ce_id)}.` : "Taken back. It's a draft again.");
+  } catch (e) { fail(on ? "Couldn't submit it" : "Couldn't take it back", e); }
+}
+
+/* =========================================================
+   QUESTIONS (CEs): what members answer in their self-eval
+   ========================================================= */
+let qsets = [];        // every CE's saved list: {owner_id, questions, updated_at}
+let defaultQs = [];    // used by a CE who hasn't saved their own
+let qDraft = null, qDirty = false;
+async function loadQuestions(){
+  if (!can("evals.write")) { qsets = []; return; }
+  const [s, d] = await Promise.all([rows(sb.from("eval_questions").select("*")), call("eval_default_questions", {})]);
+  qsets = s; defaultQs = d || [];
+}
+const myQs = () => { const r = qsets.find(q => q.owner_id === me.id); return r && r.questions?.length ? r : null; };
+function renderQuestions(){
+  const m = $("#main"), mine = myQs();
+  if (!qDraft) { qDraft = clone(mine ? mine.questions : defaultQs); qDirty = false; }
+  const meta = `<div class="meta">${qDirty ? "<b>Unsaved changes.</b> " : ""}${mine ? `Saved ${fmtDate(mine.updated_at)}.` : "You're using the default questions until you save your own."}
+    Members who pick you as their CE answer these in their self-eval.</div>`;
+  const acts = `${qDirty ? `<button class="btn" data-act="qDiscard">Discard changes</button>` : ""}<button class="btn primary" data-act="qSave"${qDirty ? "" : " disabled"}>Save questions</button>`;
+  let h = toolbarHTML("Your self-eval questions", meta, acts, "var(--orange)");
+  h += `<div class="banner note"><span class="bt">A draft self-eval always shows your latest questions. Once a member submits, theirs keeps the questions they answered, so changing yours later doesn't affect it.</span></div>`;
+  h += `<div class="qe">${qDraft.map((q, i) => `<div class="qrow"><div class="qi">${i + 1}.</div><div>
+      <textarea class="fi" data-qtext="${i}" rows="2" maxlength="500" placeholder="The question" aria-label="Question ${i + 1}">${esc(q.text)}</textarea>
+      <input class="fi" data-qhint="${i}" value="${esc(q.hint || "")}" maxlength="200" placeholder="Hint under it (optional), e.g. “Optional” or “A sentence or two”" aria-label="Hint for question ${i + 1}"></div>
+      <div class="qb"><button class="btn" data-act="qMove" data-i="${i}" data-d="-1" title="Move up"${i ? "" : " disabled"}>↑</button>
+        <button class="btn" data-act="qMove" data-i="${i}" data-d="1" title="Move down"${i < qDraft.length - 1 ? "" : " disabled"}>↓</button>
+        <button class="btn danger" data-act="qDel" data-i="${i}" title="Remove"${qDraft.length > 1 ? "" : " disabled"}>✕</button></div></div>`).join("")}
+    <button class="btn" data-act="qNew"${qDraft.length >= 20 ? " disabled" : ""}>+ Add a question</button></div>`;
+  const sets = [{key:"default", name:"Default questions", qs:defaultQs},
+    ...qsets.filter(s => s.owner_id !== me.id && s.questions?.length).map(s => ({key:s.owner_id, name:personName(s.owner_id) || "A former CE", qs:s.questions}))];
+  h += `<h3 class="sec">Use other CEs' questions</h3><div class="meta" style="color:var(--muted);font-size:13px">Add any of them to yours, or start from a whole list. Their lists aren't changed.</div>
+    <div class="qsets">${sets.map(s => `<div class="qset"><div class="qsh"><b>${esc(s.name)}</b><button class="btn" data-act="qUseAll" data-set="${esc(s.key)}">Use this list</button></div>
+      <ol>${s.qs.map((q, i) => `<li>${esc(q.text)}<button class="link" data-act="qPick" data-set="${esc(s.key)}" data-i="${i}" title="Add to your questions">+ Add</button></li>`).join("")}</ol></div>`).join("")}</div>`;
+  m.innerHTML = h;
+}
+const qSet = key => key === "default" ? defaultQs : (qsets.find(s => s.owner_id === key)?.questions || []);
+function qChanged(rerender = true){
+  qDirty = true;
+  if (rerender) { const y = window.scrollY; renderQuestions(); window.scrollTo({top:y}); return; }
+  const b = $('[data-act="qSave"]'); if (b) b.disabled = false;
+}
+function qAct(act, d){
+  const i = +d.i;
+  if (act === "qNew") { qDraft.push({id:uid(), text:"", hint:""}); qChanged(); $$("[data-qtext]").at(-1)?.focus(); return; }
+  if (act === "qMove") { const j = i + +d.d; if (j < 0 || j >= qDraft.length) return; [qDraft[i], qDraft[j]] = [qDraft[j], qDraft[i]]; }
+  if (act === "qDel") { if ((qDraft[i].text || "").trim() && !confirm(`Remove “${qDraft[i].text}”?`)) return; qDraft.splice(i, 1); }
+  if (act === "qPick") {
+    if (qDraft.length >= 20) { toast("You can have up to 20 questions."); return; }
+    const q = clone(qSet(d.set)[i]); if (qDraft.some(x => x.id === q.id)) q.id = uid();
+    qDraft.push(q); toast("Added to the end of your questions.");
+  }
+  if (act === "qUseAll") {
+    if (!confirm("Replace your questions with this list? You can still change them before saving.")) return;
+    qDraft = clone(qSet(d.set));
+  }
+  qChanged();
+}
+async function saveQuestions(){
+  const list = qDraft.map(q => ({id:q.id, text:(q.text || "").trim(), hint:(q.hint || "").trim()})).filter(q => q.text);
+  if (!list.length) { toast("Add at least one question."); return; }
+  try {
+    await call("eval_questions_save", {p:list});
+    await loadQuestions(); qDraft = null; qDirty = false; renderQuestions();
+    toast("Saved. Members who pick you as their CE will answer these.");
+  } catch (e) { fail("Couldn't save your questions", e); }
+}
+
+/* ---------- the eval meeting ---------- */
+const localInput = iso => { const d = new Date(iso); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16); };
+function openMeeting(){
+  const r = evalState.row;
+  $("#meetLead").textContent = `${r.member_name || "The member"} is emailed the time and place. You can change it later.`;
+  $("#mAt").value = r.meeting_at ? localInput(r.meeting_at) : "";
+  $("#mPlace").value = r.meeting_place || "";
+  $("#mClear").hidden = !r.meeting_at;
+  openDlg("#dMeet"); $("#mAt").focus();
+}
+$("#dMeet").addEventListener("close", async () => {
+  const how = $("#dMeet").returnValue; if (how !== "ok" && how !== "clear") return;
+  const r = evalState?.row; if (!r) return;
+  const at = how === "ok" && $("#mAt").value ? new Date($("#mAt").value).toISOString() : null;
+  if (how === "ok" && !at) return;
+  try {
+    await call("eval_schedule_meeting", {p_id:r.id, p_at:at, p_place:$("#mPlace").value.trim()});
+    if (at) sendQueued();
+    await reloadEval();
+    toast(at ? `Meeting saved. ${r.member_name || "The member"} is emailed.` : "Meeting removed.");
+  } catch (e) { fail("Couldn't save the meeting", e); }
+});
+
+function onEvalInput(ev){
+  const st = evalState, t = ev.target; if (!st) return;
+  if (t.matches("textarea.bta")) grow(t);
+  if (t.matches("[data-mc]")) { if (ev.type === "input") memberCommentSoon(t.value); return; }
+  if (!evalLive()) return;
+  const r = st.row;
+  if (t.id === "evEmail") r.member_email = t.value.trim();
+  else if (t.dataset.bind) {
+    r[t.dataset.bind] = t.value;
+    if (t.dataset.bind === "member_name" && r.kind !== "self") $(".tb-t h2").textContent = t.value || "Unnamed member";
+    if (t.dataset.bind === "ce_id") { const b = $('[data-act="selfSubmit"]'); if (b) b.textContent = `Submit to ${personName(t.value) || "your CE"}`; }
+    $$(`[data-bind="${t.dataset.bind}"]`).forEach(o => { if (o !== t) o.value = t.value; });   // e.g. Member on both pages
+  }
+  else if (t.dataset.field != null) { r.fields = {...r.fields, [t.dataset.field]:t.value}; $$(`[data-field="${CSS.escape(t.dataset.field)}"]`).forEach(o => { if (o !== t) o.value = t.value; }); }
+  else if (t.dataset.box) r.answers = {...r.answers, [t.dataset.box]:t.value};
+  else if (t.dataset.qa) r.answers = {...r.answers, [t.dataset.qa]:t.value};
+  else if (t.dataset.sf) {
+    r[t.dataset.sf] = t.value;
+    if (t.dataset.sf === "ce_id") {
+      const b = $('[data-act="selfSubmit"]'); if (b) b.textContent = `Submit to ${personName(t.value) || "your CE"}`;
+      markDirty(); if (ev.type === "change") refreshQuestions(); return;
+    }
+  }
+  else return;
+  markDirty();
+}
+function setRating(critId, v){
+  const r = evalState.row, cur = r.ratings?.[critId];
+  const next = cur === v ? undefined : v;          // clicking the chosen rating again clears it
+  const ratings = {...r.ratings}; if (next === undefined) delete ratings[critId]; else ratings[critId] = next;
+  r.ratings = ratings;
+  const tr = $(`tr[data-crit="${CSS.escape(critId)}"]`);
+  $$("td.lv", tr).forEach((td, i) => { const on = next === i + 1; td.classList.toggle("on", on); td.querySelector("button")?.setAttribute("aria-pressed", on); });
+  const no = $(".nob", tr); no.classList.toggle("on", next === "NO"); no.setAttribute("aria-pressed", next === "NO");
+  markDirty();
+}
+function markDirty(){ const st = evalState; st.dirty = true; showSaveState(); clearTimeout(st.timer); st.timer = setTimeout(flushEval, 900); }
+async function flushEval(){
+  const st = evalState; if (!st || !st.dirty || st.row.missing) return;
+  if (st.saving) { await st.saving; return flushEval(); }
+  clearTimeout(st.timer); st.dirty = false;
+  const r = st.row;
+  st.saving = (r.kind === "self"
+    ? call("eval_self_save", {p_id:r.id, p:{semester:r.semester, subsystem:r.subsystem, ce_id:r.ce_id || "", lead_id:r.lead_id || "", answers:r.answers}})
+    : call("eval_save", {p_id:r.id, p:{member_name:r.member_name, member_email:r.member_email, semester:r.semester, division:r.division,
+        subsystem:r.subsystem, lead_id:r.lead_id || "", review_date:r.review_date || "", fields:r.fields, ratings:r.ratings, answers:r.answers}}))
+    .then(() => { st.err = ""; r.updated_at = new Date().toISOString(); })
+    .catch(e => { st.err = e.message; st.dirty = true; st.timer = setTimeout(flushEval, 8000); })
+    .finally(() => { st.saving = false; showSaveState(); });
+  showSaveState();
+  await st.saving;
+}
+function showSaveState(){
+  const el = $("#saveState"), st = evalState; if (!el || !st) return;
+  el.className = "savest" + (st.err ? " bad" : "");
+  el.textContent = !evalLive() ? "" : st.err ? `· Not saved: ${st.err} (retrying)` : st.saving || st.dirty ? "· Saving…" : "· All changes saved";
+}
+window.addEventListener("beforeunload", e => { if (qDirty) { e.preventDefault(); e.returnValue = ""; return; } if (evalState && (evalState.dirty || evalState.saving)) { flushEval(); e.preventDefault(); e.returnValue = ""; } });
+
+let mcT;
+function memberCommentSoon(text){
+  const el = $("#mcState"); if (el) el.textContent = "Saving…";
+  clearTimeout(mcT);
+  mcT = setTimeout(async () => {
+    try { await call("eval_member_comment", {p_id:evalState.row.id, p_text:text}); evalState.row.member_comments = text; if (el) el.textContent = "Saved"; }
+    catch (e) { if (el) el.textContent = "Not saved: " + e.message; }
+  }, 900);
+}
+
+/* Things to double-check before marking an eval finished. */
+function evalProblems(r){
+  const out = [], rated = r.ratings || {};
+  r.rubric.pages.forEach(p => p.criteria.forEach(c => { if (rated[c.id] == null) out.push(`No rating or N/O for “${c.name || "untitled"}”.`); }));
+  const ev = r.rubric.pages.flatMap(p => p.boxes).find(isEvidenceBox);
+  if (ev && Object.values(rated).some(v => [1, 2, 4, 5].includes(v)) && !(r.answers?.[ev.id] || "").trim())
+    out.push(`Ratings of 1, 2, 4 or 5 need specific examples in “${ev.title}”.`);
+  return out;
+}
+async function setEvalStatus(s){
+  const r = evalState.row;
+  await flushEval();
+  if (s === "final" && r.status === "draft") {
+    const p = evalProblems(r);
+    if (p.length && !confirm(`Before you mark it finished:\n\n• ${p.join("\n• ")}\n\nMark it finished anyway?`)) return;
+  }
+  if (s === "draft" && !confirm("Move it back to draft? Other CEs, the e-board and the lead won't see it until you mark it finished again.")) return;
+  try {
+    await call("eval_set_status", {p_id:r.id, p_status:s});
+    await reloadEval();
+    toast({draft:"Back to draft.", final:r.status === "shared" ? "No longer shared with the member."
+      : r.self_eval_id ? `Marked finished. ${r.member_name || "The member"}'s self-eval is now shown next to yours.` : "Marked finished.", shared:"Shared."}[s]);
+  } catch (e) { fail("Couldn't change it", e); }
+}
+async function shareEval(){
+  const r = evalState.row;
+  await flushEval();
+  if (r.self_eval_id) {
+    if (!confirm(`Share with ${r.member_name || "the member"} now that you've met?\n\nThey'll read your evaluation next to their self-eval and can add their own comments. They're emailed. You can't edit it while it's shared.`)) return;
+    try { await call("eval_set_status", {p_id:r.id, p_status:"shared"}); sendQueued(); await reloadEval(); toast(`Shared with ${r.member_name || "the member"}.`); }
+    catch (e) { fail("Couldn't share it", e); }
+    return;
+  }
+  const email = (r.member_email || "").toLowerCase();
+  if (!email) { toast("Add the member's email first (in the bar above the form).", 5000); $("#evEmail")?.focus(); return; }
+  const acct = people.find(p => (p.email || "").toLowerCase() === email);
+  if (!acct) { alert(`Nobody has a OneSolar account with ${email} yet.\n\nAsk ${r.member_name || "them"} to create one at ${ORDERS_URL} with that email, then share again.`); return; }
+  if (!confirm(`Share with ${acct.full_name || acct.email} (${acct.email})?\n\nThey'll be able to read this evaluation when signed in, and add their own comments. You can't edit it while it's shared.`)) return;
+  try { await call("eval_set_status", {p_id:r.id, p_status:"shared"}); sendQueued(); await reloadEval(); toast(`Shared with ${acct.full_name || acct.email}.`); }
+  catch (e) { fail("Couldn't share it", e); }
+}
+async function reloadEval(){
+  const id = evalState.row.id; evalState = null;
+  await Promise.all([openEval(id), loadEvals()]); renderEval();
+}
+async function deleteEval(){
+  const r = evalState.row;
+  if (!confirm(r.kind === "self" ? "Delete your self-eval draft? This can't be undone." : `Delete the draft for ${r.member_name || "this member"}? This can't be undone.`)) return;
+  try { clearTimeout(evalState.timer); evalState.dirty = false; await call("eval_delete", {p_id:r.id}); evalState = null; await loadEvals(); location.hash = "#/evals"; toast("Draft deleted."); }
+  catch (e) { fail("Couldn't delete it", e); }
+}
+function printEval(){
+  const r = evalState.row, title = document.title;
+  document.title = `Solar Evals - ${r.member_name || "member"} - ${r.semester || ""}`.trim();
+  window.print(); document.title = title;
+}
+
+/* =========================================================
+   CLICKS
+   ========================================================= */
+document.addEventListener("click", e => {
+  const rate = e.target.closest("[data-rate]");
+  if (rate && evalLive()) { setRating(rate.dataset.rate, rate.dataset.v === "NO" ? "NO" : +rate.dataset.v); return; }
+  const b = e.target.closest("[data-act]"); if (!b || b.tagName === "SELECT") return;
+  const d = b.dataset, act = d.act;
+  if ((b.classList.contains("eb") || act === "resetPage") && draft && view.mode === "edit") { editAct(act, d); return; }
+  switch (act) {
+    case "track": go(d.id); break;
+    case "startFrom": startDraft(view.trackId, d.id); break;
+    case "startOther": openPick(); break;
+    case "resume": go(view.trackId, null, "edit"); break;
+    case "discard": if (confirm("Throw away this draft? This can't be undone.")) { const t = draft.trackId; draft = null; saveDraft(); go(t); } break;
+    case "openSave": openSave(); break;
+    case "cmpDraft": openCompare(draft.baseId, "__draft"); break;
+    case "pickLatest": go(view.trackId); break;
+    case "history": openHistory(); break;
+    case "histView": $("#dHist").close(); go(view.trackId, d.id); break;
+    case "histCmp": $("#dHist").close(); openCompare(d.a, d.b); break;
+    case "histRemove": removeVersion(d.id); break;
+    case "compare": { const v = shownVersion(), vs = versionsOf(view.trackId), i = vs.indexOf(v);
+      const a = (v.basedOn && version(v.basedOn.versionId)) || vs[i - 1] || latest("master"); openCompare(a.id, v.id); break; }
+    case "compareAny": openCompare(latest("master").id, (shownVersion() || latest("master")).id); break;
+    case "cmpPair": openCompare(d.a, d.b); break;
+    case "cmpSwap": [view.cmpA, view.cmpB] = [view.cmpB, view.cmpA]; renderRubric(); break;
+    case "closeCompare": view.mode = view.back === "edit" && draft && draft.trackId === view.trackId ? "edit" : "view"; render(); break;
+    case "print": window.print(); break;
+    case "addTrack": openTrackDlg(null); break;
+    case "renameTrack": openTrackDlg(track(view.trackId)); break;
+    case "export": exportData(); break;
+    case "newEval": openNewEval(); break;
+    case "openEval": location.hash = "#/evals/" + d.id; break;
+    case "evStatus": setEvalStatus(d.s); break;
+    case "evShare": shareEval(); break;
+    case "evDelete": deleteEval(); break;
+    case "newSelf": openNewSelf(); break;
+    case "evStart": startReview(d.id); break;
+    case "selfSubmit": submitSelf(true); break;
+    case "selfBack": if (confirm("Take your self-eval back? It becomes a draft only you can see, until you submit it again.")) submitSelf(false); break;
+    case "evMeet": openMeeting(); break;
+    case "qNew": case "qMove": case "qDel": case "qPick": case "qUseAll": qAct(act, d); break;
+    case "qSave": saveQuestions(); break;
+    case "qDiscard": if (confirm("Throw away your unsaved changes to the questions?")) { qDraft = null; renderQuestions(); } break;
+    case "evPrint": printEval(); break;
+  }
+});
+
+/* Pick up other people's changes when you come back to the tab. */
+document.addEventListener("visibilitychange", async () => {
+  if (document.visibilityState !== "visible" || !me) return;
+  try {
+    await Promise.all([loadRubrics(), loadEvals()]);
+    if (section === "evals") renderList();
+    if (section === "rubrics" && view.mode === "view") { renderSide(); renderRubric(); }
+  } catch {}
+});
+
+/* =========================================================
+   START
+   ========================================================= */
+if (draft && !draft.rubric) { draft = null; saveDraft(); }
+{
+  const { data:{ session } } = await sb.auth.getSession();
+  if (session) boot(session); else showSignIn();
+}
+</script>
+</body>
+</html>

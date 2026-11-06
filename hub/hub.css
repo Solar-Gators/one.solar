@@ -1,0 +1,63 @@
+/*
+ * OneSolar home screen: the app cards and Customize cards.
+ * Colours, top bar, buttons and cards come from ../shared/onesolar.css.
+ */
+
+/* ---- Home ---- */
+main.container { max-width: 1080px; padding-top: 36px; }
+.hero h1 { margin: 0 0 4px; font-size: 30px; line-height: 1.2; color: var(--navy); letter-spacing: -0.02em; }
+.hero p { margin: 0 0 26px; color: var(--muted); font-size: 16px; }
+
+.apps { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+.app-card {
+  display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); box-shadow: var(--shadow); transition: box-shadow 0.15s, transform 0.15s, border-color 0.15s;
+}
+.app-card:hover { box-shadow: var(--shadow-hover); transform: translateY(-2px); border-color: color-mix(in srgb, var(--orange) 45%, var(--border)); }
+.app-main { display: flex; gap: 14px; align-items: flex-start; padding: 18px 18px 16px; text-decoration: none; flex: 1; border-radius: var(--radius); }
+.app-icon {
+  flex: none; width: 48px; height: 48px; border-radius: 12px; display: grid; place-items: center; font-size: 24px;
+  background: color-mix(in srgb, var(--orange) 12%, var(--surface));
+}
+.app-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.app-name { font-size: 17px; font-weight: 700; color: var(--navy); }
+.app-blurb { color: var(--muted); font-size: 14px; }
+.app-note { font-size: 12px; font-weight: 600; color: var(--orange); margin-top: 4px; }
+.app-go { color: var(--muted); font-size: 18px; transition: transform 0.15s, color 0.15s; }
+.app-card:hover .app-go { color: var(--orange); transform: translateX(3px); }
+.app-links { display: flex; flex-wrap: wrap; gap: 4px 14px; padding: 10px 18px 12px 80px; border-top: 1px solid var(--border); font-size: 13px; }
+.app-links a { color: var(--muted); text-decoration: none; font-weight: 600; }
+.app-links a:hover { color: var(--orange); text-decoration: underline; }
+.more { margin-top: 18px; }
+.hero-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+
+/* ---- Customize cards (admins) ---- */
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; margin-bottom: 22px; }
+.customize h2 { margin: 0 0 4px; font-size: 19px; color: var(--navy); }
+.customize > p { margin: 0 0 14px; font-size: 14px; }
+.cz-list { display: flex; flex-direction: column; }
+.cz-row { display: grid; grid-template-columns: minmax(200px, 1fr) minmax(240px, 1.3fr); gap: 14px; padding: 12px 0; border-top: 1px solid var(--border); align-items: start; }
+.cz-app { display: flex; gap: 12px; align-items: center; }
+.cz-icon { width: 38px; height: 38px; font-size: 19px; border-radius: 10px; }
+.cz-choice select {
+  font: inherit; padding: 7px 10px; border-radius: 8px; border: 1px solid var(--control-border);
+  background: var(--control-bg); color: var(--text); width: 100%; max-width: 320px;
+}
+.cz-roles { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 8px; font-size: 14px; }
+.cz-roles label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+
+footer.container { max-width: 1080px; }
+
+/* Avoid a flash of the signed-out page while checking who you are. */
+body:not(.ready) main { visibility: hidden; }
+
+@media (max-width: 640px) {
+  main.container { padding-top: 24px; }
+  .hero h1 { font-size: 24px; }
+  .hero-row { flex-direction: column; }
+  .cz-row { grid-template-columns: 1fr; gap: 8px; }
+  .card { padding: 16px; }
+  .apps { grid-template-columns: 1fr; gap: 12px; }
+  .app-links { padding-left: 18px; }
+  footer { padding: 0 16px 24px; }
+}

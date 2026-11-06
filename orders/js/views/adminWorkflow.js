@@ -354,7 +354,7 @@ export async function renderNotifications(el, { config, rerender, reloadConfig }
         <label class="rule-toggle"><input type="checkbox" id="n-enabled" ${state.enabled ? 'checked' : ''}>
           <span>Send notifications <span class="hint">Messages go to each person's UF email / Teams account. People can turn them off on their Account page.</span></span></label>
         <div class="field"><label for="n-site">Website address (for links)</label>
-          <input type="url" id="n-site" value="${esc(state.siteUrl)}" placeholder="https://solar-gators.github.io/Orders-Form/"></div>
+          <input type="url" id="n-site" value="${esc(state.siteUrl)}" placeholder="https://solar-gators.github.io/one.solar/orders/"></div>
         <div class="field"><label for="n-delay">Wait before sending "needs your approval"</label>
           <div class="inline-input"><input type="number" id="n-delay" min="0" max="1440" step="1" value="${esc(state.approvalDelayMinutes)}"> <span class="muted">minutes</span></div>
           <div class="hint">Skipped if the request is handled before then (e.g. a CE approving their own order). 0 = send right away.</div></div>

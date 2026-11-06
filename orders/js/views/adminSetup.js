@@ -221,7 +221,7 @@ export async function renderAppearance(el, { config, rerender, reloadConfig }) {
           <div class="field">
             <label for="logo-file">Logo <span class="muted">(top-left and sign-in page; PNG, JPG, SVG or WebP under 300 KB)</span></label>
             <div class="logo-row">
-              <div class="logo-preview"><img id="logo-preview" src="${esc(a.logo || 'assets/solar-gators-logo.png')}" alt="Logo preview"></div>
+              <div class="logo-preview"><img id="logo-preview" src="${esc(a.logo || '../shared/assets/solar-gators-logo.png')}" alt="Logo preview"></div>
               <div>
                 <input id="logo-file" type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp">
                 <button type="button" class="btn btn-sm btn-ghost" id="logo-reset" ${a.logo ? '' : 'hidden'}>Use the standard logo</button>
@@ -344,7 +344,7 @@ export async function renderAppearance(el, { config, rerender, reloadConfig }) {
   });
   form.querySelector('#logo-reset').addEventListener('click', (e) => {
     logo = '';
-    form.querySelector('#logo-preview').src = 'assets/solar-gators-logo.png';
+    form.querySelector('#logo-preview').src = '../shared/assets/solar-gators-logo.png';
     form.querySelector('#logo-file').value = '';
     e.target.hidden = true;
   });

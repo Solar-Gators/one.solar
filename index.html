@@ -5,32 +5,25 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>OneSolar · Solar Gators</title>
   <meta name="description" content="OneSolar: every Solar Gators team app in one place — Orders, Sponsors, Finances, Solar Evals, GatorWire and more.">
-  <link rel="icon" href="assets/favicon.png">
-  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
-  <script>
-    // Light / dark before the page draws (same setting as the Order Form).
-    (function () {
-      var t = null;
-      try { t = localStorage.getItem('theme'); } catch (e) {}
-      var dark = t === 'dark' || (t !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
-      document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
-    })();
-  </script>
-  <link rel="stylesheet" href="css/onesolar.css">
+  <link rel="icon" href="shared/assets/favicon.png">
+  <link rel="apple-touch-icon" href="shared/assets/apple-touch-icon.png">
+  <script src="shared/theme.js"></script>
+  <link rel="stylesheet" href="shared/onesolar.css">
+  <link rel="stylesheet" href="hub/hub.css">
 </head>
 <body>
   <header class="topbar">
-    <a class="brand" href="./" aria-label="OneSolar home">
-      <img class="brand-logo" src="assets/solar-gators-logo.png" alt="Solar Gators">
-      <span class="brand-name">One<b>Solar</b></span>
-    </a>
-    <div class="account">
-      <button type="button" class="icon-btn" id="theme" aria-label="Switch light / dark">🌙</button>
-      <span id="account"></span>
+    <div class="topbar-inner">
+      <a class="brand" href="./" aria-label="OneSolar home">
+        <img class="brand-logo" data-auto-logo src="shared/assets/solar-gators-logo.png" alt="Solar Gators" width="800" height="237">
+        <span class="brand-divider" aria-hidden="true"></span>
+        <span>One<span class="brand-accent">Solar</span></span>
+      </a>
+      <div class="topbar-end" id="account"></div>
     </div>
   </header>
 
-  <main>
+  <main class="container">
     <section class="hero">
       <div class="hero-row">
         <div>
@@ -45,8 +38,8 @@
     <div class="more" id="more"></div>
   </main>
 
-  <footer>UF Solar Gators · One account for every app.</footer>
+  <footer class="footer container">UF Solar Gators · One account for every app.</footer>
 
-  <script type="module" src="js/home.js"></script>
+  <script type="module" src="hub/home.js"></script>
 </body>
 </html>
