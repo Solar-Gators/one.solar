@@ -6,9 +6,11 @@ import { startRouter } from './router.js';
 import { APP, APPS, homePath } from './appMode.js';
 import { hasHelp } from './views/help.js';
 import { setLedgerSettings } from './ledger.js';
+import { mountAppSwitcher } from '../../shared/app-switcher.js';
 import { STATUS, STATUSES, EDITABLE_STATUSES, esc, errorBox, setCurrentSeason, setAppearance, renderRichText, fitTables } from './ui.js';
 
 const app = document.getElementById('app');
+mountAppSwitcher(); // ⊞ next to the logo: jump to any other OneSolar app (Ctrl + K)
 
 // Bump when adding a file to supabase/migrations/ (the migration sets general.schemaVersion).
 const REQUIRED_SCHEMA_VERSION = 34;

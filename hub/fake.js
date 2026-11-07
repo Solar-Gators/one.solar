@@ -1,7 +1,7 @@
 /**
  * A made-up Supabase client for trying the home screen on localhost (?fake).
  *   ?fake              a Member
- *   ?fake=admin        Admin (Customize cards; choices kept in this browser)
+ *   ?fake=admin        Admin (✎ Edit home screen; saved in this browser)
  *   ?fake=treasurer    Treasurer (Finances, Queue)
  *   ?fake=coordinator  Business Coordinator (Sponsors, Finances)
  *   ?fake=out          signed out

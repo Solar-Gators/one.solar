@@ -11,13 +11,26 @@
  *             ['perm', …] only people whose role has one of these Order Form permissions
  *   links     optional shortcuts under the card: [{ label, href, access }]
  *   note      optional small print (e.g. "Not live yet")
+ *   section   which heading it's under on the home screen (an id from SECTIONS below)
+ *
+ * Admins can also change all of this on the home screen itself (✎ Edit home screen): rename a
+ * card, move it, put it in another section, choose who sees it, or add links to other sites.
+ * Those choices are saved in the database and win over what's written here.
  *
  * Hiding a card is only for tidiness. Each app's own database rules still decide
  * who can see what; anyone can type an app's address.
  */
+/** The headings on the home screen, in order. Admins can rename, reorder and add more. */
+export const SECTIONS = [
+  { id: 'apps', name: 'Team apps' },
+  { id: 'tools', name: 'Engineering tools' },
+  { id: 'links', name: 'Links' },
+];
+
 export const APPS = [
   {
     id: 'orders',
+    section: 'apps',
     name: 'Orders',
     blurb: 'Request parts and follow them through approval, ordering and delivery.',
     href: 'orders/#/home',
@@ -31,6 +44,7 @@ export const APPS = [
   },
   {
     id: 'sponsors',
+    section: 'apps',
     name: 'Sponsors',
     blurb: 'Sponsorships and donations from first contact to thank-you, for every car.',
     href: 'sponsors/',
@@ -39,6 +53,7 @@ export const APPS = [
   },
   {
     id: 'finances',
+    section: 'apps',
     name: 'Finances',
     blurb: 'Budgets, purchases and funding: the Treasurer\'s ledger.',
     href: 'finances/',
@@ -47,6 +62,7 @@ export const APPS = [
   },
   {
     id: 'evals',
+    section: 'apps',
     name: 'Solar Evals',
     blurb: 'Semester member reviews: CE rubrics and evaluations, filled out online.',
     href: 'evals/',
@@ -55,6 +71,7 @@ export const APPS = [
   },
   {
     id: 'gatorwire',
+    section: 'tools',
     name: 'GatorWire',
     blurb: 'Turn a draw.io wiring diagram into a full wiring spec: connectors, conductors and splices.',
     href: 'gatorwire/',
@@ -63,6 +80,7 @@ export const APPS = [
   },
   {
     id: 'scope',
+    section: 'tools',
     name: 'CE Scope Map',
     blurb: 'Who owns what: Chief Engineer responsibilities and where their scopes overlap.',
     href: 'scope-map/',
@@ -71,6 +89,7 @@ export const APPS = [
   },
   {
     id: 'admin',
+    section: 'apps',
     name: 'Admin',
     blurb: 'People and positions, permissions, the request form, approval rules, notifications and the season.',
     href: 'admin/',
@@ -84,6 +103,7 @@ export const APPS = [
   },
   {
     id: 'website',
+    section: 'links',
     name: 'Solar Gators website',
     blurb: 'Our official site: the team, the cars, our sponsors and how to join.',
     href: 'https://ufsolargators.org/',

@@ -10,7 +10,8 @@
     "test": "node tests/sheetImport.test.mjs && node tests/notify.test.mjs && node tests/financeCalc.test.mjs && node tests/ledger.test.mjs && node tests/itemImport.test.mjs && node tests/sponsorImport.test.mjs && node tests/sponsorGroups.test.mjs && node tests/db.test.mjs",
     "test:db": "node tests/db.test.mjs",
     "test:import": "node tests/sheetImport.test.mjs",
-    "gatorwire": "node tools/gatorwire-onesolar.mjs"
+    "gatorwire": "node tools/gatorwire-onesolar.mjs",
+    "new-app": "node tools/new-app.mjs"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.8"

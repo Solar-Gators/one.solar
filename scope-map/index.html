@@ -351,6 +351,8 @@ body.editing .vlabels{pointer-events:none}
 <script type="module">
   // No accounts here: just the Light / Dark switch.
   import { renderAccount } from '../shared/account-menu.js';
+  import { mountAppSwitcher } from '../shared/app-switcher.js';
+  mountAppSwitcher(); // ⊞ next to the logo: jump to any other OneSolar app (Ctrl + K)
   renderAccount(document.getElementById('account'), { user: null, signIn: false });
 </script>
 

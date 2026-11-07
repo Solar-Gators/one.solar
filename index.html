@@ -30,11 +30,14 @@
           <h1 id="hello">Welcome to OneSolar</h1>
           <p id="lede"></p>
         </div>
-        <button type="button" class="btn btn-sm" id="customize-open" hidden>⚙ Customize cards</button>
+        <button type="button" class="btn btn-sm" id="edit-open" hidden>✎ Edit home screen</button>
+      </div>
+      <div class="search-wrap" id="search-wrap" hidden>
+        <label class="sr-only" for="search">Find an app</label>
+        <input type="search" id="search" placeholder="Find an app…  ( / )" autocomplete="off" spellcheck="false">
       </div>
     </section>
-    <section class="card customize" id="customize" hidden aria-label="Customize cards"></section>
-    <section class="apps" id="apps" aria-label="Apps"></section>
+    <div id="apps" aria-label="Apps"></div>
     <div class="more" id="more"></div>
   </main>
 

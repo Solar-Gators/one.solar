@@ -505,6 +505,8 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
    row-level security in the database protects the data. */
 import { SUPABASE_URL, SUPABASE_ANON_KEY, appUrl, signInUrl } from "../shared/onesolar.js";
 import { renderAccount } from "../shared/account-menu.js";
+import { mountAppSwitcher } from "../shared/app-switcher.js";
+mountAppSwitcher(); // ⊞ next to the logo: jump to any other OneSolar app (Ctrl + K)
 const ORDERS_URL = appUrl("orders/");
 // The shared sign-in page (new accounts, password resets) comes back here afterwards.
 const SIGN_UP_URL = signInUrl(location.pathname);

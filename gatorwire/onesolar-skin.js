@@ -6,6 +6,7 @@
  */
 import { setTheme } from '../shared/onesolar.js';
 import { syncLogo } from '../shared/account-menu.js';
+import { mountAppSwitcher } from '../shared/app-switcher.js';
 
 const bar = document.createElement('header');
 bar.className = 'os-bar';
@@ -19,6 +20,7 @@ bar.innerHTML = `
   <div class="os-end"><button type="button" class="os-theme"></button></div>`;
 document.body.prepend(bar);
 syncLogo();
+mountAppSwitcher({ after: bar.querySelector('.os-brand') }); // ⊞: jump to any other OneSolar app (Ctrl + K)
 
 const flip = bar.querySelector('.os-theme');
 const draw = () => {

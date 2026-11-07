@@ -38,44 +38,46 @@ The old addresses (`/Orders-Form/…`, `/Custom-Apps/…`) still work: those rep
   Sign out. GatorWire is a built file: `npm run gatorwire` adds the OneSolar top bar and light colours to each new build
   (see [docs/gatorwire.md](docs/gatorwire.md)).
 
-### Making a new app look like the rest
-```html
-<script src="../shared/theme.js"></script>             <!-- light / dark before the page draws -->
-<link rel="stylesheet" href="../shared/onesolar.css">
-…
-<header class="topbar"><div class="topbar-inner">
-  <a class="brand" href="../">
-    <img class="brand-logo" data-auto-logo src="../shared/assets/solar-gators-logo.png" alt="Solar Gators" width="800" height="237">
-    <span class="brand-divider"></span><span>One<span class="brand-accent">Solar</span></span>
-    <span class="brand-app">My App</span>
-  </a>
-  <nav class="nav"><a href="#/one" class="active">One</a><a href="#/two">Two</a></nav>
-  <div class="topbar-end" id="account"></div>
-</div></header>
-<script type="module">
-  import { SUPABASE_URL, SUPABASE_ANON_KEY, appUrl, signInUrl } from '../shared/onesolar.js';
-  import { renderAccount } from '../shared/account-menu.js';
-  renderAccount(document.getElementById('account'), { user, name, role, onSignOut });
-</script>
+- **The app switcher.** ⊞ next to the logo (or **Ctrl + K** / **⌘ K**) opens a grid of every app you can use, with a
+  search box, so you can jump between apps without going home. It lists the cards the home screen last showed you
+  (admins' links and order included). [`shared/app-switcher.js`](shared/app-switcher.js); one line per app:
+  `mountAppSwitcher()`.
+
+### Adding an app
+```bash
+npm run new-app -- "Parts Library" --icon=🧰 --section=tools --blurb="Every part we stock."
 ```
-Then use the shared classes (`.container`, `.card`, `.btn`, `.btn-primary`, `.btn-sm`, `.field`, `.table`, `.badge`,
-`.alert-info`…) and colour tokens (`var(--surface)`, `var(--border)`, `var(--orange)`, `var(--muted)`…) instead of
-hex colours, so dark mode comes for free. Then add the app to the home screen (below).
+This makes `parts-library/index.html` already in the OneSolar look (top bar, Light / Dark, app switcher, OneSolar
+sign-in with the person's name and position) and adds its card to [`hub/apps.js`](hub/apps.js). Build the app in
+its `<main>`. Options: `--public` (card shown to everyone), `--no-accounts` (no sign-in, like GatorWire).
+
+Doing it by hand: copy the top bar from any app (`.topbar` › `.brand` with `.brand-app`, then a `<nav class="nav">`
+for tabs and `<div class="topbar-end" id="account">`), load `../shared/theme.js` and `../shared/onesolar.css`, call
+`renderAccount(…)` and `mountAppSwitcher()`, and add an entry to `hub/apps.js`. Use the shared classes (`.container`,
+`.card`, `.btn`, `.btn-primary`, `.btn-sm`, `.field`, `.table`, `.badge`, `.alert-info`…) and colour tokens
+(`var(--surface)`, `var(--border)`, `var(--orange)`, `var(--muted)`…) instead of hex colours, so dark mode comes for free.
 
 ## The home screen
-One card per app, from [`hub/apps.js`](hub/apps.js). Signed in, it shows the apps your position can use:
-Sponsors needs **See / Edit sponsors**, Finances needs **See / Edit Finances**, and the Queue shortcut needs
-**Review** or **Order** requests. Hiding a card is only for tidiness: each app's database rules decide who sees
-what, and anyone can type an app's address.
+Cards grouped under headings (**Team apps**, **Engineering tools**, **Links**), from [`hub/apps.js`](hub/apps.js).
+Signed in, it shows the apps your position can use: Sponsors needs **See / Edit sponsors**, Finances needs
+**See / Edit Finances**, and the Queue shortcut needs **Review** or **Order** requests. Hiding a card is only for
+tidiness: each app's database rules decide who sees what, and anyone can type an app's address.
 
-**Choosing who sees each card.** Admins (**Customize lists & appearance**) get **⚙ Customize cards**. For each card:
-**Default** (the rule in `hub/apps.js`), **Everyone, even signed out**, **Anyone signed in**, **Only these
-positions…**, or **Hidden from everyone**. It applies to everyone at once and is stored in the database's
-settings "onesolar" (migration `029_onesolar.sql`).
+**For everyone.** ☆ on a card makes it a favourite: favourites go to the top (kept in that browser). With seven or
+more cards there's a search box (**/** or **Ctrl + K** jumps to it, **Enter** opens the first match).
 
-**Adding an app.** Put it in its own folder with an `index.html`, then add an entry to
-[`hub/apps.js`](hub/apps.js): name, one-line blurb, link (the folder, e.g. `'my-app/'`), icon, and who it's for
-(`'public'`, `'signedIn'`, or a list of permissions). Optional shortcut links go under the card.
+**✎ Edit home screen** (admins with **Customize lists & appearance**), with no code:
+- **+ Add a link**: a card for any other site (`https://…`), a shared drive folder, or a new app's folder (`parts/`),
+  with its own name, icon, description and section.
+- **Move cards**: drag them, within or between sections, or use ↑ ↓ on each card.
+- **Sections**: add, rename, reorder (↑ ↓), and remove empty ones.
+- **✎ Edit** a card: rename it, change its description or icon, move it to another section, and choose who sees it:
+  **Default** (the rule in `hub/apps.js`), **Everyone, even signed out**, **Anyone signed in**, **Only these
+  positions…**, or **Hidden from everyone**. **Back to default** undoes your changes to a built-in card.
+
+**Save changes** applies it for everyone. It's stored in the database's settings "onesolar" (migration
+`029_onesolar.sql`, no new migration needed): only what differs from `hub/apps.js`, so later changes to that file
+still show through.
 
 ## Running it locally
 ```bash
