@@ -21,10 +21,15 @@
  * On localhost, ?fake (or ?fake=admin, ?fake=treasurer, ?fake=coordinator, ?fake=out)
  * uses a made-up account instead of the real database.
  */
-import { APPS, SECTIONS } from './apps.js';
+// A namespace import, so a browser still holding an older cached apps.js (GitHub Pages caches files
+// for 10 minutes) gets the default sections instead of a blank page.
+import * as appList from './apps.js';
 import { SUPABASE_URL, SUPABASE_ANON_KEY, appUrl, isLocal, signInUrl } from '../shared/onesolar.js';
 import { renderAccount } from '../shared/account-menu.js';
 import { rememberApps, safeHref } from '../shared/app-switcher.js';
+
+const APPS = appList.APPS || [];
+const SECTIONS = appList.SECTIONS || [{ id: 'apps', name: 'Team apps' }, { id: 'tools', name: 'Engineering tools' }, { id: 'links', name: 'Links' }];
 
 const FAKE = isLocal && new URLSearchParams(location.search).has('fake');
 

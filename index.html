@@ -44,5 +44,16 @@
   <footer class="footer container">UF Solar Gators · One account for every app.</footer>
 
   <script type="module" src="hub/home.js"></script>
+  <script>
+    // If the page hasn't drawn after a few seconds (no connection, or a half-updated copy of the site
+    // cached right after a new version went up), say so instead of showing a blank page.
+    setTimeout(function () {
+      if (document.body.classList.contains('ready')) return;
+      document.getElementById('apps').innerHTML = '<div class="card"><strong>OneSolar didn’t finish loading.</strong>'
+        + '<p class="muted">Check your connection, then reload. Right after an update, a hard refresh helps: Ctrl + Shift + R (Mac: Cmd + Shift + R).</p>'
+        + '<button type="button" class="btn btn-primary" onclick="location.reload()">Reload</button></div>';
+      document.body.classList.add('ready');
+    }, 6000);
+  </script>
 </body>
 </html>
