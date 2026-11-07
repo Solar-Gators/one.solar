@@ -1,0 +1,80 @@
+/*
+ * GatorWire in the OneSolar look (hooked into the build by tools/gatorwire-onesolar.mjs).
+ * GatorWire's dark colours are already OneSolar's dark ones; this adds the light ones (the
+ * shared Light / Dark setting), the OneSolar top bar above GatorWire's toolbar, and a toolbar
+ * that sits under it like the other apps' page headers. Values match ../shared/onesolar.css
+ * (not loaded here: GatorWire has its own .topbar, --bg, --blue… that it would clash with).
+ */
+
+/* ---- Light: OneSolar's light colours under GatorWire's token names ---- */
+:root[data-theme="light"] {
+  color-scheme: light;
+  --uf-orange: #f26b1d;
+  --bg: #f4f6f9;
+  --panel: #ffffff;
+  --panel-2: #f8fafc;
+  --line: #dde3ea;
+  --line-strong: #c8d1dc;
+  --ink: #1c2733;
+  --muted: #5d6d7e;
+  --cyan: #1d4ed8;
+  --amber: #a15c07;
+  --red: #b42318;
+  --green: #17803d;
+  --shadow: 0 8px 24px rgba(11, 37, 69, .14);
+  color: var(--ink);
+  background: var(--bg);
+}
+:root[data-theme="dark"] { color-scheme: dark; }
+
+/* ---- The page: OneSolar top bar, then GatorWire filling the rest ---- */
+body { display: flex; flex-direction: column; }
+#root { flex: 1; min-height: 0; height: auto; }
+
+.os-bar {
+  flex: none; display: flex; align-items: center; gap: 12px 24px; min-height: 62px; padding: 8px 20px;
+  background: #fff; color: #1c2733; border-bottom: 3px solid #f26b1d; box-shadow: 0 1px 3px rgba(11, 37, 69, .06);
+  font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+.os-brand { display: flex; align-items: center; gap: 10px; color: #0b2545; text-decoration: none; font-weight: 700; font-size: 17px; white-space: nowrap; }
+.os-logo { height: 36px; width: auto; display: block; }
+.os-divider { width: 1px; height: 24px; background: #dde3ea; }
+.os-accent { color: #f26b1d; }
+.os-app { color: #5d6d7e; font-weight: 600; padding-left: 10px; border-left: 1px solid #dde3ea; }
+.os-end { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.os-theme {
+  display: inline-flex; align-items: center; justify-content: center; padding: 5px 12px; border-radius: 6px;
+  border: 1px solid transparent; background: transparent; color: #5d6d7e; font: inherit; font-size: 13px; cursor: pointer;
+}
+.os-theme:hover { background: #f8fafc; }
+.os-bar :focus-visible { outline: 3px solid #f26b1d55; outline-offset: 2px; }
+[data-theme="dark"] .os-bar { background: #06182f; color: #f7f9ff; border-bottom-color: #fa4616; box-shadow: 0 1px 0 #00000055; }
+[data-theme="dark"] .os-brand { color: #e3ebff; }
+[data-theme="dark"] .os-divider, [data-theme="dark"] .os-app { border-color: #23486f; }
+[data-theme="dark"] .os-divider { background: #23486f; }
+[data-theme="dark"] .os-accent { color: #fa4616; }
+[data-theme="dark"] .os-app, [data-theme="dark"] .os-theme { color: #a8b8ce; }
+[data-theme="dark"] .os-theme:hover { background: #0f325c; }
+
+/* ---- GatorWire's own top bar becomes its toolbar, under the OneSolar bar ---- */
+:root .studio-shell > .topbar { background: var(--panel); border-bottom: 1px solid var(--line); }
+:root .studio-shell > .topbar::before { display: none; }
+/* The logo and "GatorWire" are in the OneSolar bar now, so GatorWire's own logo and name go. */
+.studio-shell > .topbar > .team-logo,
+.studio-shell > .topbar > .brand-divider,
+.studio-shell > .topbar > .brand-copy { display: none; }
+
+/* The Share button (top right): a real button, so it's clear you can click it to share, add a token or check for changes. */
+:root .studio-shell button.save-state {
+  gap: 8px; padding: 8px 12px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--panel-2);
+  color: var(--ink); font: 600 .78rem system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; white-space: nowrap;
+}
+:root .studio-shell button.save-state::after { content: "▾"; color: var(--muted); font-size: .7rem; }
+:root .studio-shell button.save-state:hover { border-color: var(--uf-orange); background: var(--panel); }
+:root .studio-shell button.save-state i { flex: none; width: 8px; height: 8px; }
+/* Not shared yet, or view only: invite the click. */
+:root .studio-shell button.save-state.sync-local,
+:root .studio-shell button.save-state.sync-readonly { border-color: var(--uf-orange); }
+:root .studio-shell button.save-state.sync-local { background: var(--uf-orange); color: #fff; }
+:root .studio-shell button.save-state.sync-local::after { color: #fff; }
+:root .studio-shell button.save-state.sync-local i { background: #fff; }

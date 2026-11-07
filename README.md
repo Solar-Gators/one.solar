@@ -35,7 +35,8 @@ The old addresses (`/Orders-Form/…`, `/Custom-Apps/…`) still work: those rep
 - **One Light / Dark setting.** The account menu's **Appearance** (Auto / Light / Dark) applies to every app.
 - **The top bar.** Solar Gators logo, **OneSolar** (back to the home screen), the app's name and its tabs on the
   left, and the account menu on the right: your name and position, My account & notifications, Appearance and
-  Sign out. GatorWire is a built file, so it keeps its own top bar.
+  Sign out. GatorWire is a built file: `npm run gatorwire` adds the OneSolar top bar and light colours to each new build
+  (see [docs/gatorwire.md](docs/gatorwire.md)).
 
 ### Making a new app look like the rest
 ```html
