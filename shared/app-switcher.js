@@ -79,8 +79,10 @@ const CSS = `
 [data-theme=dark] .os-switch-grid a.on{background:#2a1a12;color:#ff9a6b}
 [data-theme=dark] .os-switch-foot{border-color:#23486f;color:#a8b8ce}
 [data-theme=dark] .os-switch-foot a{color:#ff9a6b}
-@media(max-width:960px){.topbar .os-switch{order:1}.topbar .brand{min-width:0}.topbar .brand-logo{max-width:100%;object-fit:contain;object-position:left}}
-@media(max-width:640px){.os-switch-pop{position:fixed;top:64px;left:12px;right:12px;width:auto}}
+@media(max-width:960px){.topbar .os-switch{order:1}}
+.os-nav-apps{display:none!important}
+@media(max-width:420px){.topbar-inner:has(.menu-btn) > .os-switch{display:contents}.topbar-inner:has(.menu-btn) .os-switch-btn{display:none}.topbar-inner:has(.menu-btn) .os-nav-apps{display:flex!important}}
+@media(max-width:640px){.os-switch-pop{position:fixed;top:64px;left:12px;right:12px;width:auto}.os-switch-foot span{display:none}}
 `;
 
 let mounted = false;
@@ -102,6 +104,22 @@ export function mountAppSwitcher({ after = document.querySelector('.topbar .bran
       <div class="os-switch-foot"><a href="${esc(appUrl(''))}">All apps · OneSolar home</a><span>Ctrl + K</span></div>
     </div>`;
   after.after(wrap);
+  // Narrow phones with a folding Menu (Orders, Finances, Sponsors, Admin): no room for ⊞ next to the
+  // logo, so the switcher is the last item in that Menu instead.
+  const nav = after.closest('.topbar-inner')?.querySelector('.menu-btn') && after.closest('.topbar-inner').querySelector('.nav');
+  if (nav) {
+    const item = document.createElement('a');
+    item.className = 'os-nav-apps';
+    item.href = '#';
+    item.textContent = '⊞ All OneSolar apps';
+    item.onclick = (e) => {
+      e.preventDefault();
+      e.stopPropagation(); // keep the page's "click elsewhere closes the menu" from running too
+      if (document.body.classList.contains('nav-open')) after.closest('.topbar-inner').querySelector('.menu-btn').click(); // the app closes its Menu
+      open(true);
+    };
+    nav.append(item);
+  }
   const btn = wrap.querySelector('.os-switch-btn');
   const pop = wrap.querySelector('.os-switch-pop');
   const box = pop.querySelector('input');
@@ -153,6 +171,7 @@ export function mountAppSwitcher({ after = document.querySelector('.topbar .bran
     if (!pop.hidden && !e.composedPath().includes(wrap)) open(false);
     if (e.target.closest?.('.os-switch-grid a')) open(false);
   });
+  addEventListener('hashchange', () => open(false)); // moving to another page of the same app
   document.addEventListener('keydown', (e) => {
     if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'k') {
       e.preventDefault();

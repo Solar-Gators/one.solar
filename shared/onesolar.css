@@ -112,7 +112,8 @@ p { margin: 0 0 10px; }
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
   padding: 20px; margin-bottom: 16px;
 }
-.card-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.card-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px 12px; margin-bottom: 12px; }
+.card-head > h2, .card-head > h3 { flex: 1 0 auto; } /* the title keeps its line; buttons wrap under it when they don't fit */
 .card-head h2 { margin: 0; }
 
 /* ---- Tables ------------------------------------------------------------- */
@@ -257,7 +258,7 @@ body.nav-open .menu-icon::after { top: 0; transform: rotate(-45deg); }
   .topbar-inner { padding: 8px 16px; gap: 8px 12px; min-height: 0; }
   .brand { order: 1; flex: 1; }
   .account-link { order: 2; margin-left: 0; align-items: flex-end; }
-  .menu-btn { display: inline-flex; order: 3; }
+  .menu-btn { display: inline-flex; order: 3; flex: none; min-height: 40px; min-width: 40px; justify-content: center; }
   .nav {
     order: 4; display: none; flex: none; flex-direction: column; flex-wrap: nowrap; gap: 2px;
     width: 100%; margin: 0; padding: 6px 0 4px; overflow: visible; border-top: 1px solid var(--border-soft);

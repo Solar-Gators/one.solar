@@ -98,7 +98,15 @@ body:not(.ready) main { visibility: hidden; }
 @media (max-width: 640px) {
   main.container { padding-top: 24px; }
   .hero h1 { font-size: 24px; }
-  .hero-row { flex-direction: column; }
+  .hero-row { flex-direction: column; gap: 0; }
+  #edit-open { margin-bottom: 16px; }
+  .search-wrap { margin-top: 0; }
+  .search-wrap input { max-width: none; }
+  .app-links { gap: 0 4px; padding: 4px 10px 6px; }
+  .app-links a { padding: 8px; }
+  .section-edit { flex-wrap: nowrap; }
+  .section-name { flex: 1; min-width: 0; }
+  .section-edit .btn { flex: none; }
   .card { padding: 16px; }
   .apps { grid-template-columns: 1fr; gap: 12px; }
   .app-links { padding-left: 18px; }

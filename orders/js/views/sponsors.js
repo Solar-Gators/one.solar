@@ -17,7 +17,7 @@
  */
 import { api } from '../api.js';
 import { auth } from '../auth.js';
-import { esc, fmtMoney, fmtDate, fmtDateTime, errorBox, setFlash, takeFlash, renderRichText } from '../ui.js';
+import { esc, fmtMoney, fmtDate, fmtDateTime, errorBox, setFlash, takeFlash, renderRichText, askText } from '../ui.js';
 import { guardLeaving, releaseGuard } from '../leaveGuard.js';
 import { renderAttachments } from '../attachments.js';
 import { readItemFile } from '../itemImport.js';
@@ -462,7 +462,7 @@ export async function renderSponsors(el, { config, rerender, reloadConfig }) {
       return rerender();
     }
     if (btn.id === 'new-card') {
-      const name = prompt('Sponsor or donor name:')?.trim();
+      const name = await askText({ title: 'New sponsor', label: 'Sponsor or donor name', placeholder: 'e.g. Duke Energy', ok: 'Add sponsor', hint: `It starts in "${stages[0].label}"; add contacts and notes on the next page.` });
       if (!name) return;
       const id = await create(stages[0].key, name);
       if (id) location.hash = `#/sponsors/${id}`;

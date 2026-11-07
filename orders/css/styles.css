@@ -687,12 +687,15 @@ th.sorted .sort-ind { opacity: 1; color: var(--orange-dark); }
 
 @media (max-width: 640px) {
   .table.detail-items tfoot tr { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+  /* The totals rows: one background across the row, not a patch behind each cell. */
+  .table.detail-items tfoot tr { background: var(--surface-2); }
+  .table.detail-items tfoot td { background: none; }
   .page-header .btn.btn-sm { width: auto; }
   .page-header:has(.btn-sm) { flex-wrap: nowrap; align-items: center; }
   /* Page buttons (Import / Download, New sponsor / Board settings) share a row under the title */
   .page-header:has(> .card-actions) { flex-wrap: wrap; align-items: stretch; gap: 10px; }
-  .page-header > .card-actions { width: 100%; flex-wrap: nowrap; }
-  .page-header > .card-actions > .btn { flex: 1 1 0; width: auto; justify-content: center; text-align: center; }
+  .page-header > .card-actions { width: 100%; flex-wrap: wrap; } /* wraps when the buttons don't fit (a sponsor's Log contact / Stop reaching out / Watch) */
+  .page-header > .card-actions > .btn { flex: 1 1 auto; width: auto; justify-content: center; text-align: center; }
   .page-header > .card-actions.sp-actions { flex-wrap: wrap; }
   .page-header > .card-actions.sp-actions > .btn { flex: 1 1 40%; }
 }
@@ -756,6 +759,10 @@ th.sorted .sort-ind { opacity: 1; color: var(--orange-dark); }
 .sheet-table .is-negative, .sheet-table .is-negative input { color: var(--red); }
 .calc-dialog, .sheet-dialog { width: min(560px, calc(100vw - 32px)); max-height: 80vh; overflow: auto; border: 1px solid var(--border); padding: 20px; margin: auto; /* not .card's bottom margin: that pushes it off center */ }
 .calc-dialog::backdrop, .sheet-dialog::backdrop { background: rgba(11, 37, 69, .35); }
+/* askText(): a short typed answer (new sponsor's name, why a request is cancelled) */
+.ask-dialog { width: min(440px, calc(100vw - 32px)); }
+.ask-dialog h2 { margin: 0 0 12px; font-size: 19px; color: var(--navy); }
+.ask-dialog input, .ask-dialog textarea { width: 100%; }
 .calc-items { list-style: none; margin: 8px 0; padding: 0; border: 1px solid var(--border-soft); border-radius: 8px; max-height: 50vh; overflow: auto; }
 .calc-items li { display: flex; justify-content: space-between; gap: 12px; padding: 7px 10px; border-bottom: 1px solid var(--border-soft); font-size: 13.5px; }
 .calc-items li:last-child { border-bottom: 0; }
@@ -830,7 +837,7 @@ th.sorted .sort-ind { opacity: 1; color: var(--orange-dark); }
   .kcard-move { display: block; }
 }
 /* Empty columns shrink so the whole board fits on a laptop */
-.kanban-col.is-empty { flex: 0 0 140px; }
+.kanban-col.is-empty { flex: 1 0 140px; max-width: 190px; } /* compact, but fills the row on wide screens */
 .kanban-col.is-empty .kanban-empty { display: none; }
 .kanban-col.is-empty .kanban-cards { min-height: 24px; }
 /* Phones: the stages stack top to bottom; empty ones are just a heading and the add box */

@@ -75,6 +75,8 @@ header.site{
 .topbar{position:relative;z-index:41}
 .site-inner{max-width:1440px;margin:0 auto;padding:14px 24px 0}
 .brandrow{display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap;justify-content:space-between}
+/* The page title (not the OneSolar top bar's .brand, whose one-line style would stop it wrapping on phones). */
+.brandrow .brand{display:block;white-space:normal;min-width:0;flex:1 1 280px}
 .brand h1{font-size:19px;line-height:1.2}
 .brand .sub{color:var(--muted);font-size:12.5px;margin-top:3px}
 .verpill{

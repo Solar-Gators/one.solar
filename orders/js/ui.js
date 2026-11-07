@@ -504,3 +504,38 @@ export function fitTables(root) {
   window.addEventListener('resize', later);
   checkAll();
 }
+
+/**
+ * Ask for a line (or a few lines) of text in a OneSolar dialog, instead of the browser's prompt()
+ * (which looks out of place, especially on phones). Resolves with the trimmed text, or null if cancelled.
+ *   const name = await askText({ title: 'New sponsor', label: 'Sponsor or donor name', ok: 'Add sponsor' });
+ */
+export function askText({ title, label, hint = '', placeholder = '', ok = 'OK', multiline = false, required = true } = {}) {
+  return new Promise((resolve) => {
+    const dialog = document.createElement('dialog');
+    dialog.className = 'sheet-dialog ask-dialog';
+    const field = multiline
+      ? `<textarea id="ask-text" rows="3" placeholder="${esc(placeholder)}"></textarea>`
+      : `<input id="ask-text" type="text" placeholder="${esc(placeholder)}" autocomplete="off">`;
+    dialog.innerHTML = `<form method="dialog" novalidate>
+      <h2>${esc(title)}</h2>
+      <div class="field"><label for="ask-text">${esc(label)}</label>${field}${hint ? `<div class="hint">${esc(hint)}</div>` : ''}</div>
+      <div class="form-actions"><button type="button" class="btn btn-ghost" data-ask-cancel>Cancel</button><button type="submit" class="btn btn-primary">${esc(ok)}</button></div>
+    </form>`;
+    document.body.append(dialog);
+    const input = dialog.querySelector('#ask-text');
+    let answer = null;
+    const done = () => (dialog.remove(), resolve(answer));
+    dialog.addEventListener('close', done);
+    dialog.querySelector('[data-ask-cancel]').onclick = () => dialog.close();
+    dialog.querySelector('form').onsubmit = (e) => {
+      e.preventDefault();
+      const v = input.value.trim();
+      if (required && !v) return input.focus();
+      answer = v;
+      dialog.close();
+    };
+    dialog.showModal();
+    input.focus();
+  });
+}

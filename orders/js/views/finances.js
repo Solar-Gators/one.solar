@@ -12,7 +12,7 @@
  */
 import { api } from '../api.js';
 import { auth } from '../auth.js';
-import { esc, fmtMoney, fmtDate, errorBox, setFlash, takeFlash, renderRichText } from '../ui.js';
+import { esc, fmtMoney, fmtDate, errorBox, setFlash, takeFlash, renderRichText, askText } from '../ui.js';
 import { requestFields, fieldOptions } from '../formFields.js';
 import { workflowSettings } from '../workflow.js';
 import { loadExcelJS } from '../excel.js';
@@ -298,7 +298,7 @@ function drawPurchases(box, s) {
       return;
     }
     if (f === 'dept_status' && t.value === 'cancel') {
-      const reason = prompt(`Why is ${l.number} "${l.description}" cancelled? ${l.request.requester || 'The requester'} is told.`);
+      const reason = await askText({ title: `Cancel ${l.number}?`, label: `Why is "${l.description}" cancelled?`, hint: `${l.request.requester || 'The requester'} is told.`, placeholder: 'e.g. Found spares in the shop', ok: 'Cancel request', multiline: true });
       if (!reason?.trim()) return draw(); // put the dropdown back
       try {
         await api.cancelRequest(l.request.id, reason);
