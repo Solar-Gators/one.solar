@@ -132,7 +132,7 @@ function kindFor(row, kinds) {
   const gave = String(row.gave || '');
   const pick = (word) => kinds.find((k) => k.toLowerCase().startsWith(word.toLowerCase())) || (kinds.length ? '' : word);
   // "Discount on bearings", "Educational discount"; not an ask for "free or discounted parts".
-  if (/^\W*discount|discount (on|of|for)|(educational|education|student) discount/i.test(gave)) return pick('Discount');
+  if (/^\W*discount|discount (on|of|for)\b|(educational|education|student) discount/i.test(gave)) return pick('Discount');
   if (/grant|scholarship/i.test(gave) || /foundation/i.test(row.name)) return pick('Grant');
   if (/donation/i.test(level)) return pick('Donation');
   if (/^\s*(money|cash)/i.test(gave)) return pick('Sponsorship');

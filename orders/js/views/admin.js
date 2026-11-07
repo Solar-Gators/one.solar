@@ -1,7 +1,7 @@
 /**
  * Admin pages for users with users.manage / settings.edit (CE and Treasurer):
- *   #/admin/users      — see everyone, change roles
- *   #/admin/roles      — roles and what each can do
+ *   #/admin/users      — see everyone, change roles (Admin role: Admins only), remove someone who left (035)
+ *   #/admin/roles      — roles and what each can do (changing them: "Edit roles & permissions", Admins)
  *   #/admin/fields     — the request form's fields (see js/formFields.js)
  *   #/admin/dropdowns  — dropdown options and request rules
  *   #/admin/season     — team info and starting a new season
@@ -9,7 +9,7 @@
  */
 import { api } from '../api.js';
 import { auth } from '../auth.js';
-import { esc, fmtDate, errorBox, setFlash, takeFlash } from '../ui.js';
+import { esc, fmtDate, errorBox, setFlash, takeFlash, askText } from '../ui.js';
 import { guardLeaving } from '../leaveGuard.js';
 import { renderImport } from './importPage.js';
 import {
@@ -29,7 +29,7 @@ const ANY_ADMIN = ['users.manage', 'settings.edit', 'site.customize', 'seasons.m
  */
 export const ADMIN_TABS = [
   ['users', 'Users', ['users.manage'], 'OneSolar'],
-  ['roles', 'Roles & permissions', ['users.manage'], 'OneSolar'],
+  ['roles', 'Roles & permissions', ['users.manage', 'roles.edit'], 'OneSolar'],
   ['season', 'Team & season', ['settings.edit', 'seasons.manage'], 'OneSolar'],
   ['brand', 'Logo & accent', ['site.customize'], 'OneSolar'],
   ['text', 'Banner & messages', ['site.customize'], 'OneSolar'],
@@ -116,10 +116,24 @@ export const about = (html, summary = 'How this works') =>
 export const renderUsers = (el, ctx) => renderPeople(el, ctx, 'users');
 export const renderRoles = (el, ctx) => renderPeople(el, ctx, 'roles');
 
-async function renderPeople(el, { rerender }, part) {
-  const people = await api.listProfiles();
+/** Not cleared yet, and the account was made after the removal: they signed up again. */
+export const rejoinedFlag = (person, removed) =>
+  removed.find((r) => !r.cleared_at && r.email.toLowerCase() === (person.email || '').toLowerCase()
+    && new Date(r.removed_at) <= new Date(person.created_at)) || null;
+
+async function renderPeople(el, { rerender, config }, part) {
+  const [people, removed] = await Promise.all([api.listProfiles(), part === 'users' ? api.listRemovedPeople().catch(() => []) : []]);
   const roles = auth.roles;
   const me = auth.user.id;
+  // 035: only Admins give or take the Admin role (or change an Admin), and only "Edit roles &
+  // permissions" changes roles themselves. Before 035, "Manage people" did everything.
+  const v35 = Number(config?.schemaVersion) >= 35;
+  const iAmAdmin = auth.hasRole('admin');
+  const canEditRoles = v35 ? auth.can('roles.edit') : auth.can('users.manage');
+  const canManage = auth.can('users.manage');
+  const lockedRow = (p) => v35 && !iAmAdmin && (p.roles || []).includes('admin');
+  const flagOf = (p) => rejoinedFlag(p, removed);
+  const flagged = people.filter(flagOf);
   // Member is what you are with no other role, so it isn't a checkbox.
   const assignable = roles.filter((r) => r.key !== 'member');
   const BUILT_IN = new Set(['member', 'ce', 'treasurer', 'admin']);
@@ -127,11 +141,17 @@ async function renderPeople(el, { rerender }, part) {
   const count = (key) => people.filter((p) => (key === 'member' ? !p.roles.some((r) => r !== 'member') : holds(p, key))).length;
 
   const summary = `${people.length} account${people.length === 1 ? '' : 's'} · ${roles.map((r) => `${count(r.key)} ${esc(r.label)}`).join(' · ')}`;
+  const removedWhen = (r) => `Removed ${fmtDate(r.removed_at)}${r.removed_by_name ? ` by ${esc(r.removed_by_name)}` : ''}${r.note ? `: “${esc(r.note)}”` : ''}`;
   const usersPart = `
     ${about(`New people create their own account from the sign-in page and start as <strong>Member</strong>.
       Tick the roles each person should have. Someone can have several (e.g. Treasurer + Admin) and gets everything those roles allow.
-      What each role can do is set under <a href="#/admin/roles">Roles &amp; permissions</a>. At least one person must always be able to
-      manage people &amp; roles, so the site won't let the last one lose that ability.`)}
+      What each role can do is set under <a href="#/admin/roles">Roles &amp; permissions</a>.
+      ${v35 ? `Only an <strong>Admin</strong> can make someone an Admin, take it away, or change an Admin's roles.` : ''}
+      At least one person must always be able to manage people, so the site won't let the last one lose that ability.
+      ${v35 ? `<br><br><strong>Remove</strong> is for someone who left the team: their login is deleted so they can't sign in, and
+      their requests, approvals and evals keep their name. If the same email signs up again, they're flagged here.` : ''}`)}
+    ${flagged.length ? `<div class="alert alert-warning" role="status"><strong>${flagged.length === 1 ? '1 person who was removed has' : `${flagged.length} people who were removed have`} signed up again:</strong>
+      ${flagged.map((p) => esc(p.full_name || p.email)).join(', ')}. Let them back in, or remove them again, on their row below.</div>` : ''}
     <div id="user-errors"></div>
     <div class="toolbar">
       <input type="search" id="people-q" placeholder="Search name or email" aria-label="Search people">
@@ -144,34 +164,53 @@ async function renderPeople(el, { rerender }, part) {
     </div>
     <div class="table-wrap">
       <table class="table people-table stack-mobile">
-        <thead><tr><th>Name</th><th>Email</th><th>Joined</th><th>Roles</th></tr></thead>
+        <thead><tr><th>Name</th><th>Email</th><th>Joined</th><th>Roles</th>${v35 && canManage ? '<th><span class="sr-only">Remove</span></th>' : ''}</tr></thead>
         <tbody>
           ${people
             .map(
-              (p) => `<tr data-user="${esc(p.id)}">
-                <td class="cell-primary" data-label=""><strong>${esc(p.full_name || '—')}</strong>${p.id === me ? ' <span class="muted small">(you)</span>' : ''}</td>
+              (p) => `<tr data-user="${esc(p.id)}" ${flagOf(p) ? 'class="is-flagged"' : ''}>
+                <td class="cell-primary" data-label=""><strong>${esc(p.full_name || '—')}</strong>${p.id === me ? ' <span class="muted small">(you)</span>' : ''}
+                  ${flagOf(p) ? `<div class="rejoined-flag"><span class="flag-text">⚠ ${removedWhen(flagOf(p))}. Signed up again ${fmtDate(p.created_at)}.</span>
+                    <span class="flag-actions"><button type="button" class="btn btn-sm" data-let-back="${esc(p.email)}">Let them back in</button>
+                    <button type="button" class="btn btn-sm btn-danger" data-remove="${esc(p.id)}">Remove again</button></span></div>` : ''}</td>
                 <td data-label="Email">${esc(p.email)}</td>
                 <td class="nowrap" data-label="Joined">${fmtDate(p.created_at)}</td>
                 <td data-label="Roles"><div class="role-chips">
                   ${assignable
                     .map(
-                      (r) => `<label class="role-chip ${holds(p, r.key) ? 'on' : ''}">
-                        <input type="checkbox" data-role="${esc(r.key)}" ${holds(p, r.key) ? 'checked' : ''}
-                          aria-label="${esc(r.label)} for ${esc(p.full_name || p.email)}">${esc(r.label)}</label>`
+                      (r) => {
+                        const off = lockedRow(p) || (v35 && r.key === 'admin' && !iAmAdmin);
+                        const why = lockedRow(p) ? 'Only an Admin can change an Admin&#39;s roles' : off ? 'Only an Admin can give or take the Admin role' : '';
+                        return `<label class="role-chip ${holds(p, r.key) ? 'on' : ''} ${off ? 'is-locked' : ''}" ${why ? `title="${why}"` : ''}>
+                        <input type="checkbox" data-role="${esc(r.key)}" ${holds(p, r.key) ? 'checked' : ''} ${off ? 'disabled' : ''}
+                          aria-label="${esc(r.label)} for ${esc(p.full_name || p.email)}">${esc(r.label)}</label>`;
+                      }
                     )
                     .join('')}
                 </div></td>
+                ${v35 && canManage ? `<td class="center" data-label="">${p.id === me || lockedRow(p) || flagOf(p) ? '' : `<button type="button" class="btn btn-sm btn-ghost danger-link" data-remove="${esc(p.id)}" title="For someone who left the team">Remove…</button>`}</td>` : ''}
               </tr>`
             )
             .join('')}
         </tbody>
       </table>
-    </div>`;
+    </div>
+    ${removed.length ? `<details class="about removed-list"><summary>Removed people (${removed.length})</summary><div>
+      <div class="table-wrap flat"><table class="table stack-mobile">
+        <thead><tr><th>Name</th><th>Email</th><th>Had</th><th>Removed</th></tr></thead>
+        <tbody>${removed.map((r) => `<tr>
+          <td class="cell-primary" data-label="">${esc(r.full_name || '—')}</td>
+          <td data-label="Email">${esc(r.email)}</td>
+          <td data-label="Had">${esc((r.roles || []).map((k) => roles.find((x) => x.key === k)?.label || k).join(', ') || 'Member')}</td>
+          <td data-label="Removed">${removedWhen(r)}${r.cleared_at ? `<div class="muted small">Signed up again; let back in by ${esc(r.cleared_by_name || 'someone')} ${fmtDate(r.cleared_at)}</div>` : ''}</td>
+        </tr>`).join('')}</tbody>
+      </table></div></div></details>` : ''}`;
   const rolesPart = `
     <section class="card" id="roles">
       <h2>Roles</h2>
       <p class="muted small">Add roles like "Subsystem Lead" or "Faculty Advisor", then choose what they can do under Permissions.
         Built-in roles can be renamed but not deleted.</p>
+      ${canEditRoles ? '' : '<div class="alert alert-info">Only Admins change roles and what they can do. You can give people roles under <a href="#/admin/users">Users</a>.</div>'}
       <div id="role-errors"></div>
       <div class="table-wrap flat">
         <table class="table roles-table stack-mobile">
@@ -180,13 +219,14 @@ async function renderPeople(el, { rerender }, part) {
             .map(
               (r) => `<tr data-role-row="${esc(r.key)}">
                 <td class="cell-primary" data-label=""><div class="rename-row">
-                  <input type="text" value="${esc(r.label)}" data-rename="${esc(r.key)}" aria-label="Name of the ${esc(r.label)} role" maxlength="40">
+                  <input type="text" value="${esc(r.label)}" data-rename="${esc(r.key)}" aria-label="Name of the ${esc(r.label)} role" maxlength="40" ${canEditRoles ? '' : 'disabled'}>
                   <button type="button" class="btn btn-sm" data-save-name="${esc(r.key)}" hidden>Rename</button>
                 </div></td>
                 <td class="num" data-label="People">${count(r.key)}</td>
                 <td class="center" data-label="">${
                   BUILT_IN.has(r.key)
                     ? '<span class="field-tag">Built-in</span>'
+                    : !canEditRoles ? ''
                     : `<button type="button" class="btn btn-sm btn-danger" data-delete-role="${esc(r.key)}">Delete</button>`
                 }</td>
               </tr>`
@@ -194,7 +234,7 @@ async function renderPeople(el, { rerender }, part) {
             .join('')}</tbody>
         </table>
       </div>
-      <form class="add-role" id="add-role" novalidate>
+      <form class="add-role" id="add-role" novalidate ${canEditRoles ? '' : 'hidden'}>
         <label for="new-role" class="sr-only">New role name</label>
         <input id="new-role" type="text" placeholder="New role, e.g. Subsystem Lead" maxlength="40">
         <button type="submit" class="btn">+ Add role</button>
@@ -257,6 +297,46 @@ async function renderPeople(el, { rerender }, part) {
     })
   );
 
+  // Remove someone who left (035); "Remove again" on a flagged row does the same.
+  el.querySelectorAll('[data-remove]').forEach((button) =>
+    button.addEventListener('click', async () => {
+      const person = people.find((p) => p.id === button.dataset.remove);
+      const name = person.full_name || person.email;
+      const note = await askText({
+        title: `Remove ${name}?`,
+        label: 'Why? (optional, kept for the record)',
+        placeholder: 'e.g. Graduated, left the team',
+        hint: `Their login is deleted, so they can't sign in. Their requests, approvals and evals keep their name. If ${person.email} signs up again, they're flagged here.`,
+        ok: 'Remove',
+        multiline: true,
+        required: false,
+      });
+      if (note === null) return;
+      userErrors.innerHTML = '';
+      button.disabled = true;
+      try {
+        await api.removePerson(person.id, note);
+        setFlash(`${name} was removed.`);
+        await rerender();
+      } catch (err) {
+        userErrors.innerHTML = errorBox(err);
+        button.disabled = false;
+      }
+    })
+  );
+  el.querySelectorAll('[data-let-back]').forEach((button) =>
+    button.addEventListener('click', async () => {
+      userErrors.innerHTML = '';
+      try {
+        await api.clearRemovedFlag(button.dataset.letBack);
+        setFlash(`${button.dataset.letBack} is no longer flagged. Give them roles as usual.`);
+        await rerender();
+      } catch (err) {
+        userErrors.innerHTML = errorBox(err);
+      }
+    })
+  );
+
   // Rename: the button appears once the name changes.
   el.querySelectorAll('input[data-rename]').forEach((input) => {
     const button = el.querySelector(`[data-save-name="${input.dataset.rename}"]`);
@@ -306,12 +386,12 @@ async function renderPeople(el, { rerender }, part) {
     }
   });
 
-  if (part === 'roles') await renderPermissions(el.querySelector('#permissions-section'), { rerender });
+  if (part === 'roles') await renderPermissions(el.querySelector('#permissions-section'), { rerender, canEditRoles });
 }
 
 // ---- Permissions (what each role can do) -------------------------------------------
 
-async function renderPermissions(box, { rerender }) {
+async function renderPermissions(box, { rerender, canEditRoles = true }) {
   let perms, grants;
   try {
     [perms, grants] = await Promise.all([api.listPermissions(), api.listRolePermissions()]);
@@ -340,7 +420,8 @@ async function renderPermissions(box, { rerender }) {
                 ${roles
                   .map(
                     (r) => `<td class="center" data-label="${esc(r.label)}"><input type="checkbox" data-role="${esc(r.key)}" data-grant="${esc(p.key)}"
-                      ${has.has(`${r.key}|${p.key}`) ? 'checked' : ''} aria-label="${esc(r.label)}: ${esc(p.label)}"></td>`
+                      ${has.has(`${r.key}|${p.key}`) ? 'checked' : ''} ${canEditRoles && !(r.key === 'admin' && p.key === 'roles.edit') ? '' : 'disabled'}
+                      aria-label="${esc(r.label)}: ${esc(p.label)}"></td>`
                   )
                   .join('')}
               </tr>`
@@ -348,7 +429,7 @@ async function renderPermissions(box, { rerender }) {
             .join('')}</tbody>
         </table>
       </div>
-      <div class="form-actions">
+      <div class="form-actions" ${canEditRoles ? '' : 'hidden'}>
         <span class="muted small" id="perm-dirty" hidden>Unsaved changes</span>
         <button type="button" class="btn btn-primary" id="save-perms" disabled>Save permissions</button>
       </div>

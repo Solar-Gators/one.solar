@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Solar Evals</title>
+<title>Solar Evals · OneSolar</title>
 <meta name="description" content="Solar Gators semester member reviews: CE rubrics and evaluations, signed in with OneSolar accounts.">
 <link rel="icon" href="../shared/assets/favicon.png">
 <link rel="apple-touch-icon" href="../shared/assets/apple-touch-icon.png">
@@ -1205,7 +1205,10 @@ function renderList(){
   const q = filt.q.toLowerCase();
   const shown = evals.filter(e => (!filt.semester || e.semester === filt.semester) && (!filt.status || e.status === filt.status)
     && (!filt.mine || e.evaluator_id === me.id)
-    && (!q || [e.member_name, e.member_email, e.subsystem, e.division, personName(writerOf(e))].join(" ").toLowerCase().includes(q)));
+    && (!q || [e.member_name, e.member_email, e.subsystem, e.division, personName(writerOf(e))].join(" ").toLowerCase().includes(q)))
+    // A self-eval whose CE eval is in the list rides on that row (one row per member and semester).
+    .filter(e => !(e.kind === "self" && evals.some(x => x.kind !== "self" && x.self_eval_id === e.id)));
+  const hasSelf = e => e.kind !== "self" && e.self_eval_id && evals.some(x => x.id === e.self_eval_id);
   const who = can("evals.view") ? "Every finished evaluation, your own drafts, and self-evals once the CE's eval is finished."
     : writer ? "Evaluations you wrote, ones where you're the subsystem lead, and your members' self-evals once your eval is finished."
     : "Your self-evaluations, evaluations where you're the subsystem lead, and your CE's evaluation of you once it's shared.";
@@ -1230,7 +1233,7 @@ function renderList(){
         <td><b>${esc(e.member_name || "Unnamed")}</b>${e.member_id === me.id ? ' <span class="badge">You</span>' : ""}</td>
         <td>${esc(e.semester)}</td><td>${esc([e.division, e.subsystem].filter(Boolean).join(" · "))}</td>
         <td>${esc(personName(e.lead_id))}</td><td>${esc(personName(writerOf(e)))}</td>
-        <td>${statusBadge(e.status, e.kind)}${e.member_commented_at ? ' <span class="badge" title="The member added comments">Comments</span>' : ""}${
+        <td>${statusBadge(e.status, e.kind)}${hasSelf(e) ? ' <span class="badge" title="Their self-eval is linked on this evaluation">+ self-eval</span>' : ""}${e.member_commented_at ? ' <span class="badge" title="The member added comments">Comments</span>' : ""}${
           e.meeting_at && e.status !== "shared" && new Date(e.meeting_at) > Date.now() - 6 * 3600e3 ? ` <span class="badge" title="Eval meeting">${esc(fmtWhen(e.meeting_at))}</span>` : ""}</td>
         <td>${fmtDate(e.updated_at)}</td></tr>`).join("") || `<tr><td colspan="7" class="none">No evaluations match.</td></tr>`}
     </tbody></table></div>`;

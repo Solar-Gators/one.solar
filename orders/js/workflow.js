@@ -54,7 +54,8 @@ export const PLACEHOLDERS = [
 
 export const workflowSettings = (config) => ({
   rules: Array.isArray(config.workflow?.rules) ? config.workflow.rules : [],
-  budgets: { field: '', amounts: {}, block: false, ...(config.workflow?.budgets || {}) },
+  // Budgets follow Subsystem until the Treasurer picks another dropdown (or none) on Finances.
+  budgets: { field: 'subsystem', amounts: {}, block: false, ...(config.workflow?.budgets || {}) },
 });
 
 /**
@@ -124,6 +125,12 @@ export function budgetSummary(config, requests, purchases = []) {
       return { value, amount: Number(amount), used, pending, remaining: Number(amount) - used, over: used > Number(amount) };
     });
 }
+
+/** Are any budgets set (so it's worth loading the season's requests to check them)? */
+export const hasBudgets = (config) => {
+  const { field, amounts } = workflowSettings(config).budgets;
+  return !!field && Object.values(amounts || {}).some((a) => a !== '' && Number.isFinite(Number(a)));
+};
 
 /** The budget row this request counts against, or null. */
 export function budgetFor(config, request, summary) {

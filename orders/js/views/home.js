@@ -103,10 +103,13 @@ export async function renderHome(el, { config }) {
         </section>
       </div>
 
-      <section class="card home-steps">
-        <h2>How ordering works</h2>
-        <ol class="steps">${steps.map(([t, d]) => `<li><strong>${esc(t)}</strong><span>${esc(d)}</span></li>`).join('')}</ol>
-        <p class="muted small">${hasHelp(config) ? 'Questions? Read the <a href="#/help">Help page</a>. ' : ''}You can come back here any time by clicking the logo.</p>
-      </section>
+      ${(() => {
+        // New people see the steps; once you've made a few requests they fold away.
+        const body = `<ol class="steps">${steps.map(([t, d]) => `<li><strong>${esc(t)}</strong><span>${esc(d)}</span></li>`).join('')}</ol>
+          <p class="muted small">${hasHelp(config) ? 'Questions? Read the <a href="#/help">Help page</a>. ' : ''}You can come back here any time by clicking the logo.</p>`;
+        return recent.length >= 3
+          ? `<section class="card home-steps is-folded"><details><summary><h2>How ordering works</h2></summary>${body}</details></section>`
+          : `<section class="card home-steps"><h2>How ordering works</h2>${body}</section>`;
+      })()}
     </div>`;
 }

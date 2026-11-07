@@ -7,10 +7,11 @@
  */
 import { api } from '../api.js';
 import { auth } from '../auth.js';
-import { esc, fmtMoney, fmtPrice, fmtDate, itemTotal, round2, statusBadge, errorBox, setFlash, introText } from '../ui.js';
+import { STATUS, todayISO, esc, fmtMoney, fmtPrice, fmtDate, itemTotal, round2, statusBadge, errorBox, setFlash, introText } from '../ui.js';
 import { requestFields, itemFields, shown, getValue, setValue, renderInput, isVisible, shippingPerRequest } from '../formFields.js';
 import { guardLeaving, releaseGuard } from '../leaveGuard.js';
 import { openItemImport } from './itemImportDialog.js';
+import { workflowSettings, budgetSummary, budgetFor, hasBudgets } from '../workflow.js';
 
 // Example placeholders for built-in item columns (custom fields use their help text).
 const ITEM_PLACEHOLDERS = {
@@ -218,6 +219,7 @@ export async function renderRequestForm(el, { config, params }) {
             </tfoot>
           </table>
         </div>
+        <div class="budget-note" id="budget-heads" role="status" hidden></div>
         <div class="add-row">
           <button type="button" class="btn btn-sm" data-action="add-item">+ Add another item</button>
           <button type="button" class="btn btn-sm" data-action="import-items">Import items from Excel…</button>
@@ -269,11 +271,56 @@ export async function renderRequestForm(el, { config, params }) {
   form.addEventListener('input', applyConditions);
   form.addEventListener('change', applyConditions);
 
-  const updateTotals = () => {
+  const requestTotal = () => {
     // Request total = items (quantity × unit price) + shipping.
     const shipping = oneShipping ? Number(orderShipping) || 0 : items.reduce((s, i) => s + (Number(i.shipping_cost) || 0), 0);
-    grandTotal.textContent = fmtMoney(round2(items.reduce((s, i) => s + itemTotal(i), 0) + shipping));
+    return round2(items.reduce((s, i) => s + itemTotal(i), 0) + shipping);
   };
+  const updateTotals = () => {
+    grandTotal.textContent = fmtMoney(requestTotal());
+    updateBudget();
+  };
+
+  // ---- Heads-up when this request would go over its budget (Finances → Budget) ----
+  const budgetBox = el.querySelector('#budget-heads');
+  let budgets = null; // loaded the first time it matters
+  const loadBudgets = () =>
+    (budgets ||= Promise.all([api.listRequests(null, { season: config.season }), api.listPurchases().catch(() => [])])
+      .then(([rows, purchases]) => budgetSummary(config, rows.filter((x) => x.id !== existing?.id), purchases || []))
+      .catch(() => []));
+  function updateBudget() {
+    if (!hasBudgets(config)) return;
+    loadBudgets().then((summary) => {
+      const b = budgetFor(config, currentRequest(), summary);
+      const total = requestTotal();
+      const after = b ? b.used + b.pending + total : 0;
+      const over = b && total > 0 && after > b.amount;
+      budgetBox.hidden = !over;
+      if (!over) return;
+      const block = workflowSettings(config).budgets.block;
+      budgetBox.className = 'budget-note is-over';
+      budgetBox.innerHTML = `<strong>${esc(b.value)} budget:</strong> ${fmtMoney(b.used)} of ${fmtMoney(b.amount)} used${b.pending ? `, ${fmtMoney(b.pending)} more waiting for approval` : ''}.
+        This request would make it ${fmtMoney(after)}, <strong>${fmtMoney(after - b.amount)} over</strong>.
+        You can still submit it; ${block ? 'the approver has to give a reason to approve it.' : 'the approver sees the same warning.'}`;
+    });
+  }
+  form.addEventListener('change', (e) => e.target.matches?.('[data-rfield]') && updateBudget());
+
+  // ---- "Needed by" in the past: say so (old requests can keep their date) ----
+  const neededBy = form.querySelector('#f-needed_by');
+  if (neededBy) {
+    const note = document.createElement('div');
+    note.className = 'hint hint-warn';
+    note.hidden = true;
+    neededBy.after(note);
+    const check = () => {
+      const past = neededBy.value && neededBy.value < todayISO();
+      note.hidden = !past;
+      note.textContent = past ? `That date (${fmtDate(neededBy.value)}) has already passed. Is it right?` : '';
+    };
+    neededBy.addEventListener('change', check);
+    neededBy.addEventListener('input', check);
+  }
 
   // ---- Long lists: one line per item until it's opened ----
   let compact = items.length > COMPACT_AT;
@@ -583,7 +630,9 @@ export async function renderRequestForm(el, { config, params }) {
           () => ` (${pendingFile.name} couldn't be attached: add it under Files on the request.)`
         );
       }
-      setFlash((action === 'submit' ? `${number} submitted for approval.` : `${number} saved as a draft.`) + attached);
+      // An approval rule may have approved it on the spot ("Approve automatically").
+      const auto = action === 'submit' && (await api.getRequest(number).catch(() => null))?.status === STATUS.APPROVED;
+      setFlash((action !== 'submit' ? `${number} saved as a draft.` : auto ? `${number} was approved automatically and is ready to order.` : `${number} submitted for approval.`) + attached);
       releaseGuard(); // saved: leaving is fine now
       location.hash = `#/requests/${number}`;
     } catch (err) {

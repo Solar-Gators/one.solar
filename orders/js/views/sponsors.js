@@ -892,7 +892,13 @@ export async function renderSponsorCard(el, { config, params, rerender }) {
     return y ? `${y + 1}-${y + 2}` : '';
   })();
 
-  const field = (label, html, wide = false) => `<div class="field ${wide ? 'span-2' : ''}"><label>${label}</label>${html}</div>`;
+  // Each label points at its box (screen readers read the name; clicking the label focuses it).
+  let fieldN = 0;
+  const field = (label, html, wide = false) => {
+    const id = `sc-f${++fieldN}`;
+    const control = /^\s*<(input|select|textarea)\b/.test(html);
+    return `<div class="field ${wide ? 'span-2' : ''}"><label ${control ? `for="${id}"` : ''}>${label}</label>${control ? html.replace(/^(\s*<(?:input|select|textarea))\b/, `$1 id="${id}"`) : html}</div>`;
+  };
   const input = (name, value, attrs = '') => `<input name="${name}" value="${esc(value ?? '')}" ${attrs}>`;
   const read = (v) => `<div class="read-value">${v || '<span class="muted">—</span>'}</div>`;
 
@@ -941,7 +947,7 @@ export async function renderSponsorCard(el, { config, params, rerender }) {
               ${field('Amount ($)', editable ? input('amount', card.amount ?? '', 'inputmode="decimal" placeholder="e.g. 2500"') : read(card.amount !== null ? fmtMoney(card.amount) : ''))}
               ${field('Season', editable ? input('season', card.season, 'maxlength="9"') : read(esc(card.season)))}
               ${hasCars(config) ? field('Car', editable ? `${input('car', card.car, 'maxlength="40" list="car-names" placeholder="e.g. Blaze"')}<datalist id="car-names">${carsOf(cards).map((c) => `<option value="${esc(c)}">`).join('')}</datalist>` : read(esc(card.car))) : ''}
-              ${field('Lead', editable ? `<select name="owner_id"><option value="">Nobody yet</option>${people.map((p) => `<option value="${esc(p.id)}" ${p.id === card.owner_id ? 'selected' : ''}>${esc(p.full_name || p.email)}</option>`).join('')}</select>` : read(esc(card.owner_id ? nameOf(card.owner_id) : '')))}
+              ${field('Lead', editable ? `<select name="owner_id"><option value="">Nobody yet</option>${people.filter((p) => p.id === card.owner_id || viewers.some((v) => v.id === p.id)).map((p) => `<option value="${esc(p.id)}" ${p.id === card.owner_id ? 'selected' : ''}>${esc(p.full_name || p.email)}</option>`).join('')}</select>` : read(esc(card.owner_id ? nameOf(card.owner_id) : '')))}
               ${field('Follow up on', editable ? input('follow_up', card.follow_up ?? '', 'type="date"') : read(card.follow_up ? fmtDate(card.follow_up) : ''))}
               ${outreach ? `
               ${field('Priority', editable ? `<select name="priority"><option value="">—</option>${[1, 2, 3, 4, 5].map((n) => `<option value="${n}" ${n === card.priority ? 'selected' : ''}>${n}${n === 1 ? ' (highest)' : ''}</option>`).join('')}</select>` : read(card.priority ? String(card.priority) : ''))}
@@ -960,14 +966,14 @@ export async function renderSponsorCard(el, { config, params, rerender }) {
           <section class="card">
             <h2>About this sponsor</h2>
             ${editable
-              ? `<textarea name="description" rows="7" placeholder="Who they are, what they gave or offered, what they asked for in return (logo on the car, social posts, a report…), deadlines and paperwork.">${esc(card.description)}</textarea>`
+              ? `<textarea name="description" rows="7" aria-label="About this sponsor" placeholder="Who they are, what they gave or offered, what they asked for in return (logo on the car, social posts, a report…), deadlines and paperwork.">${esc(card.description)}</textarea>`
               : `<div class="rich">${card.description ? renderRichText(card.description) : '<p class="muted">Nothing written yet.</p>'}</div>`}
           </section>
           <section class="card playbook">
             <h2>Tips for next time</h2>
             <p class="muted small">For future teams: how we found them, who to ask, when to ask, what worked and what didn't.</p>
             ${editable
-              ? `<textarea name="playbook" rows="6" placeholder="e.g. Ask in August, before their budget closes. Jane in Community Relations decides. They liked the team photo with their logo.">${esc(card.playbook)}</textarea>`
+              ? `<textarea name="playbook" rows="6" aria-label="Tips for next time" placeholder="e.g. Ask in August, before their budget closes. Jane in Community Relations decides. They liked the team photo with their logo.">${esc(card.playbook)}</textarea>`
               : `<div class="rich">${card.playbook ? renderRichText(card.playbook) : '<p class="muted">Nothing written yet.</p>'}</div>`}
           </section>
           ${editable ? `<div class="form-actions sticky-actions">

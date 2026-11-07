@@ -27,15 +27,29 @@ import { renderFinances } from './views/finances.js';
 import { renderSponsors, renderSponsorCard } from './views/sponsors.js';
 import { renderExport } from './views/exportPage.js';
 import { renderArchive } from './views/archive.js';
-import { errorBox } from './ui.js';
+import { errorBox, esc } from './ui.js';
 import { confirmLeave } from './leaveGuard.js';
-import { APP, appOf, homePath } from './appMode.js';
+import { APP, APPS, appOf, homePath } from './appMode.js';
 import { appUrl } from '../../shared/onesolar.js';
 
 // Either workflow permission lets you view both queues (actions are still limited by role).
 const LEADS = ['request.review', 'request.order'];
 
 const tabPerms = (name) => ADMIN_TABS.find(([key]) => key === name)[2];
+
+/** A page your role can't open: say who to ask, and give a way out. */
+const WHO_TO_ASK = { finances: 'the Treasurer or an Admin', sponsors: 'the Business Coordinator or an Admin', admin: 'an Admin', orders: 'a Chief Engineer or an Admin' };
+function noAccess() {
+  const name = APPS[APP].name;
+  return `<section class="card no-access">
+    <h1>You don't have access to ${APP === 'orders' ? 'this page' : esc(name)}</h1>
+    <p class="muted">Your role (${esc(auth.roleLabel)}) can't open it. If you need it, ask ${WHO_TO_ASK[APP]} to give you a role that can.</p>
+    <div class="form-actions">
+      <a class="btn btn-primary" href="${esc(appUrl(''))}">OneSolar home</a>
+      ${APP !== 'orders' ? `<a class="btn" href="${esc(appUrl('orders/'))}">Orders</a>` : '<a class="btn" href="#/home">Orders home</a>'}
+    </div>
+  </section>`;
+}
 
 const ROUTES = [
   { pattern: /^\/home$/, nav: 'home', view: renderHome },
@@ -116,7 +130,7 @@ export function startRouter(ctx, { onRender } = {}) {
     const el = document.createElement('div');
     try {
       if (route.perm && !route.perm.some((p) => auth.can(p))) {
-        el.innerHTML = `<div class="alert alert-info">Your role (${auth.roleLabel}) doesn't have access to this page.</div>`;
+        el.innerHTML = noAccess();
       } else {
         await route.view(el, { ...ctx, params, rerender: render });
       }

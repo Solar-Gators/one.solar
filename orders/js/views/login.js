@@ -65,6 +65,7 @@ export async function renderLogin(el, { config }) {
         <h1>${titles[mode]}</h1>
         ${mode === 'signin' ? `<p class="muted small auth-sub">One account for every Solar Gators app${returning() ? '. You\'ll go back to the OneSolar home screen after signing in' : ''}.</p>` : ''}
         ${urlError ? `<div class="alert alert-error">${esc(urlError)}</div>` : ''}
+        ${auth.removed && mode === 'signin' ? '<div class="alert alert-warning">Your OneSolar account was removed, so you were signed out. If that\'s a mistake, ask a Chief Engineer or an Admin.</div>' : ''}
         ${notice ? `<div class="alert alert-success">${esc(notice)}</div>` : ''}
         <div id="auth-errors"></div>
         <form id="auth-form" novalidate>

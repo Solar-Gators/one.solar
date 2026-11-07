@@ -14,7 +14,7 @@ import { api } from '../api.js';
 import { auth } from '../auth.js';
 import { esc, fmtMoney, fmtDate, errorBox, setFlash, takeFlash, renderRichText, askText } from '../ui.js';
 import { requestFields, fieldOptions } from '../formFields.js';
-import { workflowSettings } from '../workflow.js';
+import { workflowSettings, hasBudgets } from '../workflow.js';
 import { loadExcelJS } from '../excel.js';
 import { cellText } from '../sheetImport.js';
 import { STEPS, STANDARD_STEPS, STEP_TONES, COMMITTED, CATEGORY_NOTES, stepOf, stepChoices, isStandardStep, DEPTS, ledgerLines, budgetTable, fundingTotals, readFinancialsSheet } from '../ledger.js';
@@ -956,8 +956,9 @@ async function importSpreadsheet(file, { config, season, requests, purchases, bu
         }
       }
       if (pick('budgets')) {
-        let field = budgets.field;
-        if (!field) field = budgetFields(config).find((f) => /cost\s*cent|subteam|subsystem/i.test(f.label))?.key || '';
+        // No budgets yet: follow the sheet's likely column (Cost center, Subteam…), else Subsystem.
+        const field = hasBudgets(config) ? budgets.field
+          : budgetFields(config).find((f) => /cost\s*cent|subteam|subsystem/i.test(f.label))?.key || budgets.field;
         await api.setBudgets({ ...budgets, field, amounts: { ...(budgets.amounts || {}), ...data.budgets } });
         await reloadConfig();
       }

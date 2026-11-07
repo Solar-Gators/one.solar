@@ -17,7 +17,7 @@ import {
 } from '../ui.js';
 import { getValue, displayValue, isVisible, MONEY_FIELDS, shippingPerRequest, requestFields, itemFields } from '../formFields.js';
 import { pageLayout, copyAllowed, detailFieldList, itemColumnList } from '../pageLayout.js';
-import { approvalState, canReview, workflowSettings, budgetSummary, budgetFor } from '../workflow.js';
+import { approvalState, canReview, workflowSettings, budgetSummary, budgetFor, hasBudgets } from '../workflow.js';
 import { COMMITTED, stepChoices, stepOf } from '../ledger.js';
 
 /** Copy buttons (for pasting into purchasing forms) go to whoever Admin → Request page says. */
@@ -511,8 +511,9 @@ function actionPanel(r, config, { names = {}, budget = null, purchase = null } =
 
   if (r.status === STATUS.SUBMITTED) {
     const state = approvalState(r);
-    const steppingIn = state.type === 'people' && !state.people.includes(auth.user.id)
-      ? '<p class="muted small">You aren\'t one of the listed approvers, but "Workflow, budgets &amp; notifications" lets you decide anyway.</p>'
+    // Only for people the database lets decide anyway (workflow.edit, normally Admins).
+    const steppingIn = state.type === 'people' && !state.people.includes(auth.user.id) && auth.can('workflow.edit')
+      ? '<p class="muted small">You aren\'t one of the listed approvers, but your role can step in and decide anyway.</p>'
       : '';
     const who = approvalNote(r, names) + budgetNote(r, config, budget) + steppingIn;
     // The requester can pull it back (no longer needed, or to change it before review).
@@ -539,7 +540,7 @@ function actionPanel(r, config, { names = {}, budget = null, purchase = null } =
       <form id="review-form" novalidate>
         <p class="muted small">Signing as <strong>${esc(auth.displayName)}</strong></p>
         <div class="field">
-          <label for="r-comment">Comment <span class="muted">(required for changes / reject, or to approve over budget)</span></label>
+          <label for="r-comment">Comment <span class="muted">(required to request changes or reject${workflowSettings(config).budgets.block && budget && budget.used + r.total > budget.amount ? '; also to approve this one, since it goes over budget' : ''})</span></label>
           <textarea id="r-comment" name="comment" rows="3"></textarea>
         </div>
         <div id="action-errors"></div>
@@ -567,8 +568,9 @@ function actionPanel(r, config, { names = {}, budget = null, purchase = null } =
           <input id="o-number" name="department_order_number" type="text" placeholder="e.g. 6046" ${config.requireOrderNumber === false ? '' : 'required'}>
         </div>
         <div class="field">
-          <label for="o-notes">Treasurer notes <span class="muted">(optional)</span></label>
-          <textarea id="o-notes" name="treasurer_notes" rows="3"></textarea>
+          <label for="o-notes">Note for ${esc(r.requester || 'the requester')} <span class="muted">(optional)</span></label>
+          <textarea id="o-notes" name="treasurer_notes" rows="2" placeholder="e.g. Ships in 2 weeks; it'll come to the shop"></textarea>
+          <p class="hint">Shown in this request's History, so ${esc(r.requester || 'the requester')} sees it. Private notes go in <strong>Treasurer notes 🔒</strong> below.</p>
         </div>
         <div id="action-errors"></div>
         <button type="submit" class="btn btn-primary btn-block">Mark as Ordered</button>
@@ -622,7 +624,7 @@ function actionPanel(r, config, { names = {}, budget = null, purchase = null } =
     return `<section class="card action-card">
       <h2>Received</h2>
       <p class="muted small">Marked received by mistake, or not everything is here? Undo puts it back to <strong>Ordered</strong>.
-        ${arrivals(r) ? `${own ? `The ${own} item${own === 1 ? '' : 's'} ticked off one by one stay arrived` : 'Nothing was ticked off one by one'}${auto ? `; the ${auto} that arrived with "Mark as Received" go back to <em>Not yet</em>` : ''}.` : ''}
+        ${arrivals(r) ? `${own ? `${own === 1 ? 'The item' : `The ${own} items`} ticked off one by one ${own === 1 ? 'stays' : 'stay'} arrived` : 'Nothing was ticked off one by one'}${auto ? `; ${auto === 1 ? 'the one' : `the ${auto}`} that arrived with "Mark as Received" ${auto === 1 ? 'goes' : 'go'} back to <em>Not yet</em>` : ''}.` : ''}
         Nobody is emailed.</p>
       <div id="action-errors"></div>
       <button type="button" class="btn btn-block" id="undo-received">↶ Undo received</button>
@@ -749,7 +751,7 @@ export async function renderRequestDetail(el, { config, params, rerender }) {
   const showWatchers = r.status !== STATUS.DRAFT;
   const [people, summary, watchers, purchase] = await Promise.all([
     isLead() || showWatchers || (r.status === STATUS.SUBMITTED && approvalState(r).type === 'people') ? api.listProfiles().catch(() => []) : [],
-    isLead() && workflowSettings(config).budgets.field && [STATUS.SUBMITTED, STATUS.APPROVED].includes(r.status)
+    isLead() && hasBudgets(config) && [STATUS.SUBMITTED, STATUS.APPROVED].includes(r.status)
       ? Promise.all([api.listRequests(null, { season: config.season }), api.listPurchases().catch(() => [])])
           .then(([rows, purchases]) => budgetSummary(config, rows, purchases || []))
           .catch(() => [])
@@ -1037,7 +1039,7 @@ export async function renderRequestDetail(el, { config, params, rerender }) {
   el.querySelector('#undo-received')?.addEventListener('click', (e) => {
     const auto = r.items.filter((i) => i.arrived_with_request).length;
     if (!confirm(`Undo received for ${r.request_number}? It goes back to Ordered (Awaiting delivery).${
-      auto ? `\n\n${auto} item${auto === 1 ? '' : 's'} that arrived with "Mark as Received" go back to not arrived. Items ticked off one by one stay arrived.` : ''}`)) return;
+      auto ? `\n\n${auto === 1 ? '1 item' : `${auto} items`} that arrived with "Mark as Received" ${auto === 1 ? 'goes' : 'go'} back to not arrived. Items ticked off one by one stay arrived.` : ''}`)) return;
     let n = 0;
     run(e.target.closest('section'), async () => (n = await api.undoReceived(r.id)),
       () => `${r.request_number} is back to Ordered.${n ? ` ${n} item${n === 1 ? '' : 's'} back to not arrived; the ones you ticked off are still ticked.` : ''}`);

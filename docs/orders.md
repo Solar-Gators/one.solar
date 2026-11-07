@@ -51,7 +51,8 @@ A person can have **more than one role** (e.g. Treasurer + Admin), and gets ever
 | Edit the form, dropdowns, and team settings | | ✓ | ✓ | ✓ |
 | Start a new season, import spreadsheets | | ✓ | ✓ | ✓ |
 | Customize lists (columns, filters, sorting) and appearance (labels, colors) | | | | ✓ |
-| Manage people, roles, and permissions | | ✓ | ✓ | ✓ |
+| Give people roles (except Admin), remove people who left | | ✓ | ✓ | ✓ |
+| Make someone an Admin; create roles and change what they can do | | | | ✓ |
 | Approval rules, budgets, email / Teams notifications | | | | ✓ |
 | See the Finances tab | | ✓ | ✓ | ✓ |
 | Edit the Finances tab (sheets, columns, rows) | | | ✓ | ✓ |
@@ -111,7 +112,7 @@ Changed your mind? Open a submitted request and click **Withdraw request** to tu
 - **Order several at once:** bought a few approved requests in one checkout? Open **Order several at once** there, tick them (grouped by vendor), and enter the date and ticket number once.
 - **Late deliveries:** Awaiting delivery shows how long each order has been out, and highlights anything over 14 days.
 - **Mark as Received:** record when it arrived and **where it is now** (required, e.g. "in our office"). The requester gets a message that says where. Requesters who pick up their own package can mark it received themselves, with a note saying where they got it.
-- **Budgets:** the Treasurer sets them on the **Budget** tab of **Finances**: pick the dropdown budgets go by (e.g. Cost center) under **Budget settings**, then type an amount for each category. The tab shows each budget, what's spent, what's in the pipeline, and what's left. Optionally, approving over budget needs a written reason, which is kept in the request's History. The Queue warns when a budget is over.
+- **Budgets:** the Treasurer sets them on the **Budget** tab of **Finances**: budgets go by **Subsystem** unless you pick another dropdown (e.g. Cost center) under **Budget settings**; then type an amount for each category. The tab shows each budget, what's spent, what's in the pipeline, and what's left. Optionally, approving over budget needs a written reason, which is kept in the request's History. The Queue warns when a budget is over, and so does the request form: someone making a request sees when it would put its budget over (they can still submit it).
 - **Copy buttons:** every value on a request has a small copy icon (item name, vendor, link, part #, quantity, prices, request ID, total), for pasting into purchasing forms. **Copy all items** copies the whole item list as a table that pastes straight into Excel or Google Sheets.
 - **Edit costs:** if a price or shipping cost turns out different from what was requested, open the request and click **Edit costs**. This works on Approved, Ordered, and Received requests. Change any item's unit price or the order's shipping, and add a reason. The new total is previewed before saving. Every change is logged in the request's History (who, when, old → new, and why), and the item list is tagged **Costs adjusted**.
 
@@ -194,8 +195,10 @@ Changed your mind? Open a submitted request and click **Withdraw request** to tu
 On a phone, one menu lists every page, grouped the same way. Each page appears only for people whose roles allow it, and each has a **History** link (top right) listing earlier versions of its settings, with who changed what and when. **Restore** puts back any earlier version, and a restore can itself be undone; if something looks wrong after a change, that's the first place to go.
 
 **OneSolar** (every app)
-- **Users:** tick the roles each person has; someone can hold several. One account works in every app.
-- **Roles & permissions:** add your own roles, rename any role, or delete custom ones, and a checkbox grid of what each role can do in every app (Orders, Finances, Sponsors, Solar Evals, Admin). There's one safety rule: at least one person must always keep **Manage people & roles**, so the team can't lock itself out.
+- **Users:** tick the roles each person has; someone can hold several. One account works in every app. Only an Admin can give or take the Admin role or change an Admin's roles.
+  - **Remove…** is for someone who left the team. Their login is deleted, so they can't sign in, and their requests, approvals and evals keep their name. You can add why (e.g. "Graduated"); the **Removed people** list at the bottom keeps who was removed, when and by whom.
+  - If someone who was removed signs up again with the same email, their new account is flagged on Users (and in a line under the top bar for everyone who manages people) with **Let them back in** or **Remove again**.
+- **Roles & permissions:** add your own roles, rename any role, or delete custom ones, and a checkbox grid of what each role can do in every app (Orders, Finances, Sponsors, Solar Evals, Admin). Only Admins change these ("Edit roles & permissions"); others who manage people see them read-only. Safety rules: at least one person must always keep **Manage people**, the Admin role always keeps **Edit roles & permissions**, and the last Admin can't stop being one, so the team can't lock itself out.
 - **Team & season:** the team name, who can make a OneSolar account (allowed email domains), the request ID prefix (Orders' request numbers), and **Start a new season**. The season is shared: Orders numbers and archives by it, and Finances and the Sponsors board open on it. Solar Evals goes by semester instead.
 - **Logo & accent:** upload the logo and pick the accent color. Every app shows them (the top bar, buttons, the line under the top bar) and so does the sign-in page.
 - **Banner & messages:** an announcement banner at the top of the home screen and every app (with an optional end date), a message on the sign-in page, and the team's own **Help** page (it appears in the menu under your name once it has text).

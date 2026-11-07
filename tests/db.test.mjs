@@ -118,6 +118,12 @@ const member = await signUp('member@ufl.edu', 'Mia Member');
 const other = await signUp('other@cise.ufl.edu', 'Otto Other');
 const ce = await signUp('ce@ufl.edu', 'Griffin York');
 const treasurer = await signUp('treasurer@ufl.edu', 'Tess Treasurer');
+// Since 035 only "Edit roles & permissions" (Admin) changes the permission grid. This
+// user has a role with just that, so the lockout tests below still count who can manage people.
+const grid = await signUp('grid@ufl.edu', 'Gail Grid');
+await db.exec(`insert into roles (key, label, sort) values ('grid_editor', 'Grid editor', 99);
+  insert into role_permissions values ('grid_editor', 'roles.edit');
+  delete from profile_roles where user_id = '${grid}'; insert into profile_roles values ('${grid}', 'grid_editor');`);
 await setRole(ce, 'ce');
 await setRole(treasurer, 'treasurer');
 
@@ -293,7 +299,7 @@ await test('the website cannot change the schema version', async () => {
   const general = (await db.query(`select value from app_settings where key = 'general'`)).rows[0].value;
   await as(ce, () => rpc('update_settings', ['general', { ...general, schemaVersion: 99 }]));
   const after = (await db.query(`select value from app_settings where key = 'general'`)).rows[0].value;
-  assert.equal(after.schemaVersion, 34);
+  assert.equal(after.schemaVersion, 35);
 });
 
 console.log('Form fields');
@@ -522,25 +528,27 @@ const permsOf = async (role) =>
 
 await test('everyone signed in can read the permission list', async () => {
   const { rows } = await as(member, () => db.query(`select key from permissions order by sort`));
-  assert.deepEqual(rows.map((r) => r.key), ['request.review', 'request.order', 'settings.edit', 'site.customize', 'seasons.manage', 'workflow.edit', 'finances.view', 'finances.edit', 'sponsors.view', 'sponsors.edit', 'evals.templates', 'evals.write', 'evals.view', 'users.manage']);
+  assert.deepEqual(rows.map((r) => r.key), ['request.review', 'request.order', 'settings.edit', 'site.customize', 'seasons.manage', 'workflow.edit', 'finances.view', 'finances.edit', 'sponsors.view', 'sponsors.edit', 'evals.templates', 'evals.write', 'evals.view', 'users.manage', 'roles.edit']);
 });
 
 await test('members cannot change permissions', async () => {
   await as(member, () => rejects(rpc('set_role_permissions', ['member', ['request.review']]), /does not allow/));
 });
 
-await test('a CE can give their own role a new permission, and it takes effect', async () => {
+await test('only "Edit roles & permissions" changes the grid; a new permission takes effect', async () => {
   const [cells] = await itemsOf(costReq);
   await as(ce, () => rejects(rpc('update_item_costs', [costReq, [{ id: cells.id, unit_price: 5 }], '']), /does not allow/));
-  await as(ce, () => rpc('set_role_permissions', ['ce', ['request.review', 'request.order', 'settings.edit', 'users.manage']]));
+  await as(ce, () => rejects(rpc('set_role_permissions', ['ce', ['request.review', 'request.order', 'settings.edit', 'users.manage']]), /roles\.edit/));
+  await as(ce, () => rejects(rpc('create_role', ['Shadow Admin']), /roles\.edit/));
+  await as(grid, () => rpc('set_role_permissions', ['ce', ['request.review', 'request.order', 'settings.edit', 'users.manage']]));
   assert.deepEqual(await permsOf('ce'), ['request.order', 'request.review', 'settings.edit', 'users.manage']);
   await as(ce, () => rpc('update_item_costs', [costReq, [{ id: cells.id, unit_price: 5 }], 'CE can order now']));
-  await as(ce, () => rpc('set_role_permissions', ['ce', ['request.review', 'settings.edit', 'users.manage']])); // back to normal
+  await as(grid, () => rpc('set_role_permissions', ['ce', ['request.review', 'settings.edit', 'users.manage']])); // back to normal
 });
 
 await test('unknown permissions and roles are refused', async () => {
-  await as(ce, () => rejects(rpc('set_role_permissions', ['ce', ['request.review', 'launch.rocket']]), /Unknown permission "launch.rocket"/));
-  await as(ce, () => rejects(rpc('set_role_permissions', ['no_such_role', []]), /Unknown role/));
+  await as(grid, () => rejects(rpc('set_role_permissions', ['ce', ['request.review', 'launch.rocket']]), /Unknown permission "launch.rocket"/));
+  await as(grid, () => rejects(rpc('set_role_permissions', ['no_such_role', []]), /Unknown role/));
   assert.deepEqual(await permsOf('ce'), ['request.review', 'settings.edit', 'users.manage']); // unchanged
 });
 
@@ -553,30 +561,30 @@ await test('you can change your own role', async () => {
 
 await test('nobody can remove the last way to manage people', async () => {
   // Removing it from one role is fine while another role still has it…
-  await as(ce, () => rpc('set_role_permissions', ['ce', ['request.review', 'settings.edit']]));
+  await as(grid, () => rpc('set_role_permissions', ['ce', ['request.review', 'settings.edit']]));
   // …but not from the last role that has it.
-  await as(treasurer, () => rejects(rpc('set_role_permissions', ['treasurer', ['request.order', 'settings.edit']]), /At least one person must keep/));
+  await as(grid, () => rejects(rpc('set_role_permissions', ['treasurer', ['request.order', 'settings.edit']]), /At least one person must keep/));
   assert.ok((await permsOf('treasurer')).includes('users.manage')); // rolled back
-  await as(treasurer, () => rpc('set_role_permissions', ['ce', ['request.review', 'settings.edit', 'users.manage']])); // restore
+  await as(grid, () => rpc('set_role_permissions', ['ce', ['request.review', 'settings.edit', 'users.manage']])); // restore
 });
 
 await test('the whole grid saves at once, so "Manage people" can move between roles', async () => {
   // Per role, removing it from treasurer first would be refused; as one save it's fine.
-  await as(treasurer, () => rpc('set_permission_matrix', [{ treasurer: ['request.order', 'settings.edit'], ce: ['request.review', 'settings.edit', 'users.manage'] }]));
+  await as(grid, () => rpc('set_permission_matrix', [{ treasurer: ['request.order', 'settings.edit'], ce: ['request.review', 'settings.edit', 'users.manage'] }]));
   assert.ok(!(await permsOf('treasurer')).includes('users.manage'));
   // And a grid that leaves nobody able to manage people is refused as a whole.
-  await as(ce, () => rejects(rpc('set_permission_matrix', [{ ce: ['request.review'], member: ['request.review'] }]), /At least one person must keep/));
+  await as(grid, () => rejects(rpc('set_permission_matrix', [{ ce: ['request.review'], member: ['request.review'] }]), /At least one person must keep/));
   assert.deepEqual(await permsOf('member'), []); // nothing from the refused save stuck
-  await as(ce, () => rpc('set_permission_matrix', [{ treasurer: ['request.order', 'settings.edit', 'users.manage'] }])); // restore
+  await as(grid, () => rpc('set_permission_matrix', [{ treasurer: ['request.order', 'settings.edit', 'users.manage'] }])); // restore
 });
 
 await test('the last person who can manage people cannot demote themselves', async () => {
   // Leave exactly one person with users.manage: only the treasurer role has it, and only `treasurer` holds it.
-  await as(treasurer, () => rpc('set_role_permissions', ['ce', ['request.review', 'settings.edit']]));
+  await as(grid, () => rpc('set_role_permissions', ['ce', ['request.review', 'settings.edit']]));
   await as(treasurer, () => rpc('set_user_role', [other, 'member']));
   await as(treasurer, () => rejects(rpc('set_user_role', [treasurer, 'member']), /At least one person must keep/));
   assert.equal(await roleOf(treasurer), 'treasurer');
-  await as(treasurer, () => rpc('set_role_permissions', ['ce', ['request.review', 'settings.edit', 'users.manage']])); // restore
+  await as(grid, () => rpc('set_role_permissions', ['ce', ['request.review', 'settings.edit', 'users.manage']])); // restore
 });
 
 console.log('Seasons');
@@ -693,28 +701,28 @@ await test('no roles means Member; unknown roles are refused', async () => {
 
 await test('Admin has every permission, including the new ones', async () => {
   const perms = (await db.query(`select string_agg(permission, ',' order by permission) as p from role_permissions where role = 'admin'`)).rows[0].p;
-  assert.equal(perms, 'evals.templates,evals.view,evals.write,finances.edit,finances.view,request.order,request.review,seasons.manage,settings.edit,site.customize,sponsors.edit,sponsors.view,users.manage,workflow.edit');
+  assert.equal(perms, 'evals.templates,evals.view,evals.write,finances.edit,finances.view,request.order,request.review,roles.edit,seasons.manage,settings.edit,site.customize,sponsors.edit,sponsors.view,users.manage,workflow.edit');
 });
 
 await test('custom roles: create, rename, grant, and delete', async () => {
   await as(member, () => rejects(rpc('create_role', ['Subsystem Lead']), /does not allow/));
-  const key = (await as(ce, () => rpc('create_role', ['Subsystem Lead']))).rows[0].result;
+  const key = (await as(grid, () => rpc('create_role', ['Subsystem Lead']))).rows[0].result;
   assert.equal(key, 'subsystem_lead');
-  await as(ce, () => rejects(rpc('create_role', ['subsystem lead']), /already a role/));
-  await as(ce, () => rpc('rename_role', [key, 'Team Lead']));
-  await as(ce, () => rpc('set_permission_matrix', [{ [key]: ['request.review'] }]));
+  await as(grid, () => rejects(rpc('create_role', ['subsystem lead']), /already a role/));
+  await as(grid, () => rpc('rename_role', [key, 'Team Lead']));
+  await as(grid, () => rpc('set_permission_matrix', [{ [key]: ['request.review'] }]));
   await as(ce, () => rpc('set_user_roles', [other, [key]]));
   // Deleting the role leaves them as a Member.
-  await as(ce, () => rejects(rpc('delete_role', ['treasurer']), /Built-in roles/));
-  await as(ce, () => rpc('delete_role', [key]));
+  await as(grid, () => rejects(rpc('delete_role', ['treasurer']), /Built-in roles/));
+  await as(grid, () => rpc('delete_role', [key]));
   assert.equal(await roleOf(other), 'member');
   assert.equal((await db.query(`select count(*)::int as n from roles where key = $1`, [key])).rows[0].n, 0);
 });
 
 await test('lockout protection still holds with several roles', async () => {
   // treasurer + ce both have users.manage; strip it from everyone except a role nobody holds…
-  await as(ce, () => rejects(rpc('set_permission_matrix', [{
-    ce: ['request.review'], treasurer: ['request.order'], admin: ['request.review'],
+  await as(grid, () => rejects(rpc('set_permission_matrix', [{
+    ce: ['request.review'], treasurer: ['request.order'], admin: ['request.review', 'roles.edit'],
   }]), /At least one person must keep/));
 });
 
@@ -732,10 +740,10 @@ await test('lists & appearance need "Customize lists & appearance"', async () =>
 });
 
 await test('seasons & imports need "Seasons & imports"', async () => {
-  await as(ce, () => rpc('set_permission_matrix', [{ ce: ['request.review', 'settings.edit', 'users.manage'] }]));
+  await as(grid, () => rpc('set_permission_matrix', [{ ce: ['request.review', 'settings.edit', 'users.manage'] }]));
   await as(ce, () => rejects(rpc('import_archive', ['2020-2021', 'x.xlsx', 'Sheet1', ['A'], [{ row_number: 2, fields: { A: '1' } }]]), /seasons.manage/));
   await as(ce, () => rejects(rpc('start_new_season', ['2030-2031']), /seasons.manage/));
-  await as(ce, () => rpc('set_permission_matrix', [{ ce: ['request.review', 'settings.edit', 'seasons.manage', 'users.manage'] }]));
+  await as(grid, () => rpc('set_permission_matrix', [{ ce: ['request.review', 'settings.edit', 'seasons.manage', 'users.manage'] }]));
 });
 
 console.log('Settings history');
@@ -774,11 +782,11 @@ await test('restore uses the same permission checks as saving', async () => {
 
 await test('permission grid changes are versioned and can be undone', async () => {
   const before = await history('permissions');
-  await as(ce, () => rpc('set_permission_matrix', [{ member: ['request.review'] }]));
+  await as(grid, () => rpc('set_permission_matrix', [{ member: ['request.review'] }]));
   const after = await history('permissions');
   assert.equal(after.length, before.length + 1);
   assert.deepEqual(after.at(-1).value.member, ['request.review']);
-  await as(ce, () => rpc('restore_settings_version', [before.at(-1).id]));
+  await as(grid, () => rpc('restore_settings_version', [before.at(-1).id]));
   assert.deepEqual(await permsOf('member'), []);
 });
 
@@ -2081,5 +2089,65 @@ await test('OneSolar: admins choose who sees each card; anyone can read it; bad 
   await as(admin, () => rejects(rpc('update_settings', ['onesolar', { cards: { evals: { show: 'sometimes' } } }]), /Choose who sees/));
   await as(admin, () => rejects(rpc('update_settings', ['onesolar', { cards: { 'Bad Id!': { show: 'hidden' } } }]), /Bad app id/));
 });
+
+console.log('People: roles except Admin, removing someone (035)');
+
+{
+  const boss = await signUp('boss@ufl.edu', 'Bo Boss');
+  const chief = await signUp('chief@ufl.edu', 'Chris Chief');
+  const leaver = await signUp('leaver@ufl.edu', 'Lee Leaver');
+  const plain = await signUp('plain@ufl.edu', 'Pat Plain');
+  await setRole(boss, 'admin');
+  await setRole(chief, 'ce');
+  await db.exec(`insert into role_permissions values ('ce', 'users.manage') on conflict do nothing`);
+
+  await test('people managers give roles but not Admin; only Admins change an Admin', async () => {
+    await as(chief, () => rpc('set_user_roles', [leaver, ['treasurer']]));
+    assert.equal(await roleOf(leaver), 'treasurer');
+    await as(chief, () => rejects(rpc('set_user_roles', [leaver, ['treasurer', 'admin']]), /Only an Admin can make someone an Admin/));
+    await as(chief, () => rejects(rpc('set_user_roles', [boss, ['admin', 'ce']]), /Only an Admin can change an Admin/));
+    await as(chief, () => rejects(rpc('set_user_roles', [chief, ['admin']]), /Only an Admin/));
+    await as(boss, () => rpc('set_user_roles', [plain, ['admin']]));
+    await as(boss, () => rpc('set_user_roles', [plain, ['member']]));
+    assert.equal(await roleOf(plain), 'member');
+  });
+
+  await test('the Admin role keeps "Edit roles & permissions"; the last Admin stays', async () => {
+    const adminPerms = await permsOf('admin');
+    await as(boss, () => rejects(rpc('set_role_permissions', ['admin', adminPerms.filter((x) => x !== 'roles.edit')]), /Admin always keeps/));
+    await as(boss, () => rejects(rpc('set_permission_matrix', [{ admin: ['users.manage'] }]), /Admin always keeps/));
+    // Leave boss as the only Admin; then they can't drop it.
+    const others = (await db.query(`select user_id from profile_roles where role = 'admin' and user_id <> $1`, [boss])).rows.map((r) => r.user_id);
+    for (const id of others) await db.query(`delete from profile_roles where user_id = $1 and role = 'admin'`, [id]);
+    await as(boss, () => rejects(rpc('set_user_roles', [boss, ['ce']]), /last Admin/));
+    for (const id of others) await db.query(`insert into profile_roles values ($1, 'admin')`, [id]);
+  });
+
+  await test('removing someone deletes their login and keeps their name on what they did', async () => {
+    const { rows } = await as(leaver, () => rpc('save_request', [null, { title: 'Leaver draft', requester: 'Lee Leaver' }, [], 'draft']));
+    const num = rows[0].result;
+    await as(plain, () => rejects(rpc('remove_person', [leaver, 'Graduated']), /does not allow/));
+    await as(chief, () => rejects(rpc('remove_person', [chief, '']), /can't remove yourself/));
+    await as(chief, () => rejects(rpc('remove_person', [boss, '']), /Only an Admin can remove an Admin/));
+    await as(chief, () => rpc('remove_person', [leaver, 'Graduated in May']));
+    assert.equal((await db.query(`select count(*)::int n from auth.users where id = $1`, [leaver])).rows[0].n, 0);
+    assert.equal((await db.query(`select count(*)::int n from profiles where id = $1`, [leaver])).rows[0].n, 0);
+    const req = (await db.query(`select requester, created_by from requests where request_number = $1`, [num])).rows[0];
+    assert.deepEqual(req, { requester: 'Lee Leaver', created_by: null });
+    const rec = (await db.query(`select email, full_name, roles, note, removed_by_name, cleared_at from removed_people where email = 'leaver@ufl.edu'`)).rows[0];
+    assert.deepEqual(rec, { email: 'leaver@ufl.edu', full_name: 'Lee Leaver', roles: ['treasurer'], note: 'Graduated in May', removed_by_name: 'Chris Chief', cleared_at: null });
+  });
+
+  await test('if they sign up again, people managers see the removal (members do not) until it is cleared', async () => {
+    await signUp('leaver@ufl.edu', 'Lee Leaver');
+    const seen = async (who) => (await as(who, () => db.query(`select email from removed_people where cleared_at is null`))).rows.map((r) => r.email);
+    assert.deepEqual(await seen(chief), ['leaver@ufl.edu']);
+    assert.deepEqual(await seen(plain), []);
+    await as(plain, () => rejects(rpc('clear_removed_flag', ['leaver@ufl.edu']), /does not allow/));
+    await as(boss, () => rpc('clear_removed_flag', ['LEAVER@ufl.edu']));
+    assert.deepEqual(await seen(chief), []);
+    assert.equal((await db.query(`select cleared_by_name from removed_people where email = 'leaver@ufl.edu'`)).rows[0].cleared_by_name, 'Bo Boss');
+  });
+}
 
 console.log(`\n${passed} passed${process.exitCode ? ', some FAILED' : ''}`);

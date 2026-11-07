@@ -13,6 +13,7 @@ const state = {
   permissions: new Set(),
   roles: [],
   recovering: false, // true after opening a password-reset link
+  removed: false, // signed in, but the account was removed (035): signed out with a note
 };
 
 async function loadProfile() {
@@ -29,7 +30,14 @@ async function loadProfile() {
   if (error) throw error;
   state.roles = roles || [];
   state.profile = profile;
-  if (!profile) return;
+  if (!profile) {
+    // Their account was removed while they were signed in: sign out, and say why on the sign-in page.
+    state.removed = true;
+    state.session = null;
+    state.permissions = new Set();
+    await supabase.auth.signOut().catch(() => {});
+    return;
+  }
 
   // A person can have several roles (migration 008); before that, one `role` column.
   const { data: mine, error: rolesError } = await supabase.from('profile_roles').select('role').eq('user_id', uid);
@@ -67,6 +75,10 @@ export const auth = {
   },
   get recovering() {
     return state.recovering;
+  },
+  /** Set when an account was removed while signed in (shown once on the sign-in page). */
+  get removed() {
+    return state.removed;
   },
   can(permission) {
     return state.permissions.has(permission);

@@ -7,15 +7,16 @@ import { APP, APPS, homePath } from './appMode.js';
 import { hasHelp } from './views/help.js';
 import { setLedgerSettings } from './ledger.js';
 import { mountAppSwitcher } from '../../shared/app-switcher.js';
-import { rememberBrand } from '../../shared/onesolar.js';
+import { rememberBrand, appUrl } from '../../shared/onesolar.js';
+import { rejoinedFlag } from './views/admin.js';
 import { STATUS, STATUSES, EDITABLE_STATUSES, esc, errorBox, setCurrentSeason, setAppearance, renderRichText, fitTables } from './ui.js';
 
 const app = document.getElementById('app');
 mountAppSwitcher(); // ⊞ next to the logo: jump to any other OneSolar app (Ctrl + K)
 
 // Bump when adding a file to supabase/migrations/ (the migration sets general.schemaVersion).
-const REQUIRED_SCHEMA_VERSION = 34;
-const MIGRATIONS = { 2: '002_form_fields.sql', 3: '003_archive_and_import.sql', 4: '004_cost_adjustments.sql', 5: '005_editable_permissions.sql', 6: '006_seasons.sql', 7: '007_one_vendor_per_request.sql', 8: '008_roles_admin_history.sql', 9: '009_form_rules_layout_exports.sql', 10: '010_workflow_budgets_notifications.sql', 11: '011_notification_choices.sql', 12: '012_link_imported_requests.sql', 13: '013_history_drafts_ticket.sql', 14: '014_finances.sql', 15: '015_sponsors.sql', 16: '016_request_watchers.sql', 17: '017_attachments.sql', 18: '018_treasurer_ledger.sql', 19: '019_fix_wording_pickup.sql', 20: '020_ledger_category.sql', 21: '021_budget_categories.sql', 22: '022_paid_status.sql', 23: '023_rename_category_fix.sql', 24: '024_cancel_approved.sql', 25: '025_treasurer_tools.sql', 26: '026_sponsor_history.sql', 27: '027_sponsor_outreach.sql', 28: '028_solar_evals.sql', 29: '029_onesolar.sql', 30: '030_onesolar_wording.sql', 31: '031_eval_self_reviews.sql', 32: '032_eval_questions.sql', 33: '033_undo_received.sql', 34: '034_edit_approved_items.sql' };
+const REQUIRED_SCHEMA_VERSION = 35;
+const MIGRATIONS = { 2: '002_form_fields.sql', 3: '003_archive_and_import.sql', 4: '004_cost_adjustments.sql', 5: '005_editable_permissions.sql', 6: '006_seasons.sql', 7: '007_one_vendor_per_request.sql', 8: '008_roles_admin_history.sql', 9: '009_form_rules_layout_exports.sql', 10: '010_workflow_budgets_notifications.sql', 11: '011_notification_choices.sql', 12: '012_link_imported_requests.sql', 13: '013_history_drafts_ticket.sql', 14: '014_finances.sql', 15: '015_sponsors.sql', 16: '016_request_watchers.sql', 17: '017_attachments.sql', 18: '018_treasurer_ledger.sql', 19: '019_fix_wording_pickup.sql', 20: '020_ledger_category.sql', 21: '021_budget_categories.sql', 22: '022_paid_status.sql', 23: '023_rename_category_fix.sql', 24: '024_cancel_approved.sql', 25: '025_treasurer_tools.sql', 26: '026_sponsor_history.sql', 27: '027_sponsor_outreach.sql', 28: '028_solar_evals.sql', 29: '029_onesolar.sql', 30: '030_onesolar_wording.sql', 31: '031_eval_self_reviews.sql', 32: '032_eval_questions.sql', 33: '033_undo_received.sql', 34: '034_edit_approved_items.sql', 35: '035_people_admin_only.sql' };
 
 /** Shared config object handed to every view. Mutated in place on reload. */
 const config = {};
@@ -73,6 +74,34 @@ function updateAnnouncement() {
   box.innerHTML = show ? `<div class="container">${renderRichText(ann.text)}</div>` : '';
 }
 
+/**
+ * People who manage people: a line under the top bar when someone who was removed
+ * (035) has signed up again. Checked once per page load; Admin → Users has the details.
+ */
+let rejoined = null;
+function showRejoinedNotice() {
+  let box = document.getElementById('people-flag');
+  const ok = auth.signedIn && auth.can('users.manage') && Number(config.schemaVersion) >= 35;
+  if (!ok) return box?.remove();
+  rejoined ||= Promise.all([api.listRemovedPeople(), api.listProfiles()])
+    .then(([removed, people]) => people.filter((p) => rejoinedFlag(p, removed)))
+    .catch(() => []);
+  rejoined.then((list) => {
+    box = document.getElementById('people-flag');
+    if (!list.length || /^#\/admin\/users/.test(location.hash)) return box?.remove();
+    if (!box) {
+      box = document.createElement('div');
+      box.id = 'people-flag';
+      box.className = 'announcement announcement-warning';
+      box.setAttribute('role', 'status');
+      document.getElementById('banner').after(box);
+    }
+    const names = list.map((p) => esc(p.full_name || p.email)).join(', ');
+    box.innerHTML = `<div class="container">⚠ ${list.length === 1 ? 'Someone who was removed has' : `${list.length} people who were removed have`} signed up again: ${names}.
+      <a href="${esc(appUrl('admin/#/admin/users'))}">Review in Admin → Users</a></div>`;
+  });
+}
+
 /** Show/hide nav links by permission and fill in the account menu. */
 function updateChrome() {
   document.querySelectorAll('.topbar [data-perm]').forEach((node) => {
@@ -91,6 +120,7 @@ function updateChrome() {
     : `<div class="container"><strong>Database update needed.</strong> In Supabase → SQL Editor, run
        ${missing.map((f) => `<code>supabase/migrations/${esc(f)}</code>`).join(', then ')} from the GitHub repo.
        Until then, new features may not save correctly.</div>`;
+  showRejoinedNotice();
 
   const account = document.getElementById('account-btn');
   account.innerHTML = auth.signedIn

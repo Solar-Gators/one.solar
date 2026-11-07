@@ -10,7 +10,9 @@ This guide is for whoever maintains the site: setting it up from scratch, runnin
 
 **Permissions** live in the database (`permissions` and `role_permissions` tables), not in code:
 - **Changing what a role can do:** use **Admin → OneSolar → Roles & permissions** on the site. The Table Editor works too.
-- **Lockout protection:** the database refuses any change (to a role or to the grid) that would leave nobody with `users.manage`.
+- **Lockout protection:** the database refuses any change (to a role or to the grid) that would leave nobody with `users.manage`. The Admin role always keeps `roles.edit`, and the last Admin can't drop the Admin role or be removed.
+- **Admin is special (035):** only Admins can give or take the Admin role, change an Admin's roles, or remove an Admin. Everyone else with `users.manage` can do the rest.
+- **Removing someone who left (035):** Admin → Users → **Remove…** deletes their login; what they did keeps their name, and the removal is kept in `removed_people`. If the same email signs up again, people managers see a flag (Users page, and a line under the top bar) until someone clicks **Let them back in** or **Remove again**.
 - **Roles:** a person can hold several roles (`profile_roles` table); their permissions combine. Built-in roles are Member, Chief Engineer, Treasurer and Admin. More can be created on the site.
 - **Current permissions:**
   - `request.review`: approve, reject, or request changes.
@@ -18,7 +20,8 @@ This guide is for whoever maintains the site: setting it up from scratch, runnin
   - `settings.edit`: form fields, dropdown lists, team settings, request rules.
   - `site.customize`: list columns/filters/sorting, status and priority labels and colors.
   - `seasons.manage`: start a new season, import spreadsheets.
-  - `users.manage`: roles, custom roles, and the permission grid.
+  - `users.manage`: give people roles (not Admin), and remove people who left.
+  - `roles.edit`: create, rename and delete roles, and the permission grid (Admin only by default).
 - **Settings history:** every version of `app_settings` (general, form, lists, appearance) and of the permission grid is kept in `settings_history`. Leads restore versions from the **History** link at the top of each Admin page.
 
 ## Setup (one time, about 15 minutes)
@@ -42,11 +45,13 @@ Open **Project Settings → API** (or the **Connect** button). Copy the **Projec
 
 The anon key is meant to be public. Never paste the `service_role` / secret key anywhere in this repo.
 
-### 4. Make yourself the first Treasurer
+### 4. Make yourself the first Admin
 Open the site (locally or on GitHub Pages), click **Create an account**, and sign up. Then run this in Supabase's **SQL Editor**:
 
 ```sql
-update public.profiles set role = 'treasurer' where email = 'you@ufl.edu';
+insert into public.profile_roles (user_id, role)
+select id, 'admin' from public.profiles where email = 'you@ufl.edu'
+on conflict do nothing;
 ```
 
 Refresh the page. From now on, roles are assigned from **Admin → OneSolar → Users**.
@@ -76,7 +81,7 @@ npm run dev:fake
 Fake mode swaps Orders' Supabase client for an in-browser Postgres ([PGlite](https://pglite.dev)) running the same migrations, so the permissions behave the same. Data stays in your browser. No emails are sent, and signing up logs you in immediately. The home screen and Solar Evals have their own stand-ins: add `?fake` to their address on localhost (`/?fake=admin`, `/evals/?fake`). In the browser console:
 
 ```js
-await fakeSql("update profiles set role = 'treasurer' where email = 'you@ufl.edu'")  // then refresh
+await fakeSql("insert into profile_roles select id, 'treasurer' from profiles where email = 'you@ufl.edu' on conflict do nothing")  // then refresh
 await fakeReset()   // wipe local data
 ```
 
@@ -86,7 +91,7 @@ await fakeReset()   // wipe local data
 npm test
 ```
 
-`npm test` runs all three test files. `npm run test:import` checks spreadsheet column recognition against the real headers of the 2024-25, 2025-26, and 2026-27 sheets. `npm run test:db` runs every file in `supabase/migrations/` in PGlite and checks the security rules as different users, e.g. "a Member can't approve", "a Chief Engineer can't mark ordered", "you can't edit someone else's draft", and "non-UF emails can't sign up". Run it after any database change. `tests/notify.test.mjs` checks how notification messages are written (placeholders, email HTML, the Teams card).
+`npm test` runs every test file in `tests/`. `npm run test:import` checks spreadsheet column recognition against the real headers of the 2024-25, 2025-26, and 2026-27 sheets. `npm run test:db` runs every file in `supabase/migrations/` in PGlite and checks the security rules as different users, e.g. "a Member can't approve", "a Chief Engineer can't mark ordered", "you can't edit someone else's draft", and "non-UF emails can't sign up". Run it after any database change. `tests/notify.test.mjs` checks how notification messages are written (placeholders, email HTML, the Teams card).
 
 ## How it works
 
@@ -213,7 +218,7 @@ If UF's tenant doesn't offer the trigger, or says it needs a premium license, po
 
 When the new leads take over (usually with **Admin → OneSolar → Team & season → Start a new season**):
 1. **Start the season:** Admin → OneSolar → Team & season → **Start a new season**. Numbering restarts (e.g. SG27-001), last season moves to the Archive, and unfinished orders stay in the queues.
-2. **Roles:** give the new Chief Engineer and Treasurer their roles in **Admin → OneSolar → Users**, and set graduating leads to Member. At least one person must always keep "Manage people".
+2. **Roles:** give the new Chief Engineer and Treasurer their roles in **Admin → OneSolar → Users**, and set graduating leads to Member (or **Remove…** people who left the team). At least one person must always keep "Manage people", and there must always be an Admin.
 3. **Supabase:** invite the new leads to the Supabase organization (Organization settings → Team) so someone can run database updates and restore the project if it pauses.
 4. **GitHub:** give the new leads access to the `Solar-Gators/one.solar` repository.
 5. **Email (optional):** if you set up custom SMTP for sign-up and password-reset emails, make sure the account behind it isn't tied to someone who's graduating.

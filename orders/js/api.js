@@ -552,6 +552,21 @@ export const api = {
     unwrap(await supabase.rpc('delete_role', { p_key: key }));
   },
 
+  /** Someone who left (035): their login goes, what they did keeps their name. */
+  async removePerson(userId, note) {
+    unwrap(await supabase.rpc('remove_person', { p_user_id: userId, p_note: note || '' }));
+  },
+  /** Everyone removed so far, newest first (people managers only; [] before 035). */
+  async listRemovedPeople() {
+    const res = await supabase.from('removed_people').select('*').order('removed_at', { ascending: false });
+    if (res.error && /removed_people/.test(res.error.message || '')) return [];
+    return unwrap(res);
+  },
+  /** They signed up again and that's fine: stop flagging them. */
+  async clearRemovedFlag(email) {
+    unwrap(await supabase.rpc('clear_removed_flag', { p_email: email }));
+  },
+
   // ---- Settings history ------------------------------------------------------
 
   /** Saved versions of settings and permissions, newest first. */

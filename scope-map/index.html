@@ -2538,7 +2538,7 @@ function setTab(id) {
 }
 function applyMetadata() {
   const m = DB.metadata;
-  document.title = m.title;
+  document.title = "CE Scope Map · OneSolar"; // the map's own title is shown on the page
   $("#pageTitle").textContent = m.title;
   $("#pageSub").textContent = m.subtitle;
   $("#verPill").textContent = m.version + " · updated " + m.lastUpdated;

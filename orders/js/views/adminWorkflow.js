@@ -94,7 +94,7 @@ export async function renderWorkflow(el, { config, rerender, reloadConfig }) {
       ${
         type === 'people'
           ? `<div class="rule"><strong>Who</strong><span class="role-chips">${everyone
-              .map((p) => `<label class="role-chip ${picked.includes(p.id) ? 'on' : ''}"><input type="checkbox" data-w="person" value="${p.id}" ${picked.includes(p.id) ? 'checked' : ''}>${esc(p.full_name || p.email)}${isReviewer(p) ? ' <span class="muted small">CE</span>' : ''}</label>`)
+              .map((p) => `<label class="role-chip ${picked.includes(p.id) ? 'on' : ''}"><input type="checkbox" data-w="person" value="${p.id}" ${picked.includes(p.id) ? 'checked' : ''}>${esc(p.full_name || p.email)}${isReviewer(p) ? ' <span class="muted small" title="Their role can approve requests">can approve</span>' : ''}</label>`)
               .join('')}</span></div>
             <div class="rule"><strong>Needs</strong>
               <label class="role-chip ${r.then.needAll ? '' : 'on'}"><input type="radio" name="need-${i}" data-w="needAll" value="" ${r.then.needAll ? '' : 'checked'}>Any one of them</label>

@@ -13,7 +13,7 @@ import { api } from '../api.js';
 import { auth } from '../auth.js';
 import { esc, fmtMoney, fmtDate, errorBox, setFlash } from '../ui.js';
 import { requestFields } from '../formFields.js';
-import { workflowSettings } from '../workflow.js';
+import { workflowSettings, hasBudgets } from '../workflow.js';
 import { loadExcelJS } from '../excel.js';
 import { cellText } from '../sheetImport.js';
 import {
@@ -355,7 +355,7 @@ export async function renderSheets(el, { config, rerender, reloadConfig }) {
     if (n === null) return;
     const budgets = structuredClone(workflowSettings(config).budgets);
     const field = formFieldOf(columns.find((c) => c.key === col.by));
-    if (!budgets.field) budgets.field = field;
+    if (!hasBudgets(config) && field) budgets.field = field; // no budgets yet: follow this sheet's column
     if (field && budgets.field !== field) {
       showError(new Error('The site\'s budgets are set per another field. Change "Budget by" in the Budgets card first.'));
       return;
