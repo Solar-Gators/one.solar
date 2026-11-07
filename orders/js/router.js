@@ -11,9 +11,10 @@
 import { auth } from './auth.js';
 import { renderLogin } from './views/login.js';
 import { renderAccount, renderResetPassword } from './views/account.js';
-import { renderUsers, renderRoles, renderDropdowns, renderSeason, renderFormFields, ADMIN_TABS } from './views/admin.js';
-import { renderAppearance, renderHistory } from './views/adminSetup.js';
-import { renderDisplay, renderTextBanner } from './views/adminPages.js';
+import { renderUsers, renderRoles, renderDropdowns, renderSeason, renderFormFields, renderImportOrders, ADMIN_TABS } from './views/admin.js';
+import { renderAppearance, renderBrand, renderHistory } from './views/adminSetup.js';
+import { renderDisplay, renderTextBanner, renderIntros } from './views/adminPages.js';
+import { renderHomeScreen, renderOtherApps } from './views/adminApps.js';
 import { renderWorkflow, renderNotifications } from './views/adminWorkflow.js';
 import { renderHelp } from './views/help.js';
 import { renderHome } from './views/home.js';
@@ -61,10 +62,14 @@ const ROUTES = [
   // The old Settings page is now Dropdowns & rules + Team & season.
   { pattern: /^\/admin\/settings$/, redirect: () => (auth.can('settings.edit') ? '#/admin/dropdowns' : '#/admin/season') },
   { pattern: /^\/admin\/display(?:\/(lists|page|exports))?$/, nav: 'admin', view: renderDisplay, perm: tabPerms('display') },
-  // Old addresses of what are now sections of "Lists, layout & Excel", and Import (in Team & season).
+  // Old addresses of what are now sections of "Lists, layout & Excel".
   { pattern: /^\/admin\/(lists|page|exports)$/, redirect: () => `#/admin/display/${location.hash.split('/').pop()}` },
-  { pattern: /^\/admin\/import$/, redirect: () => '#/admin/season' },
+  { pattern: /^\/admin\/import$/, nav: 'admin', view: renderImportOrders, perm: tabPerms('import') },
   { pattern: /^\/admin\/appearance$/, nav: 'admin', view: renderAppearance, perm: tabPerms('appearance') },
+  { pattern: /^\/admin\/brand$/, nav: 'admin', view: renderBrand, perm: tabPerms('brand') },
+  { pattern: /^\/admin\/intros$/, nav: 'admin', view: renderIntros, perm: tabPerms('intros') },
+  { pattern: /^\/admin\/home$/, nav: 'admin', view: renderHomeScreen, perm: tabPerms('home') },
+  { pattern: /^\/admin\/apps$/, nav: 'admin', view: renderOtherApps, perm: tabPerms('apps') },
   { pattern: /^\/admin\/text$/, nav: 'admin', view: renderTextBanner, perm: tabPerms('text') },
   { pattern: /^\/admin\/workflow$/, nav: 'admin', view: renderWorkflow, perm: tabPerms('workflow') },
   { pattern: /^\/admin\/notifications$/, nav: 'admin', view: renderNotifications, perm: tabPerms('notifications') },

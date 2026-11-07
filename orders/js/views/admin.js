@@ -16,37 +16,51 @@ import {
   FIELD_TYPES, LOCKED, LIST_FIELDS, CONDITION_OPS, requestFields, itemFields, typeLabel, makeKey, fieldOptions, describeCondition,
 } from '../formFields.js';
 
+const ANY_ADMIN = ['users.manage', 'settings.edit', 'site.customize', 'seasons.manage', 'workflow.edit'];
+
 /**
- * Admin pages, each shown only with its permission, grouped into a few tabs.
+ * Admin pages, each shown only with its permission, grouped by where they apply:
+ *   OneSolar    — every app: accounts and positions, the team and season, logo, banner, notifications, home screen
+ *   Orders      — only the Orders app: the request form, approvals, how requests are shown
+ *   Other apps  — Sponsors, Finances and Solar Evals keep their settings inside each app; one page links there
  * Also used by the router. [key, label, permissions, group, hidden]
  * Hidden pages are reached from another page: Request page / Request lists / Excel
- * templates are sections of "Lists, layout & Excel", Import is part of "Team & season",
- * and History opens from the "History" link on each page.
+ * templates are sections of "Lists, layout & Excel", and History opens from the "History" link on each page.
  */
 export const ADMIN_TABS = [
-  ['users', 'Users', ['users.manage'], 'Team'],
-  ['roles', 'Roles & permissions', ['users.manage'], 'Team'],
-  ['season', 'Team & season', ['settings.edit', 'seasons.manage'], 'Team'],
-  ['fields', 'Fields', ['settings.edit'], 'Request form'],
-  ['dropdowns', 'Dropdowns & rules', ['settings.edit'], 'Request form'],
-  ['display', 'Lists, layout & Excel', ['site.customize'], 'Display'],
-  ['appearance', 'Colors & logo', ['site.customize'], 'Display'],
-  ['text', 'Text & banner', ['site.customize'], 'Display'],
-  ['workflow', 'Approval rules', ['workflow.edit'], 'Approvals & alerts'],
-  ['notifications', 'Notifications', ['workflow.edit'], 'Approvals & alerts'],
-  ['lists', 'Request lists', ['site.customize'], 'Display', true],
-  ['page', 'Request page', ['site.customize'], 'Display', true],
-  ['exports', 'Excel templates', ['site.customize'], 'Display', true],
-  ['import', 'Import', ['seasons.manage'], 'Team', true],
-  ['history', 'History', ['users.manage', 'settings.edit', 'site.customize', 'workflow.edit'], 'Team', true],
+  ['users', 'Users', ['users.manage'], 'OneSolar'],
+  ['roles', 'Roles & permissions', ['users.manage'], 'OneSolar'],
+  ['season', 'Team & season', ['settings.edit', 'seasons.manage'], 'OneSolar'],
+  ['brand', 'Logo & accent', ['site.customize'], 'OneSolar'],
+  ['text', 'Banner & messages', ['site.customize'], 'OneSolar'],
+  ['notifications', 'Notifications', ['workflow.edit'], 'OneSolar'],
+  ['home', 'Home screen', ['site.customize'], 'OneSolar'],
+  ['fields', 'Request form', ['settings.edit'], 'Orders'],
+  ['dropdowns', 'Dropdowns & rules', ['settings.edit'], 'Orders'],
+  ['workflow', 'Approval rules', ['workflow.edit'], 'Orders'],
+  ['display', 'Lists, layout & Excel', ['site.customize'], 'Orders'],
+  ['appearance', 'Statuses & colors', ['site.customize'], 'Orders'],
+  ['intros', 'Page intros', ['site.customize'], 'Orders'],
+  ['import', 'Import old orders', ['seasons.manage'], 'Orders'],
+  ['apps', 'Sponsors, Finances & Evals', ANY_ADMIN, 'Other apps'],
+  ['lists', 'Request lists', ['site.customize'], 'Orders', true],
+  ['page', 'Request page', ['site.customize'], 'Orders', true],
+  ['exports', 'Excel templates', ['site.customize'], 'Orders', true],
+  ['history', 'History', ['users.manage', 'settings.edit', 'site.customize', 'workflow.edit'], 'OneSolar', true],
 ];
+/** One line under the tabs: where this group's settings apply. */
+const GROUP_SCOPE = {
+  OneSolar: 'Applies to every OneSolar app.',
+  Orders: 'Only the Orders app: purchase requests.',
+  'Other apps': 'Sponsors, Finances and Solar Evals keep their own settings inside each app.',
+};
 /** Where a hidden page lives. */
-const PARENT = { lists: 'display', page: 'display', exports: 'display', import: 'season' };
+const PARENT = { lists: 'display', page: 'display', exports: 'display' };
 /** Which settings each page changes, for its "History" link. */
 const HISTORY_KEYS = {
   users: 'permissions', roles: 'permissions', season: 'general', fields: 'form', dropdowns: 'form',
   display: 'lists,layout,exports', lists: 'lists', page: 'layout', exports: 'exports',
-  appearance: 'appearance', text: 'appearance', workflow: 'workflow', notifications: 'notifications',
+  appearance: 'appearance', brand: 'appearance', text: 'appearance', intros: 'appearance', workflow: 'workflow', notifications: 'notifications',
 };
 
 /**
@@ -80,7 +94,7 @@ export function adminHeader(active, intro = '', actions = '') {
   return `<div class="admin-top">
     <div class="page-header admin-head"><div><h1>Admin</h1></div><div class="card-actions">${history}${actions}</div></div>
     <nav class="tabs admin-tabs" aria-label="Admin">${tabs}</nav>
-    ${jump}${subnav}
+    ${jump}${page !== 'history' && GROUP_SCOPE[group] ? `<p class="admin-scope" data-scope="${esc(group)}">${esc(GROUP_SCOPE[group])}</p>` : ''}${subnav}
     ${intro ? `<p class="admin-intro">${intro}</p>` : ''}
   </div>`;
 }
@@ -380,14 +394,10 @@ const lines = (text) => [...new Set(text.split('\n').map((s) => s.trim()).filter
 
 /** "Dropdowns & rules" (form options) and "Team & season" share this page code. */
 export const renderDropdowns = (el, ctx) => renderSettings(el, ctx, 'dropdowns');
-export async function renderSeason(el, ctx) {
-  await renderSettings(el, ctx, 'season');
-  if (!auth.can('seasons.manage')) return;
-  const box = document.createElement('div');
-  box.className = 'import-section';
-  el.appendChild(box);
-  await renderImport(box, { ...ctx, embedded: true });
-}
+export const renderSeason = (el, ctx) => renderSettings(el, ctx, 'season');
+
+/** Orders → Import old orders: old Excel order sheets into the app. */
+export const renderImportOrders = (el, ctx) => renderImport(el, { ...ctx, embedded: false });
 
 async function renderSettings(el, { rerender, reloadConfig }, part) {
   const settings = await api.getSettings();
@@ -427,8 +437,8 @@ async function renderSettings(el, { rerender, reloadConfig }, part) {
         <section class="card">
           <h2>Dropdown lists</h2>
           <p class="muted small">Every dropdown on the request form. To add a new dropdown, go to
-            <a href="#/admin/fields">Fields</a>, add a field, and set its type to <strong>Dropdown</strong>. It then appears here.
-            Renaming an option doesn't change requests that already used the old one. Colors are under <a href="#/admin/appearance">Colors &amp; logo</a>.</p>
+            <a href="#/admin/fields">Request form</a>, add a field, and set its type to <strong>Dropdown</strong>. It then appears here.
+            Renaming an option doesn't change requests that already used the old one. Colors are under <a href="#/admin/appearance">Statuses &amp; colors</a>.</p>
           ${visibleLists.map(listBox).join('') || '<p class="muted">There are no dropdowns on the form.</p>'}
           ${
             hiddenLists.length
@@ -474,12 +484,12 @@ async function renderSettings(el, { rerender, reloadConfig }, part) {
       <div class="field"><label>Current season</label>
         <div class="readonly-value">${esc(general.season || '—')}
           <span class="muted small">· new requests are numbered ${esc(currentPrefix)}-001, -002, …</span></div></div>
-      <div class="field"><label for="s-prefix">Request ID prefix</label>
+      <div class="field"><label for="s-prefix">Request ID prefix <span class="muted">(Orders)</span></label>
         <input id="s-prefix" name="requestIdPrefix" type="text" value="${esc(general.requestIdPrefix || '')}" maxlength="10">
         <div class="hint">Each new season adds its year: ${esc(general.requestIdPrefix || 'SG')} → ${esc(nextPrefix)}-001 for ${esc(nextSeason)}.</div></div>
       <div class="field"><label for="s-domains">Allowed sign-up email domains <span class="muted">(one per line)</span></label>
         <textarea id="s-domains" name="allowedEmailDomains" rows="2">${esc((general.allowedEmailDomains || []).join('\n'))}</textarea>
-        <div class="hint">Leave empty to allow any email address.</div></div>
+        <div class="hint">Who can make a OneSolar account (one account for every app). Leave empty to allow any email address.</div></div>
       <div class="form-actions"><button type="submit" class="btn btn-primary">Save team settings</button></div>
     </form>`;
 
@@ -495,7 +505,9 @@ async function renderSettings(el, { rerender, reloadConfig }, part) {
         <li>Show only ${esc(nextSeason)} on the <strong>Requests</strong> and <strong>Export</strong> pages by default. There's a season picker to look back.</li>
         <li>Move ${esc(general.season)}'s requests into the <strong>Archive</strong>, where they're searchable with their full history.</li>
         <li>Keep anything still waiting on approval, ordering, or delivery in the <strong>Approvals</strong> and <strong>Treasurer</strong> queues, labeled ${esc(general.season)}, until it's finished.</li>
+        <li>Open <strong>Finances</strong> and the <strong>Sponsors</strong> board on ${esc(nextSeason)}. Earlier seasons stay one click away in their season pickers, and <strong>Ask again</strong> on the board brings back past sponsors.</li>
       </ul>
+      <p class="muted small">Solar Evals goes by semester, so it isn't affected.</p>
       <p class="muted small">Also remember: give next year's Chief Engineer and Treasurer their roles in <a href="#/admin/users">Users</a>, and add them to the Supabase project and GitHub repo.</p>
       <div id="season-errors"></div>
       <div class="season-row">
@@ -510,7 +522,7 @@ async function renderSettings(el, { rerender, reloadConfig }, part) {
     ${takeFlash()}
     ${adminHeader(part, part === 'dropdowns'
       ? 'The options in each dropdown, and rules that apply to every request.'
-      : 'Team name, request numbers, who can sign up, the yearly season change, and importing old spreadsheets.')}
+      : 'The team name, who can make a OneSolar account, and the yearly season change (Orders, Finances and Sponsors all follow the season).')}
     <div id="settings-errors"></div>
     ${part === 'dropdowns'
       ? dropdownsPart

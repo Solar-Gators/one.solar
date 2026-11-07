@@ -56,7 +56,7 @@ A person can have **more than one role** (e.g. Treasurer + Admin), and gets ever
 | See the Finances tab | | ✓ | ✓ | ✓ |
 | Edit the Finances tab (sheets, columns, rows) | | | ✓ | ✓ |
 
-All of this can be changed in **Admin → Team → Roles & permissions**, and you can add roles of your own (e.g. "Subsystem Lead", "Faculty Advisor"). Each person only sees the top-bar items their roles use: a Member sees **Requests** and the **+ New Request** button; leads also get **Queue**; the Treasurer **Finances**; the Business Coordinator **Sponsors**; Admins **Admin**. On the other role's part of the Queue the page is marked **view only**.
+All of this can be changed in **Admin → OneSolar → Roles & permissions**, and you can add roles of your own (e.g. "Subsystem Lead", "Faculty Advisor"). Each person only sees the top-bar items their roles use: a Member sees **Requests** and the **+ New Request** button; leads also get **Queue**; the Treasurer **Finances**; the Business Coordinator **Sponsors**; Admins **Admin**. On the other role's part of the Queue the page is marked **view only**.
 
 ---
 
@@ -65,9 +65,9 @@ All of this can be changed in **Admin → Team → Roles & permissions**, and yo
 ### Requesting parts (everyone)
 1. Click **+ New Request** (top right, on every page).
 2. Fill in the request details: title, subsystem, needed-by date, priority, and why you need the items.
-3. Enter the **vendor** once, then add one row per item: name, link, quantity and unit price. Enter **shipping once for the whole order** (under the items), the way the vendor charges it. Totals update as you type. (Leads can switch to per-item shipping in Admin → Request form → Dropdowns & rules.)
+3. Enter the **vendor** once, then add one row per item: name, link, quantity and unit price. Enter **shipping once for the whole order** (under the items), the way the vendor charges it. Totals update as you type. (Leads can switch to per-item shipping in Admin → Orders → Dropdowns & rules.)
    - **Same for every item:** you still add a row for every item, but you can tick a field (the link, quantity, unit price, or any other required item field) to type it once for all rows, e.g. one shared Digi-Key or McMaster-Carr cart link.
-   - **One vendor per request:** each request is a single purchase. Buying from McMaster-Carr and Amazon? Submit two requests. (Leads can turn this rule off in Admin → Request form → Dropdowns & rules.)
+   - **One vendor per request:** each request is a single purchase. Buying from McMaster-Carr and Amazon? Submit two requests. (Leads can turn this rule off in Admin → Orders → Dropdowns & rules.)
 4. Click **Submit Request**, or **Save Draft** to finish later. Pressing Enter moves to the next box (and adds an item from the last one); it never submits. If something's missing, the box is outlined in red. Leaving the page with unsaved changes asks first.
 
 If the Chief Engineer requests changes, the request appears at the top of **Requests** under **Needs your action** (the Requests tab shows a count), with their comment. Click **Edit request**, fix it, and resubmit; the History then lists exactly what you changed.
@@ -102,7 +102,7 @@ Changed your mind? Open a submitted request and click **Withdraw request** to tu
 
 ### Ordering and delivery (Treasurer)
 - **Queue → To order & deliveries** has two lists: **To order** (approved) and **Awaiting delivery** (ordered). For the Treasurer, **Queue** opens here.
-- **Mark as Ordered:** record the order date, ticket / department order number (required unless turned off in Admin → Request form → Dropdowns & rules), and any notes.
+- **Mark as Ordered:** record the order date, ticket / department order number (required unless turned off in Admin → Orders → Dropdowns & rules), and any notes.
 - **Purchasing step:** while a request waits to be ordered, set where it is with MAE / ECE purchasing (Request sent, Dept approved, or a step of your own) from the request's **Place order** box or the **Step** dropdown in To order. It's the same step as on Finances. (Needs `025_treasurer_tools.sql`.)
 - **Cancel instead:** not ordering it after all (found spares, out of stock, plans changed), or the order fell through after it was ordered? On the request, open **Not ordering it after all?** (or **Order fell through? Cancel it**), say why, and **Cancel this request**. Choosing **Cancelled…** in a line's step on Finances does the same. The requester gets a message with the reason; it leaves the queue, stops counting toward the budget, and shows as Cancelled on Finances. **Put it back** undoes it, back to To order or Awaiting delivery, without messaging anyone. (Needs `024_cancel_approved.sql`; after ordering, `025`.)
 - **Items arriving:** while it's ordered, tick the items that came (or **All arrived**), with the date and an optional note ("1 bag short"). The request shows "2 of 5 arrived", and so does Awaiting delivery. When everything's in, mark the request Received as usual; that marks any items not ticked yet. The requester can tick items too. (Needs `025`.)
@@ -146,7 +146,7 @@ Changed your mind? Open a submitted request and click **Withdraw request** to tu
 - **Cells save as you leave them.** Enter moves down a row (and adds one at the bottom); Tab moves right.
 - **Add ordered requests:** adds a row for every Ordered or Received request not yet in the sheet, filling the columns you linked to a request detail (ID, title, vendor, total, ticket #, order date, Cost center…).
 - **Search, sort** (click a heading; **Keep this order** saves it), **Download .xlsx**, and **Import Excel…**: each worksheet of an existing file becomes a sheet, with column types guessed (dates, money, checkboxes, links). Formulas come in as their values.
-- Who can see and edit it is set in Admin → Team → Roles & permissions (**See finances** / **Edit finances**). By default the Treasurer edits, Chief Engineers can look, and Members can't see it.
+- Who can see and edit it is set in Admin → OneSolar → Roles & permissions (**See finances** / **Edit finances**). By default the Treasurer edits, Chief Engineers can look, and Members can't see it.
 
 ### Sponsors (Business Coordinator)
 **Sponsors** (its own app, `/one.solar/sponsors/`) tracks sponsorships and donations on a board, and keeps every season for future teams.
@@ -154,7 +154,7 @@ Changed your mind? Open a submitted request and click **Withdraw request** to tu
 - **Cards:** sponsor name, type, amount, season, lead, follow-up date, tags (e.g. aerospace, local, alumni), contact name / email / phone, website, plus two write-ups:
   - **About this sponsor:** who they are, what they gave, what they asked for in return.
   - **Tips for next time:** how we found them, who to ask, when to ask, what worked.
-- **Watchers:** anyone who can see the board can watch a card; the coordinator can add others. Watchers get an email / Teams message when the card moves or someone adds a note (Admin → Approvals & alerts → Notifications → "Sponsor card updated").
+- **Watchers:** anyone who can see the board can watch a card; the coordinator can add others. Watchers get an email / Teams message when the card moves or someone adds a note (Admin → OneSolar → Notifications → "Sponsor card updated").
 - **Notes & history:** add notes after each call or email; moves, edits and money received are logged automatically, with who and when.
 - **Money received:** when a card reaches a "money received" stage, its amount is added once to the Finances sheet chosen in Board settings (e.g. **Income**), so the **Funds overview** updates on its own.
 - **Follow-ups:** a card's follow-up date shows up on Home ("Follow up with…") for its lead and watchers.
@@ -185,19 +185,25 @@ Changed your mind? Open a submitted request and click **Withdraw request** to tu
 
 ### Admin
 
-**Admin** is its own app (`/one.solar/admin/`, the Admin card on the OneSolar home screen) and covers every app. It has four tabs, each with a few pages (on a phone, one menu lists them all). Each page appears only for people whose roles allow it, and each has a **History** link (top right) listing earlier versions of its settings, with who changed what and when. **Restore** puts back any earlier version, and a restore can itself be undone; if something looks wrong after a change, that's the first place to go.
+**Admin** is its own app (`/one.solar/admin/`, the Admin card on the OneSolar home screen). Its tabs are grouped by **where a setting applies**, and a line under the tabs says so:
 
-**Team**
-- **Users:** tick the roles each person has; someone can hold several.
-- **Roles & permissions:** add your own roles, rename any role, or delete custom ones, and a checkbox grid of what each role can do. There's one safety rule: at least one person must always keep **Manage people & roles**, so the team can't lock itself out.
-- **Team & season:** the team name, request ID prefix, allowed sign-up email domains, **Start a new season**, and **Import old spreadsheets**:
-  - A **past season** goes into the Archive with every column kept.
-  - **This season's** sheet becomes real requests, including their approvals, order status, ticket numbers, and shipping.
-  - Imported requests are linked to people's accounts by the Requester name ("Bella N" → Bella Nguyen, or "Josh" when there's only one Josh), so they show under **My requests** and their requester gets notifications. This also happens when someone signs up later or fixes their name on My account. If a match is wrong or missing, a lead can pick the right person under **Account → Change** on the request's page.
-  - You see a preview before anything is saved, with a checkbox per request. Orders already on the site (same person, day and total) start unticked, so you can re-import an updated copy of the sheet to add just the new rows.
+- **OneSolar**: applies to every app (accounts, positions, the season, the logo, the banner, notifications, the home screen).
+- **Orders**: only the Orders app (the request form, approvals, how requests are shown).
+- **Other apps**: Sponsors, Finances and Solar Evals keep their own settings inside each app, next to what they change; this tab says where.
 
-**Request form**
-- **Fields:** change the request form without touching code.
+On a phone, one menu lists every page, grouped the same way. Each page appears only for people whose roles allow it, and each has a **History** link (top right) listing earlier versions of its settings, with who changed what and when. **Restore** puts back any earlier version, and a restore can itself be undone; if something looks wrong after a change, that's the first place to go.
+
+**OneSolar** (every app)
+- **Users:** tick the roles each person has; someone can hold several. One account works in every app.
+- **Roles & permissions:** add your own roles, rename any role, or delete custom ones, and a checkbox grid of what each role can do in every app (Orders, Finances, Sponsors, Solar Evals, Admin). There's one safety rule: at least one person must always keep **Manage people & roles**, so the team can't lock itself out.
+- **Team & season:** the team name, who can make a OneSolar account (allowed email domains), the request ID prefix (Orders' request numbers), and **Start a new season**. The season is shared: Orders numbers and archives by it, and Finances and the Sponsors board open on it. Solar Evals goes by semester instead.
+- **Logo & accent:** upload the logo and pick the accent color. Every app shows them (the top bar, buttons, the line under the top bar) and so does the sign-in page.
+- **Banner & messages:** an announcement banner at the top of the home screen and every app (with an optional end date), a message on the sign-in page, and the team's own **Help** page (it appears in the menu under your name once it has text).
+- **Notifications:** email and Microsoft Teams messages from every app, grouped by app: Orders' request updates, Sponsors' watched cards, and Solar Evals (see below).
+- **Home screen:** what's customized on the OneSolar home screen (sections, added links, who sees which card), and a button that opens the home screen in **✎ Edit home screen**, where all of it is changed.
+
+**Orders** (only the Orders app)
+- **Request form:** change the request form without touching code.
   - Rename, reorder, hide, or require/unrequire fields.
   - Add your own fields: text, number, date, dropdown, yes/no, link, or a **section heading** to group fields.
   - **Rules** (per field):
@@ -208,28 +214,34 @@ Changed your mind? Open a submitted request and click **Withdraw request** to tu
   - The Excel export follows the form automatically.
   - Request title, item name, quantity, and unit price are locked because totals and approvals depend on them.
 - **Dropdowns & rules:** the options of every dropdown on the form (built-in ones like Subsystem and Priority, plus any you add, e.g. "Cost center"), and the request rules: one vendor per request, shipping as one total, ticket number required.
-
-**Display**
-- **Lists, layout & Excel** (three sections):
-  - **Request lists:** choose the columns of the Requests list and both parts of the Queue. Any request field works, including custom ones like Cost center, plus values like Total, Vendor, and Approved date. Also set each list's default sort, and which filters appear above the Requests list.
-  - **Request page:** which fields show in a request's Details box and Items table, and in what order. Also: fields only leads see, who gets copy buttons, and whether Items comes first.
-  - **Excel templates:** your own columns and headings, one row per item or per request, an optional status filter, and a file name.
-- **Colors & logo:** upload the logo, pick the accent color, and give dropdown answers colors (e.g. one per Cost center). Also rename how statuses are shown (e.g. "Ordered" → "Purchased") and pick their colors, plus priority colors. Only the display changes; the workflow stays the same.
-- **Text & banner:** an announcement banner at the top of every page (with an optional end date), a message on the sign-in page, your own intro line for each page (including Home), and the team's own **Help** page (it appears in the menu under your name once it has text).
-
-**Approvals & alerts**
 - **Approval rules:**
   - Rules are checked from the top when a request is submitted; the first that matches decides who approves. A rule can look at any answer on the form (e.g. Cost center is Battery) and/or the total (e.g. $1,000 or more).
   - Each rule lets **any Chief Engineer** approve, sends it to **specific people** (any one of them, or **all** of them, e.g. two CEs for big orders), or **approves automatically** (e.g. under $25).
   - No matching rule → any Chief Engineer, as before. Admins can always step in.
   - **Budgets** are set by the Treasurer in the Budgets card on **Finances**.
-- **Notifications:** email and Microsoft Teams messages (see below).
+- **Lists, layout & Excel** (three sections):
+  - **Request lists:** choose the columns of the Requests list and both parts of the Queue. Any request field works, including custom ones like Cost center, plus values like Total, Vendor, and Approved date. Also set each list's default sort, and which filters appear above the Requests list.
+  - **Request page:** which fields show in a request's Details box and Items table, and in what order. Also: fields only leads see, who gets copy buttons, and whether Items comes first.
+  - **Excel templates:** your own columns and headings, one row per item or per request, an optional status filter, and a file name.
+- **Statuses & colors:** rename how statuses are shown (e.g. "Ordered" → "Purchased") and pick their colors, plus priority colors and colors for dropdown answers (e.g. one per Cost center). Only the display changes; the workflow stays the same. Finances shows the same statuses.
+- **Page intros:** your own intro line under the title of each Orders page (including Home).
+- **Import old orders:**
+  - A **past season** goes into the Archive with every column kept.
+  - **This season's** sheet becomes real requests, including their approvals, order status, ticket numbers, and shipping.
+  - Imported requests are linked to people's accounts by the Requester name ("Bella N" → Bella Nguyen, or "Josh" when there's only one Josh), so they show under **My requests** and their requester gets notifications. This also happens when someone signs up later or fixes their name on My account. If a match is wrong or missing, a lead can pick the right person under **Account → Change** on the request's page.
+  - You see a preview before anything is saved, with a checkbox per request. Orders already on the site (same person, day and total) start unticked, so you can re-import an updated copy of the sheet to add just the new rows.
+
+**Other apps** (settings kept in each app)
+- **Sponsors:** **Board settings** (the board's stages, sponsor types, and which Finances funding line received money goes to) and **Tags** (rename or merge tags), both on the Sponsors board.
+- **Finances:** **Edit steps…** (the department's purchasing steps) on Purchases, and the **Budget** and **Custom sheets** tabs.
+- **Solar Evals:** the **Rubrics** and **Questions** tabs.
+- **CE Scope Map** (✎ Edit, then Save file) and **GatorWire** (the Share button).
 
 ---
 
 ## Dark mode
 
-Account menu (your name, top right) → **Appearance**: **Auto** follows your phone or computer's light / dark setting, or pick **Light** or **Dark**. It's remembered on each device. Dark mode uses GatorWire's navy and UF orange. The default logo has a dark-mode version (`shared/assets/solar-gators-logo-dark.png`); a custom logo from Admin → Display is used as is in both. (Colors: the tokens at the top of `shared/onesolar.css`, which every OneSolar app shares, and the `[data-theme="dark"]` section of `orders/css/styles.css` for Orders' own parts.)
+Account menu (your name, top right) → **Appearance**: **Auto** follows your phone or computer's light / dark setting, or pick **Light** or **Dark**. It's remembered on each device. Dark mode uses GatorWire's navy and UF orange. The default logo has a dark-mode version (`shared/assets/solar-gators-logo-dark.png`); a custom logo from Admin → OneSolar → Logo & accent is used as is in both. (Colors: the tokens at the top of `shared/onesolar.css`, which every OneSolar app shares, and the `[data-theme="dark"]` section of `orders/css/styles.css` for Orders' own parts.)
 
 ## Installing it as an app
 
@@ -241,7 +253,7 @@ It needs a connection to load requests; offline it opens the last copy of the pa
 
 ## Email and Teams notifications
 
-Once your leads turn them on (**Admin → Approvals & alerts → Notifications**), the site messages people when something needs them:
+Once your leads turn them on (**Admin → OneSolar → Notifications**), the site messages people when something needs them:
 
 | When a request is… | Who hears about it |
 | --- | --- |
@@ -255,13 +267,13 @@ Messages go to your UF email and/or a Teams chat from the Power Automate bot, wi
 
 ## Starting a new season
 
-Once a year, when the new season's orders begin, a Chief Engineer or Treasurer goes to **Admin → Team → Team & season → Start a new season** and clicks **Start 2027-2028** (or whichever year is next). That's the only step. It:
+Once a year, when the new season's orders begin, a Chief Engineer or Treasurer goes to **Admin → OneSolar → Team & season → Start a new season** and clicks **Start 2027-2028** (or whichever year is next). That's the only step. It:
 - **Numbering:** restarts request numbers with the new year (**SG27-001**, **SG27-002**, …).
 - **Requests & Export:** shows the new season by default.
 - **Archive:** moves last season's requests there, searchable with their full history.
 - **Unfinished orders:** keeps anything still waiting on approval, ordering, or delivery in the Approvals and Treasurer queues, labeled with its season, until it's done.
 
-Also hand over the roles: give the new Chief Engineer and Treasurer their roles in **Admin → Team → Users**, and set graduating leads back to Member.
+Also hand over the roles: give the new Chief Engineer and Treasurer their roles in **Admin → OneSolar → Users**, and set graduating leads back to Member.
 
 ---
 
@@ -277,7 +289,7 @@ Ask a Chief Engineer to **Request Changes**. The request comes back to you to ed
 No. The Treasurer can **Edit costs** at any point after approval, and the change and reason are recorded in the request's History for everyone to see.
 
 **Where are the old order sheets?**
-In **Requests → Archive**, once a lead has imported them (Admin → Team → Team & season → Import old spreadsheets). Each season is searchable, with every original column. This season's sheet is imported as regular requests instead, so it can keep moving through ordering and delivery.
+In **Requests → Archive**, once a lead has imported them (Admin → Orders → Import old orders). Each season is searchable, with every original column. This season's sheet is imported as regular requests instead, so it can keep moving through ordering and delivery.
 
 **Is our order data public?**
 No. The website's code is public on GitHub, but the order data lives in a private database. Only signed-in team members can see it, and the database itself enforces who can approve, order, or change anything.

@@ -38,13 +38,13 @@ body { display: flex; flex-direction: column; }
 
 .os-bar {
   flex: none; display: flex; align-items: center; gap: 12px 24px; min-height: 62px; padding: 8px 20px;
-  background: #fff; color: #1c2733; border-bottom: 3px solid #f26b1d; box-shadow: 0 1px 3px rgba(11, 37, 69, .06);
+  background: #fff; color: #1c2733; border-bottom: 3px solid var(--uf-orange, #f26b1d); box-shadow: 0 1px 3px rgba(11, 37, 69, .06);
   font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 .os-brand { display: flex; align-items: center; gap: 10px; color: #0b2545; text-decoration: none; font-weight: 700; font-size: 17px; white-space: nowrap; }
 .os-logo { height: 36px; width: auto; display: block; }
 .os-divider { width: 1px; height: 24px; background: #dde3ea; }
-.os-accent { color: #f26b1d; }
+.os-accent { color: var(--uf-orange, #f26b1d); }
 .os-app { color: #5d6d7e; font-weight: 600; padding-left: 10px; border-left: 1px solid #dde3ea; }
 .os-end { margin-left: auto; display: flex; align-items: center; gap: 8px; }
 .os-theme {
@@ -53,11 +53,11 @@ body { display: flex; flex-direction: column; }
 }
 .os-theme:hover { background: #f8fafc; }
 .os-bar :focus-visible { outline: 3px solid #f26b1d55; outline-offset: 2px; }
-[data-theme="dark"] .os-bar { background: #06182f; color: #f7f9ff; border-bottom-color: #fa4616; box-shadow: 0 1px 0 #00000055; }
+[data-theme="dark"] .os-bar { background: #06182f; color: #f7f9ff; border-bottom-color: var(--uf-orange, #fa4616); box-shadow: 0 1px 0 #00000055; }
 [data-theme="dark"] .os-brand { color: #e3ebff; }
 [data-theme="dark"] .os-divider, [data-theme="dark"] .os-app { border-color: #23486f; }
 [data-theme="dark"] .os-divider { background: #23486f; }
-[data-theme="dark"] .os-accent { color: #fa4616; }
+[data-theme="dark"] .os-accent { color: var(--uf-orange, #fa4616); }
 [data-theme="dark"] .os-app, [data-theme="dark"] .os-theme { color: #a8b8ce; }
 [data-theme="dark"] .os-theme:hover { background: #0f325c; }
 /* Phones: like the other apps' top bar, the app name goes first, then "OneSolar", so the bar never overflows. */

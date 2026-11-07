@@ -5,7 +5,7 @@ import { esc, fmtMoney, statusBadge, errorBox, introText, pageTabs } from '../ui
 
 // '' = current season, 'all' = every season, otherwise a season like 2026-2027.
 let pick = '';
-let templateId = 'full'; // Admin → Display → Excel templates
+let templateId = 'full'; // Admin → Orders → Lists, layout & Excel
 
 export async function renderExport(el, { config, rerender }) {
   const seasons = [...new Set([config.season, ...(await api.listSeasons())])].filter(Boolean).sort().reverse();

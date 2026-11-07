@@ -91,7 +91,7 @@ export const APPS = [
     id: 'admin',
     section: 'apps',
     name: 'Admin',
-    blurb: 'People and positions, permissions, the request form, approval rules, notifications and the season.',
+    blurb: 'Settings for all of OneSolar (people, positions, the season, logo, notifications) and for each app.',
     href: 'admin/',
     icon: '⚙️',
     access: ['users.manage', 'settings.edit', 'site.customize', 'seasons.manage', 'workflow.edit'],

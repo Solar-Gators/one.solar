@@ -49,3 +49,44 @@ export function applyTheme() {
 // Follow the device while on "auto", and other tabs/apps changing the setting.
 matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', () => getTheme() === 'auto' && applyTheme());
 addEventListener('storage', (e) => e.key === 'theme' && applyTheme());
+
+/**
+ * The team's logo and accent color (Admin → OneSolar → Logo & accent, settings "appearance").
+ * Any app that reads the settings (Orders, Finances, Sponsors, Admin, the home screen) calls
+ * rememberBrand(appearance); every app then shows them: theme.js applies the accent before the
+ * page draws, and the top bar's logo (account-menu.js, syncLogo) uses the logo.
+ */
+const BRAND_KEY = 'onesolar:brand';
+const isHex = (c) => /^#[0-9a-f]{6}$/i.test(c || '');
+
+export function getBrand() {
+  try {
+    const b = JSON.parse(localStorage.getItem(BRAND_KEY)) || {};
+    return { logo: typeof b.logo === 'string' && /^data:image\/|^https?:/.test(b.logo) ? b.logo : '', accent: isHex(b.accent) ? b.accent : '' };
+  } catch {
+    return { logo: '', accent: '' };
+  }
+}
+
+export function rememberBrand(appearance = {}) {
+  const b = { logo: appearance.logo || '', accent: isHex(appearance.accent) ? appearance.accent : '' };
+  try {
+    if (b.logo || b.accent) localStorage.setItem(BRAND_KEY, JSON.stringify(b));
+    else localStorage.removeItem(BRAND_KEY);
+  } catch {}
+  applyAccent(b.accent);
+}
+
+/** The accent color on this page ('' = the standard UF orange). Also GatorWire's --uf-orange. */
+export function applyAccent(accent) {
+  const root = document.documentElement.style;
+  if (isHex(accent)) {
+    const darker = `#${[1, 3, 5].map((i) => Math.round(parseInt(accent.slice(i, i + 2), 16) * 0.85).toString(16).padStart(2, '0')).join('')}`;
+    root.setProperty('--orange', accent);
+    root.setProperty('--orange-dark', darker);
+    root.setProperty('--focus', `${accent}55`);
+    root.setProperty('--uf-orange', accent);
+  } else {
+    ['--orange', '--orange-dark', '--focus', '--uf-orange'].forEach((v) => root.removeProperty(v));
+  }
+}

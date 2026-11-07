@@ -24,8 +24,8 @@
 // A namespace import, so a browser still holding an older cached apps.js (GitHub Pages caches files
 // for 10 minutes) gets the default sections instead of a blank page.
 import * as appList from './apps.js';
-import { SUPABASE_URL, SUPABASE_ANON_KEY, appUrl, isLocal, signInUrl } from '../shared/onesolar.js';
-import { renderAccount } from '../shared/account-menu.js';
+import { SUPABASE_URL, SUPABASE_ANON_KEY, appUrl, isLocal, signInUrl, rememberBrand } from '../shared/onesolar.js';
+import { renderAccount, syncLogo } from '../shared/account-menu.js';
 import { rememberApps, safeHref } from '../shared/app-switcher.js';
 
 const APPS = appList.APPS || [];
@@ -44,6 +44,7 @@ const sb = FAKE
 
 const me = { user: null, name: '', roles: [], perms: new Set(), roleLabel: '' };
 let settings = { cards: {} };
+let appearance = {}; // Admin → OneSolar → Logo & accent, Banner & messages
 let positions = []; // [{ key, label }]: the positions, for "Only these positions…"
 let editing = false;
 let draft = null; // a copy of the settings while editing; saved with Save changes
@@ -51,8 +52,31 @@ let draftStart = ''; // the draft as it started, to tell whether anything change
 let query = '';
 
 async function loadSettings() {
-  const { data } = await sb.from('app_settings').select('value').eq('key', 'onesolar').maybeSingle();
+  const [{ data }, { data: look }] = await Promise.all([
+    sb.from('app_settings').select('value').eq('key', 'onesolar').maybeSingle(),
+    sb.from('app_settings').select('value').eq('key', 'appearance').maybeSingle(),
+  ]);
   settings = { cards: {}, ...(data?.value || {}) };
+  appearance = look?.value || {};
+  // The logo and accent, for every app. Only when the settings could be read (signed out they may
+  // not be), so a signed-out visit doesn't forget them.
+  if (look) {
+    rememberBrand(appearance);
+    syncLogo();
+  }
+}
+
+/** The announcement banner (Admin → OneSolar → Banner & messages), for signed-in people, until its end date. */
+function drawAnnouncement() {
+  const box = $('#announcement');
+  const ann = appearance.announcement;
+  const today = new Date().toISOString().slice(0, 10);
+  const show = !!me.user && !!ann?.text && (!ann.until || today <= ann.until);
+  box.hidden = !show;
+  const tone = ['info', 'warning', 'success', 'error'].includes(ann?.tone) ? ann.tone : 'info';
+  box.className = `announcement announcement-${tone}`;
+  // Plain text with line breaks (the apps' banner also allows **bold** and links; kept simple here).
+  box.innerHTML = show ? `<div class="container">${String(ann.text).split(/\n{2,}/).map((p) => `<p>${esc(p).replace(/\n/g, '<br>')}</p>`).join('')}</div>` : '';
 }
 
 /** Same as Orders: roles from profile_roles, permissions from role_permissions. */
@@ -189,6 +213,7 @@ function cardHTML(a, { edit = false, s = settings } = {}) {
 }
 
 function draw() {
+  drawAnnouncement();
   renderAccount($('#account'), { user: me.user, name: me.name, role: me.roleLabel, onSignOut: signOut });
   $('#hello').innerHTML = greeting();
   $('#lede').textContent = me.user
@@ -609,6 +634,11 @@ try {
   // Database unreachable: still show the public apps.
 }
 draw();
+// Admin → Home screen → "Open the home screen editor" comes here with ?edit.
+if (new URLSearchParams(location.search).has('edit') && canCustomize()) {
+  await loadPositions();
+  startEditing();
+}
 // Signing in or out in another tab (e.g. Orders) updates this one.
 window.addEventListener('storage', async (e) => {
   if (e.key && e.key.startsWith('sb-')) {

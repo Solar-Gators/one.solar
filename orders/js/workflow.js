@@ -12,7 +12,7 @@ export const RULE_TYPES = [
   { key: 'auto', label: 'Approve automatically', hint: 'Skips review. Budgets that block still apply.' },
 ];
 
-/** Notification events, who gets them, and the placeholders their templates can use. */
+/** Notification events (grouped by the app they're about), who gets them, and the placeholders their templates can use. */
 export const EVENTS = [
   { key: 'submitted', label: 'Submitted', who: 'Whoever needs to approve it' },
   { key: 'approved', label: 'Approved', who: 'The requester' },
@@ -24,8 +24,8 @@ export const EVENTS = [
   { key: 'received', label: 'Received', who: 'The requester' },
   { key: 'items_changed', label: 'Items changed', who: 'The requester, when the Treasurer changes the items on an approved / ordered request' },
   { key: 'request_update', label: 'Watched request changed', who: 'People watching the request (not the requester)' },
-  { key: 'sponsor_update', label: 'Sponsor card updated', who: 'People watching the card (Sponsors board)' },
-  { key: 'eval_update', label: 'Solar Evals', who: 'The CE when a member submits a self-eval; the member when their meeting is scheduled and when their eval is shared' },
+  { key: 'sponsor_update', app: 'Sponsors', label: 'Sponsor card updated', who: 'People watching the card (Sponsors board)' },
+  { key: 'eval_update', app: 'Solar Evals', label: 'Evaluation updates', who: 'The CE when a member submits a self-eval; the member when their meeting is scheduled and when their eval is shared' },
 ];
 export const PLACEHOLDERS = [
   ['request_number', 'e.g. SG26-014'],

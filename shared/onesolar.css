@@ -403,3 +403,17 @@ dialog::backdrop { background: #0b254566; }
 [data-theme="dark"] dialog::backdrop { background: #000000a0; }
 /* Apps without page links in the top bar (Finances, Sponsors, Admin): the account menu still goes right. */
 .brand + .account-menu { margin-left: auto; }
+
+/* The announcement banner (Admin → OneSolar → Banner & messages): under the top bar in every app and on the home screen. */
+.announcement { border-bottom: 1px solid; font-size: 14px; }
+.announcement .container { padding-top: 10px; padding-bottom: 10px; }
+.announcement p { margin: 0 0 4px; }
+.announcement p:last-child { margin: 0; }
+.announcement-info { background: #eef4ff; border-color: #cbdcfb; color: #1e3a78; }
+.announcement-warning { background: #fff7e0; border-color: #f3d98c; color: #6b4304; }
+.announcement-success { background: #e6f6ec; border-color: #b8e2c7; color: #145c2e; }
+.announcement-error { background: #fdecea; border-color: #f5c2bd; color: #7a1a12; }
+[data-theme="dark"] .announcement-info { background: #0c2547; border-color: #2c5687; color: #b9d2ff; }
+[data-theme="dark"] .announcement-warning { background: #2a2108; border-color: #6b5212; color: #ffd98a; }
+[data-theme="dark"] .announcement-success { background: #0b2e1f; border-color: #236b45; color: #9fe3b9; }
+[data-theme="dark"] .announcement-error { background: #2e0f16; border-color: #7a2a33; color: #ffb3b3; }

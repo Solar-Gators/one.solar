@@ -1,7 +1,8 @@
 /**
  * Admin pages for customizing the site without code:
  *   #/admin/display/lists —  columns, filters and default sort of each request list
- *   #/admin/appearance  — status labels & colors, priority colors
+ *   #/admin/brand       — OneSolar: logo and accent color (every app)
+ *   #/admin/appearance  — Orders: status labels & colors, priority colors, dropdown colors
  *   #/admin/history     — every settings / permissions change, with Restore
  */
 import { api } from '../api.js';
@@ -196,10 +197,22 @@ export async function renderLists(el, { config, rerender, reloadConfig, embedded
   draw();
 }
 
-// ---- Appearance ---------------------------------------------------------------------
+// ---- Appearance: Logo & accent (OneSolar) and Statuses & colors (Orders) ------------------------
 
-export async function renderAppearance(el, { config, rerender, reloadConfig }) {
+const STANDARD_ACCENT = '#f26b1d';
+
+/** OneSolar → Logo & accent: the logo in every app's top bar and on the sign-in page, and the accent color. */
+export const renderBrand = (el, ctx) => renderAppearance(el, ctx, 'brand');
+
+/**
+ * Both pages edit the "appearance" settings; each saves only its own part, so saving one never
+ * touches the other (or the banner and messages, which are in the same settings).
+ *   part 'brand'   logo, accent
+ *   part 'colors'  status names & colors, priority colors, dropdown colors (Orders)
+ */
+export async function renderAppearance(el, { config, rerender, reloadConfig }, part = 'colors') {
   const a = config.appearance || {};
+  const brand = part === 'brand';
   const statuses = config.statuses;
   const priorities = config.priorities || [];
   // Dropdowns that can have colored answers (priority has its own section above).
@@ -210,16 +223,12 @@ export async function renderAppearance(el, { config, rerender, reloadConfig }) {
     .filter((f) => f.options.length);
   let logo = a.logo || ''; // data URL, or '' for the standard logo
 
-  el.innerHTML = `
-    ${takeFlash()}
-    ${adminHeader('appearance', "Logo, accent color, and the names and colors of statuses, priorities and dropdown options.")}
-    <div id="appearance-errors"></div>
-    <form id="appearance-form" novalidate>
+  const brandCard = `
       <section class="card">
         <h2>Brand</h2>
         <div class="two-col brand-grid">
           <div class="field">
-            <label for="logo-file">Logo <span class="muted">(top-left and sign-in page; PNG, JPG, SVG or WebP under 300 KB)</span></label>
+            <label for="logo-file">Logo <span class="muted">(PNG, JPG, SVG or WebP under 300 KB)</span></label>
             <div class="logo-row">
               <div class="logo-preview"><img id="logo-preview" src="${esc(a.logo || '../shared/assets/solar-gators-logo.png')}" alt="Logo preview"></div>
               <div>
@@ -227,17 +236,20 @@ export async function renderAppearance(el, { config, rerender, reloadConfig }) {
                 <button type="button" class="btn btn-sm btn-ghost" id="logo-reset" ${a.logo ? '' : 'hidden'}>Use the standard logo</button>
               </div>
             </div>
+            <div class="hint">Top left of every app and on the sign-in page. The standard logo has a light and a dark version; your own logo is used in both.</div>
           </div>
           <div class="field">
-            <label for="accent">Accent color <span class="muted">(buttons, highlights, the line under the header)</span></label>
+            <label for="accent">Accent color <span class="muted">(buttons, highlights, the line under the top bar)</span></label>
             <div class="accent-row">
-              <input id="accent" type="color" value="${esc(a.accent || '#f26b1d')}">
+              <input id="accent" type="color" value="${esc(a.accent || STANDARD_ACCENT)}">
               <span class="btn btn-primary accent-sample" id="accent-sample">Sample button</span>
               <button type="button" class="btn btn-sm btn-ghost" id="accent-reset">Standard orange</button>
             </div>
           </div>
         </div>
-      </section>
+      </section>`;
+
+  const colorCards = `
       <div class="two-col tone-cols">
         <section class="card">
           <h2>Statuses</h2>
@@ -297,10 +309,19 @@ export async function renderAppearance(el, { config, rerender, reloadConfig }) {
                 .join('')}</div>
             </section>`
           : ''
-      }
+      }`;
+
+  el.innerHTML = `
+    ${takeFlash()}
+    ${adminHeader(brand ? 'brand' : 'appearance', brand
+      ? 'The logo and accent color, the same in every OneSolar app.'
+      : 'How request statuses, priorities and dropdown answers are named and colored in Orders (and on Finances).')}
+    <div id="appearance-errors"></div>
+    <form id="appearance-form" novalidate>
+      ${brand ? brandCard : colorCards}
       <div class="form-actions sticky-actions">
         <button type="button" class="btn btn-ghost reset-btn" id="appearance-reset">Reset to defaults</button>
-        <button type="submit" class="btn btn-primary">Save appearance</button>
+        <button type="submit" class="btn btn-primary">${brand ? 'Save logo & accent' : 'Save statuses & colors'}</button>
       </div>
     </form>`;
 
@@ -317,87 +338,97 @@ export async function renderAppearance(el, { config, rerender, reloadConfig }) {
       const t = tr.querySelector('[name=dd-color]').value;
       tr.querySelector('[data-preview]').innerHTML = t ? `<span class="chip-tone tone-${esc(t)}">${esc(tr.dataset.option)}</span>` : esc(tr.dataset.option);
     });
-    const accent = form.querySelector('#accent').value;
-    const sample = form.querySelector('#accent-sample');
-    sample.style.background = accent;
-    sample.style.borderColor = accent;
+    const accent = form.querySelector('#accent');
+    if (accent) {
+      const sample = form.querySelector('#accent-sample');
+      sample.style.background = accent.value;
+      sample.style.borderColor = accent.value;
+    }
   };
 
-  // Logo: read the file in the browser and keep it as a data URL in the settings.
-  form.querySelector('#logo-file').addEventListener('change', (e) => {
-    const file = e.target.files[0];
-    const errors = el.querySelector('#appearance-errors');
-    errors.innerHTML = '';
-    if (!file) return;
-    if (file.size > 300 * 1024) {
-      errors.innerHTML = errorBox(new Error('That image is over 300 KB. Try a smaller PNG or an SVG.'));
-      e.target.value = '';
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => {
-      logo = reader.result;
-      form.querySelector('#logo-preview').src = logo;
-      form.querySelector('#logo-reset').hidden = false;
-    };
-    reader.readAsDataURL(file);
-  });
-  form.querySelector('#logo-reset').addEventListener('click', (e) => {
-    logo = '';
-    form.querySelector('#logo-preview').src = '../shared/assets/solar-gators-logo.png';
-    form.querySelector('#logo-file').value = '';
-    e.target.hidden = true;
-  });
-  form.querySelector('#accent-reset').addEventListener('click', () => {
-    form.querySelector('#accent').value = '#f26b1d';
-    preview();
-  });
+  if (brand) {
+    // Logo: read the file in the browser and keep it as a data URL in the settings.
+    form.querySelector('#logo-file').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      const errors = el.querySelector('#appearance-errors');
+      errors.innerHTML = '';
+      if (!file) return;
+      if (file.size > 300 * 1024) {
+        errors.innerHTML = errorBox(new Error('That image is over 300 KB. Try a smaller PNG or an SVG.'));
+        e.target.value = '';
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        logo = reader.result;
+        form.querySelector('#logo-preview').src = logo;
+        form.querySelector('#logo-reset').hidden = false;
+      };
+      reader.readAsDataURL(file);
+    });
+    form.querySelector('#logo-reset').addEventListener('click', (e) => {
+      logo = '';
+      form.querySelector('#logo-preview').src = '../shared/assets/solar-gators-logo.png';
+      form.querySelector('#logo-file').value = '';
+      e.target.hidden = true;
+    });
+    form.querySelector('#accent-reset').addEventListener('click', () => {
+      form.querySelector('#accent').value = STANDARD_ACCENT;
+      preview();
+    });
+  }
   form.addEventListener('input', preview);
   form.addEventListener('change', preview);
 
   el.querySelector('#appearance-reset').addEventListener('click', () => {
-    form.querySelectorAll('tr[data-status]').forEach((tr) => {
-      tr.querySelector('[name=label]').value = '';
-      tr.querySelector('[name=color]').value = DEFAULT_STATUS_COLORS[tr.dataset.status];
-    });
-    const defaults = { normal: 'gray', low: 'gray', medium: 'amber', high: 'amber', urgent: 'red-strong' };
-    form.querySelectorAll('tr[data-priority]').forEach((tr) => {
-      tr.querySelector('[name=color]').value = defaults[tr.dataset.priority.toLowerCase()] || 'gray';
-    });
-    form.showDefaultPriority.checked = false;
-    form.querySelectorAll('[name=dd-color]').forEach((s) => (s.value = ''));
-    form.querySelector('#accent').value = '#f26b1d';
-    form.querySelector('#logo-reset').click();
+    if (brand) {
+      form.querySelector('#accent').value = STANDARD_ACCENT;
+      form.querySelector('#logo-reset').click();
+    } else {
+      form.querySelectorAll('tr[data-status]').forEach((tr) => {
+        tr.querySelector('[name=label]').value = '';
+        tr.querySelector('[name=color]').value = DEFAULT_STATUS_COLORS[tr.dataset.status];
+      });
+      const defaults = { normal: 'gray', low: 'gray', medium: 'amber', high: 'amber', urgent: 'red-strong' };
+      form.querySelectorAll('tr[data-priority]').forEach((tr) => {
+        tr.querySelector('[name=color]').value = defaults[tr.dataset.priority.toLowerCase()] || 'gray';
+      });
+      form.showDefaultPriority.checked = false;
+      form.querySelectorAll('[name=dd-color]').forEach((s) => (s.value = ''));
+    }
     preview();
   });
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const value = {
-      ...a,
-      statuses: Object.fromEntries(
-        [...form.querySelectorAll('tr[data-status]')].map((tr) => [
-          tr.dataset.status,
-          { label: tr.querySelector('[name=label]').value.trim(), color: tr.querySelector('[name=color]').value },
-        ])
-      ),
-      priorities: Object.fromEntries([...form.querySelectorAll('tr[data-priority]')].map((tr) => [tr.dataset.priority, tr.querySelector('[name=color]').value])),
-      showDefaultPriority: form.showDefaultPriority.checked,
-      optionColors: Object.fromEntries(
-        [...form.querySelectorAll('[data-dd]')].map((g) => [
-          g.dataset.dd,
-          Object.fromEntries([...g.querySelectorAll('tr[data-option]')].map((tr) => [tr.dataset.option, tr.querySelector('[name=dd-color]').value]).filter(([, v]) => v)),
-        ])
-      ),
-      logo,
-      accent: form.querySelector('#accent').value.toLowerCase() === '#f26b1d' ? '' : form.querySelector('#accent').value.toLowerCase(),
-    };
+    const value = { ...a };
+    if (brand) {
+      const accent = form.querySelector('#accent').value.toLowerCase();
+      Object.assign(value, { logo, accent: accent === STANDARD_ACCENT ? '' : accent });
+    } else {
+      Object.assign(value, {
+        statuses: Object.fromEntries(
+          [...form.querySelectorAll('tr[data-status]')].map((tr) => [
+            tr.dataset.status,
+            { label: tr.querySelector('[name=label]').value.trim(), color: tr.querySelector('[name=color]').value },
+          ])
+        ),
+        priorities: Object.fromEntries([...form.querySelectorAll('tr[data-priority]')].map((tr) => [tr.dataset.priority, tr.querySelector('[name=color]').value])),
+        showDefaultPriority: form.showDefaultPriority.checked,
+        optionColors: Object.fromEntries(
+          [...form.querySelectorAll('[data-dd]')].map((g) => [
+            g.dataset.dd,
+            Object.fromEntries([...g.querySelectorAll('tr[data-option]')].map((tr) => [tr.dataset.option, tr.querySelector('[name=dd-color]').value]).filter(([, v]) => v)),
+          ])
+        ),
+      });
+    }
     const button = form.querySelector('button[type=submit]');
     button.disabled = true;
     try {
       await api.updateSettings('appearance', value);
       await reloadConfig();
-      setFlash('Appearance saved.');
+      setFlash(brand ? 'Logo & accent saved.' : 'Statuses & colors saved.');
       await rerender();
     } catch (err) {
       el.querySelector('#appearance-errors').innerHTML = errorBox(err);
@@ -414,7 +445,7 @@ const WHAT = {
   general: 'Team settings',
   form: 'Form fields, dropdowns & rules',
   lists: 'Request lists',
-  appearance: 'Colors, logo & text',
+  appearance: 'Logo, colors & messages',
   layout: 'Request page',
   exports: 'Excel templates',
   workflow: 'Approval rules & budgets',

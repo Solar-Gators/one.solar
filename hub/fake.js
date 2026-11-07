@@ -23,6 +23,11 @@ export function createFakeClient(kind) {
   const stored = () => {
     try { return JSON.parse(localStorage.getItem(KEY)); } catch { return null; }
   };
+  // Logo, accent and banner: set localStorage "fake-onesolar-appearance" to try them, e.g.
+  // {"announcement":{"text":"No orders during finals week","tone":"warning"}}
+  const storedLook = () => {
+    try { return JSON.parse(localStorage.getItem('fake-onesolar-appearance')); } catch { return null; }
+  };
   const rows = {
     profiles: () => [{ full_name: 'Riley Tester', email: user.email }],
     profile_roles: () => [{ role }],
@@ -31,14 +36,23 @@ export function createFakeClient(kind) {
       { key: 'member', label: 'Member' }, { key: 'ce', label: 'Chief Engineer' }, { key: 'treasurer', label: 'Treasurer' },
       { key: 'coordinator', label: 'Business Coordinator' }, { key: 'admin', label: 'Admin' },
     ],
-    app_settings: () => (stored() ? [{ value: stored() }] : []),
+    app_settings: () => [
+      ...(stored() ? [{ key: 'onesolar', value: stored() }] : []),
+      ...(storedLook() ? [{ key: 'appearance', value: storedLook() }] : []),
+    ],
   };
   const query = (table) => {
     // Settings can be read signed out, like the real database.
-    const result = () => ({ data: signedIn || table === 'app_settings' ? rows[table]() : [], error: null });
+    const where = [];
+    // Only app_settings is filtered (by key); the other tables already return just this person's rows.
+    const result = () => {
+      let data = signedIn || table === 'app_settings' ? rows[table]() : [];
+      if (table === 'app_settings') data = data.filter((r) => where.every(([c, v]) => r[c] === v));
+      return { data, error: null };
+    };
     const q = {
       select: () => q,
-      eq: () => q,
+      eq: (c, v) => (where.push([c, v]), q),
       in: () => q,
       order: () => q,
       maybeSingle: async () => ({ data: result().data[0] || null, error: null }),

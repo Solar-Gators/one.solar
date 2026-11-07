@@ -1,7 +1,7 @@
 /**
  * Chief Engineer queue: every Submitted request (sortable), split into what's
  * waiting on you and what's waiting on someone else (Admin → Workflow rules).
- * Columns and the default sort come from Admin → Display → Request lists.
+ * Columns and the default sort come from Admin → Orders → Lists, layout & Excel.
  */
 import { api } from '../api.js';
 import { auth } from '../auth.js';

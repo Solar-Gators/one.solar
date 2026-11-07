@@ -3,7 +3,8 @@
  *   #/admin/display/page     — what a request's page shows (layout settings)
  *   #/admin/display/exports  — Excel export templates
  *   #/admin/display          — the page holding those two and Request lists
- *   #/admin/text     — announcement banner, sign-in message, page intros, Help page
+ *   #/admin/text     — OneSolar: announcement banner, sign-in message, Help page
+ *   #/admin/intros   — Orders: the line under each Orders page's title
  */
 import { api } from '../api.js';
 import { esc, errorBox, setFlash, takeFlash, statusLabel, renderRichText } from '../ui.js';
@@ -347,7 +348,7 @@ export async function renderExportTemplates(el, { config, rerender, reloadConfig
   draw();
 }
 
-// ---- Text & banner ------------------------------------------------------------------
+// ---- Banner & messages (OneSolar), Page intros (Orders) ------------------------------------------------------------------
 
 /** Pages whose intro line can be replaced. */
 export const INTRO_PAGES = [
@@ -360,18 +361,38 @@ export const INTRO_PAGES = [
   ['export', 'Export', 'Download requests and items as an Excel workbook.'],
 ];
 
-export async function renderTextBanner(el, { config, rerender, reloadConfig }) {
+/** Orders → Page intros: the line under each Orders page's title. */
+export const renderIntros = (el, ctx) => renderTextBanner(el, ctx, 'intros');
+
+/**
+ * OneSolar → Banner & messages (part 'text'), and Orders → Page intros (part 'intros').
+ * Both are in the "appearance" settings; each saves only its own part.
+ */
+export async function renderTextBanner(el, { config, rerender, reloadConfig }, part = 'text') {
   const a = config.appearance || {};
   const ann = a.announcement || {};
+  const intros = part === 'intros';
+
+  const introsCard = `
+      <section class="card">
+        <h2>Page intros</h2>
+        <p class="muted small">The line under each page's title. Leave empty to keep the standard text.</p>
+        <div class="form-grid">${INTRO_PAGES.map(
+          ([k, label, hint]) => `<div class="field span-2"><label for="intro-${k}">${esc(label)}</label>
+            <input id="intro-${k}" type="text" data-intro="${k}" value="${esc(a.intros?.[k] || '')}" placeholder="${esc(hint)}" maxlength="200"></div>`
+        ).join('')}</div>
+      </section>`;
 
   el.innerHTML = `
     ${takeFlash()}
-    ${adminHeader('text', "Messages and wording people see around the site.")}
+    ${adminHeader(part, intros
+      ? 'The line under the title of each Orders page.'
+      : 'What everyone sees across OneSolar: a banner for news, a note on the sign-in page, and the Help page.')}
     <div id="text-errors"></div>
     <form id="text-form" novalidate>
-      <section class="card">
+      ${intros ? introsCard : `<section class="card">
         <h2>Announcement banner</h2>
-        <p class="muted small">Shown at the top of every page for signed-in people, e.g. "No orders during finals week".</p>
+        <p class="muted small">Shown at the top of the home screen and every app (Orders, Finances, Sponsors, Admin) for signed-in people, e.g. "No orders during finals week".</p>
         <div class="field"><label for="ann-text">Message <span class="muted">(leave empty for no banner)</span></label>
           <textarea id="ann-text" name="annText" rows="2" maxlength="500">${esc(ann.text || '')}</textarea></div>
         <div class="form-grid">
@@ -386,56 +407,51 @@ export async function renderTextBanner(el, { config, rerender, reloadConfig }) {
 
       <section class="card">
         <h2>Sign-in page message</h2>
-        <div class="field"><label for="signin-msg">Shown under the sign-in box <span class="muted">(optional)</span></label>
+        <div class="field"><label for="signin-msg">Shown under the sign-in box <span class="muted">(optional; one sign-in page for every app)</span></label>
           <textarea id="signin-msg" name="signIn" rows="2" maxlength="500" placeholder="e.g. Use your @ufl.edu email. Questions? Ask the Treasurer.">${esc(a.signInMessage || '')}</textarea></div>
       </section>
 
       <section class="card">
-        <h2>Page intros</h2>
-        <p class="muted small">The line under each page's title. Leave empty to keep the standard text.</p>
-        <div class="form-grid">${INTRO_PAGES.map(
-          ([k, label, hint]) => `<div class="field span-2"><label for="intro-${k}">${esc(label)}</label>
-            <input id="intro-${k}" type="text" data-intro="${k}" value="${esc(a.intros?.[k] || '')}" placeholder="${esc(hint)}" maxlength="200"></div>`
-        ).join('')}</div>
-      </section>
-
-      <section class="card">
         <h2>Help page</h2>
-        <p class="muted small">When filled in, a <strong>Help</strong> tab appears for everyone. Formatting: a line starting with <code>#</code> is a heading,
+        <p class="muted small">When filled in, <strong>Help</strong> appears for everyone in the account menu of Orders, Finances, Sponsors and Admin. Formatting: a line starting with <code>#</code> is a heading,
           <code>- </code> starts a bullet, <code>**bold**</code>, and links as <code>[text](https://…)</code>. Leave a blank line between paragraphs.</p>
         <div class="two-col">
           <div class="field"><label for="help-text">Help text</label>
             <textarea id="help-text" name="help" rows="14" maxlength="20000">${esc(a.helpText || '')}</textarea></div>
           <div class="field"><label>Preview</label><div class="help-preview card" id="help-preview"></div></div>
         </div>
-      </section>
+      </section>`}
 
       <div class="form-actions sticky-actions">
-        <button type="submit" class="btn btn-primary">Save text & banner</button>
+        <button type="submit" class="btn btn-primary">${intros ? 'Save page intros' : 'Save banner & messages'}</button>
       </div>
     </form>`;
 
   const form = el.querySelector('#text-form');
-  const preview = () => (el.querySelector('#help-preview').innerHTML = renderRichText(form.help.value) || '<p class="muted">Nothing yet.</p>');
-  form.help.addEventListener('input', preview);
-  preview();
+  if (!intros) {
+    const preview = () => (el.querySelector('#help-preview').innerHTML = renderRichText(form.help.value) || '<p class="muted">Nothing yet.</p>');
+    form.help.addEventListener('input', preview);
+    preview();
+  }
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const intros = Object.fromEntries([...form.querySelectorAll('[data-intro]')].map((i) => [i.dataset.intro, i.value.trim()]).filter(([, v]) => v));
-    const value = {
-      ...(config.appearance || {}),
-      announcement: form.annText.value.trim() ? { text: form.annText.value.trim(), tone: form.annTone.value, until: form.annUntil.value || '' } : null,
-      signInMessage: form.signIn.value.trim(),
-      intros,
-      helpText: form.help.value.trim(),
-    };
+    const value = { ...(config.appearance || {}) };
+    if (intros) {
+      value.intros = Object.fromEntries([...form.querySelectorAll('[data-intro]')].map((i) => [i.dataset.intro, i.value.trim()]).filter(([, v]) => v));
+    } else {
+      Object.assign(value, {
+        announcement: form.annText.value.trim() ? { text: form.annText.value.trim(), tone: form.annTone.value, until: form.annUntil.value || '' } : null,
+        signInMessage: form.signIn.value.trim(),
+        helpText: form.help.value.trim(),
+      });
+    }
     const button = form.querySelector('button[type=submit]');
     button.disabled = true;
     try {
       await api.updateSettings('appearance', value);
       await reloadConfig();
-      setFlash('Text & banner saved.');
+      setFlash(intros ? 'Page intros saved.' : 'Banner & messages saved.');
       await rerender();
     } catch (err) {
       el.querySelector('#text-errors').innerHTML = errorBox(err);

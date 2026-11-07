@@ -17,8 +17,9 @@ Every Solar Gators team app, in one place and one repo: **https://solar-gators.g
 Orders, Finances, Sponsors and Admin are separate apps (each its own address, top bar and menu) built from the same
 code in `orders/js/`: each app's `index.html` says which it is (`<body data-app="finances">`), and
 [`orders/js/appMode.js`](orders/js/appMode.js) decides which pages belong where. A link to another app's page
-(e.g. an old `orders/#/sponsors/…` email link) opens it in that app. Admin covers every app: people, positions and
-permissions, the request form, approval rules, notifications and the season.
+(e.g. an old `orders/#/sponsors/…` email link) opens it in that app. Admin is grouped by where a setting applies: **OneSolar** (every app: people, positions and permissions, the season,
+logo, banner, notifications, home screen), **Orders** (the request form, approvals, lists), and **Other apps** (where
+Sponsors, Finances and Solar Evals keep their own settings, inside each app).
 
 Orders, Finances, Sponsors, Admin and Solar Evals share one Supabase database ([`supabase/`](supabase)). For setting it up,
 running it locally, database updates and how the code fits together, see **[docs/MAINTAINING.md](docs/MAINTAINING.md)**.
@@ -94,5 +95,5 @@ Everything committed here is public; spreadsheets are kept out by `.gitignore`.
 
 A custom domain (e.g. `one.ufsolargators.org`) can go in **Settings → Pages → Custom domain**, with a CNAME DNS record
 pointing at `solar-gators.github.io`. The apps link to each other with relative paths, so they all move together.
-Then add the new address to Supabase → Authentication → URL Configuration, and update Admin → Notifications →
+Then add the new address to Supabase → Authentication → URL Configuration, and update Admin → OneSolar → Notifications →
 Website address.

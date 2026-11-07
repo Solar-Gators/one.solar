@@ -290,11 +290,15 @@ export async function renderNotifications(el, { config, rerender, reloadConfig }
     logError = err;
   }
 
+  // One heading row per app: Orders' request events, then Sponsors, then Solar Evals.
+  const appOfEvent = (ev) => ev.app || 'Orders';
   const eventRows = () =>
-    EVENTS.map((ev) => {
+    EVENTS.map((ev, i) => {
       const on = state.events[ev.key] || {};
+      const heading = i === 0 || appOfEvent(EVENTS[i - 1]) !== appOfEvent(ev)
+        ? `<tr class="group-row"><th colspan="4" scope="colgroup">${esc(appOfEvent(ev))}</th></tr>` : '';
       const t = state.templates[ev.key] || {};
-      return `<tr data-ev="${ev.key}">
+      return `${heading}<tr data-ev="${ev.key}">
         <td class="cell-primary" data-label=""><strong>${esc(ev.label)}</strong><div class="muted small">${esc(ev.who)}</div></td>
         <td class="center" data-label="Email"><input type="checkbox" data-ch="email" aria-label="Email for ${esc(ev.label)}" ${on.email ? 'checked' : ''}></td>
         <td class="center" data-label="Teams"><input type="checkbox" data-ch="teams" aria-label="Teams for ${esc(ev.label)}" ${on.teams ? 'checked' : ''}></td>
@@ -347,7 +351,7 @@ export async function renderNotifications(el, { config, rerender, reloadConfig }
 
   el.innerHTML = `
     ${takeFlash()}
-    ${adminHeader('notifications', 'Team-wide email and Microsoft Teams settings: what gets sent and how it\'s worded. Each person picks which messages they get on <a href="#/account">My account</a>.')}
+    ${adminHeader('notifications', 'Email and Microsoft Teams messages from every app (Orders, Sponsors and Solar Evals): what gets sent and how it\'s worded. Each person picks which messages they get on <a href="#/account">My account</a>.')}
     <div id="n-errors"></div>
     <div class="two-col">
       <section class="card">
@@ -377,7 +381,7 @@ export async function renderNotifications(el, { config, rerender, reloadConfig }
     <section class="card">
       <h2>Who gets what</h2>
       <div class="table-wrap flat"><table class="table events-table stack-mobile">
-        <thead><tr><th>When a request is…</th><th class="center">Email</th><th class="center">Teams</th><th></th></tr></thead>
+        <thead><tr><th>When…</th><th class="center">Email</th><th class="center">Teams</th><th></th></tr></thead>
         <tbody id="events"></tbody>
       </table></div>
       <details class="placeholders"><summary class="small">Placeholders you can use in messages</summary>

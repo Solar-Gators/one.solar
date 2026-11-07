@@ -1,6 +1,6 @@
 /**
  * Treasurer: approved requests to order, and ordered requests awaiting delivery.
- * Both lists are sortable; their columns and default sorts come from Admin → Display → Request lists.
+ * Both lists are sortable; their columns and default sorts come from Admin → Orders → Lists, layout & Excel.
  * Budgets live on Finances → Budget; this page only warns when one is over.
  * The Treasurer's working columns (025) always show for them: the purchasing step (a dropdown
  * in To order), how many items arrived, and their own notes (editable right in the list).

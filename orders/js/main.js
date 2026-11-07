@@ -7,6 +7,7 @@ import { APP, APPS, homePath } from './appMode.js';
 import { hasHelp } from './views/help.js';
 import { setLedgerSettings } from './ledger.js';
 import { mountAppSwitcher } from '../../shared/app-switcher.js';
+import { rememberBrand } from '../../shared/onesolar.js';
 import { STATUS, STATUSES, EDITABLE_STATUSES, esc, errorBox, setCurrentSeason, setAppearance, renderRichText, fitTables } from './ui.js';
 
 const app = document.getElementById('app');
@@ -33,10 +34,10 @@ async function reloadConfig() {
     ...settings.form,
     statuses: STATUSES,
     editableStatuses: EDITABLE_STATUSES,
-    lists: settings.lists || {}, // Admin → Display → Request lists
-    appearance: settings.appearance || {}, // Admin → Display → Colors & logo, Text & banner
+    lists: settings.lists || {}, // Admin → Orders → Lists, layout & Excel
+    appearance: settings.appearance || {}, // Admin → OneSolar → Logo & accent, Banner & messages; Orders → Statuses & colors, Page intros
     layout: settings.layout || {}, // Admin → Request page
-    exports: settings.exports || {}, // Admin → Display → Excel templates
+    exports: settings.exports || {}, // Admin → Orders → Lists, layout & Excel
     workflow: settings.workflow || {}, // Admin → Workflow (rules, budgets)
     notifications: settings.notifications || {}, // Admin → Notifications
     sponsors: settings.sponsors || {}, // Sponsors board: stages, kinds, income sheet
@@ -51,23 +52,17 @@ async function reloadConfig() {
   document.getElementById('footer').textContent = `${config.teamName} · ${config.season} season`;
 }
 
-/** Logo and accent color from Admin → Display → Colors & logo (also shown on the sign-in page). */
+/**
+ * Logo and accent color from Admin → OneSolar → Logo & accent (also shown on the sign-in page).
+ * Remembered for the other apps too (shared/onesolar.js, rememberBrand).
+ */
 function applyBranding() {
   const a = config.appearance || {};
   document.querySelector('.brand-logo').src = a.logo || (isDark() ? '../shared/assets/solar-gators-logo-dark.png' : '../shared/assets/solar-gators-logo.png');
-  const root = document.documentElement.style;
-  if (/^#[0-9a-f]{6}$/i.test(a.accent || '')) {
-    const [r, g, b] = [1, 3, 5].map((i) => parseInt(a.accent.slice(i, i + 2), 16));
-    const darker = `#${[r, g, b].map((c) => Math.round(c * 0.85).toString(16).padStart(2, '0')).join('')}`;
-    root.setProperty('--orange', a.accent);
-    root.setProperty('--orange-dark', darker);
-    root.setProperty('--focus', `${a.accent}55`);
-  } else {
-    ['--orange', '--orange-dark', '--focus'].forEach((v) => root.removeProperty(v));
-  }
+  rememberBrand(a);
 }
 
-/** Announcement banner (Admin → Text & banner) — hidden after its end date. */
+/** Announcement banner (Admin → OneSolar → Banner & messages) — hidden after its end date. */
 function updateAnnouncement() {
   const box = document.getElementById('announcement');
   const ann = config.appearance?.announcement;

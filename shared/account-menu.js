@@ -13,15 +13,16 @@
  * links, Appearance: Auto / Light / Dark, Sign out). Signed out: a light/dark switch and Sign in.
  * Looks come from shared/onesolar.css (.account-menu, .account-pop, .theme-pick).
  */
-import { appUrl, signInUrl, getTheme, setTheme, applyTheme } from './onesolar.js';
+import { appUrl, signInUrl, getTheme, setTheme, applyTheme, getBrand } from './onesolar.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
-/** The Solar Gators logo in the top bar has a light and a dark version. */
+/** The top bar's logo: the team's own (Admin → Logo & accent), or the Solar Gators logo, which has a light and a dark version. */
 export function syncLogo() {
   const dark = document.documentElement.dataset.theme === 'dark';
+  const own = getBrand().logo;
   for (const img of document.querySelectorAll('img.brand-logo[data-auto-logo]')) {
-    img.src = appUrl(`shared/assets/solar-gators-logo${dark ? '-dark' : ''}.png`);
+    img.src = own || appUrl(`shared/assets/solar-gators-logo${dark ? '-dark' : ''}.png`);
   }
 }
 new MutationObserver(syncLogo).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });

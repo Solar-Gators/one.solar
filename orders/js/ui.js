@@ -60,7 +60,7 @@ export function todayISO() {
 
 const slug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-');
 
-// ---- Appearance (Admin → Display → Colors & logo) -------------------------------------------
+// ---- Appearance (Admin → Orders → Statuses & colors; OneSolar → Logo & accent) -------------------------------------------
 // Status labels/colors and priority colors come from the `appearance` settings.
 // Colors are named tones (see .tone-* in styles.css) so text always stays readable.
 
@@ -102,7 +102,7 @@ export const priorityColor = (p) => tone(appearance.priorities?.[p], DEFAULT_PRI
 /** Lists skip the priority tag for the default priority (e.g. "Normal") unless told otherwise. */
 export const showPriorityInLists = (p) => !!p && (appearance.showDefaultPriority || p !== defaultPriority);
 
-/** A page's intro line: the custom one from Admin → Text & banner, or the standard HTML. */
+/** A page's intro line: the custom one from Admin → Orders → Page intros, or the standard HTML. */
 export const introText = (page, fallbackHtml) => {
   const custom = String(appearance.intros?.[page] || '').trim();
   return custom ? esc(custom) : fallbackHtml;
@@ -144,7 +144,7 @@ export function renderRichText(text) {
   return out.join('');
 }
 
-/** Color for a dropdown answer (Admin → Display → Colors & logo), or '' for none. */
+/** Color for a dropdown answer (Admin → Orders → Statuses & colors), or '' for none. */
 export const optionColor = (fieldKey, value) => {
   const t = appearance.optionColors?.[fieldKey]?.[value];
   return TONE_KEYS.has(t) ? t : '';
