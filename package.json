@@ -1,7 +1,7 @@
 {
   "name": "onesolar",
   "version": "3.0.0",
-  "description": "OneSolar: Solar Gators' team apps (home screen, Orders, Solar Evals, GatorWire, CE Scope Map). Static site on GitHub Pages + Supabase",
+  "description": "OneSolar: Solar Gators' team apps (home screen, Orders, Solar Evals, GatorWire, CE Scope Map, I–V Analyzer). Static site on GitHub Pages + Supabase",
   "private": true,
   "type": "module",
   "scripts": {

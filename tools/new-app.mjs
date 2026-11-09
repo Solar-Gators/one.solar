@@ -13,7 +13,7 @@
  *   --section=tools  apps | tools | links, or an id admins added (default apps)
  *   --blurb="…"      the card's one-line description
  *   --public         anyone can see the card, signed in or not (default: anyone signed in)
- *   --no-accounts    no sign-in at all (like GatorWire and the CE Scope Map)
+ *   --no-accounts    no sign-in at all (like GatorWire, the CE Scope Map and the I–V Analyzer)
  *
  * Then: npm run dev, open http://localhost:5173/<folder>/, and build the app in its <main>.
  * docs/MAINTAINING.md has the rest ("Adding an app").
@@ -31,7 +31,7 @@ if (!name) {
   process.exit(1);
 }
 const slug = name.toLowerCase().normalize('NFKD').replace(/[^\w\s-]/g, '').trim().replace(/[\s_]+/g, '-').replace(/-+/g, '-');
-const RESERVED = ['shared', 'hub', 'tools', 'tests', 'docs', 'supabase', 'node_modules', 'orders', 'finances', 'sponsors', 'admin', 'evals', 'gatorwire', 'scope-map'];
+const RESERVED = ['shared', 'hub', 'tools', 'tests', 'docs', 'supabase', 'node_modules', 'orders', 'finances', 'sponsors', 'admin', 'evals', 'gatorwire', 'scope-map', 'iv-analyzer'];
 if (!slug || RESERVED.includes(slug)) {
   console.error(`"${slug || name}" can't be a folder name here; pick another name.`);
   process.exit(1);
