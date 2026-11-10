@@ -77,12 +77,13 @@ const OTHER_APPS = [
     where: 'On the Finances page: <strong>Edit steps…</strong> on Purchases, and the <strong>Budget</strong> and <strong>Custom sheets</strong> tabs.',
   },
   {
-    icon: '📝', name: 'Solar Evals', perm: 'evals.write', who: 'Write evaluations (Chief Engineers)',
+    icon: '📝', name: 'Solar Evals', perm: 'evals.write', who: 'Set up Solar Evals (Setup), Edit eval rubrics (Forms), Fill out evals (their own questions)',
     items: [
-      ['Rubrics', 'Each division\'s evaluation rubric and its versions.', 'evals/#/rubrics'],
-      ['Questions', 'The self-eval questions each Chief Engineer asks their members.', 'evals/#/questions'],
+      ['Setup', 'Each kind of eval: who evaluates whom, who gives input, the form, the questionnaire, the meeting, who sees what and when, and the emails. Also groups of people.', 'evals/#/setup'],
+      ['Forms', 'Every evaluation form, its variants (divisions, positions) and their versions.', 'evals/#/rubrics'],
+      ['Questionnaires', 'Shared self-eval questionnaires, and each evaluator\'s own questions.', 'evals/#/questions'],
     ],
-    where: 'In Solar Evals: the <strong>Rubrics</strong> and <strong>Questions</strong> tabs.',
+    where: 'In Solar Evals: the <strong>Setup</strong>, <strong>Forms</strong> and <strong>Questionnaires</strong> tabs.',
   },
   {
     icon: '🗺️', name: 'CE Scope Map', who: 'Anyone with the file',

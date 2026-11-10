@@ -299,7 +299,7 @@ await test('the website cannot change the schema version', async () => {
   const general = (await db.query(`select value from app_settings where key = 'general'`)).rows[0].value;
   await as(ce, () => rpc('update_settings', ['general', { ...general, schemaVersion: 99 }]));
   const after = (await db.query(`select value from app_settings where key = 'general'`)).rows[0].value;
-  assert.equal(after.schemaVersion, 35);
+  assert.equal(after.schemaVersion, 36);
 });
 
 console.log('Form fields');
@@ -528,7 +528,7 @@ const permsOf = async (role) =>
 
 await test('everyone signed in can read the permission list', async () => {
   const { rows } = await as(member, () => db.query(`select key from permissions order by sort`));
-  assert.deepEqual(rows.map((r) => r.key), ['request.review', 'request.order', 'settings.edit', 'site.customize', 'seasons.manage', 'workflow.edit', 'finances.view', 'finances.edit', 'sponsors.view', 'sponsors.edit', 'evals.templates', 'evals.write', 'evals.view', 'users.manage', 'roles.edit']);
+  assert.deepEqual(rows.map((r) => r.key), ['request.review', 'request.order', 'settings.edit', 'site.customize', 'seasons.manage', 'workflow.edit', 'finances.view', 'finances.edit', 'sponsors.view', 'sponsors.edit', 'evals.templates', 'evals.write', 'evals.view', 'users.manage', 'evals.types', 'roles.edit']);
 });
 
 await test('members cannot change permissions', async () => {
@@ -701,7 +701,7 @@ await test('no roles means Member; unknown roles are refused', async () => {
 
 await test('Admin has every permission, including the new ones', async () => {
   const perms = (await db.query(`select string_agg(permission, ',' order by permission) as p from role_permissions where role = 'admin'`)).rows[0].p;
-  assert.equal(perms, 'evals.templates,evals.view,evals.write,finances.edit,finances.view,request.order,request.review,roles.edit,seasons.manage,settings.edit,site.customize,sponsors.edit,sponsors.view,users.manage,workflow.edit');
+  assert.equal(perms, 'evals.templates,evals.types,evals.view,evals.write,finances.edit,finances.view,request.order,request.review,roles.edit,seasons.manage,settings.edit,site.customize,sponsors.edit,sponsors.view,users.manage,workflow.edit');
 });
 
 await test('custom roles: create, rename, grant, and delete', async () => {
@@ -1878,16 +1878,20 @@ console.log('Solar Evals (028)');
   await setRole(evalCe, 'ce'); await setRole(evalCe2, 'ce'); await setRole(eboard, 'eboard');
   // Earlier tests reset the CE role's permissions; put back what 028 gives it.
   await db.exec(`insert into role_permissions (role, permission) values ('ce', 'evals.templates'), ('ce', 'evals.write'), ('ce', 'evals.view') on conflict do nothing`);
-  assert.deepEqual((await db.query(`select permission from role_permissions where role = 'eboard' order by 1`)).rows.map((r) => r.permission), ['evals.templates', 'evals.view']);
+  assert.deepEqual((await db.query(`select permission from role_permissions where role = 'eboard' order by 1`)).rows.map((r) => r.permission), ['evals.templates', 'evals.types', 'evals.view']);
   const MASTER = '00000000-0000-4000-8000-0000000000a1';
   const sel = (uid, sql, args = []) => as(uid, async () => (await db.query(sql, args)).rows);
   const visible = (uid) => sel(uid, `select id from evals`).then((r) => r.map((x) => x.id));
   let evalId, versionId;
 
   await test('the master rubric v1.0 and four CE divisions are there for everyone signed in', async () => {
-    const t = await sel(stranger, `select label, rubric -> 'pages' -> 0 ->> 'name' as p from eval_templates`);
+    const t = await sel(stranger, `select label, rubric -> 'pages' -> 0 ->> 'name' as p from eval_templates where track_id not like 'lead%'`);
     assert.deepEqual(t, [{ label: 'v1.0', p: 'Universal rubric' }]);
-    assert.equal((await sel(stranger, `select count(*)::int n from eval_tracks`))[0].n, 5);
+    assert.equal((await sel(stranger, `select count(*)::int n from eval_tracks where id not like 'lead%'`))[0].n, 5);
+    // 036: the Leadership eval form, with a variant per position, each with its two pages
+    const lead = await sel(stranger, `select t.name, jsonb_array_length(v.rubric -> 'pages') pages from eval_tracks t join eval_templates v on v.track_id = t.id where t.parent_id = 'leadership' order by t.sort`);
+    assert.equal(lead.length, 10);
+    assert.deepEqual(lead[0], { name: 'President', pages: 2 });
     assert.equal((await sel(null, `select count(*)::int n from eval_templates`).catch(() => [{ n: 0 }]))[0].n, 0);
   });
 
@@ -1909,7 +1913,9 @@ console.log('Solar Evals (028)');
     assert.equal((await sel(kid, `select count(*)::int n from eval_templates where id = $1`, [oops]))[0].n, 0);
     const id = (await as(eboard, () => rpc('eval_track_save', [null, 'Strategy CE', '#123456']))).rows[0].result;
     assert.match(id, /^strategy-ce-[0-9a-f]{4}$/);
-    await as(eboard, () => rejects(rpc('eval_track_save', ['master', 'Mine', null]), /can't be renamed/));
+    await as(eboard, () => rpc('eval_track_save', ['master', 'Member eval form', null])); // any form can be renamed now (036)
+    assert.equal((await sel(kid, `select name from eval_tracks where id = 'master'`))[0].name, 'Member eval form');
+    await as(eboard, () => rpc('eval_track_save', ['master', 'Master template', null]));
   });
 
   await test('only CEs start evals, and the rubric is copied from the template', async () => {
@@ -2016,7 +2022,7 @@ console.log('Solar Evals (028)');
     assert.equal(sent.length, 1);
     assert.equal(sent[0].email, 'evalce@ufl.edu');
     assert.equal(sent[0].payload.what, "Kit Member's self-eval is in");
-    assert.equal(sent[0].payload.app_path, '/Custom-Apps/solarevals#/evals');
+    assert.equal(sent[0].payload.app_path, 'evals/#/evals');
     await as(kid, () => rejects(rpc('eval_self_save', [selfId, { semester: 'x' }]), /Take it back/));
     const inboxOf = (u) => sel(u, `select * from eval_inbox()`);
     const inbox = await inboxOf(evalCe);
@@ -2037,7 +2043,7 @@ console.log('Solar Evals (028)');
     const c = (await db.query(`select kind, self_eval_id, member_name, semester, lead_id, template_label, ratings, rubric ? 'pages' as rubric from evals where id = $1`, [ceEvalId])).rows[0];
     assert.deepEqual(c, { kind: 'ce', self_eval_id: selfId, member_name: 'Kit Member', semester: 'Spring 2027', lead_id: lead, template_label: 'Electrical CE · Fall 2026', ratings: {}, rubric: true });
     await as(kid, () => rejects(rpc('eval_self_submit', [selfId, false]), /already started/));
-    await as(kid, () => rejects(rpc('eval_set_status', [selfId, 'shared']), /does not allow/));
+    await as(kid, () => rejects(rpc('eval_set_status', [selfId, 'shared']), /submitted by its member/));
     await as(evalCe, () => rejects(rpc('eval_set_status', [selfId, 'final']), /submitted by its member/));
   });
 
@@ -2060,7 +2066,7 @@ console.log('Solar Evals (028)');
     assert.equal(sent.at(-1).email, 'kid@ufl.edu');
     assert.equal(sent.at(-1).payload.what, 'Eval meeting: Tuesday, April 20 at 5:00 PM');
     assert.match(sent.at(-1).payload.details, /^Elle CE scheduled your eval meeting for Tuesday, April 20 at 5:00 PM \(MAE-B lab\)\.$/);
-    assert.equal(sent.at(-1).payload.app_path, `/Custom-Apps/solarevals#/evals/${selfId}`);
+    assert.equal(sent.at(-1).payload.app_path, `evals/#/evals/${selfId}`);
     await as(evalCe, () => rpc('eval_set_status', [ceEvalId, 'shared']));
     assert.deepEqual((await visible(kid)).sort(), [ceEvalId, selfId].sort());
     sent = await outbox();
@@ -2070,8 +2076,161 @@ console.log('Solar Evals (028)');
     await as(kid, () => rpc('eval_member_comment', [ceEvalId, 'Fair.']));
   });
 
-  await test('CE-only evals (no self-eval) still work as before and have no meeting', async () => {
-    await as(evalCe, () => rejects(rpc('eval_schedule_meeting', [evalId, '2027-04-20T21:00:00Z', '']), /self-eval have a meeting/));
+  await test('CE-only evals (no self-eval) can have a meeting too; the member is emailed (036)', async () => {
+    await as(evalCe, () => rejects(rpc('eval_schedule_meeting', [evalId, '2027-04-20T21:00:00Z', '']), /finished first/));
+    await as(evalCe, () => rpc('eval_set_status', [evalId, 'final']));
+    await as(evalCe, () => rpc('eval_schedule_meeting', [evalId, '2027-04-21T21:00:00Z', '']));
+    const sent = await outbox();
+    assert.equal(sent.at(-1).email, 'kid@ufl.edu');
+    assert.equal(sent.at(-1).payload.app_path, 'evals/#/evals'); // they can't read it until it's shared
+    assert.ok(!(await visible(kid)).includes(evalId));
+  });
+
+  console.log('Solar Evals eval types, set up on the page (036)');
+  const prez = await signUp('prez@ufl.edu', 'Pres Ident');
+  const lead2 = await signUp('lead2@ufl.edu', 'Lou Lead');
+  const base = (await db.query(`select eval_default_settings() s`)).rows[0].s;
+  const settings = (patch) => {
+    const s = structuredClone(base);
+    for (const [path, v] of Object.entries(patch)) {
+      const ks = path.split('.'); const last = ks.pop();
+      ks.reduce((o, k) => o[k], s)[last] = v;
+    }
+    return s;
+  };
+  let formId, formV, leadsGroup, ceType, ceEval;
+  const masterRubric = (await db.query(`select rubric from eval_templates where id = $1`, [MASTER])).rows[0].rubric;
+  const threeLevels = structuredClone(masterRubric);
+  threeLevels.scale = ['Below', 'Meets', 'Above']; threeLevels.noOption = false;
+  threeLevels.pages = [{ ...threeLevels.pages[0], criteria: threeLevels.pages[0].criteria.slice(0, 2).map((c) => ({ ...c, levels: c.levels.slice(0, 3) })), boxes: [] }];
+
+  await test('new forms: their own 3-level scale without N/O; rows must describe every level', async () => {
+    await as(kid, () => rejects(rpc('eval_form_save', [null, 'CE eval form', '#123456', null]), /does not allow/));
+    formId = (await as(eboard, () => rpc('eval_form_save', [null, 'CE eval form', '#123456', null]))).rows[0].result;
+    const bad = structuredClone(threeLevels); bad.pages[0].criteria[0].levels.push('Extra');
+    await as(eboard, () => rejects(rpc('eval_template_save', [formId, 'v1', '', null, bad]), /each of the 3 levels/));
+    formV = (await as(eboard, () => rpc('eval_template_save', [formId, 'v1', 'First CE eval', null, threeLevels]))).rows[0].result;
+    const t = (await sel(kid, `select kind, parent_id from eval_tracks where id = $1`, [formId]))[0];
+    assert.deepEqual(t, { kind: 'master', parent_id: null });
+  });
+
+  const ceSettings = () => settings({
+    'labels.subject': 'CE', 'labels.evaluator': 'President', 'labels.input': 'Lead',
+    subjects: { rule: 'role', value: 'ce' }, evaluators: { rule: 'person', value: prez },
+    input: { on: true, rule: 'group', value: leadsGroup, max: 3, pickedBy: 'evaluator', notes: true },
+    form: { track: formId, variants: false },
+    'questionnaire.on': false, comments: false,
+    'visibility.answers': { evaluator: 'never', input: 'never', viewers: 'never', extra: 'never' },
+    'visibility.eval': { subject: 'final', input: 'draft', viewers: 'never', extra: 'final' },
+    'visibility.extraWho': { rule: 'role', value: 'eboard' },
+    notify: { submitted: false, finished: true, meeting: true, shared: false, input: true },
+  });
+
+  await test('only "Set up Solar Evals" makes eval types and groups; incomplete settings are refused', async () => {
+    await as(evalCe, () => rejects(rpc('eval_group_save', [null, 'Leads', [lead, lead2]]), /does not allow/));
+    leadsGroup = (await as(eboard, () => rpc('eval_group_save', [null, 'Leads', [lead, lead2, lead]]))).rows[0].result;
+    assert.deepEqual((await sel(kid, `select members from eval_groups where id = $1`, [leadsGroup]))[0].members.sort(), [lead, lead2].sort());
+    await as(evalCe, () => rejects(rpc('eval_type_save', [null, 'CE eval', '', true, ceSettings(), '']), /does not allow/));
+    const noPerson = ceSettings(); noPerson.evaluators = { rule: 'person' };
+    await as(eboard, () => rejects(rpc('eval_type_save', [null, 'CE eval', '', true, noPerson, '']), /pick the person/));
+    const noWho = ceSettings(); noWho.visibility.extraWho = { rule: 'none' };
+    await as(eboard, () => rejects(rpc('eval_type_save', [null, 'CE eval', '', true, noWho, '']), /choose who that is/));
+    const missing = ceSettings(); delete missing.notify.input;
+    await as(eboard, () => rejects(rpc('eval_type_save', [null, 'CE eval', '', true, missing, '']), /Emails/));
+    await as(eboard, () => rejects(rpc('eval_type_save', [null, 'member eval', '', true, ceSettings(), '']), /already an eval type/));
+    ceType = (await as(eboard, () => rpc('eval_type_save', [null, 'CE eval', 'The President reviews each CE.', true, ceSettings(), 'First version']))).rows[0].result;
+    assert.match(ceType, /^ce-eval-[0-9a-f]{4}$/);
+    assert.equal((await sel(eboard, `select count(*)::int n from eval_type_history where type_id = $1`, [ceType]))[0].n, 1);
+    assert.equal((await sel(kid, `select count(*)::int n from eval_type_history`))[0].n, 0); // history is for setup only
+    await as(eboard, () => rejects(rpc('eval_group_delete', [leadsGroup]), /used by CE eval/));
+    await as(eboard, () => rejects(rpc('eval_form_remove', [formId]), /used by CE eval/));
+  });
+
+  await test('the President evaluates a CE (no "Fill out evals" needed); leads from the group are asked for input', async () => {
+    await as(evalCe, () => rejects(rpc('eval_save', [null, { type_id: ceType, template_id: formV }]), /don't write CE eval evals/));
+    const start = (p) => as(prez, () => rpc('eval_save', [null, { type_id: ceType, template_id: formV, semester: 'Spring 2027', ...p }]));
+    await rejects(start({ template_id: MASTER }), /isn't one CE eval evals use/);
+    await rejects(start({ subject_id: kid }), /isn't someone who gets this kind of eval/);
+    await rejects(start({ subject_id: evalCe2, input_ids: [stranger] }), /can't be picked as lead/);
+    const before = (await outbox()).length;
+    ceEval = (await start({ subject_id: evalCe2, input_ids: [lead, lead2] })).rows[0].result;
+    const e = (await db.query(`select member_name, member_email, subject_id, type_id from evals where id = $1`, [ceEval])).rows[0];
+    assert.deepEqual(e, { member_name: 'Otto CE', member_email: 'evalce2@ufl.edu', subject_id: evalCe2, type_id: ceType });
+    const asked = (await outbox()).slice(before);
+    assert.deepEqual(asked.map((x) => x.email).sort(), ['lead2@ufl.edu', 'lead@ufl.edu']);
+    assert.match(asked[0].payload.details, /^Pres Ident is writing Otto CE's CE eval for Spring 2027 and would like your input as lead\. You can read it in Solar Evals as they write it, and leave them notes\.$/);
+    await as(prez, () => rejects(rpc('eval_save', [ceEval, { ratings: { communication: 4 } }]), /must be 1 to 3\.\s*$/));
+    await as(prez, () => rejects(rpc('eval_save', [ceEval, { ratings: { communication: 'NO' } }]), /1 to 3\./));
+    await as(prez, () => rpc('eval_save', [ceEval, { ratings: { communication: 3 } }]));
+  });
+
+  await test('leads read the draft and leave notes only the President sees; others see only what the type allows', async () => {
+    for (const u of [lead, lead2, prez]) assert.ok((await visible(u)).includes(ceEval));
+    for (const u of [evalCe2, evalCe, eboard, kid]) assert.ok(!(await visible(u)).includes(ceEval));
+    await as(lead, () => rpc('eval_input_note_save', [ceEval, 'Great at design reviews.']));
+    await as(lead2, () => rpc('eval_input_note_save', [ceEval, 'Late on two parts orders.']));
+    await as(kid, () => rejects(rpc('eval_input_note_save', [ceEval, 'Hi']), /Only someone asked for input/));
+    const notes = (u) => sel(u, `select author_name from eval_input_notes where eval_id = $1 order by 1`, [ceEval]).then((r) => r.map((x) => x.author_name));
+    assert.deepEqual(await notes(prez), ['Lee Lead', 'Lou Lead']);
+    assert.deepEqual(await notes(lead2), ['Lou Lead']);
+    assert.deepEqual(await notes(evalCe2), []);
+    await as(prez, () => rejects(rpc('eval_save', [ceEval, { input_ids: [lead, lead2, stranger] }]), /can't be picked/));
+  });
+
+  await test('finishing: the CE can read it right away and is told; the e-board can too; other CEs cannot', async () => {
+    await as(prez, () => rpc('eval_set_status', [ceEval, 'final']));
+    for (const u of [evalCe2, eboard, lead, prez]) assert.ok((await visible(u)).includes(ceEval));
+    for (const u of [evalCe, stranger, kid]) assert.ok(!(await visible(u)).includes(ceEval));
+    const sent = await outbox();
+    assert.equal(sent.at(-1).email, 'evalce2@ufl.edu');
+    assert.equal(sent.at(-1).payload.what, 'Your evaluation is ready');
+    assert.equal(sent.at(-1).payload.details, 'Pres Ident finished your CE eval for Spring 2027. You can read it now.');
+    await as(prez, () => rejects(rpc('eval_set_status', [ceEval, 'shared']), /can already read it/));
+    await as(lead, () => rejects(rpc('eval_input_note_save', [ceEval, 'More']), /finished/));
+    await as(evalCe2, () => rejects(rpc('eval_member_comment', [ceEval, 'Thanks']), /shared with you/)); // comments are off
+    await as(prez, () => rpc('eval_schedule_meeting', [ceEval, '2027-04-22T21:00:00Z', 'Office']));
+    assert.equal((await outbox()).at(-1).payload.app_path, `evals/#/evals/${ceEval}`);
+  });
+
+  await test('changing a type changes new evals; "Apply to evals in progress" updates the open ones', async () => {
+    const open = (await as(prez, () => rpc('eval_save', [null, { type_id: ceType, template_id: formV, subject_id: evalCe }]))).rows[0].result;
+    const wider = ceSettings(); wider.visibility.eval.viewers = 'final';
+    await as(evalCe, () => rejects(rpc('eval_type_apply', [ceType]), /does not allow/));
+    await as(eboard, () => rpc('eval_type_save', [ceType, 'CE eval', 'The President reviews each CE.', true, wider, 'Let CEs read finished CE evals']));
+    assert.ok(!(await visible(evalCe)).includes(ceEval)); // still the settings it started with
+    assert.equal((await as(eboard, () => rpc('eval_type_apply', [ceType]))).rows[0].result, 2);
+    assert.ok((await visible(evalCe)).includes(ceEval));
+    assert.ok(!(await visible(evalCe2)).includes(open)); // a draft stays the President's
+    assert.equal((await sel(eboard, `select count(*)::int n from eval_type_history where type_id = $1`, [ceType]))[0].n, 2);
+    await as(eboard, () => rejects(rpc('eval_type_delete', [ceType]), /Turn it off instead/));
+  });
+
+  await test('a self-eval from a shared questionnaire: the evaluator reads the answers as soon as it is sent', async () => {
+    await as(kid, () => rejects(rpc('eval_questionnaire_save', [null, 'Lead self-eval', [{ id: 'q1', text: 'How did leading go?' }]]), /does not allow/));
+    const q = (await as(evalCe, () => rpc('eval_questionnaire_save', [null, 'Lead self-eval', [{ id: 'lead-q', text: ' How did leading go? ' }, { id: 'help', text: 'What help do you need?' }]]))).rows[0].result;
+    const leadType = (await as(eboard, () => rpc('eval_type_save', [null, 'Lead eval', '', true, settings({
+      'labels.subject': 'Lead', subjects: { rule: 'group', value: leadsGroup },
+      'input.on': false, 'questionnaire.source': 'questionnaire', 'questionnaire.id': q,
+      'visibility.answers': { evaluator: 'submitted', input: 'never', viewers: 'never', extra: 'never' },
+    }), '']))).rows[0].result;
+    await as(kid, () => rejects(rpc('eval_self_save', [null, { type_id: leadType, template_id: versionId }]), /aren't someone who gets Lead eval evals/));
+    await as(lead, () => rejects(rpc('eval_self_save', [null, { type_id: leadType, template_id: versionId, input_ids: [kid] }]), /doesn't ask anyone for input/));
+    const self = (await as(lead, () => rpc('eval_self_save', [null, { type_id: leadType, template_id: versionId, ce_id: evalCe, answers: { 'lead-q': 'Well.' } }]))).rows[0].result;
+    assert.deepEqual((await db.query(`select rubric -> 'questions' q from evals where id = $1`, [self])).rows[0].q.map((x) => x.id), ['lead-q', 'help']);
+    await as(lead, () => rpc('eval_self_submit', [self, true]));
+    assert.ok((await visible(evalCe)).includes(self));
+    for (const u of [evalCe2, eboard, kid]) assert.ok(!(await visible(u)).includes(self));
+    assert.equal((await sel(evalCe, `select type_name from eval_inbox() where self_id = $1`, [self]))[0].type_name, 'Lead eval');
+    await as(evalCe, () => rejects(rpc('eval_questionnaire_remove', [q]), /used by Lead eval/));
+  });
+
+  await test('unused types can be deleted; at least one type stays on', async () => {
+    const spare = (await as(eboard, () => rpc('eval_type_save', [null, 'Spare', '', true, base, '']))).rows[0].result;
+    await as(eboard, () => rpc('eval_type_delete', [spare]));
+    assert.equal((await sel(kid, `select count(*)::int n from eval_types where id = $1`, [spare]))[0].n, 0);
+    await db.exec(`update eval_types set active = false where id <> 'member'`);
+    await as(eboard, () => rejects(rpc('eval_type_save', ['member', 'Member eval', '', false, base, '']), /at least one eval type/));
+    await db.exec(`update eval_types set active = true`);
   });
 }
 

@@ -2,25 +2,61 @@
 
 **https://solar-gators.github.io/one.solar/evals/** · [`evals/index.html`](../evals/index.html)
 
-Semester member reviews, filled out online instead of on paper. Sign in with your **[OneSolar](https://solar-gators.github.io/one.solar/)** account; everything is kept in the OneSolar (Orders) database (it needs the migrations `028_solar_evals.sql`, `031_eval_self_reviews.sql` and `032_eval_questions.sql`).
+Semester reviews, filled out online instead of on paper. Sign in with your **[OneSolar](https://solar-gators.github.io/one.solar/)** account; everything is kept in the OneSolar (Orders) database (migrations `028`, `031`, `032` and `036_eval_types.sql`).
 
-**Rubrics** holds the master template and a version for each CE division. Every saved version is kept, so the next CE sees what the last one used and why they changed it.
-- **Make your version:** open your division and click **Start from master** (or **Make a new version**). Click any text on the pages to change it, add or remove criterion rows, then **Save as new version** with a note on what changed.
-- **History** lists every version. **Compare** shows exactly what changed between any two. If the master changes after you made your version, your division shows a note linking to the changes.
+Everything below is set up on the page, not in code: the forms, the questionnaires, and the whole flow for each kind of eval.
 
-**Evaluations** is where members and CEs fill out reviews. The usual order each semester:
-1. **The member** clicks **Fill out my self-eval**, picks their division, CE and lead, answers their CE's questions and clicks **Submit**. Their CE is emailed. (They can **Take back** until the CE starts theirs.)
-2. **The CE** sees it under **Self-evals sent to you** and clicks **Start your eval** (same rubric). They fill it out with the lead's input. They don't see the member's answers yet.
-3. When the CE clicks **Mark finished**, the member's answers appear above their eval. The CE clicks **Schedule meeting**, and the member is emailed the time and place.
-4. After the meeting the CE clicks **Meeting done: share**. The member then reads the CE's eval and can add comments.
+## Kinds of eval (Setup tab)
 
-**Questions** (CEs) is where each CE sets the questions their members answer (up to 20). **Use this list** or **+ Add** copies another CE's questions (or the defaults) into yours. A CE who hasn't saved any uses the defaults. A submitted self-eval keeps the questions it was answered with.
+People with **Set up Solar Evals** (`evals.types`, Admin and E-board by default) see **Setup**. Each **eval type** is the whole rundown for one kind of eval:
 
-CEs can still start an eval without a self-eval:
-- **New evaluation:** pick the rubric (your division's latest), the member's name, their email (optional, for sharing) and the semester. Click a box to rate it (click again to clear), or N/O. Fill in the blanks and feedback boxes. It saves as you go.
-- **Mark finished** checks for unrated rows, and for 1/2/4/5 ratings with no evidence. A finished eval can be read by every CE, the e-board, and the subsystem lead you picked. **Share with member** lets the member read it and add their comments; it needs a OneSolar account with that email.
-- **Print / PDF** prints the filled-in form, on the same two landscape pages as the paper one.
+- **What to call people:** e.g. Officer / President / Lead / Position. Buttons, messages and emails use these words.
+- **Who evaluates whom:** who is evaluated, who evaluates, and who gives input. Each one is anyone, a permission ("Fill out evals"), a OneSolar position, a **group**, or one person. Groups (Setup → Groups) are named lists of people, so nobody needs a new position just for evals.
+- **Input from:** on or off; up to how many people; whether the person evaluated, the evaluator or either picks them; and whether they can leave **private notes** for the evaluator while it's a draft. The person evaluated never sees the notes.
+- **The form:** which form it uses, and whether people pick a variant of it (a division or a position).
+- **Self-eval questionnaire:** on or off. The questions come from each evaluator's own list, or from a shared questionnaire.
+- **Steps:** whether there's a meeting, and whether the person can comment on their eval.
+- **Who sees what, and when:** for the self-eval answers and for the eval: the person evaluated, the evaluator, the people giving input, "See all evals", and one more group you choose (e.g. the E-board position). The database enforces this.
+- **Emails:** self-eval submitted, asked for input, eval finished, meeting scheduled, eval shared.
 
-Leads and members see only what's theirs; the database decides that, not the page.
+At the top, **How a … eval goes** spells out the flow in plain words as you change it, and it warns you about anything that won't work.
 
-For testing on your own computer, `/evals/?fake` on `localhost` uses a stand-in database from `evals/dev/fake-supabase.js` (kept out of the repo).
+Every eval keeps a copy of its type's settings from when it started, so changing a type only changes new evals. **Apply to evals in progress** gives the open ones (anything not shared yet) the new settings. **History** keeps every save. A type nobody has used can be deleted; a used one is turned off instead.
+
+**Member eval** is the original flow: the member answers their CE's questions → the CE writes the eval with the subsystem lead's input → once it's finished, the CE sees the answers and schedules the meeting → after the meeting the CE shares it, and the member reads both and can comment.
+
+Example, **the President evaluates the CEs with feedback from their leads**:
+1. Make a "Leads" group with the leads in it.
+2. Make a type: the person evaluated is the Chief Engineer position, the evaluator is one person (the President), and input comes from the Leads group, picked by the evaluator, with notes. The form is Leadership eval with variants (the position). Turn the questionnaire off. The CE sees the eval once it's finished, the leads see it while it's being written, and the E-board sees it once it's finished.
+
+## Forms
+
+**Forms** holds every form and its versions. A form can have **variants**, e.g. one per CE division or per leadership position; a variant starts as a copy of the main form. Every saved version is kept, and evals keep their own copy.
+- **+ New form** / **+ Add a variant**, then **Start from a blank form** or a copy of any version. **Rename** and **Remove** (only when no eval type uses it) are in the toolbar.
+- **Editing:** click any text on the pages to change it. The bar above the pages sets the **rating scale** (2 to 10 levels), whether **N/O** is offered, **+ Add page** and **↶ Undo**.
+- **On each page:** move, copy or delete the page. For rows: move, copy, write-in line, move to another page, and remove.
+- **Header fields:** each one says what it's filled in with (who it's for, the semester, the variant, the evaluator, the people giving input, a date, or free text).
+- **Written boxes:** each one is a plain answer, the person's own comments, or **Evidence** (needed for ratings away from the middle).
+- **No empty rating table:** a page with no rating rows has no rating table.
+- **Before saving**, the save dialog lists anything that looks wrong (missing level descriptions, empty pages, no "who it's for" field).
+- **History** and **Compare** show what changed between any two versions.
+
+The **Leadership eval** form came from the leadership positions PDF: a main form plus a variant for each of the 10 positions. The main form's second page has four "Position duty" write-in rows, and their level text is placeholder.
+
+## Questionnaires
+
+- **Your own questions** (anyone with "Fill out evals"): the self-eval questions people answer when they pick you, for eval types whose questions come from the evaluator.
+- **Shared questionnaires** (anyone with "Edit eval rubrics"): named lists of questions to pick for an eval type in Setup.
+
+You can copy questions from the defaults, other questionnaires and other evaluators. A submitted self-eval keeps the questions it was answered with.
+
+## Evaluations
+
+- **Fill out my self-eval** (for kinds with a questionnaire): pick the kind, your variant, your evaluator and (if allowed) who gives input, then answer and **Submit**. You can **Take back** until they start theirs.
+- **Self-evals sent to you** → **Start your eval**. Or **New evaluation**: pick the kind, the form version and who it's for.
+- **On the eval:** click a box to rate it (click again to clear). Add or remove the people giving input; notes from them appear above the form. It saves as you go.
+- **Mark finished** checks for unrated rows and for missing evidence. Then the buttons follow the kind: **Schedule meeting**, **Share**.
+- **The banner** on every eval says who can read it now and who will next.
+- **Print / PDF** prints the filled-in form on the same landscape pages as the paper one.
+
+For testing on your own computer, `/evals/?fake` on `localhost` uses the same in-browser database as Orders' fake mode (`tools/fake-supabase.js`, every migration).

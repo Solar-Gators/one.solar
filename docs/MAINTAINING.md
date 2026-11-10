@@ -13,6 +13,7 @@ This guide is for whoever maintains the site: setting it up from scratch, runnin
 - **Lockout protection:** the database refuses any change (to a role or to the grid) that would leave nobody with `users.manage`. The Admin role always keeps `roles.edit`, and the last Admin can't drop the Admin role or be removed.
 - **Admin is special (035):** only Admins can give or take the Admin role, change an Admin's roles, or remove an Admin. Everyone else with `users.manage` can do the rest.
 - **Removing someone who left (035):** Admin → Users → **Remove…** deletes their login; what they did keeps their name, and the removal is kept in `removed_people`. If the same email signs up again, people managers see a flag (Users page, and a line under the top bar) until someone clicks **Let them back in** or **Remove again**.
+- **Solar Evals is set up on its own page (036):** kinds of eval, groups, forms and questionnaires are rows in the database edited in Solar Evals → Setup / Forms / Questionnaires (`evals.types`, `evals.templates`). Each eval keeps a copy of its type's settings (`evals.type_settings`), and the row security reads that copy, so changing a type never changes who can see an eval already written until someone clicks **Apply to evals in progress**.
 - **Roles:** a person can hold several roles (`profile_roles` table); their permissions combine. Built-in roles are Member, Chief Engineer, Treasurer and Admin. More can be created on the site.
 - **Current permissions:**
   - `request.review`: approve, reject, or request changes.
@@ -22,6 +23,7 @@ This guide is for whoever maintains the site: setting it up from scratch, runnin
   - `seasons.manage`: start a new season, import spreadsheets.
   - `users.manage`: give people roles (not Admin), and remove people who left.
   - `roles.edit`: create, rename and delete roles, and the permission grid (Admin only by default).
+  - `evals.write`, `evals.view`, `evals.templates`, `evals.types`: Solar Evals: fill out evals, see all evals, edit forms and questionnaires, set up kinds of eval (036).
 - **Settings history:** every version of `app_settings` (general, form, lists, appearance) and of the permission grid is kept in `settings_history`. Leads restore versions from the **History** link at the top of each Admin page.
 
 ## Setup (one time, about 15 minutes)
@@ -78,7 +80,7 @@ Open http://localhost:5173/ (the home screen; Orders is http://localhost:5173/or
 npm run dev:fake
 ```
 
-Fake mode swaps Orders' Supabase client for an in-browser Postgres ([PGlite](https://pglite.dev)) running the same migrations, so the permissions behave the same. Data stays in your browser. No emails are sent, and signing up logs you in immediately. The home screen and Solar Evals have their own stand-ins: add `?fake` to their address on localhost (`/?fake=admin`, `/evals/?fake`). In the browser console:
+Fake mode swaps Orders' Supabase client for an in-browser Postgres ([PGlite](https://pglite.dev)) running the same migrations, so the permissions behave the same. Data stays in your browser. No emails are sent, and signing up logs you in immediately. The home screen has its own stand-in (`/?fake=admin`); Solar Evals uses the same one as Orders: add `?fake` to its address on localhost (`/evals/?fake`). In the browser console:
 
 ```js
 await fakeSql("insert into profile_roles select id, 'treasurer' from profiles where email = 'you@ufl.edu' on conflict do nothing")  // then refresh
@@ -123,7 +125,7 @@ orders/                  Orders; its js/ and css/ also run Finances, Sponsors an
     views/               One file per page (login, account, admin, requests, …)
   manifest.webmanifest, sw.js, assets/   Installing it as an app
 finances/, sponsors/, admin/   index.html only: the same code as Orders, as its own app
-evals/index.html         Solar Evals (one page; evals/dev/ is a local fake, not committed)
+evals/index.html         Solar Evals (one page: evaluations, forms, questionnaires, setup)
 gatorwire/index.html     GatorWire (a built file: upload new builds here)
 scope-map/index.html     CE Scope Map
 iv-analyzer/index.html   I–V Analyzer (one page, no accounts; everything stays in the browser)
