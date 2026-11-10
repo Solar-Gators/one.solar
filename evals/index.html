@@ -669,15 +669,16 @@ const DEFAULT_SETTINGS = {
               eval:{subject:"shared", input:"final", viewers:"final", extra:"never"}, extraWho:{rule:"none"}},
   notify:{submitted:true, finished:false, meeting:true, shared:true, input:false}
 };
-let types = [], groups = [], qnaires = [], setupReady = true;
+let types = [], groups = [], qnaires = [], setupReady = true, setupError = "";
 async function loadSetup(){
   try {
     [types, groups, qnaires] = await Promise.all([
       rows(sb.from("eval_types").select("*").order("sort").order("name")),
       rows(sb.from("eval_groups").select("*").order("name")),
       rows(sb.from("eval_questionnaires").select("*").order("name"))]);
-    setupReady = true;
-  } catch {   // the database doesn't have 036 yet: everything works as the Member eval
+    setupReady = true; setupError = "";
+  } catch (e) {   // the database doesn't have 036 yet: everything works as the Member eval
+    console.error(e); setupError = e.message || String(e);
     types = [{id:"member", name:"Member eval", description:"", active:true, settings:DEFAULT_SETTINGS}]; groups = []; qnaires = []; setupReady = false;
   }
 }
@@ -921,7 +922,10 @@ function render(){
   $("#layout").classList.toggle("nosb", section !== "rubrics" && section !== "setup");
   $("#main").classList.remove("editing", "filling");
   if (section === "rubrics") { renderSide(); renderRubric(); }
-  else if (section === "setup") { renderSetupSide(); renderSetup(); }
+  else if (section === "setup") {
+    try { renderSetupSide(); renderSetup(); }
+    catch (e) { console.error(e); $("#main").innerHTML = toolbarHTML("Setup", "", "", "var(--orange)") + `<div class="empty"><h3>Setup couldn't open</h3><p>${esc(e.message || e)}</p></div>`; }
+  }
   else if (section === "eval") renderEval();
   else if (section === "questions") renderQuestions();
   else renderList();
@@ -1635,7 +1639,7 @@ function typeVersions(s){
 const opt = (list, val, none) => (none != null ? `<option value="">${esc(none)}</option>` : "") + list.map(p => `<option value="${esc(p.id)}"${p.id === val ? " selected" : ""}>${esc(p.full_name || p.email)}</option>`).join("");
 const typeOpts = (list, val) => list.map(t => `<option value="${esc(t.id)}"${t.id === val ? " selected" : ""}>${esc(t.name)}</option>`).join("");
 /** A variant's name for the eval's division / position field ("Electrical CE" → "Electrical"). */
-const variantName = t => t?.parent ? t.name.replace(/\s+CE$/i, "") : "";
+const variantName = t => t?.parent ? t.name.replace(/\s+(CE|members)$/i, "") : "";
 
 function openNewEval(){
   const list = evaluatorTypes();
@@ -2105,8 +2109,8 @@ const getPath = (o, path) => path.split(".").reduce((x, k) => x?.[k], o);
 function openSetup(id){
   if (id === setupView.id && setupView.draft) return;
   if (setupView.dirty && !confirm("Throw away your unsaved changes to this eval type?")) { history.replaceState(null, "", "#/setup/" + (setupView.id || "")); return; }
-  const t = id && id !== "groups" && id !== "new" ? typeById(id) : null;
-  if (!id || (id !== "groups" && id !== "new" && !t)) id = types[0]?.id || "new";
+  if (!id || (id !== "groups" && id !== "new" && !typeById(id))) id = types[0]?.id || "new";   // #/setup opens the first type
+  const t = id !== "groups" && id !== "new" ? typeById(id) : null;
   const base = id === "new" ? (typeById(lsGet("sg-evals-setup-copy")) || typeById("member")) : typeById(id);
   setupView = {id, dirty:false, draft:id === "groups" ? null : id === "new"
     ? {name:"", description:"", active:true, settings:fillSettings(clone(base?.settings || DEFAULT_SETTINGS))}
@@ -2193,7 +2197,8 @@ const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
 
 function renderSetup(){
   const m = $("#main");
-  if (!setupReady) { m.innerHTML = toolbarHTML("Setup", "", "", "var(--orange)") + `<div class="empty"><h3>Run 036_eval_types.sql first</h3><p>The database doesn't have eval types yet. Run the migration in Supabase, then reload.</p></div>`; return; }
+  if (!setupReady) { m.innerHTML = toolbarHTML("Setup", "", "", "var(--orange)") + `<div class="empty"><h3>Setup couldn't load</h3><p>${setupError ? `The database said: <b>${esc(setupError)}</b>.` : ""}
+      If 036_eval_types.sql hasn't been run in Supabase, run it. If it has, reload this page.</p><div class="row"><button class="btn primary" data-act="sRetry">Try again</button></div></div>`; return; }
   if (setupView.id === "groups") { renderGroups(); return; }
   const d = setupView.draft, s = d.settings, v = s.visibility, isNew = setupView.id === "new", t = typeById(setupView.id);
   const nEvals = isNew ? 0 : evals.filter(e => (e.type_id || "member") === t.id).length, warn = setupWarnings(d);
@@ -2625,6 +2630,7 @@ document.addEventListener("click", e => {
     case "sHist": openTypeHistory(); break;
     case "sLoad": { const x = window._thist?.[+d.i]; if (x) { $("#dTHist").close(); setupView.draft = {name:x.name, description:x.description, active:x.active, settings:fillSettings(clone(x.settings))}; setupView.dirty = true; renderSetup(); toast("Loaded. Save to make it current again."); } break; }
     case "sApply": applyType(); break;
+    case "sRetry": loadSetup().then(() => { setupView = {id:null, draft:null, dirty:false}; route(); }); break;
     case "sDelete": deleteType(); break;
     case "gNew": case "gCancel": case "gDel": case "gSave": case "gRemove": groupAct(act, d); break;
   }

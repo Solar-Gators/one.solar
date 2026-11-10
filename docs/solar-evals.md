@@ -2,7 +2,7 @@
 
 **https://solar-gators.github.io/one.solar/evals/** · [`evals/index.html`](../evals/index.html)
 
-Semester reviews, filled out online instead of on paper. Sign in with your **[OneSolar](https://solar-gators.github.io/one.solar/)** account; everything is kept in the OneSolar (Orders) database (migrations `028`, `031`, `032` and `036_eval_types.sql`).
+Semester reviews, filled out online instead of on paper. Sign in with your **[OneSolar](https://solar-gators.github.io/one.solar/)** account; everything is kept in the OneSolar (Orders) database (migrations `028`, `031`, `032`, `036_eval_types.sql` and `037_eval_form_names.sql`).
 
 Everything below is set up on the page, not in code: the forms, the questionnaires, and the whole flow for each kind of eval.
 
@@ -41,7 +41,7 @@ Example, **the President evaluates the CEs with feedback from their leads**:
 - **Before saving**, the save dialog lists anything that looks wrong (missing level descriptions, empty pages, no "who it's for" field).
 - **History** and **Compare** show what changed between any two versions.
 
-The **Leadership eval** form came from the leadership positions PDF: a main form plus a variant for each of the 10 positions. The main form's second page has four "Position duty" write-in rows, and their level text is placeholder.
+The **Leadership eval** form came from the leadership positions PDF: a main form plus a variant for each position (8 of them since 037: one **Chief Engineer** and one **Integration Project Manager** form for both divisions, with a **Division** field). The **Member eval** form has a variant for each division's members. The main form's second page has four "Position duty" write-in rows, and their level text is placeholder.
 
 ## Questionnaires
 

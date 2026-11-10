@@ -299,7 +299,7 @@ await test('the website cannot change the schema version', async () => {
   const general = (await db.query(`select value from app_settings where key = 'general'`)).rows[0].value;
   await as(ce, () => rpc('update_settings', ['general', { ...general, schemaVersion: 99 }]));
   const after = (await db.query(`select value from app_settings where key = 'general'`)).rows[0].value;
-  assert.equal(after.schemaVersion, 36);
+  assert.equal(after.schemaVersion, 37);
 });
 
 console.log('Form fields');
@@ -1890,8 +1890,16 @@ console.log('Solar Evals (028)');
     assert.equal((await sel(stranger, `select count(*)::int n from eval_tracks where id not like 'lead%'`))[0].n, 5);
     // 036: the Leadership eval form, with a variant per position, each with its two pages
     const lead = await sel(stranger, `select t.name, jsonb_array_length(v.rubric -> 'pages') pages from eval_tracks t join eval_templates v on v.track_id = t.id where t.parent_id = 'leadership' order by t.sort`);
-    assert.equal(lead.length, 10);
+    // 037: one Chief Engineer and one Integration Project Manager form for both divisions
+    assert.deepEqual(lead.map((x) => x.name), ['President', 'Vice President', 'Treasurer', 'Secretary', 'Business Coordinator', 'Chief Engineer', 'Integration Project Manager', 'Subsystem Lead']);
     assert.deepEqual(lead[0], { name: 'President', pages: 2 });
+    const ceForm = (await sel(stranger, `select rubric from eval_templates where track_id = 'lead-ce'`))[0].rubric;
+    assert.doesNotMatch(JSON.stringify(ceForm), /[Mm]echanical|[Ee]lectrical/);
+    assert.ok(ceForm.pages.every((p) => p.fields.some((f) => f.label === 'Division' && f.bind === 'subsystem')));
+    // 037: the member-eval forms say they're for members
+    const member = await sel(stranger, `select name from eval_tracks where id = 'master' or parent_id = 'master' order by sort`);
+    assert.equal(member[0].name, 'Member eval');
+    assert.ok(member.slice(1).every((x) => / members$/.test(x.name)), JSON.stringify(member));
     assert.equal((await sel(null, `select count(*)::int n from eval_templates`).catch(() => [{ n: 0 }]))[0].n, 0);
   });
 
@@ -1915,7 +1923,7 @@ console.log('Solar Evals (028)');
     assert.match(id, /^strategy-ce-[0-9a-f]{4}$/);
     await as(eboard, () => rpc('eval_track_save', ['master', 'Member eval form', null])); // any form can be renamed now (036)
     assert.equal((await sel(kid, `select name from eval_tracks where id = 'master'`))[0].name, 'Member eval form');
-    await as(eboard, () => rpc('eval_track_save', ['master', 'Master template', null]));
+    await as(eboard, () => rpc('eval_track_save', ['master', 'Member eval', null]));
   });
 
   await test('only CEs start evals, and the rubric is copied from the template', async () => {
@@ -1926,7 +1934,7 @@ console.log('Solar Evals (028)');
       answers: { evidence: 'Led the BMS bring-up.' }, rubric: { tampered: true },
     }]))).rows[0].result;
     const e = (await db.query(`select member_email, template_label, rubric ? 'pages' as ok, status, evaluator_id from evals where id = $1`, [evalId])).rows[0];
-    assert.deepEqual(e, { member_email: 'kid@ufl.edu', template_label: 'Electrical CE · Fall 2026', ok: true, status: 'draft', evaluator_id: evalCe });
+    assert.deepEqual(e, { member_email: 'kid@ufl.edu', template_label: 'Electrical members · Fall 2026', ok: true, status: 'draft', evaluator_id: evalCe });
     await as(evalCe, () => rejects(rpc('eval_save', [evalId, { ratings: { communication: 7 } }]), /1 to 5 or N\/O/));
     await as(evalCe2, () => rejects(rpc('eval_save', [evalId, { member_name: 'x' }]), /Only the CE who wrote/));
     await as(member, () => rejects(db.query(`update evals set status = 'shared'`), /permission denied/));
@@ -2041,7 +2049,7 @@ console.log('Solar Evals (028)');
     ceEvalId = (await as(evalCe, () => rpc('eval_start_review', [selfId]))).rows[0].result;
     assert.equal((await as(evalCe, () => rpc('eval_start_review', [selfId]))).rows[0].result, ceEvalId); // once only
     const c = (await db.query(`select kind, self_eval_id, member_name, semester, lead_id, template_label, ratings, rubric ? 'pages' as rubric from evals where id = $1`, [ceEvalId])).rows[0];
-    assert.deepEqual(c, { kind: 'ce', self_eval_id: selfId, member_name: 'Kit Member', semester: 'Spring 2027', lead_id: lead, template_label: 'Electrical CE · Fall 2026', ratings: {}, rubric: true });
+    assert.deepEqual(c, { kind: 'ce', self_eval_id: selfId, member_name: 'Kit Member', semester: 'Spring 2027', lead_id: lead, template_label: 'Electrical members · Fall 2026', ratings: {}, rubric: true });
     await as(kid, () => rejects(rpc('eval_self_submit', [selfId, false]), /already started/));
     await as(kid, () => rejects(rpc('eval_set_status', [selfId, 'shared']), /submitted by its member/));
     await as(evalCe, () => rejects(rpc('eval_set_status', [selfId, 'final']), /submitted by its member/));
