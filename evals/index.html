@@ -662,7 +662,7 @@ const DEFAULT_SETTINGS = {
   labels:{subject:"Member", evaluator:"CE", input:"Subsystem lead", variant:"Division"},
   subjects:{rule:"anyone"}, evaluators:{rule:"permission", value:"evals.write"},
   input:{on:true, rule:"anyone", max:1, pickedBy:"either", notes:false},
-  form:{track:"master", variants:true},
+  form:{track:"master", variants:true, also:[]},
   questionnaire:{on:true, source:"evaluator", id:null},
   meeting:true, comments:true,
   visibility:{answers:{evaluator:"final", input:"final", viewers:"final", extra:"never"},
@@ -1631,10 +1631,13 @@ $("#main").addEventListener("keydown", e => {
 });
 
 /* ---------- starting one ---------- */
-/** The form versions a type's evals can use: its form, and its variants if people pick one. Latest first. */
+/** The other forms a type lets the evaluator pick (039), still around. */
+const alsoForms = s => (Array.isArray(s?.form?.also) ? s.form.also : []).filter(id => track(id) && id !== s.form.track);
+/** The form versions a type's evals can use: its form, its variants if people pick one, and the other forms (with their variants). Latest first. */
 function typeVersions(s){
-  const top = s.form.track, list = [top, ...(s.form.variants ? variantsOf(top).map(t => t.id) : [])].filter(track);
-  return list.filter(id => versionsOf(id).length).map(id => ({t:track(id), vs:versionsOf(id).slice().reverse()}));
+  const top = s.form.track, list = [top, ...(s.form.variants ? variantsOf(top).map(t => t.id) : [])];
+  for (const id of alsoForms(s)) list.push(id, ...(track(id).parent ? [] : variantsOf(id).map(t => t.id)));
+  return [...new Set(list)].filter(track).filter(id => versionsOf(id).length).map(id => ({t:track(id), vs:versionsOf(id).slice().reverse()}));
 }
 const opt = (list, val, none) => (none != null ? `<option value="">${esc(none)}</option>` : "") + list.map(p => `<option value="${esc(p.id)}"${p.id === val ? " selected" : ""}>${esc(p.full_name || p.email)}</option>`).join("");
 const typeOpts = (list, val) => list.map(t => `<option value="${esc(t.id)}"${t.id === val ? " selected" : ""}>${esc(t.name)}</option>`).join("");
@@ -1655,8 +1658,8 @@ function fillNewEval(){
   const ty = typeById($("#nType").value), s = ty.settings, subj = L(s, "subject");
   $("#nTypeHint").textContent = ty.description || "";
   const groups = typeVersions(s), lastTrack = lsGet("sg-evals-last-track");
-  $("#nRubricL").textContent = s.form.variants && variantsOf(s.form.track).length ? `Form (pick the ${lc(L(s, "variant"))})` : "Form";
-  $("#nRubric").innerHTML = groups.map(g => `<optgroup label="${esc(g.t.parent ? g.t.name : `${g.t.name} (main form)`)}">${g.vs.map((v, i) =>
+  $("#nRubricL").textContent = alsoForms(s).length ? "Form (pick one)" : s.form.variants && variantsOf(s.form.track).length ? `Form (pick the ${lc(L(s, "variant"))})` : "Form";
+  $("#nRubric").innerHTML = groups.map(g => `<optgroup label="${esc(g.t.parent ? `${track(g.t.parent)?.name || ""} · ${g.t.name}` : `${g.t.name} (main form)`)}">${g.vs.map((v, i) =>
     `<option value="${esc(v.id)}">${esc(g.t.name)} · ${esc(v.label)}${i === 0 ? " (latest)" : ""}</option>`).join("")}</optgroup>`).join("")
     || `<option value="">This kind of eval's form has no saved version yet</option>`;
   const pick = groups.find(g => g.t.id === lastTrack) || groups.find(g => g.t.parent) || groups[0];
@@ -2159,6 +2162,7 @@ function setupWarnings(d){
   if (!f) w.push("Pick the form these evals use.");
   else if (!versionsOf(f.id).length && !(s.form.variants && variantsOf(f.id).some(v => versionsOf(v.id).length))) w.push(`The ${f.name} form has no saved version yet, so evals can't start. Build one in Forms.`);
   if (s.form.variants && f?.parent) w.push("To let people pick a variant, pick the main form, not one of its variants.");
+  if ((s.form.also || []).some(id => !track(id))) w.push("One of the other forms has been removed. Take it off the list.");
   for (const [k, lab] of [["subjects", "Who is evaluated"], ["evaluators", "Who evaluates"]]) if (s[k].rule !== "anyone" && !s[k].value) w.push(`“${lab}”: finish picking who.`);
   if (s.input.on && s.input.rule !== "anyone" && !s.input.value) w.push("“Input from”: finish picking who.");
   if (s.questionnaire.on && s.questionnaire.source === "questionnaire" && !qnaire(s.questionnaire.id)) w.push("Pick which questionnaire people answer (or make one in Questionnaires).");
@@ -2180,7 +2184,7 @@ function howItWorks(d){
   if (s.questionnaire.on) steps.push(`${cap(ruleText(s.subjects))} can fill out a self-eval: ${s.questionnaire.source === "questionnaire" ? `the “${esc(qnaire(s.questionnaire.id)?.name || "?")}” questionnaire` : `their ${ev}'s own questions`}.`
     + ` They pick their ${ev}${s.evaluators.rule === "person" ? ` (always ${esc(personName(s.evaluators.value) || "?")})` : ""}${s.input.on && s.input.pickedBy !== "evaluator" ? ` and their ${inp}` : ""}, and submit it.${s.notify.submitted ? ` The ${ev} is emailed.` : ""}`
     + (v.answers.evaluator === "never" ? ` The ${ev} never sees the answers.` : ` The ${ev} sees the answers ${answers[v.answers.evaluator]}.`));
-  steps.push(`${cap(ruleText(s.evaluators))} write${s.evaluators.rule === "person" ? "s" : ""} the eval${s.questionnaire.on ? ` (from the self-eval, or on their own)` : ""} on the <b>${esc(f ? f.name : "?")}</b> form${s.form.variants && f && variantsOf(f.id).length ? `, picking the ${esc(lc(L(s, "variant")))}` : ""}.`
+  steps.push(`${cap(ruleText(s.evaluators))} write${s.evaluators.rule === "person" ? "s" : ""} the eval${s.questionnaire.on ? ` (from the self-eval, or on their own)` : ""} on the <b>${esc(f ? f.name : "?")}</b> form${s.form.variants && f && variantsOf(f.id).length ? `, picking the ${esc(lc(L(s, "variant")))}` : ""}${alsoForms(s).length ? `, or on another form picked when it's started: ${esc(listText(alsoForms(s).map(trackLabel)))}` : ""}.`
     + (s.input.on ? ` ${s.input.pickedBy === "subject" ? `The ${sub} picks` : s.input.pickedBy === "evaluator" ? `The ${ev} picks` : `The ${sub} or ${ev} picks`} up to ${s.input.max} ${inp}${s.input.max > 1 ? "s" : ""} from ${ruleText(s.input)}${s.notify.input ? ", who are emailed" : ""}.`
       + (v.eval.input === "never" ? ` They don't see the eval.` : ` They can read it ${whenEval[v.eval.input]}${s.input.notes ? " and leave private notes for the " + ev : ""}.`) : " Nobody else gives input."));
   const fin = [v.eval.viewers === "final" || v.eval.viewers === "shared" ? `people whose position can “See all evals” (${v.eval.viewers === "final" ? "once it's finished" : "once it's shared"})` : "",
@@ -2213,7 +2217,7 @@ function renderSetup(){
   const L2 = k => esc(L(s, k));
   let h = toolbarHTML(isNew ? "New eval type" : d.name || "Untitled", meta, acts, "var(--orange)");
   if (warn.length) h += `<div class="banner"><span class="bt"><b>Check before saving:</b><br>${warn.map(esc).join("<br>").replace(/&lt;b&gt;|&lt;\/b&gt;/g, "")}</span></div>`;
-  h += `<div class="howto"><b>How ${/\beval$/i.test(d.name.trim()) ? `a ${esc(d.name.trim())}` : `a ${esc(d.name.trim() || "new")} eval`} goes</b><ol>${howItWorks(d).map(x => `<li>${x}</li>`).join("")}</ol></div>`;
+  h += `<div class="howto"><b>How ${/^[aeiou]/i.test(d.name.trim()) ? "an" : "a"} ${/\beval$/i.test(d.name.trim()) ? esc(d.name.trim()) : `${esc(d.name.trim() || "new")} eval`} goes</b><ol>${howItWorks(d).map(x => `<li>${x}</li>`).join("")}</ol></div>`;
   h += `<div class="setup">
     ${isNew ? `<div class="scard"><h3>Start from</h3><p class="sd">Copy the settings of an eval type you already have, then change what's different.</p>
       ${srow("Copy", `<select class="fi" id="sCopy">${types.map(x => `<option value="${esc(x.id)}"${x.id === lsGet("sg-evals-setup-copy") ? " selected" : ""}>${esc(x.name)}</option>`).join("")}</select>`)}</div>` : ""}
@@ -2236,7 +2240,8 @@ function renderSetup(){
         ${chk("settings.input.notes", s.input.notes, `They can leave private notes for the ${lc(L(s, "evaluator"))} while it's a draft`)}` : ""}`)}</div>
     <div class="scard"><h3>The form</h3>
       ${srow("Form", pick("settings.form.track", formOpts, s.form.track, "Form"), `Build and change forms in <a href="#/rubrics/${esc(s.form.track)}">Forms</a>. Each eval keeps a copy of the version it started on.`)}
-      ${hasVariants ? srow(L2("variant"), chk("settings.form.variants", s.form.variants, `People pick a ${lc(L(s, "variant"))} (${esc(listText(variantsOf(s.form.track).map(x => x.name)))})`), s.form.variants ? "" : "Everyone uses the main form.") : ""}</div>
+      ${hasVariants ? srow(L2("variant"), chk("settings.form.variants", s.form.variants, `People pick a ${lc(L(s, "variant"))} (${esc(listText(variantsOf(s.form.track).map(x => x.name)))})`), s.form.variants ? "" : "Everyone uses the main form.") : ""}
+      ${srow("Other forms they can pick", alsoHTML(s), "Whoever starts an eval picks the form then: the one above or any of these (and their variants).")}</div>
     <div class="scard"><h3>Self-eval questionnaire</h3>
       ${srow("Self-eval", chk("settings.questionnaire.on", s.questionnaire.on, `The ${lc(L(s, "subject"))} answers questions first`), s.questionnaire.on ? "" : `The ${lc(L(s, "evaluator"))} starts the eval directly.`)}
       ${s.questionnaire.on ? srow("Questions", `${pick("settings.questionnaire.source", [["evaluator", `Each ${lc(L(s, "evaluator"))}'s own questions`], ["questionnaire", "A shared questionnaire"]], s.questionnaire.source, "Questions")}
@@ -2260,6 +2265,15 @@ function renderSetup(){
   </div>`;
   m.innerHTML = h;
 }
+/** Checkboxes for the other forms an evaluator can pick when starting an eval. */
+function alsoHTML(s){
+  const on = new Set(s.form.also || []), mainTop = track(s.form.track)?.parent || s.form.track;
+  const list = forms().filter(f => f.id !== mainTop);
+  const gone = [...on].filter(id => !track(id));
+  return (list.map(f => `<label class="sw2"><input type="checkbox" data-also="${esc(f.id)}"${on.has(f.id) ? " checked" : ""}> ${esc(f.name)}${variantsOf(f.id).length ? ` <span class="fh" style="display:inline">(and its ${variantsOf(f.id).length} variant${variantsOf(f.id).length === 1 ? "" : "s"})</span>` : ""}</label>`).join("")
+    || `<div class="fh">There are no other forms yet. Make one in <a href="#/rubrics">Forms</a>.</div>`)
+    + gone.map(id => `<label class="sw2"><input type="checkbox" data-also="${esc(id)}" checked> <i>A removed form</i> (untick it)</label>`).join("");
+}
 function setupInput(e){
   const t = e.target;
   if (t.id?.startsWith("g")) { groupInput(t); return; }
@@ -2271,6 +2285,11 @@ function setupChange(e){
   if (t.id === "sCopy") { lsSet("sg-evals-setup-copy", t.value); const name = setupView.draft.name, desc = setupView.draft.description;
     setupView.draft.settings = fillSettings(clone(typeById(t.value).settings)); setupView.draft.name = name; setupView.draft.description = desc; setupView.dirty = true; renderSetup(); return; }
   if (t.dataset.gadd) { groupAdd(t); return; }
+  if (t.dataset.also) {
+    const s = setupView.draft.settings, set = new Set(s.form.also || []);
+    if (t.checked) set.add(t.dataset.also); else set.delete(t.dataset.also);
+    s.form.also = [...set]; setupView.dirty = true; renderSetup(); return;
+  }
   if (!t.dataset.sp) return;
   const path = t.dataset.sp;
   let val = t.type === "checkbox" ? t.checked : t.type === "number" ? Math.min(10, Math.max(1, +t.value || 1)) : t.value;
@@ -2282,6 +2301,7 @@ function setupChange(e){
   if (path === "settings.questionnaire.id" && !val) val = null;
   setSetup(path, val, true);
   const s = setupView.draft.settings;
+  if (path === "settings.form.track") s.form.also = (s.form.also || []).filter(id => id !== (track(val)?.parent || val));
   if (path === "settings.form.track" && track(val)?.parent) s.form.variants = false;
   if (path === "settings.form.track" && !track(val)?.parent && variantsOf(val).length && !typeById(setupView.id)) s.form.variants = true;
   if (path === "settings.input.notes" && val && s.visibility.eval.input !== "draft") { s.visibility.eval.input = "draft"; toast(`So they can leave notes, the ${lc(L(s, "input"))} can now read the eval while it's being written.`, 6000); }

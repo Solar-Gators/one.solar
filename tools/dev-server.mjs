@@ -1,7 +1,7 @@
 /**
  * Local development server for every OneSolar app (GitHub Pages serves the same files).
  *
- *   npm run dev            → http://localhost:5173/ (home screen), /orders/, /evals/, /gatorwire/, /scope-map/, /iv-analyzer/
+ *   npm run dev            → http://localhost:5173/ (home screen), /orders/, /evals/, /gatorwire/, /scope-map/
  *                            talking to the real Supabase project
  *   npm run dev:fake       → no Supabase needed: Orders swaps orders/js/supabase.js for
  *                            tools/fake-supabase.js (every migration in an in-browser Postgres, PGlite),

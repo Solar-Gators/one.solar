@@ -2,7 +2,7 @@
 
 **https://solar-gators.github.io/one.solar/evals/** · [`evals/index.html`](../evals/index.html)
 
-Semester reviews, filled out online instead of on paper. Sign in with your **[OneSolar](https://solar-gators.github.io/one.solar/)** account; everything is kept in the OneSolar (Orders) database (migrations `028`, `031`, `032`, `036_eval_types.sql` and `037_eval_form_names.sql`).
+Semester reviews, filled out online instead of on paper. Sign in with your **[OneSolar](https://solar-gators.github.io/one.solar/)** account; everything is kept in the OneSolar (Orders) database (migrations `028`, `031`, `032`, `036_eval_types.sql`, `037_eval_form_names.sql`, `038_eval_communication.sql` and `039_eval_more_forms.sql`).
 
 Everything below is set up on the page, not in code: the forms, the questionnaires, and the whole flow for each kind of eval.
 
@@ -13,7 +13,7 @@ People with **Set up Solar Evals** (`evals.types`, Admin and E-board by default)
 - **What to call people:** e.g. Officer / President / Lead / Position. Buttons, messages and emails use these words.
 - **Who evaluates whom:** who is evaluated, who evaluates, and who gives input. Each one is anyone, a permission ("Fill out evals"), a OneSolar position, a **group**, or one person. Groups (Setup → Groups) are named lists of people, so nobody needs a new position just for evals.
 - **Input from:** on or off; up to how many people; whether the person evaluated, the evaluator or either picks them; and whether they can leave **private notes** for the evaluator while it's a draft. The person evaluated never sees the notes.
-- **The form:** which form it uses, and whether people pick a variant of it (a division or a position).
+- **The form:** which form it uses, and whether people pick a variant of it (a division or a position). **Other forms they can pick** lists more forms: whoever starts an eval then picks any of them (or their variants) instead.
 - **Self-eval questionnaire:** on or off. The questions come from each evaluator's own list, or from a shared questionnaire.
 - **Steps:** whether there's a meeting, and whether the person can comment on their eval.
 - **Who sees what, and when:** for the self-eval answers and for the eval: the person evaluated, the evaluator, the people giving input, "See all evals", and one more group you choose (e.g. the E-board position). The database enforces this.
@@ -22,6 +22,8 @@ People with **Set up Solar Evals** (`evals.types`, Admin and E-board by default)
 At the top, **How a … eval goes** spells out the flow in plain words as you change it, and it warns you about anything that won't work.
 
 Every eval keeps a copy of its type's settings from when it started, so changing a type only changes new evals. **Apply to evals in progress** gives the open ones (anything not shared yet) the new settings. **History** keeps every save. A type nobody has used can be deleted; a used one is turned off instead.
+
+**E-board eval** (added by 039): the E-board position evaluates the E-board. When you start one you pick the form: the person's position on the Leadership eval, or the Member eval (tick more under Other forms they can pick). Up to 3 people give input, picked by the evaluator, with private notes; no self-eval; a meeting, then it's shared. Change any of it in Setup.
 
 **Member eval** is the original flow: the member answers their CE's questions → the CE writes the eval with the subsystem lead's input → once it's finished, the CE sees the answers and schedules the meeting → after the meeting the CE shares it, and the member reads both and can comment.
 
@@ -41,7 +43,7 @@ Example, **the President evaluates the CEs with feedback from their leads**:
 - **Before saving**, the save dialog lists anything that looks wrong (missing level descriptions, empty pages, no "who it's for" field).
 - **History** and **Compare** show what changed between any two versions.
 
-The **Leadership eval** form came from the leadership positions PDF: a main form plus a variant for each position (8 of them since 037: one **Chief Engineer** and one **Integration Project Manager** form for both divisions, with a **Division** field). The **Member eval** form has a variant for each division's members. The main form's second page has four "Position duty" write-in rows, and their level text is placeholder.
+The **Leadership eval** form came from the leadership positions PDF: a main form plus a variant for each position (8 of them since 037: one **Chief Engineer** and one **Integration Project Manager** form for both divisions, with a **Division** field). The **Member eval** form has a variant for each division's members. On every form, **Communication** also rates the personable side: how approachable and easy to work with someone is (038, as v1.1 of each form). The main form's second page has four "Position duty" write-in rows, and their level text is placeholder.
 
 ## Questionnaires
 

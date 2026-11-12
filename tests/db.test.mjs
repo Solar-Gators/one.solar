@@ -299,7 +299,7 @@ await test('the website cannot change the schema version', async () => {
   const general = (await db.query(`select value from app_settings where key = 'general'`)).rows[0].value;
   await as(ce, () => rpc('update_settings', ['general', { ...general, schemaVersion: 99 }]));
   const after = (await db.query(`select value from app_settings where key = 'general'`)).rows[0].value;
-  assert.equal(after.schemaVersion, 37);
+  assert.equal(after.schemaVersion, 39);
 });
 
 console.log('Form fields');
@@ -1885,11 +1885,16 @@ console.log('Solar Evals (028)');
   let evalId, versionId;
 
   await test('the master rubric v1.0 and four CE divisions are there for everyone signed in', async () => {
-    const t = await sel(stranger, `select label, rubric -> 'pages' -> 0 ->> 'name' as p from eval_templates where track_id not like 'lead%'`);
-    assert.deepEqual(t, [{ label: 'v1.0', p: 'Universal rubric' }]);
+    const t = await sel(stranger, `select label, rubric -> 'pages' -> 0 ->> 'name' as p from eval_templates where track_id not like 'lead%' order by created_at`);
+    assert.deepEqual(t, [{ label: 'v1.0', p: 'Universal rubric' }, { label: 'v1.1', p: 'Universal rubric' }]);
+    // 038: every form's Communication row also rates how easy they are to work with (a new version; v1.0 is kept)
+    const comm = await sel(stranger, `select distinct on (track_id) track_id, label, (select c from jsonb_array_elements(rubric -> 'pages') p, jsonb_array_elements(p -> 'criteria') c where c ->> 'id' = 'communication') c
+      from eval_templates where track_id in (select id from eval_tracks) order by track_id, created_at desc`);   // forms still listed
+    assert.equal(comm.length, 10);
+    for (const x of comm) { assert.equal(x.label, 'v1.1', x.track_id); assert.match(x.c.sub, /approachability/); assert.match(x.c.levels[2], /easy to work with/); assert.equal(x.c.levels.length, 5); }
     assert.equal((await sel(stranger, `select count(*)::int n from eval_tracks where id not like 'lead%'`))[0].n, 5);
     // 036: the Leadership eval form, with a variant per position, each with its two pages
-    const lead = await sel(stranger, `select t.name, jsonb_array_length(v.rubric -> 'pages') pages from eval_tracks t join eval_templates v on v.track_id = t.id where t.parent_id = 'leadership' order by t.sort`);
+    const lead = await sel(stranger, `select t.name, jsonb_array_length(v.rubric -> 'pages') pages from eval_tracks t join eval_templates v on v.track_id = t.id where t.parent_id = 'leadership' and v.label = 'v1.0' order by t.sort`);
     // 037: one Chief Engineer and one Integration Project Manager form for both divisions
     assert.deepEqual(lead.map((x) => x.name), ['President', 'Vice President', 'Treasurer', 'Secretary', 'Business Coordinator', 'Chief Engineer', 'Integration Project Manager', 'Subsystem Lead']);
     assert.deepEqual(lead[0], { name: 'President', pages: 2 });
@@ -1914,6 +1919,8 @@ console.log('Solar Evals (028)');
   });
 
   await test('removing a version hides it; the last master version cannot go', async () => {
+    const v11 = (await sel(kid, `select id from eval_templates where track_id = 'master' and label = 'v1.1'`))[0].id;
+    await as(evalCe, () => rpc('eval_template_remove', [v11])); // the main form can lose a version while it has another
     await as(evalCe, () => rejects(rpc('eval_template_remove', [MASTER]), /at least one version/));
     const rubric = (await db.query(`select rubric from eval_templates where id = $1`, [MASTER])).rows[0].rubric;
     const oops = (await as(evalCe, () => rpc('eval_template_save', ['electrical', 'Oops', '', MASTER, rubric]))).rows[0].result;
@@ -2239,6 +2246,35 @@ console.log('Solar Evals (028)');
     await db.exec(`update eval_types set active = false where id <> 'member'`);
     await as(eboard, () => rejects(rpc('eval_type_save', ['member', 'Member eval', '', false, base, '']), /at least one eval type/));
     await db.exec(`update eval_types set active = true`);
+  });
+
+  await test('039: the E-board eval lets the evaluator pick the form: a position, or another listed form', async () => {
+    const ty = (await sel(kid, `select name, settings -> 'form' f, settings -> 'subjects' s from eval_types where id = 'eboard'`))[0];
+    assert.equal(ty.name, 'E-board eval');
+    assert.deepEqual(ty.s, { rule: 'role', value: 'eboard' });
+    assert.equal(ty.f.track, 'leadership');
+    assert.ok(ty.f.also.includes('master') && !ty.f.also.includes('leadership'), JSON.stringify(ty.f));
+    await db.query(`insert into profile_roles (user_id, role) values ($1, 'eboard') on conflict do nothing`, [prez]);
+    const latestOf = async (t) => (await sel(kid, `select id from eval_templates where track_id = $1 and removed_at is null order by created_at desc limit 1`, [t]))[0].id;
+    const start = (tid) => as(eboard, () => rpc('eval_save', [null, { type_id: 'eboard', template_id: tid, subject_id: prez, semester: 'Spring 2027' }]));
+    await as(kid, () => rejects(rpc('eval_save', [null, { type_id: 'eboard', template_id: MASTER, subject_id: prez }]), /don't write E-board eval evals/));
+    for (const t of ['lead-treasurer', 'leadership', 'master', 'electrical']) assert.ok((await start(await latestOf(t))).rows[0].result, t);
+    await rejects(start(formV), /isn't one E-board eval evals use/);   // not on the list
+    await as(eboard, () => rejects(rpc('eval_save', [null, { type_id: 'eboard', template_id: MASTER, subject_id: kid }]), /isn't someone who gets/));
+    // Adding a form to the list lets it be picked; a form on the list can't be removed; unknown forms are refused.
+    const s = (await sel(eboard, `select settings from eval_types where id = 'eboard'`))[0].settings;
+    await as(eboard, () => rejects(rpc('eval_type_save', ['eboard', 'E-board eval', '', true, { ...s, form: { ...s.form, also: ['nope'] } }, '']), /has been removed/));
+    await as(eboard, () => rejects(rpc('eval_type_save', ['eboard', 'E-board eval', '', true, { ...s, form: { ...s.form, also: 'master' } }, '']), /incomplete/));
+    await as(eboard, () => rpc('eval_type_save', ['eboard', 'E-board eval', '', true, { ...s, form: { ...s.form, also: [...s.form.also, formId] } }, 'Add the CE eval form']));
+    assert.ok((await start(formV)).rows[0].result);
+    const spare = (await as(eboard, () => rpc('eval_form_save', [null, 'Spare form', '#123456', null]))).rows[0].result;
+    await as(eboard, () => rpc('eval_type_save', ['eboard', 'E-board eval', '', true, { ...s, form: { ...s.form, also: [spare] } }, '']));
+    await as(eboard, () => rejects(rpc('eval_form_remove', [spare]), /used by E-board eval/));
+    // Types saved without the list (older pages) still work.
+    const old = structuredClone(s); delete old.form.also;
+    await as(eboard, () => rpc('eval_type_save', ['eboard', 'E-board eval', '', true, old, '']));
+    await rejects(start(MASTER), /isn't one E-board eval evals use/);
+    assert.ok((await start(await latestOf('lead-president'))).rows[0].result);
   });
 }
 

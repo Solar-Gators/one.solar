@@ -91,11 +91,6 @@ const OTHER_APPS = [
     where: 'On the page: <strong>✎ Edit</strong>, then <strong>Save file</strong>.',
   },
   {
-    icon: '☀️', name: 'I–V Analyzer', who: 'Each person, in their own browser',
-    items: [['Screening settings', 'Correction coefficients, uncertainty and the Ne3 limits. Saved in each browser; share them as a file.', 'iv-analyzer/']],
-    where: 'In the I–V Analyzer: the <strong>Guide &amp; settings</strong> tab, then <strong>Export settings</strong> / <strong>Import settings</strong>.',
-  },
-  {
     icon: '🔌', name: 'GatorWire', who: 'Anyone with a GitHub token for the shared file',
     items: [['Shared project', 'Which wiring file the team works on, shared through GitHub.', 'gatorwire/']],
     where: 'In GatorWire: the <strong>Share</strong> button at the top right.',

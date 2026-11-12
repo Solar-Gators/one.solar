@@ -88,15 +88,6 @@ export const APPS = [
     access: 'public',
   },
   {
-    id: 'iv-analyzer',
-    section: 'tools',
-    name: 'I–V Analyzer',
-    blurb: 'Screen array modules from tracer sweeps: STC-corrected power, fill factor and a retest list.',
-    href: 'iv-analyzer/',
-    icon: '☀️',
-    access: 'public',
-  },
-  {
     id: 'admin',
     section: 'apps',
     name: 'Admin',

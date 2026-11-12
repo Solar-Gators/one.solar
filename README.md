@@ -12,7 +12,6 @@ Every Solar Gators team app, in one place and one repo: **https://solar-gators.g
 | Solar Evals | `/one.solar/evals/` | [`evals/`](evals) | [docs/solar-evals.md](docs/solar-evals.md) |
 | GatorWire | `/one.solar/gatorwire/` | [`gatorwire/`](gatorwire) | [docs/gatorwire.md](docs/gatorwire.md) |
 | CE Scope Map | `/one.solar/scope-map/` | [`scope-map/`](scope-map) | an editable four-way Venn diagram of Chief Engineer responsibilities |
-| I–V Analyzer | `/one.solar/iv-analyzer/` | [`iv-analyzer/`](iv-analyzer) | [docs/iv-analyzer.md](docs/iv-analyzer.md) |
 | Solar Gators website | https://ufsolargators.org/ | (its own repo, Advertisement-Website) | a card on the home screen |
 
 Orders, Finances, Sponsors and Admin are separate apps (each its own address, top bar and menu) built from the same

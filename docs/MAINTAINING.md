@@ -128,7 +128,6 @@ finances/, sponsors/, admin/   index.html only: the same code as Orders, as its 
 evals/index.html         Solar Evals (one page: evaluations, forms, questionnaires, setup)
 gatorwire/index.html     GatorWire (a built file: upload new builds here)
 scope-map/index.html     CE Scope Map
-iv-analyzer/index.html   I–V Analyzer (one page, no accounts; everything stays in the browser)
 supabase/migrations/     Database changes, in order: tables, security, permissions, workflow (all apps)
 supabase/functions/send-notifications/index.ts   Sends queued email / Teams messages
 tests/db.test.mjs        Database security + workflow tests
