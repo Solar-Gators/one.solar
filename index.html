@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>OneSolar · Solar Gators</title>
-  <meta name="description" content="OneSolar: every Solar Gators team app in one place — Orders, Sponsors, Finances, Solar Evals, GatorWire and more.">
+  <title>one.solar · Solar Gators</title>
+  <meta name="description" content="one.solar: every Solar Gators team app in one place — Orders, Sponsors, Finances, Solar Evals, GatorWire and more.">
   <link rel="icon" href="shared/assets/favicon.png">
   <link rel="apple-touch-icon" href="shared/assets/apple-touch-icon.png">
   <script src="shared/theme.js"></script>
@@ -14,10 +14,10 @@
 <body>
   <header class="topbar">
     <div class="topbar-inner">
-      <a class="brand" href="./" aria-label="OneSolar home">
+      <a class="brand" href="./" aria-label="one.solar home">
         <img class="brand-logo" data-auto-logo src="shared/assets/solar-gators-logo.png" alt="Solar Gators" width="800" height="237">
         <span class="brand-divider" aria-hidden="true"></span>
-        <span>One<span class="brand-accent">Solar</span></span>
+        <span>one<span class="brand-accent">.solar</span></span>
       </a>
       <div class="topbar-end" id="account"></div>
     </div>
@@ -29,7 +29,7 @@
     <section class="hero">
       <div class="hero-row">
         <div>
-          <h1 id="hello">Welcome to OneSolar</h1>
+          <h1 id="hello">Welcome to one.solar</h1>
           <p id="lede"></p>
         </div>
         <button type="button" class="btn btn-sm" id="edit-open" hidden>✎ Edit home screen</button>
@@ -39,6 +39,8 @@
         <input type="search" id="search" placeholder="Find an app…  ( / )" autocomplete="off" spellcheck="false">
       </div>
     </section>
+    <p class="alert alert-success" id="waiting-done" role="status" hidden></p>
+    <section class="card waiting" id="waiting" aria-label="Waiting to join the team" hidden></section>
     <div id="apps" aria-label="Apps"></div>
     <div class="more" id="more"></div>
   </main>
@@ -51,7 +53,7 @@
     // cached right after a new version went up), say so instead of showing a blank page.
     setTimeout(function () {
       if (document.body.classList.contains('ready')) return;
-      document.getElementById('apps').innerHTML = '<div class="card"><strong>OneSolar didn’t finish loading.</strong>'
+      document.getElementById('apps').innerHTML = '<div class="card"><strong>one.solar didn’t finish loading.</strong>'
         + '<p class="muted">Check your connection, then reload. Right after an update, a hard refresh helps: Ctrl + Shift + R (Mac: Cmd + Shift + R).</p>'
         + '<button type="button" class="btn btn-primary" onclick="location.reload()">Reload</button></div>';
       document.body.classList.add('ready');

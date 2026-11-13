@@ -1,4 +1,4 @@
-/* OneSolar · Orders: the page-specific styles. The colours, top bar, buttons, forms, cards,
+/* one.solar · Orders: the page-specific styles. The colours, top bar, buttons, forms, cards,
  * tables and alerts every app shares are in ../../shared/onesolar.css (loaded first). */
 
 .detail-layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 16px; align-items: start; }
@@ -1541,3 +1541,6 @@ a.step-link:hover { text-decoration: underline; }
 .no-access { max-width: 560px; margin: 32px auto; text-align: center; }
 .no-access h1 { font-size: 1.4rem; margin-bottom: 8px; }
 .no-access .form-actions { justify-content: center; }
+
+/* 040: someone waiting to be accepted into the team */
+.guest-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }

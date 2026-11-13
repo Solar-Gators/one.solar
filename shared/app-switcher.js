@@ -1,5 +1,5 @@
 /**
- * OneSolar: the app switcher (⊞ next to the logo in every app's top bar, or Ctrl/⌘ + K).
+ * one.solar: the app switcher (⊞ next to the logo in every app's top bar, or Ctrl/⌘ + K).
  * Opens a small grid of the apps you can use, with a search box, so you can jump between apps
  * without going back to the home screen.
  *
@@ -101,7 +101,7 @@ export function mountAppSwitcher({ after = document.querySelector('.topbar .bran
     <div class="os-switch-pop" id="os-switch-pop" role="dialog" aria-label="Switch app" hidden>
       <input type="search" placeholder="Find an app…" aria-label="Find an app" autocomplete="off" spellcheck="false">
       <div class="os-switch-grid"></div>
-      <div class="os-switch-foot"><a href="${esc(appUrl(''))}">All apps · OneSolar home</a><span>Ctrl + K</span></div>
+      <div class="os-switch-foot"><a href="${esc(appUrl(''))}">All apps · one.solar home</a><span>Ctrl + K</span></div>
     </div>`;
   after.after(wrap);
   // Narrow phones with a folding Menu (Orders, Finances, Sponsors, Admin): no room for ⊞ next to the
@@ -111,7 +111,7 @@ export function mountAppSwitcher({ after = document.querySelector('.topbar .bran
     const item = document.createElement('a');
     item.className = 'os-nav-apps';
     item.href = '#';
-    item.textContent = '⊞ All OneSolar apps';
+    item.textContent = '⊞ All one.solar apps';
     item.onclick = (e) => {
       e.preventDefault();
       e.stopPropagation(); // keep the page's "click elsewhere closes the menu" from running too

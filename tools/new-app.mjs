@@ -1,12 +1,12 @@
 /**
- * Start a new OneSolar app:
+ * Start a new one.solar app:
  *
  *   npm run new-app -- "Parts Library"
  *   npm run new-app -- "Parts Library" --icon=🧰 --section=tools --blurb="Every part we stock." --public
  *
  * It makes <folder>/index.html (folder = the name in lower case with dashes: parts-library/)
- * already in the OneSolar look: the shared top bar (logo → home screen, the app's name, the
- * ⊞ app switcher), Light / Dark, and OneSolar accounts (who's signed in, their name and
+ * already in the one.solar look: the shared top bar (logo → home screen, the app's name, the
+ * ⊞ app switcher), Light / Dark, and one.solar accounts (who's signed in, their name and
  * position, Sign in / Sign out). Then it adds a card for it to hub/apps.js.
  *
  *   --icon=🧰        the card's emoji (default 🧩)
@@ -55,7 +55,7 @@ const script = accounts
   import { renderAccount } from '../shared/account-menu.js';
   import { mountAppSwitcher } from '../shared/app-switcher.js';
 
-  // OneSolar accounts: the same sign-in as every other app (one session for the whole site).
+  // one.solar accounts: the same sign-in as every other app (one session for the whole site).
   const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { flowType: 'pkce', persistSession: true, detectSessionInUrl: false } });
   mountAppSwitcher();
 
@@ -77,7 +77,7 @@ const script = accounts
 
   const main = document.getElementById('main');
   if (!user) {
-    main.innerHTML = \`<div class="card"><h2>${html(name)}</h2><p>Sign in with your OneSolar account to use ${html(name)}.</p>
+    main.innerHTML = \`<div class="card"><h2>${html(name)}</h2><p>Sign in with your one.solar account to use ${html(name)}.</p>
       <a class="btn btn-primary" href="\${signInUrl()}">Sign in</a></div>\`;
   } else {
     // Your app starts here. sb is a Supabase client signed in as this person: sb.from('table')…
@@ -101,9 +101,9 @@ const page = `<!doctype html>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>${html(name)} · OneSolar</title>
+  <title>${html(name)} · one.solar</title>
   <link rel="icon" href="../shared/assets/favicon.png">
-  <!-- The OneSolar look: Light / Dark first (no flash), then the shared styles. -->
+  <!-- The one.solar look: Light / Dark first (no flash), then the shared styles. -->
   <script src="../shared/theme.js"></script>
   <link rel="stylesheet" href="../shared/onesolar.css">
   <style>
@@ -114,13 +114,13 @@ const page = `<!doctype html>
   </style>
 </head>
 <body>
-  <!-- The OneSolar top bar, the same in every app. Add a <nav class="nav"> after .brand for tabs. -->
+  <!-- The one.solar top bar, the same in every app. Add a <nav class="nav"> after .brand for tabs. -->
   <header class="topbar">
     <div class="topbar-inner">
-      <a class="brand" href="../" aria-label="OneSolar: all Solar Gators apps">
+      <a class="brand" href="../" aria-label="one.solar: all Solar Gators apps">
         <img class="brand-logo" data-auto-logo src="../shared/assets/solar-gators-logo.png" alt="Solar Gators" width="800" height="237">
         <span class="brand-divider" aria-hidden="true"></span>
-        <span>One<span class="brand-accent">Solar</span></span>
+        <span>one<span class="brand-accent">.solar</span></span>
         <span class="brand-app">${html(name)}</span>
       </a>
       <div class="topbar-end" id="account"></div>

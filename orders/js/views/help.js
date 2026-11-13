@@ -1,5 +1,5 @@
 /**
- * Help page: the team's own instructions, written in Admin → OneSolar → Banner & messages.
+ * Help page: the team's own instructions, written in Admin → one.solar → Banner & messages.
  * The Help tab only appears once someone has written it.
  */
 import { auth } from '../auth.js';
@@ -16,7 +16,7 @@ export async function renderHelp(el, { config }) {
       own
         ? `<section class="card help-page">${renderRichText(own)}</section>`
         : `<div class="empty">There's no Help page yet.${
-            auth.can('site.customize') ? ' Write one in <a href="#/admin/text">Admin → OneSolar → Banner &amp; messages</a>, and Help appears for everyone.' : ''
+            auth.can('site.customize') ? ' Write one in <a href="#/admin/text">Admin → one.solar → Banner &amp; messages</a>, and Help appears for everyone.' : ''
           }</div>`
     }`;
 }

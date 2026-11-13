@@ -81,7 +81,14 @@ async function rejects(promise, pattern) {
 }
 
 let n = 0;
+/** A new account, accepted into the team as a Member (as everyone was before 040). */
 async function signUp(email, name) {
+  const id = await signUpGuest(email, name);
+  await db.query(`insert into profile_roles (user_id, role) values ($1, 'member')`, [id]);
+  return id;
+}
+/** A new account as it is right after signing up (040): a Guest. */
+async function signUpGuest(email, name) {
   const id = `00000000-0000-0000-0000-${String(++n).padStart(12, '0')}`;
   await db.query(`insert into auth.users (id, email, raw_user_meta_data) values ($1, $2, $3)`, [id, email, { full_name: name }]);
   return id;
@@ -299,7 +306,7 @@ await test('the website cannot change the schema version', async () => {
   const general = (await db.query(`select value from app_settings where key = 'general'`)).rows[0].value;
   await as(ce, () => rpc('update_settings', ['general', { ...general, schemaVersion: 99 }]));
   const after = (await db.query(`select value from app_settings where key = 'general'`)).rows[0].value;
-  assert.equal(after.schemaVersion, 39);
+  assert.equal(after.schemaVersion, 40);
 });
 
 console.log('Form fields');
@@ -528,7 +535,7 @@ const permsOf = async (role) =>
 
 await test('everyone signed in can read the permission list', async () => {
   const { rows } = await as(member, () => db.query(`select key from permissions order by sort`));
-  assert.deepEqual(rows.map((r) => r.key), ['request.review', 'request.order', 'settings.edit', 'site.customize', 'seasons.manage', 'workflow.edit', 'finances.view', 'finances.edit', 'sponsors.view', 'sponsors.edit', 'evals.templates', 'evals.write', 'evals.view', 'users.manage', 'evals.types', 'roles.edit']);
+  assert.deepEqual(rows.map((r) => r.key), ['request.review', 'people.accept', 'request.order', 'settings.edit', 'site.customize', 'seasons.manage', 'workflow.edit', 'finances.view', 'finances.edit', 'sponsors.view', 'sponsors.edit', 'evals.templates', 'evals.write', 'evals.view', 'users.manage', 'evals.types', 'roles.edit']);
 });
 
 await test('members cannot change permissions', async () => {
@@ -574,7 +581,7 @@ await test('the whole grid saves at once, so "Manage people" can move between ro
   assert.ok(!(await permsOf('treasurer')).includes('users.manage'));
   // And a grid that leaves nobody able to manage people is refused as a whole.
   await as(grid, () => rejects(rpc('set_permission_matrix', [{ ce: ['request.review'], member: ['request.review'] }]), /At least one person must keep/));
-  assert.deepEqual(await permsOf('member'), []); // nothing from the refused save stuck
+  assert.deepEqual(await permsOf('member'), ['people.accept']); // nothing from the refused save stuck
   await as(grid, () => rpc('set_permission_matrix', [{ treasurer: ['request.order', 'settings.edit', 'users.manage'] }])); // restore
 });
 
@@ -701,7 +708,7 @@ await test('no roles means Member; unknown roles are refused', async () => {
 
 await test('Admin has every permission, including the new ones', async () => {
   const perms = (await db.query(`select string_agg(permission, ',' order by permission) as p from role_permissions where role = 'admin'`)).rows[0].p;
-  assert.equal(perms, 'evals.templates,evals.types,evals.view,evals.write,finances.edit,finances.view,request.order,request.review,roles.edit,seasons.manage,settings.edit,site.customize,sponsors.edit,sponsors.view,users.manage,workflow.edit');
+  assert.equal(perms, 'evals.templates,evals.types,evals.view,evals.write,finances.edit,finances.view,people.accept,request.order,request.review,roles.edit,seasons.manage,settings.edit,site.customize,sponsors.edit,sponsors.view,users.manage,workflow.edit');
 });
 
 await test('custom roles: create, rename, grant, and delete', async () => {
@@ -787,7 +794,7 @@ await test('permission grid changes are versioned and can be undone', async () =
   assert.equal(after.length, before.length + 1);
   assert.deepEqual(after.at(-1).value.member, ['request.review']);
   await as(grid, () => rpc('restore_settings_version', [before.at(-1).id]));
-  assert.deepEqual(await permsOf('member'), []);
+  assert.deepEqual(await permsOf('member'), ['people.accept']);
 });
 
 await test('even the first Lists/Appearance change can be undone (back to defaults)', async () => {
@@ -1878,7 +1885,7 @@ console.log('Solar Evals (028)');
   await setRole(evalCe, 'ce'); await setRole(evalCe2, 'ce'); await setRole(eboard, 'eboard');
   // Earlier tests reset the CE role's permissions; put back what 028 gives it.
   await db.exec(`insert into role_permissions (role, permission) values ('ce', 'evals.templates'), ('ce', 'evals.write'), ('ce', 'evals.view') on conflict do nothing`);
-  assert.deepEqual((await db.query(`select permission from role_permissions where role = 'eboard' order by 1`)).rows.map((r) => r.permission), ['evals.templates', 'evals.types', 'evals.view']);
+  assert.deepEqual((await db.query(`select permission from role_permissions where role = 'eboard' order by 1`)).rows.map((r) => r.permission), ['evals.templates', 'evals.types', 'evals.view', 'people.accept']);
   const MASTER = '00000000-0000-4000-8000-0000000000a1';
   const sel = (uid, sql, args = []) => as(uid, async () => (await db.query(sql, args)).rows);
   const visible = (uid) => sel(uid, `select id from evals`).then((r) => r.map((x) => x.id));
@@ -1961,7 +1968,7 @@ console.log('Solar Evals (028)');
 
   await test('sharing needs an account with the member\'s email; then only that account sees it and can comment', async () => {
     await as(evalCe, () => rpc('eval_save', [evalId, { member_email: 'nobody@ufl.edu' }]));
-    await as(evalCe, () => rejects(rpc('eval_set_status', [evalId, 'shared']), /Nobody has a OneSolar account/));
+    await as(evalCe, () => rejects(rpc('eval_set_status', [evalId, 'shared']), /Nobody has a one.solar account/));
     await as(evalCe, () => rpc('eval_save', [evalId, { member_email: 'kid@ufl.edu' }]));
     await as(evalCe, () => rpc('eval_set_status', [evalId, 'shared']));
     assert.deepEqual(await visible(kid), [evalId]);
@@ -2278,9 +2285,9 @@ console.log('Solar Evals (028)');
   });
 }
 
-console.log('OneSolar home screen (029)');
+console.log('one.solar home screen (029)');
 
-await test('OneSolar: admins choose who sees each card; anyone can read it; bad choices are refused', async () => {
+await test('one.solar: admins choose who sees each card; anyone can read it; bad choices are refused', async () => {
   const cards = { finances: { show: 'roles', roles: ['treasurer', 'admin'] }, scope: { show: 'hidden' }, orders: { show: 'default' } };
   await as(member, () => rejects(rpc('update_settings', ['onesolar', { cards }]), /does not allow/));
   await as(admin, () => rpc('update_settings', ['onesolar', { cards }]));
@@ -2350,6 +2357,62 @@ console.log('People: roles except Admin, removing someone (035)');
     await as(boss, () => rpc('clear_removed_flag', ['LEAVER@ufl.edu']));
     assert.deepEqual(await seen(chief), []);
     assert.equal((await db.query(`select cleared_by_name from removed_people where email = 'leaver@ufl.edu'`)).rows[0].cleared_by_name, 'Bo Boss');
+  });
+}
+
+console.log('Guests: new accounts wait to be accepted (040)');
+
+{
+  const lead = await signUp('subsys.lead@ufl.edu', 'Lia Lead'); // a plain Member (leads are members)
+  const guest = await signUpGuest('newbie@ufl.edu', 'Nell Newbie');
+  const guest2 = await signUpGuest('newbie2@ufl.edu', 'Ned Newbie');
+
+  await test('a new account is a Guest: it sees only itself, the role names and the public settings', async () => {
+    assert.equal(await roleOf(guest), 'guest');
+    await as(guest, async () => {
+      assert.deepEqual((await db.query(`select id from profiles`)).rows.map((r) => r.id), [guest]);
+      assert.deepEqual((await db.query(`select role from profile_roles`)).rows.map((r) => r.role), ['guest']);
+      assert.ok((await db.query(`select key from roles`)).rows.length > 3);
+      assert.deepEqual((await db.query(`select key from app_settings order by key`)).rows.map((r) => r.key), ['appearance', 'general', 'onesolar']);
+      for (const t of ['requests', 'request_items', 'approvals', 'archive_orders', 'order_information', 'eval_types', 'eval_tracks', 'eval_templates', 'settings_history', 'attachments', 'evals']) {
+        assert.equal((await db.query(`select count(*)::int n from ${t}`)).rows[0].n, 0, t);
+      }
+    });
+    assert.ok((await as(lead, () => db.query(`select count(*)::int n from requests`))).rows[0].n > 0); // members still do
+  });
+
+  await test("a Guest can't make orders or evals, or change anything of the team's", async () => {
+    await as(guest, () => rejects(rpc('save_request', [null, completeRequest, completeItems, 'submit']), /hasn't been accepted into the team/));
+    await as(guest, () => rejects(rpc('save_request', [null, { title: 'Draft' }, [], 'draft']), /hasn't been accepted/));
+    await as(guest, () => rejects(rpc('eval_self_save', [null, { type_id: 'member' }]), /aren't someone who gets/));
+    await as(guest, () => rejects(rpc('waiting_guests', []), /does not allow/));
+    await as(guest, () => rejects(rpc('accept_member', [guest2]), /does not allow/));
+    await as(guest, () => rpc('update_my_profile', ['Nell N.'])); // their own account is fine
+    assert.equal((await db.query(`select eval_rule_match('{"rule":"anyone"}', $1) m`, [guest])).rows[0].m, false);
+  });
+
+  await test('anyone on the team (a plain member too) sees who is waiting and can accept them', async () => {
+    const waiting = (await as(lead, () => db.query(`select * from waiting_guests()`))).rows.map((r) => r.email);
+    assert.deepEqual(waiting, ['newbie2@ufl.edu', 'newbie@ufl.edu']);
+    await as(lead, () => rpc('accept_member', [guest]));
+    assert.equal(await roleOf(guest), 'member');
+    assert.equal((await db.query(`select accepted_by_name from profiles where id = $1`, [guest])).rows[0].accepted_by_name, 'Lia Lead');
+    await as(lead, () => rpc('accept_member', [guest])); // twice is harmless
+    assert.equal(await roleOf(guest), 'member');
+    const { rows } = await as(guest, () => rpc('save_request', [null, { title: 'My first draft' }, [], 'draft']));
+    assert.ok(rows[0].result);
+    assert.deepEqual((await as(lead, () => db.query(`select email from waiting_guests()`))).rows.map((r) => r.email), ['newbie2@ufl.edu']);
+  });
+
+  await test('giving a guest any role accepts them; Guest stays alone and has no permissions', async () => {
+    await db.query(`insert into profile_roles values ($1, 'treasurer')`, [guest2]);
+    assert.equal(await roleOf(guest2), 'treasurer');
+    await db.query(`insert into profile_roles values ($1, 'guest')`, [guest2]); // ignored: already on the team
+    assert.equal(await roleOf(guest2), 'treasurer');
+    await rejects(db.query(`insert into role_permissions values ('guest', 'request.review')`), /Guests can't have permissions/);
+    await rejects(db.query(`delete from roles where key = 'guest'`), /Guest is built in/);
+    const key = (await as(grid, () => rpc('create_role', ['Faculty Advisor']))).rows[0].result;
+    assert.ok((await permsOf(key)).includes('people.accept')); // new roles can accept people too
   });
 }
 

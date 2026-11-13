@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CE Scope Map · OneSolar</title>
+<title>CE Scope Map · one.solar</title>
 <link rel="icon" href="../shared/assets/favicon.png">
 <link rel="apple-touch-icon" href="../shared/assets/apple-touch-icon.png">
 <script src="../shared/theme.js"></script>
@@ -23,7 +23,7 @@
 -->
 <style>
 /* ============================================================
-   DESIGN TOKENS: the shared OneSolar colours (../shared/onesolar.css)
+   DESIGN TOKENS: the shared one.solar colours (../shared/onesolar.css)
    under this page's names, so it follows Light / Dark like every app.
    (Chief Engineer colors live in the DATA section, not here.)
    ============================================================ */
@@ -75,7 +75,7 @@ header.site{
 .topbar{position:relative;z-index:41}
 .site-inner{max-width:1440px;margin:0 auto;padding:14px 24px 0}
 .brandrow{display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap;justify-content:space-between}
-/* The page title (not the OneSolar top bar's .brand, whose one-line style would stop it wrapping on phones). */
+/* The page title (not the one.solar top bar's .brand, whose one-line style would stop it wrapping on phones). */
 .brandrow .brand{display:block;white-space:normal;min-width:0;flex:1 1 280px}
 .brand h1{font-size:19px;line-height:1.2}
 .brand .sub{color:var(--muted);font-size:12.5px;margin-top:3px}
@@ -338,13 +338,13 @@ body.editing .vlabels{pointer-events:none}
 </head>
 <body>
 
-<!-- The OneSolar top bar, the same in every app (../shared/onesolar.css). -->
+<!-- The one.solar top bar, the same in every app (../shared/onesolar.css). -->
 <header class="topbar">
   <div class="topbar-inner">
-    <a class="brand" href="../" aria-label="OneSolar: all Solar Gators apps">
+    <a class="brand" href="../" aria-label="one.solar: all Solar Gators apps">
       <img class="brand-logo" data-auto-logo src="../shared/assets/solar-gators-logo.png" alt="Solar Gators" width="800" height="237">
       <span class="brand-divider" aria-hidden="true"></span>
-      <span>One<span class="brand-accent">Solar</span></span>
+      <span>one<span class="brand-accent">.solar</span></span>
       <span class="brand-app">CE Scope Map</span>
     </a>
     <div class="topbar-end" id="account"></div>
@@ -354,7 +354,7 @@ body.editing .vlabels{pointer-events:none}
   // No accounts here: just the Light / Dark switch.
   import { renderAccount } from '../shared/account-menu.js';
   import { mountAppSwitcher } from '../shared/app-switcher.js';
-  mountAppSwitcher(); // ⊞ next to the logo: jump to any other OneSolar app (Ctrl + K)
+  mountAppSwitcher(); // ⊞ next to the logo: jump to any other one.solar app (Ctrl + K)
   renderAccount(document.getElementById('account'), { user: null, signIn: false });
 </script>
 
@@ -2538,7 +2538,7 @@ function setTab(id) {
 }
 function applyMetadata() {
   const m = DB.metadata;
-  document.title = "CE Scope Map · OneSolar"; // the map's own title is shown on the page
+  document.title = "CE Scope Map · one.solar"; // the map's own title is shown on the page
   $("#pageTitle").textContent = m.title;
   $("#pageSub").textContent = m.subtitle;
   $("#verPill").textContent = m.version + " · updated " + m.lastUpdated;

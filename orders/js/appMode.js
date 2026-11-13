@@ -1,5 +1,5 @@
 /**
- * Orders, Finances, Sponsors and Admin are separate OneSolar apps (each with its own address, top bar
+ * Orders, Finances, Sponsors and Admin are separate one.solar apps (each with its own address, top bar
  * and menu) built from this same code. Each app's page says which one it is: <body data-app="finances">.
  *
  *   orders/    Home, New request, Requests, Queue, Archive, Export

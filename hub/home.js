@@ -1,5 +1,5 @@
 /**
- * OneSolar home screen: a card per app, grouped under headings, shown or hidden by who's signed in.
+ * one.solar home screen: a card per app, grouped under headings, shown or hidden by who's signed in.
  *
  * The cards are hub/apps.js (the built-in apps) plus what admins change on the page itself
  * (✎ Edit home screen, needs "Customize lists & appearance", site.customize):
@@ -18,7 +18,7 @@
  * (shared/app-switcher.js) in every app's top bar.
  *
  * Signing in happens on the shared sign-in page (orders/), which sends you back here.
- * On localhost, ?fake (or ?fake=admin, ?fake=treasurer, ?fake=coordinator, ?fake=out)
+ * On localhost, ?fake (or ?fake=admin, ?fake=treasurer, ?fake=coordinator, ?fake=guest, ?fake=out)
  * uses a made-up account instead of the real database.
  */
 // A namespace import, so a browser still holding an older cached apps.js (GitHub Pages caches files
@@ -42,9 +42,10 @@ const sb = FAKE
       auth: { flowType: 'pkce', persistSession: true, detectSessionInUrl: false },
     });
 
-const me = { user: null, name: '', roles: [], perms: new Set(), roleLabel: '' };
+const me = { user: null, name: '', roles: [], perms: new Set(), roleLabel: '', guest: false };
+let waiting = []; // 040: people who signed up and wait to be accepted (for those who can accept them)
 let settings = { cards: {} };
-let appearance = {}; // Admin → OneSolar → Logo & accent, Banner & messages
+let appearance = {}; // Admin → one.solar → Logo & accent, Banner & messages
 let positions = []; // [{ key, label }]: the positions, for "Only these positions…"
 let editing = false;
 let draft = null; // a copy of the settings while editing; saved with Save changes
@@ -66,7 +67,7 @@ async function loadSettings() {
   }
 }
 
-/** The announcement banner (Admin → OneSolar → Banner & messages), for signed-in people, until its end date. */
+/** The announcement banner (Admin → one.solar → Banner & messages), for signed-in people, until its end date. */
 function drawAnnouncement() {
   const box = $('#announcement');
   const ann = appearance.announcement;
@@ -85,6 +86,8 @@ async function loadMe() {
   me.user = data.session?.user || null;
   me.perms = new Set();
   me.roles = [];
+  me.guest = false;
+  waiting = [];
   if (!me.user) return;
   const [{ data: profile }, { data: roles }] = await Promise.all([
     sb.from('profiles').select('full_name, email').eq('id', me.user.id).maybeSingle(),
@@ -92,13 +95,62 @@ async function loadMe() {
   ]);
   me.name = profile?.full_name || me.user.email || '';
   me.roles = (roles || []).map((r) => r.role);
-  if (!me.roles.length) me.roles = ['member'];
+  if (!me.roles.length) me.roles = ['guest'];
+  me.guest = me.roles.every((r) => r === 'guest'); // 040: signed up, not accepted into the team yet
   const [{ data: perms }, { data: labels }] = await Promise.all([
     sb.from('role_permissions').select('permission').in('role', me.roles),
     sb.from('roles').select('key, label').in('key', me.roles),
   ]);
   me.perms = new Set((perms || []).map((p) => p.permission));
   me.roleLabel = me.roles.map((r) => (labels || []).find((l) => l.key === r)?.label || r).join(' · ');
+  await loadWaiting();
+}
+
+/** Who is waiting to be accepted into the team (040), for anyone who can accept them. */
+async function loadWaiting() {
+  waiting = [];
+  if (!me.user || me.guest || !me.perms.has('people.accept')) return;
+  const { data, error } = await sb.rpc('waiting_guests', {});
+  if (!error && Array.isArray(data)) waiting = data;
+}
+
+function drawWaiting() {
+  const box = $('#waiting');
+  box.hidden = editing || !waiting.length;
+  if (box.hidden) return (box.innerHTML = '');
+  const ago = (d) => {
+    const days = Math.floor((Date.now() - new Date(d)) / 864e5);
+    return days < 1 ? 'today' : days === 1 ? 'yesterday' : `${days} days ago`;
+  };
+  box.innerHTML = `<h2 class="section-title">Waiting to join the team (${waiting.length})</h2>
+    <p class="muted small">They signed up for one.solar. Until someone accepts them they only see the public tools.
+      Only accept people you know are on Solar Gators.</p>
+    <ul class="waiting-list">${waiting.map((w) => `<li data-guest="${esc(w.id)}">
+      <span class="waiting-who"><strong>${esc(w.full_name || w.email)}</strong>${w.full_name ? ` <span class="muted">${esc(w.email)}</span>` : ''}
+        <span class="muted small">· signed up ${ago(w.created_at)}</span></span>
+      <button type="button" class="btn btn-sm btn-primary" data-accept="${esc(w.id)}">Accept as Member</button></li>`).join('')}</ul>
+    <p class="alert alert-error" id="waiting-error" role="alert" hidden></p>`;
+}
+
+async function accept(btn) {
+  const w = waiting.find((x) => x.id === btn.dataset.accept);
+  if (!w) return;
+  btn.disabled = true;
+  btn.textContent = 'Accepting…';
+  const { error } = await sb.rpc('accept_member', { p_user: w.id });
+  if (error) {
+    btn.disabled = false;
+    btn.textContent = 'Accept as Member';
+    const e = $('#waiting-error');
+    e.textContent = error.message;
+    e.hidden = false;
+    return;
+  }
+  waiting = waiting.filter((x) => x !== w);
+  drawWaiting();
+  const note = $('#waiting-done');
+  note.textContent = `${w.full_name || w.email} is on the team now, as a Member. Give them other roles in Admin → Users if they need them.`;
+  note.hidden = false;
 }
 
 const canCustomize = () => me.perms.has('site.customize');
@@ -129,16 +181,18 @@ function sectionsOf(s, cards) {
   return list;
 }
 
+// A Guest (040) counts as signed out here: they only get the public cards.
+const onTeam = () => !!me.user && !me.guest;
 const allowed = (access = 'public') =>
-  access === 'public' || (!!me.user && (access === 'signedIn' || (Array.isArray(access) && access.some((p) => me.perms.has(p)))));
+  access === 'public' || (onTeam() && (access === 'signedIn' || (Array.isArray(access) && access.some((p) => me.perms.has(p)))));
 const choiceOf = (s, id) => s.cards?.[id] || {};
 /** Whether this person sees the card: the admins' choice, or else the app list's own rule. */
 function sees(card, s = settings) {
   const c = choiceOf(s, card.id);
   if (c.show === 'hidden') return false;
   if (c.show === 'everyone') return true;
-  if (c.show === 'signedIn') return !!me.user;
-  if (c.show === 'roles') return !!me.user && (c.roles || []).some((r) => me.roles.includes(r));
+  if (c.show === 'signedIn') return onTeam();
+  if (c.show === 'roles') return onTeam() && (c.roles || []).some((r) => me.roles.includes(r));
   return allowed(card.access);
 }
 
@@ -177,7 +231,7 @@ function toggleFav(id) {
 function greeting() {
   const h = new Date().getHours();
   const part = h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
-  return me.user ? `${part}, ${esc(me.name.split(' ')[0])}` : 'Welcome to OneSolar';
+  return me.user ? `${part}, ${esc(me.name.split(' ')[0])}` : 'Welcome to one.solar';
 }
 
 function cardHTML(a, { edit = false, s = settings } = {}) {
@@ -216,11 +270,14 @@ function draw() {
   drawAnnouncement();
   renderAccount($('#account'), { user: me.user, name: me.name, role: me.roleLabel, onSignOut: signOut });
   $('#hello').innerHTML = greeting();
-  $('#lede').textContent = me.user
+  $('#lede').textContent = me.guest
+    ? "You're signed up! Someone on the team needs to accept you before you can use the team's apps. Ask your Chief Engineer, a lead or anyone on the e-board. Until then, here are the public tools."
+    : me.user
     ? 'Everything Solar Gators, in one place. Pick an app.'
-    : 'Solar Gators\' team apps, in one place. Sign in with your OneSolar account to see everything you have access to.';
+    : 'Solar Gators\' team apps, in one place. Sign in with your one.solar account to see everything you have access to.';
   $('#edit-open').hidden = !canCustomize() || editing;
   document.body.classList.toggle('editing-home', editing);
+  drawWaiting();
   if (editing) return drawEditing();
 
   const cards = cardsOf(settings);
@@ -413,7 +470,7 @@ function openCardDialog(id) {
   dlg.setAttribute('aria-labelledby', 'cd-title');
   dlg.innerHTML = `<form novalidate>
     <h2 id="cd-title">${isNew ? 'Add a link' : `Edit ${esc(card.name)}`}</h2>
-    ${isNew ? '<p class="muted small">A card for another site, a shared drive folder, or a new OneSolar app (its folder, e.g. <code>parts/</code>).</p>' : ''}
+    ${isNew ? '<p class="muted small">A card for another site, a shared drive folder, or a new one.solar app (its folder, e.g. <code>parts/</code>).</p>' : ''}
     <div class="field"><label for="cd-name">Name</label><input id="cd-name" maxlength="40" value="${esc(card.name)}" required></div>
     <div class="field"><label for="cd-blurb">Description <span class="muted">(one line)</span></label><input id="cd-blurb" maxlength="140" value="${esc(card.blurb)}"></div>
     <div class="field"><label for="cd-href">Link</label>
@@ -508,6 +565,7 @@ async function loadPositions() {
 document.addEventListener('click', async (e) => {
   const t = e.target;
   if (t.closest('[data-fav]')) return toggleFav(t.closest('[data-fav]').dataset.fav);
+  if (t.closest('[data-accept]')) return accept(t.closest('[data-accept]'));
   if (t.closest('#edit-open')) {
     await loadPositions();
     startEditing();

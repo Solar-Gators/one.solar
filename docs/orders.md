@@ -1,13 +1,13 @@
-# OneSolar · Orders
+# one.solar · Orders
 
-**https://solar-gators.github.io/one.solar/orders/** · part of **[OneSolar](https://solar-gators.github.io/one.solar/)**, the home screen for every Solar Gators app
+**https://solar-gators.github.io/one.solar/orders/** · part of **[one.solar](https://solar-gators.github.io/one.solar/)**, the home screen for every Solar Gators app
 
 The Solar Gators purchasing website. It replaces the shared Excel order sheet. Members request parts, a Chief Engineer approves them, and the Treasurer orders them and tracks delivery. Every step is recorded, so anyone on the team can see where an order stands and what was bought in past seasons.
 
 It works on phones and laptops. Sign in with your **@ufl.edu** email.
 
-**OneSolar:** this site's accounts are the OneSolar accounts, and its sign-in page is the one every app uses.
-The logo at the top left goes to the OneSolar home screen; **Home** in the menu is Orders' own dashboard.
+**one.solar:** this site's accounts are the one.solar accounts, and its sign-in page is the one every app uses.
+The logo at the top left goes to the one.solar home screen; **Home** in the menu is Orders' own dashboard.
 Other apps send people here to sign in with `?next=/one.solar/…` and get them back afterwards (only paths on this
 site are followed). The code is in [`orders/`](../orders) of the [one.solar](https://github.com/Solar-Gators/one.solar) repo.
 
@@ -57,7 +57,7 @@ A person can have **more than one role** (e.g. Treasurer + Admin), and gets ever
 | See the Finances tab | | ✓ | ✓ | ✓ |
 | Edit the Finances tab (sheets, columns, rows) | | | ✓ | ✓ |
 
-All of this can be changed in **Admin → OneSolar → Roles & permissions**, and you can add roles of your own (e.g. "Subsystem Lead", "Faculty Advisor"). Each person only sees the top-bar items their roles use: a Member sees **Requests** and the **+ New Request** button; leads also get **Queue**; the Treasurer **Finances**; the Business Coordinator **Sponsors**; Admins **Admin**. On the other role's part of the Queue the page is marked **view only**.
+All of this can be changed in **Admin → one.solar → Roles & permissions**, and you can add roles of your own (e.g. "Subsystem Lead", "Faculty Advisor"). Each person only sees the top-bar items their roles use: a Member sees **Requests** and the **+ New Request** button; leads also get **Queue**; the Treasurer **Finances**; the Business Coordinator **Sponsors**; Admins **Admin**. On the other role's part of the Queue the page is marked **view only**.
 
 ---
 
@@ -117,7 +117,7 @@ Changed your mind? Open a submitted request and click **Withdraw request** to tu
 - **Edit costs:** if a price or shipping cost turns out different from what was requested, open the request and click **Edit costs**. This works on Approved, Ordered, and Received requests. Change any item's unit price or the order's shipping, and add a reason. The new total is previewed before saving. Every change is logged in the request's History (who, when, old → new, and why), and the item list is tagged **Costs adjusted**.
 
 ### Finances (Treasurer)
-**Finances** (its own app, `/one.solar/finances/`, from the OneSolar home screen) follows the Treasurer's own spreadsheet, so it can replace it. At the top: the season's budget, spent, in the pipeline, left, funds received and the rainy-day fund. Then five tabs:
+**Finances** (its own app, `/one.solar/finances/`, from the one.solar home screen) follows the Treasurer's own spreadsheet, so it can replace it. At the top: the season's budget, spent, in the pipeline, left, funds received and the rainy-day fund. Then five tabs:
 - **Purchases:** the ledger. Every request shows up here once it's approved, plus anything bought outside the site (**+ Add a purchase**: a PayPal invoice, a quote over the phone).
   - Each line has its **purchasing step**, colored like the old sheet's legend: To submit → Request sent (to MAE / ECE purchasing) → Dept approved → Ordered → Received, or Cancelled. Purchases added on Finances can also be **Paid**: a payment with nothing to order (a debt, a reimbursement); it counts as spent (needs `022_paid_status.sql`). Click a step at the top to see only those lines.
   - **Edit steps…** (next to the steps) renames them to match your legend (e.g. "Approved", "MAE ordered"), changes their colors, reorders or hides them, or adds your own. A new step counts either as in the pipeline (before ordering; requests can be set to it) or as spent (for purchases added here). Removing one moves its purchases back to To submit (or Paid). (Needs `025_treasurer_tools.sql`.)
@@ -147,7 +147,7 @@ Changed your mind? Open a submitted request and click **Withdraw request** to tu
 - **Cells save as you leave them.** Enter moves down a row (and adds one at the bottom); Tab moves right.
 - **Add ordered requests:** adds a row for every Ordered or Received request not yet in the sheet, filling the columns you linked to a request detail (ID, title, vendor, total, ticket #, order date, Cost center…).
 - **Search, sort** (click a heading; **Keep this order** saves it), **Download .xlsx**, and **Import Excel…**: each worksheet of an existing file becomes a sheet, with column types guessed (dates, money, checkboxes, links). Formulas come in as their values.
-- Who can see and edit it is set in Admin → OneSolar → Roles & permissions (**See finances** / **Edit finances**). By default the Treasurer edits, Chief Engineers can look, and Members can't see it.
+- Who can see and edit it is set in Admin → one.solar → Roles & permissions (**See finances** / **Edit finances**). By default the Treasurer edits, Chief Engineers can look, and Members can't see it.
 
 ### Sponsors (Business Coordinator)
 **Sponsors** (its own app, `/one.solar/sponsors/`) tracks sponsorships and donations on a board, and keeps every season for future teams.
@@ -155,7 +155,7 @@ Changed your mind? Open a submitted request and click **Withdraw request** to tu
 - **Cards:** sponsor name, type, amount, season, lead, follow-up date, tags (e.g. aerospace, local, alumni), contact name / email / phone, website, plus two write-ups:
   - **About this sponsor:** who they are, what they gave, what they asked for in return.
   - **Tips for next time:** how we found them, who to ask, when to ask, what worked.
-- **Watchers:** anyone who can see the board can watch a card; the coordinator can add others. Watchers get an email / Teams message when the card moves or someone adds a note (Admin → OneSolar → Notifications → "Sponsor card updated").
+- **Watchers:** anyone who can see the board can watch a card; the coordinator can add others. Watchers get an email / Teams message when the card moves or someone adds a note (Admin → one.solar → Notifications → "Sponsor card updated").
 - **Notes & history:** add notes after each call or email; moves, edits and money received are logged automatically, with who and when.
 - **Money received:** when a card reaches a "money received" stage, its amount is added once to the Finances sheet chosen in Board settings (e.g. **Income**), so the **Funds overview** updates on its own.
 - **Follow-ups:** a card's follow-up date shows up on Home ("Follow up with…") for its lead and watchers.
@@ -186,24 +186,24 @@ Changed your mind? Open a submitted request and click **Withdraw request** to tu
 
 ### Admin
 
-**Admin** is its own app (`/one.solar/admin/`, the Admin card on the OneSolar home screen). Its tabs are grouped by **where a setting applies**, and a line under the tabs says so:
+**Admin** is its own app (`/one.solar/admin/`, the Admin card on the one.solar home screen). Its tabs are grouped by **where a setting applies**, and a line under the tabs says so:
 
-- **OneSolar**: applies to every app (accounts, positions, the season, the logo, the banner, notifications, the home screen).
+- **one.solar**: applies to every app (accounts, positions, the season, the logo, the banner, notifications, the home screen).
 - **Orders**: only the Orders app (the request form, approvals, how requests are shown).
 - **Other apps**: Sponsors, Finances and Solar Evals keep their own settings inside each app, next to what they change; this tab says where.
 
 On a phone, one menu lists every page, grouped the same way. Each page appears only for people whose roles allow it, and each has a **History** link (top right) listing earlier versions of its settings, with who changed what and when. **Restore** puts back any earlier version, and a restore can itself be undone; if something looks wrong after a change, that's the first place to go.
 
-**OneSolar** (every app)
+**one.solar** (every app)
 - **Users:** tick the roles each person has; someone can hold several. One account works in every app. Only an Admin can give or take the Admin role or change an Admin's roles.
   - **Remove…** is for someone who left the team. Their login is deleted, so they can't sign in, and their requests, approvals and evals keep their name. You can add why (e.g. "Graduated"); the **Removed people** list at the bottom keeps who was removed, when and by whom.
   - If someone who was removed signs up again with the same email, their new account is flagged on Users (and in a line under the top bar for everyone who manages people) with **Let them back in** or **Remove again**.
 - **Roles & permissions:** add your own roles, rename any role, or delete custom ones, and a checkbox grid of what each role can do in every app (Orders, Finances, Sponsors, Solar Evals, Admin). Only Admins change these ("Edit roles & permissions"); others who manage people see them read-only. Safety rules: at least one person must always keep **Manage people**, the Admin role always keeps **Edit roles & permissions**, and the last Admin can't stop being one, so the team can't lock itself out.
-- **Team & season:** the team name, who can make a OneSolar account (allowed email domains), the request ID prefix (Orders' request numbers), and **Start a new season**. The season is shared: Orders numbers and archives by it, and Finances and the Sponsors board open on it. Solar Evals goes by semester instead.
+- **Team & season:** the team name, who can make a one.solar account (allowed email domains), the request ID prefix (Orders' request numbers), and **Start a new season**. The season is shared: Orders numbers and archives by it, and Finances and the Sponsors board open on it. Solar Evals goes by semester instead.
 - **Logo & accent:** upload the logo and pick the accent color. Every app shows them (the top bar, buttons, the line under the top bar) and so does the sign-in page.
 - **Banner & messages:** an announcement banner at the top of the home screen and every app (with an optional end date), a message on the sign-in page, and the team's own **Help** page (it appears in the menu under your name once it has text).
 - **Notifications:** email and Microsoft Teams messages from every app, grouped by app: Orders' request updates, Sponsors' watched cards, and Solar Evals (see below).
-- **Home screen:** what's customized on the OneSolar home screen (sections, added links, who sees which card), and a button that opens the home screen in **✎ Edit home screen**, where all of it is changed.
+- **Home screen:** what's customized on the one.solar home screen (sections, added links, who sees which card), and a button that opens the home screen in **✎ Edit home screen**, where all of it is changed.
 
 **Orders** (only the Orders app)
 - **Request form:** change the request form without touching code.
@@ -244,7 +244,7 @@ On a phone, one menu lists every page, grouped the same way. Each page appears o
 
 ## Dark mode
 
-Account menu (your name, top right) → **Appearance**: **Auto** follows your phone or computer's light / dark setting, or pick **Light** or **Dark**. It's remembered on each device. Dark mode uses GatorWire's navy and UF orange. The default logo has a dark-mode version (`shared/assets/solar-gators-logo-dark.png`); a custom logo from Admin → OneSolar → Logo & accent is used as is in both. (Colors: the tokens at the top of `shared/onesolar.css`, which every OneSolar app shares, and the `[data-theme="dark"]` section of `orders/css/styles.css` for Orders' own parts.)
+Account menu (your name, top right) → **Appearance**: **Auto** follows your phone or computer's light / dark setting, or pick **Light** or **Dark**. It's remembered on each device. Dark mode uses GatorWire's navy and UF orange. The default logo has a dark-mode version (`shared/assets/solar-gators-logo-dark.png`); a custom logo from Admin → one.solar → Logo & accent is used as is in both. (Colors: the tokens at the top of `shared/onesolar.css`, which every one.solar app shares, and the `[data-theme="dark"]` section of `orders/css/styles.css` for Orders' own parts.)
 
 ## Installing it as an app
 
@@ -256,7 +256,7 @@ It needs a connection to load requests; offline it opens the last copy of the pa
 
 ## Email and Teams notifications
 
-Once your leads turn them on (**Admin → OneSolar → Notifications**), the site messages people when something needs them:
+Once your leads turn them on (**Admin → one.solar → Notifications**), the site messages people when something needs them:
 
 | When a request is… | Who hears about it |
 | --- | --- |
@@ -270,13 +270,13 @@ Messages go to your UF email and/or a Teams chat from the Power Automate bot, wi
 
 ## Starting a new season
 
-Once a year, when the new season's orders begin, a Chief Engineer or Treasurer goes to **Admin → OneSolar → Team & season → Start a new season** and clicks **Start 2027-2028** (or whichever year is next). That's the only step. It:
+Once a year, when the new season's orders begin, a Chief Engineer or Treasurer goes to **Admin → one.solar → Team & season → Start a new season** and clicks **Start 2027-2028** (or whichever year is next). That's the only step. It:
 - **Numbering:** restarts request numbers with the new year (**SG27-001**, **SG27-002**, …).
 - **Requests & Export:** shows the new season by default.
 - **Archive:** moves last season's requests there, searchable with their full history.
 - **Unfinished orders:** keeps anything still waiting on approval, ordering, or delivery in the Approvals and Treasurer queues, labeled with its season, until it's done.
 
-Also hand over the roles: give the new Chief Engineer and Treasurer their roles in **Admin → OneSolar → Users**, and set graduating leads back to Member.
+Also hand over the roles: give the new Chief Engineer and Treasurer their roles in **Admin → one.solar → Users**, and set graduating leads back to Member.
 
 ---
 

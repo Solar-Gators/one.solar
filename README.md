@@ -1,4 +1,4 @@
-# OneSolar
+# one.solar
 
 Every Solar Gators team app, in one place and one repo: **https://solar-gators.github.io/one.solar/**
 
@@ -17,7 +17,7 @@ Every Solar Gators team app, in one place and one repo: **https://solar-gators.g
 Orders, Finances, Sponsors and Admin are separate apps (each its own address, top bar and menu) built from the same
 code in `orders/js/`: each app's `index.html` says which it is (`<body data-app="finances">`), and
 [`orders/js/appMode.js`](orders/js/appMode.js) decides which pages belong where. A link to another app's page
-(e.g. an old `orders/#/sponsors/…` email link) opens it in that app. Admin is grouped by where a setting applies: **OneSolar** (every app: people, positions and permissions, the season,
+(e.g. an old `orders/#/sponsors/…` email link) opens it in that app. Admin is grouped by where a setting applies: **one.solar** (every app: people, positions and permissions, the season,
 logo, banner, notifications, home screen), **Orders** (the request form, approvals, lists), and **Other apps** (where
 Sponsors, Finances and Solar Evals keep their own settings, inside each app).
 
@@ -34,9 +34,9 @@ The old addresses (`/Orders-Form/…`, `/Custom-Apps/…`) still work: those rep
   account menu, buttons, form controls, cards, tables and alerts. Every app loads it first, then its own styles.
   Change a colour there and every app follows.
 - **One Light / Dark setting.** The account menu's **Appearance** (Auto / Light / Dark) applies to every app.
-- **The top bar.** Solar Gators logo, **OneSolar** (back to the home screen), the app's name and its tabs on the
+- **The top bar.** Solar Gators logo, **one.solar** (back to the home screen), the app's name and its tabs on the
   left, and the account menu on the right: your name and position, My account & notifications, Appearance and
-  Sign out. GatorWire is a built file: `npm run gatorwire` adds the OneSolar top bar and light colours to each new build
+  Sign out. GatorWire is a built file: `npm run gatorwire` adds the one.solar top bar and light colours to each new build
   (see [docs/gatorwire.md](docs/gatorwire.md)).
 
 - **The app switcher.** ⊞ next to the logo (or **Ctrl + K** / **⌘ K**) opens a grid of every app you can use, with a
@@ -48,7 +48,7 @@ The old addresses (`/Orders-Form/…`, `/Custom-Apps/…`) still work: those rep
 ```bash
 npm run new-app -- "Parts Library" --icon=🧰 --section=tools --blurb="Every part we stock."
 ```
-This makes `parts-library/index.html` already in the OneSolar look (top bar, Light / Dark, app switcher, OneSolar
+This makes `parts-library/index.html` already in the one.solar look (top bar, Light / Dark, app switcher, one.solar
 sign-in with the person's name and position) and adds its card to [`hub/apps.js`](hub/apps.js). Build the app in
 its `<main>`. Options: `--public` (card shown to everyone), `--no-accounts` (no sign-in, like GatorWire).
 
@@ -95,5 +95,5 @@ Everything committed here is public; spreadsheets are kept out by `.gitignore`.
 
 A custom domain (e.g. `one.ufsolargators.org`) can go in **Settings → Pages → Custom domain**, with a CNAME DNS record
 pointing at `solar-gators.github.io`. The apps link to each other with relative paths, so they all move together.
-Then add the new address to Supabase → Authentication → URL Configuration, and update Admin → OneSolar → Notifications →
+Then add the new address to Supabase → Authentication → URL Configuration, and update Admin → one.solar → Notifications →
 Website address.

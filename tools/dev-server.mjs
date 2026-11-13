@@ -1,5 +1,5 @@
 /**
- * Local development server for every OneSolar app (GitHub Pages serves the same files).
+ * Local development server for every one.solar app (GitHub Pages serves the same files).
  *
  *   npm run dev            → http://localhost:5173/ (home screen), /orders/, /evals/, /gatorwire/, /scope-map/
  *                            talking to the real Supabase project
@@ -53,5 +53,5 @@ createServer(async (req, res) => {
     res.writeHead(404, { 'Content-Type': 'text/plain' }).end('Not found');
   }
 }).listen(PORT, () => {
-  console.log(`OneSolar dev server: http://localhost:${PORT}/${FAKE ? '  (FAKE backend — local data only)' : ''}`);
+  console.log(`one.solar dev server: http://localhost:${PORT}/${FAKE ? '  (FAKE backend — local data only)' : ''}`);
 });

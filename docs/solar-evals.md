@@ -2,7 +2,7 @@
 
 **https://solar-gators.github.io/one.solar/evals/** · [`evals/index.html`](../evals/index.html)
 
-Semester reviews, filled out online instead of on paper. Sign in with your **[OneSolar](https://solar-gators.github.io/one.solar/)** account; everything is kept in the OneSolar (Orders) database (migrations `028`, `031`, `032`, `036_eval_types.sql`, `037_eval_form_names.sql`, `038_eval_communication.sql` and `039_eval_more_forms.sql`).
+Semester reviews, filled out online instead of on paper. Sign in with your **[one.solar](https://solar-gators.github.io/one.solar/)** account; everything is kept in the one.solar (Orders) database (migrations `028`, `031`, `032`, `036_eval_types.sql`, `037_eval_form_names.sql`, `038_eval_communication.sql` and `039_eval_more_forms.sql`).
 
 Everything below is set up on the page, not in code: the forms, the questionnaires, and the whole flow for each kind of eval.
 
@@ -11,7 +11,7 @@ Everything below is set up on the page, not in code: the forms, the questionnair
 People with **Set up Solar Evals** (`evals.types`, Admin and E-board by default) see **Setup**. Each **eval type** is the whole rundown for one kind of eval:
 
 - **What to call people:** e.g. Officer / President / Lead / Position. Buttons, messages and emails use these words.
-- **Who evaluates whom:** who is evaluated, who evaluates, and who gives input. Each one is anyone, a permission ("Fill out evals"), a OneSolar position, a **group**, or one person. Groups (Setup → Groups) are named lists of people, so nobody needs a new position just for evals.
+- **Who evaluates whom:** who is evaluated, who evaluates, and who gives input. Each one is anyone, a permission ("Fill out evals"), a one.solar position, a **group**, or one person. Groups (Setup → Groups) are named lists of people, so nobody needs a new position just for evals.
 - **Input from:** on or off; up to how many people; whether the person evaluated, the evaluator or either picks them; and whether they can leave **private notes** for the evaluator while it's a draft. The person evaluated never sees the notes.
 - **The form:** which form it uses, and whether people pick a variant of it (a division or a position). **Other forms they can pick** lists more forms: whoever starts an eval then picks any of them (or their variants) instead.
 - **Self-eval questionnaire:** on or off. The questions come from each evaluator's own list, or from a shared questionnaire.

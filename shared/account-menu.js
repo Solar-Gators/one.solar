@@ -1,5 +1,5 @@
 /**
- * OneSolar: the account area at the right of the top bar, the same in every app.
+ * one.solar: the account area at the right of the top bar, the same in every app.
  *
  *   renderAccount(document.querySelector('#account'), {
  *     user,                 // the Supabase user, or null when signed out

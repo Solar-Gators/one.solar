@@ -1,7 +1,7 @@
 /**
  * Admin pages for customizing the site without code:
  *   #/admin/display/lists —  columns, filters and default sort of each request list
- *   #/admin/brand       — OneSolar: logo and accent color (every app)
+ *   #/admin/brand       — one.solar: logo and accent color (every app)
  *   #/admin/appearance  — Orders: status labels & colors, priority colors, dropdown colors
  *   #/admin/history     — every settings / permissions change, with Restore
  */
@@ -197,11 +197,11 @@ export async function renderLists(el, { config, rerender, reloadConfig, embedded
   draw();
 }
 
-// ---- Appearance: Logo & accent (OneSolar) and Statuses & colors (Orders) ------------------------
+// ---- Appearance: Logo & accent (one.solar) and Statuses & colors (Orders) ------------------------
 
 const STANDARD_ACCENT = '#f26b1d';
 
-/** OneSolar → Logo & accent: the logo in every app's top bar and on the sign-in page, and the accent color. */
+/** one.solar → Logo & accent: the logo in every app's top bar and on the sign-in page, and the accent color. */
 export const renderBrand = (el, ctx) => renderAppearance(el, ctx, 'brand');
 
 /**
@@ -314,7 +314,7 @@ export async function renderAppearance(el, { config, rerender, reloadConfig }, p
   el.innerHTML = `
     ${takeFlash()}
     ${adminHeader(brand ? 'brand' : 'appearance', brand
-      ? 'The logo and accent color, the same in every OneSolar app.'
+      ? 'The logo and accent color, the same in every one.solar app.'
       : 'How request statuses, priorities and dropdown answers are named and colored in Orders (and on Finances).')}
     <div id="appearance-errors"></div>
     <form id="appearance-form" novalidate>

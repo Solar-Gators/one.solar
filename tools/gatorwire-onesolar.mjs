@@ -1,5 +1,5 @@
 /**
- * Makes a GatorWire build look and work like the other OneSolar apps. Run it after putting a new
+ * Makes a GatorWire build look and work like the other one.solar apps. Run it after putting a new
  * build in gatorwire/index.html (it's safe to run again):
  *
  *   npm run gatorwire
@@ -8,9 +8,9 @@
  *   1. The Share dialog lists every .json file in the repository to pick from (tools/gatorwire/file-picker.js),
  *      instead of a box where you type the file's exact name.
  *   2. The page loads ../shared/theme.js (the shared Light / Dark setting) and gatorwire/onesolar-skin.css + .js:
- *      the OneSolar top bar above GatorWire's toolbar, and the OneSolar light colours.
+ *      the one.solar top bar above GatorWire's toolbar, and the one.solar light colours.
  *   3. It writes gatorwire/onesolar-light.css: a light version of every colour the build wrote straight into its
- *      styles (GatorWire's dark colours are already OneSolar's dark ones).
+ *      styles (GatorWire's dark colours are already one.solar's dark ones).
  *
  * The build is minified, so the names of its helpers change from build to build; they're found by what
  * the code looks like. If GatorWire's code changes so much that one can't be found, this stops and says which.
@@ -90,13 +90,13 @@ else {
   console.log('Share button wording: updated.');
 }
 
-// ---- 2. Shared Light / Dark, the OneSolar top bar --------------------------------------------
+// ---- 2. Shared Light / Dark, the one.solar top bar --------------------------------------------
 if (page.includes('onesolar-skin.css')) {
-  console.log('OneSolar look: already hooked up.');
+  console.log('one.solar look: already hooked up.');
 } else {
   const headEnd = page.lastIndexOf('</head>');
   page = page.slice(0, headEnd)
-    + '<!-- OneSolar (tools/gatorwire-onesolar.mjs): shared Light / Dark, light colours, top bar. -->\n'
+    + '<!-- one.solar (tools/gatorwire-onesolar.mjs): shared Light / Dark, light colours, top bar. -->\n'
     + '    <script src="../shared/theme.js"></script>\n'
     + '    <link rel="icon" href="../shared/assets/favicon.png">\n'
     + '    <link rel="stylesheet" href="onesolar-light.css">\n'
@@ -104,12 +104,12 @@ if (page.includes('onesolar-skin.css')) {
     + page.slice(headEnd);
   const bodyEnd = page.lastIndexOf('</body>');
   page = page.slice(0, bodyEnd) + '  <script type="module" src="onesolar-skin.js"></script>\n  ' + page.slice(bodyEnd);
-  console.log('OneSolar look: hooked up.');
+  console.log('one.solar look: hooked up.');
 }
 writeFileSync(FILE, page);
 
 // ---- 3. Light colours for what the build wrote straight into its styles -----------------------
-// GatorWire's own styles (the last <style> in the page). Its dark colours → OneSolar's light ones.
+// GatorWire's own styles (the last <style> in the page). Its dark colours → one.solar's light ones.
 const css = page.slice(page.lastIndexOf('<style>') + 7, page.lastIndexOf('</style>'));
 const LIGHT = {
   // page backgrounds

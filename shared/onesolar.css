@@ -1,5 +1,5 @@
 /*
- * OneSolar: the look every Solar Gators app shares (home screen, Orders, Solar Evals, CE Scope Map).
+ * one.solar: the look every Solar Gators app shares (home screen, Orders, Solar Evals, CE Scope Map).
  * Load it first, then the app's own stylesheet:
  *   <link rel="stylesheet" href="../shared/onesolar.css">
  * and set light / dark before the page draws with ../shared/theme.js.
@@ -363,7 +363,7 @@ body { font-family: var(--font); }
 .mono { font-family: var(--font-mono); }
 :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 
-/* The app's name after "OneSolar" in the top bar: "OneSolar | Solar Evals". */
+/* The app's name after "one.solar" in the top bar: "one.solar | Solar Evals". */
 .brand-app { color: var(--muted); font-weight: 600; padding-left: 10px; border-left: 1px solid var(--border); }
 @media (max-width: 640px) { .brand-app { display: none; } }
 /* A simple account area for apps without the full account menu. */
@@ -404,7 +404,7 @@ dialog::backdrop { background: #0b254566; }
 /* Apps without page links in the top bar (Finances, Sponsors, Admin): the account menu still goes right. */
 .brand + .account-menu { margin-left: auto; }
 
-/* The announcement banner (Admin → OneSolar → Banner & messages): under the top bar in every app and on the home screen. */
+/* The announcement banner (Admin → one.solar → Banner & messages): under the top bar in every app and on the home screen. */
 .announcement { border-bottom: 1px solid; font-size: 14px; }
 .announcement .container { padding-top: 10px; padding-bottom: 10px; }
 .announcement p { margin: 0 0 4px; }

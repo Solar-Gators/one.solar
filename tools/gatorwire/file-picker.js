@@ -1,5 +1,5 @@
 /*
- * OneSolar: the Share dialog lists every .json file in the repository to pick from, instead of
+ * one.solar: the Share dialog lists every .json file in the repository to pick from, instead of
  * typing the file's exact name. tools/gatorwire-onesolar.mjs puts this into a GatorWire build,
  * replacing each $name with what that build calls it (the build's names are minified).
  */

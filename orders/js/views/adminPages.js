@@ -3,7 +3,7 @@
  *   #/admin/display/page     — what a request's page shows (layout settings)
  *   #/admin/display/exports  — Excel export templates
  *   #/admin/display          — the page holding those two and Request lists
- *   #/admin/text     — OneSolar: announcement banner, sign-in message, Help page
+ *   #/admin/text     — one.solar: announcement banner, sign-in message, Help page
  *   #/admin/intros   — Orders: the line under each Orders page's title
  */
 import { api } from '../api.js';
@@ -348,7 +348,7 @@ export async function renderExportTemplates(el, { config, rerender, reloadConfig
   draw();
 }
 
-// ---- Banner & messages (OneSolar), Page intros (Orders) ------------------------------------------------------------------
+// ---- Banner & messages (one.solar), Page intros (Orders) ------------------------------------------------------------------
 
 /** Pages whose intro line can be replaced. */
 export const INTRO_PAGES = [
@@ -365,7 +365,7 @@ export const INTRO_PAGES = [
 export const renderIntros = (el, ctx) => renderTextBanner(el, ctx, 'intros');
 
 /**
- * OneSolar → Banner & messages (part 'text'), and Orders → Page intros (part 'intros').
+ * one.solar → Banner & messages (part 'text'), and Orders → Page intros (part 'intros').
  * Both are in the "appearance" settings; each saves only its own part.
  */
 export async function renderTextBanner(el, { config, rerender, reloadConfig }, part = 'text') {
@@ -387,7 +387,7 @@ export async function renderTextBanner(el, { config, rerender, reloadConfig }, p
     ${takeFlash()}
     ${adminHeader(part, intros
       ? 'The line under the title of each Orders page.'
-      : 'What everyone sees across OneSolar: a banner for news, a note on the sign-in page, and the Help page.')}
+      : 'What everyone sees across one.solar: a banner for news, a note on the sign-in page, and the Help page.')}
     <div id="text-errors"></div>
     <form id="text-form" novalidate>
       ${intros ? introsCard : `<section class="card">

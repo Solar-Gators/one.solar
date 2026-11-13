@@ -42,7 +42,8 @@ async function loadProfile() {
   // A person can have several roles (migration 008); before that, one `role` column.
   const { data: mine, error: rolesError } = await supabase.from('profile_roles').select('role').eq('user_id', uid);
   profile.roles = rolesError ? [profile.role].filter(Boolean) : mine.map((r) => r.role);
-  if (!profile.roles.length) profile.roles = ['member'];
+  // 040: new accounts are Guests (no rows would mean the same to the database) until someone accepts them.
+  if (!profile.roles.length) profile.roles = ['guest'];
 
   const { data: perms } = await supabase.from('role_permissions').select('permission').in('role', profile.roles);
   state.permissions = new Set((perms || []).map((p) => p.permission));
@@ -65,6 +66,11 @@ export const auth = {
     const labels = state.roles.filter((r) => mine.includes(r.key)).map((r) => r.label);
     const shown = labels.length > 1 ? state.roles.filter((r) => mine.includes(r.key) && r.key !== 'member').map((r) => r.label) : labels;
     return shown.join(' · ') || 'Member';
+  },
+  /** Signed in, but not accepted into the team yet (040): sees only the public apps. */
+  get isGuest() {
+    const mine = state.profile?.roles || [];
+    return !!state.profile && mine.every((r) => r === 'guest');
   },
   /** Does the signed-in person have this role? */
   hasRole(key) {

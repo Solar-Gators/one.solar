@@ -4,16 +4,23 @@
  *   ?fake=admin        Admin (✎ Edit home screen; saved in this browser)
  *   ?fake=treasurer    Treasurer (Finances, Queue)
  *   ?fake=coordinator  Business Coordinator (Sponsors, Finances)
+ *   ?fake=guest        a Guest: signed up, not accepted into the team yet (040)
  *   ?fake=out          signed out
  * Only loaded on localhost; it never talks to the real database.
  */
 const PERMS = {
-  member: [],
-  admin: ['users.manage', 'workflow.edit', 'site.customize', 'settings.edit', 'request.review', 'request.order', 'finances.view', 'sponsors.view'],
-  ce: ['request.review', 'sponsors.view', 'evals.write', 'evals.view'],
-  treasurer: ['request.order', 'finances.view', 'finances.edit', 'sponsors.view'],
-  coordinator: ['sponsors.view', 'sponsors.edit', 'finances.view'],
+  guest: [],
+  member: ['people.accept'],
+  admin: ['users.manage', 'workflow.edit', 'site.customize', 'settings.edit', 'request.review', 'request.order', 'finances.view', 'sponsors.view', 'people.accept'],
+  ce: ['request.review', 'sponsors.view', 'evals.write', 'evals.view', 'people.accept'],
+  treasurer: ['request.order', 'finances.view', 'finances.edit', 'sponsors.view', 'people.accept'],
+  coordinator: ['sponsors.view', 'sponsors.edit', 'finances.view', 'people.accept'],
 };
+// People waiting to be accepted (040), for everyone but a guest.
+let waiting = [
+  { id: 'fake-guest-1', full_name: 'Sam Newcomer', email: 'sam.newcomer@ufl.edu', created_at: new Date(Date.now() - 864e5).toISOString() },
+  { id: 'fake-guest-2', full_name: '', email: 'j.doe@ufl.edu', created_at: new Date(Date.now() - 3 * 864e5).toISOString() },
+];
 
 export function createFakeClient(kind) {
   let role = kind && PERMS[kind] ? kind : 'member';
@@ -33,7 +40,7 @@ export function createFakeClient(kind) {
     profile_roles: () => [{ role }],
     role_permissions: () => PERMS[role].map((permission) => ({ permission })),
     roles: () => [
-      { key: 'member', label: 'Member' }, { key: 'ce', label: 'Chief Engineer' }, { key: 'treasurer', label: 'Treasurer' },
+      { key: 'guest', label: 'Guest' }, { key: 'member', label: 'Member' }, { key: 'ce', label: 'Chief Engineer' }, { key: 'treasurer', label: 'Treasurer' },
       { key: 'coordinator', label: 'Business Coordinator' }, { key: 'admin', label: 'Admin' },
     ],
     app_settings: () => [
@@ -62,7 +69,12 @@ export function createFakeClient(kind) {
   };
   return {
     from: query,
-    rpc: async (fn, { p_key, p_value }) => {
+    rpc: async (fn, { p_key, p_value, p_user } = {}) => {
+      if (fn === 'waiting_guests' || fn === 'accept_member') {
+        if (!PERMS[role].includes('people.accept')) return { data: null, error: { message: 'Your role does not allow this action (people.accept).' } };
+        if (fn === 'accept_member') waiting = waiting.filter((w) => w.id !== p_user);
+        return { data: fn === 'waiting_guests' ? waiting : null, error: null };
+      }
       if (fn !== 'update_settings' || p_key !== 'onesolar') return { error: { message: 'Not in fake mode.' } };
       if (!PERMS[role].includes('site.customize')) return { error: { message: 'Your role does not allow this action (site.customize).' } };
       localStorage.setItem(KEY, JSON.stringify(p_value));

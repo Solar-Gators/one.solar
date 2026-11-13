@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Solar Evals · OneSolar</title>
-<meta name="description" content="Solar Gators semester member reviews: CE rubrics and evaluations, signed in with OneSolar accounts.">
+<title>Solar Evals · one.solar</title>
+<meta name="description" content="Solar Gators semester member reviews: CE rubrics and evaluations, signed in with one.solar accounts.">
 <link rel="icon" href="../shared/assets/favicon.png">
 <link rel="apple-touch-icon" href="../shared/assets/apple-touch-icon.png">
 <script src="../shared/theme.js"></script>
@@ -15,7 +15,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Lato:ital,wght@0,400;0,700;0,900;1,400&display=swap" rel="stylesheet">
 <style>
 /* =========================================================
-   APP CHROME: the shared OneSolar look (../shared/onesolar.css),
+   APP CHROME: the shared one.solar look (../shared/onesolar.css),
    under the names this page already used. The rubric pages
    themselves always stay white paper.
    ========================================================= */
@@ -422,10 +422,10 @@ table.rub td.lv.on::after{background:var(--navy);border-color:var(--navy);box-sh
 <body>
 <header class="topbar">
   <div class="topbar-inner">
-    <a class="brand" href="../" aria-label="OneSolar: all Solar Gators apps">
+    <a class="brand" href="../" aria-label="one.solar: all Solar Gators apps">
       <img class="brand-logo" data-auto-logo src="../shared/assets/solar-gators-logo.png" alt="Solar Gators" width="800" height="237">
       <span class="brand-divider" aria-hidden="true"></span>
-      <span>One<span class="brand-accent">Solar</span></span>
+      <span>one<span class="brand-accent">.solar</span></span>
       <span class="brand-app">Solar Evals</span>
     </a>
     <nav class="nav" id="tabs" aria-label="Solar Evals" hidden>
@@ -500,7 +500,7 @@ table.rub td.lv.on::after{background:var(--navy);border-color:var(--navy);box-sh
   <input class="fi" id="nName" required maxlength="120" autocomplete="off">
   <label class="fl" for="nEmail" id="nEmailL">Member's email (optional)</label>
   <input class="fi" id="nEmail" type="email" maxlength="200" autocomplete="off" placeholder="gator@ufl.edu">
-  <div class="fh">Needed only if they should read the finished eval. They'll read it by signing in to OneSolar with this email.</div></div>
+  <div class="fh">Needed only if they should read the finished eval. They'll read it by signing in to one.solar with this email.</div></div>
   <label class="fl" for="nSem">Semester</label>
   <input class="fi" id="nSem" required maxlength="40" autocomplete="off">
   <div class="dlg-a"><button class="btn" value="cancel" formnovalidate>Cancel</button><button class="btn primary" value="ok">Start</button></div>
@@ -561,7 +561,7 @@ table.rub td.lv.on::after{background:var(--navy);border-color:var(--navy);box-sh
 <script type="module">
 /* =========================================================
    SOLAR EVALS
-   Signs in with OneSolar accounts (the Order Form's) and keeps everything in
+   Signs in with one.solar accounts (the Order Form's) and keeps everything in
    the Order Form's database (migrations 028_solar_evals.sql, 030_onesolar_wording.sql,
    031_eval_self_reviews.sql, 032_eval_questions.sql, 036_eval_types.sql).
    Each kind of eval is an "eval type" (Setup tab, 036): who is evaluated, who
@@ -575,12 +575,12 @@ table.rub td.lv.on::after{background:var(--navy);border-color:var(--navy);box-sh
    person can see is enforced by the database from that copy, not by this page.
    ========================================================= */
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm";
-/* The OneSolar Supabase project and links (../shared/config.js). The key is meant to be public:
+/* The one.solar Supabase project and links (../shared/config.js). The key is meant to be public:
    row-level security in the database protects the data. */
 import { SUPABASE_URL, SUPABASE_ANON_KEY, appUrl, signInUrl } from "../shared/onesolar.js";
 import { renderAccount } from "../shared/account-menu.js";
 import { mountAppSwitcher } from "../shared/app-switcher.js";
-mountAppSwitcher(); // ⊞ next to the logo: jump to any other OneSolar app (Ctrl + K)
+mountAppSwitcher(); // ⊞ next to the logo: jump to any other one.solar app (Ctrl + K)
 const ORDERS_URL = appUrl("orders/");
 // The shared sign-in page (new accounts, password resets) comes back here afterwards.
 const SIGN_UP_URL = signInUrl(location.pathname);
@@ -640,14 +640,16 @@ const listText = a => a.length <= 1 ? (a[0] || "") : a.slice(0, -1).join(", ") +
 async function loadMe(session){
   const id = session.user.id;
   const prof = (await rows(sb.from("profiles").select("*").eq("id", id)))[0];
-  if (!prof) throw new Error("This account has no OneSolar profile yet. Sign in on the OneSolar sign-in page once first.");
+  if (!prof) throw new Error("This account has no one.solar profile yet. Sign in on the one.solar sign-in page once first.");
   let roles = (await rows(sb.from("profile_roles").select("role").eq("user_id", id))).map(r => r.role);
-  if (!roles.length) roles = [prof.role || "member"];
+  if (!roles.length) roles = ["guest"];
+  const guest = roles.every(r => r === "guest");   // 040: signed up, not accepted into the team yet
   const perms = (await rows(sb.from("role_permissions").select("permission").in("role", roles))).map(p => p.permission);
   const labels = await rows(sb.from("roles").select("key, label")).catch(() => []);
-  // Shown under your name in the top bar, like the other OneSolar apps: "Chief Engineer".
+  // Shown under your name in the top bar, like the other one.solar apps: "Chief Engineer".
   const roleLabel = roles.map(r => labels.find(l => l.key === r)?.label || r).join(" · ");
-  me = {id, name:prof.full_name || prof.email, email:(prof.email || "").toLowerCase(), perms:new Set(perms), roleLabel};
+  me = {id, name:prof.full_name || prof.email, email:(prof.email || "").toLowerCase(), perms:new Set(perms), roleLabel, guest};
+  if (guest) return;   // a guest can't read anyone else, so there's nothing more to load
   people = await rows(sb.from("profiles").select("id, full_name, email").order("full_name"));
   [roleRows, permRows, permList] = await Promise.all([rows(sb.from("profile_roles").select("user_id, role")),
     rows(sb.from("role_permissions").select("role, permission")), rows(sb.from("permissions").select("key, label").order("sort")).catch(() => [])]);
@@ -708,7 +710,7 @@ const roleLabel = k => roleList.find(r => r.key === k)?.label || k;
 /** "people whose role can “Fill out evals”", "Chief Engineers", "the Leads group", "Pres Ident". */
 function ruleText(rule){
   switch (rule?.rule) {
-    case "anyone": return "anyone with a OneSolar account";
+    case "anyone": return "anyone with a one.solar account";
     case "permission": return `people whose role can “${permLabel(rule.value)}”`;
     case "role": return `people in the ${roleLabel(rule.value)} position`;
     case "group": return `the “${groups.find(g => g.id === rule.value)?.name || "?"}” group`;
@@ -740,7 +742,7 @@ function showSignIn(msg=""){
   $("#layout").classList.add("nosb");
   $("#main").innerHTML = `<form class="signin" id="fSignIn">
       <h2>Sign in</h2>
-      <p class="lead">Use your <b>OneSolar</b> account. Members fill out their self-evaluation here, CEs write theirs, and leads and the e-board read the ones they're allowed to see.</p>
+      <p class="lead">Use your <b>one.solar</b> account. Members fill out their self-evaluation here, CEs write theirs, and leads and the e-board read the ones they're allowed to see.</p>
       ${msg ? `<div class="banner note"><span class="bt">${esc(msg)}</span></div>` : ""}
       <label class="fl" for="siEmail">UF email</label><input class="fi" id="siEmail" type="email" autocomplete="username" required>
       <label class="fl" for="siPass">Password</label><input class="fi" id="siPass" type="password" autocomplete="current-password" required>
@@ -751,7 +753,7 @@ function showSignIn(msg=""){
   $("#fSignIn").addEventListener("submit", async e => {
     e.preventDefault(); $("#siGo").disabled = true;
     const { error } = await sb.auth.signInWithPassword({email:$("#siEmail").value.trim(), password:$("#siPass").value});
-    if (error) { $("#siGo").disabled = false; toast(error.message === "Invalid login credentials" ? "That email and password don't match a OneSolar account." : error.message, 5000); }
+    if (error) { $("#siGo").disabled = false; toast(error.message === "Invalid login credentials" ? "That email and password don't match a one.solar account." : error.message, 5000); }
   });
   $("#siEmail").focus();
 }
@@ -764,6 +766,7 @@ async function boot(session){
     try {
       evalState = null;
       await loadMe(session);
+      if (me.guest) { showGuest(); return; }
       await Promise.all([loadRubrics(), loadEvals(), loadQuestions(), loadSetup()]);
       $("#tabQ").hidden = !(can("evals.write") || can("evals.templates"));
       $("#tabSetup").hidden = !can("evals.types");
@@ -773,6 +776,18 @@ async function boot(session){
     finally { booting = null; }
   })();
   return booting;
+}
+/** 040: signed up but not accepted into the team yet: nothing to see here until someone accepts them. */
+function showGuest(){
+  $("#tabs").hidden = true; drawAccount();
+  $("#side").innerHTML = "";
+  $("#main").innerHTML = `<div class="empty"><h3>You're signed up. Almost in!</h3>
+    <p>Someone on the team needs to accept you before you can use Solar Evals. Anyone on the team can: ask your Chief Engineer, a lead or anyone on the e-board to accept you on the one.solar home screen.</p>
+    <div class="row"><a class="btn primary" href="../">one.solar home</a><button class="btn" id="guestCheck">Check again</button></div></div>`;
+  $("#guestCheck").onclick = async () => {
+    const { data:{ session } } = await sb.auth.getSession();
+    me = null; if (session) boot(session);
+  };
 }
 /** The shared account menu (../shared/account-menu.js): My account, Appearance, Sign out. */
 function drawAccount(){
@@ -887,7 +902,7 @@ let draftT; const saveDraftSoon = () => { clearTimeout(draftT); draftT = setTime
 
 let routeSeq = 0;
 async function route(){
-  if (!me) return;
+  if (!me || me.guest) return;
   const seq = ++routeSeq;                       // if a newer navigation starts while this one waits, it wins
   const [a, b, c] = location.hash.replace(/^#\/?/, "").split("/");
   if (evalState && !(a === "evals" && b === evalState.row.id)) { await flushEval(); evalState = null; }
@@ -2230,7 +2245,7 @@ function renderSetup(){
       ${srow("The evaluator", `<input class="fi" data-sp="settings.labels.evaluator" value="${L2("evaluator")}" maxlength="40">`)}
       ${srow("Someone giving input", `<input class="fi" data-sp="settings.labels.input" value="${L2("input")}" maxlength="40">`)}
       ${srow("A variant of the form", `<input class="fi" data-sp="settings.labels.variant" value="${L2("variant")}" maxlength="40">`, "e.g. Division, or Position.")}</div>
-    <div class="scard"><h3>Who evaluates whom</h3><p class="sd">Use a permission, a OneSolar position, a group (Setup → Groups), or one person. Nobody needs a new position just for evals.</p>
+    <div class="scard"><h3>Who evaluates whom</h3><p class="sd">Use a permission, a one.solar position, a group (Setup → Groups), or one person. Nobody needs a new position just for evals.</p>
       ${srow(`Who is evaluated (${L2("subject")})`, ruleHTML("settings.subjects", s.subjects))}
       ${srow(`Who evaluates (${L2("evaluator")})`, ruleHTML("settings.evaluators", s.evaluators), s.evaluators.rule === "person" ? "Self-evals go straight to them." : "People pick theirs on their self-eval; evaluators can also start an eval themselves.")}
       ${srow(`Input from (${L2("input")})`, `${chk("settings.input.on", s.input.on, "Someone else gives input")}
@@ -2570,7 +2585,7 @@ async function shareEval(){
   const email = (r.member_email || "").toLowerCase();
   if (!email) { toast("Add their email first (in the bar above the form).", 5000); $("#evEmail")?.focus(); return; }
   const acct = people.find(p => (p.email || "").toLowerCase() === email);
-  if (!acct) { alert(`Nobody has a OneSolar account with ${email} yet.\n\nAsk ${r.member_name || "them"} to create one at ${ORDERS_URL} with that email, then share again.`); return; }
+  if (!acct) { alert(`Nobody has a one.solar account with ${email} yet.\n\nAsk ${r.member_name || "them"} to create one at ${ORDERS_URL} with that email, then share again.`); return; }
   if (!confirm(`Share with ${acct.full_name || acct.email} (${acct.email})?\n\nThey'll be able to read this evaluation when signed in${s.comments ? ", and add their own comments" : ""}. You can't edit it while it's shared.`)) return;
   try { await call("eval_set_status", {p_id:r.id, p_status:"shared"}); sendQueued(); await reloadEval(); toast(`Shared with ${acct.full_name || acct.email}.`); }
   catch (e) { fail("Couldn't share it", e); }

@@ -1,5 +1,5 @@
 /**
- * The one Supabase project every OneSolar app uses (Orders, Solar Evals, the home screen).
+ * The one Supabase project every one.solar app uses (Orders, Solar Evals, the home screen).
  * Find these in Supabase: Project Settings → API.
  *
  * The publishable (anon) key is MEANT to be public: it ships to every browser, and the

@@ -1,5 +1,5 @@
 /*
- * OneSolar: light or dark before the page draws (no white flash). Load it in <head> as a plain script:
+ * one.solar: light or dark before the page draws (no white flash). Load it in <head> as a plain script:
  *   <script src="../shared/theme.js"></script>
  * localStorage "theme" is "light", "dark", or missing (follow the device). Every app shares it.
  * It also applies the team's accent color (localStorage "onesolar:brand"), so it's right from the first paint.

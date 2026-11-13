@@ -12,11 +12,11 @@ import { rejoinedFlag } from './views/admin.js';
 import { STATUS, STATUSES, EDITABLE_STATUSES, esc, errorBox, setCurrentSeason, setAppearance, renderRichText, fitTables } from './ui.js';
 
 const app = document.getElementById('app');
-mountAppSwitcher(); // ⊞ next to the logo: jump to any other OneSolar app (Ctrl + K)
+mountAppSwitcher(); // ⊞ next to the logo: jump to any other one.solar app (Ctrl + K)
 
 // Bump when adding a file to supabase/migrations/ (the migration sets general.schemaVersion).
-const REQUIRED_SCHEMA_VERSION = 39;
-const MIGRATIONS = { 2: '002_form_fields.sql', 3: '003_archive_and_import.sql', 4: '004_cost_adjustments.sql', 5: '005_editable_permissions.sql', 6: '006_seasons.sql', 7: '007_one_vendor_per_request.sql', 8: '008_roles_admin_history.sql', 9: '009_form_rules_layout_exports.sql', 10: '010_workflow_budgets_notifications.sql', 11: '011_notification_choices.sql', 12: '012_link_imported_requests.sql', 13: '013_history_drafts_ticket.sql', 14: '014_finances.sql', 15: '015_sponsors.sql', 16: '016_request_watchers.sql', 17: '017_attachments.sql', 18: '018_treasurer_ledger.sql', 19: '019_fix_wording_pickup.sql', 20: '020_ledger_category.sql', 21: '021_budget_categories.sql', 22: '022_paid_status.sql', 23: '023_rename_category_fix.sql', 24: '024_cancel_approved.sql', 25: '025_treasurer_tools.sql', 26: '026_sponsor_history.sql', 27: '027_sponsor_outreach.sql', 28: '028_solar_evals.sql', 29: '029_onesolar.sql', 30: '030_onesolar_wording.sql', 31: '031_eval_self_reviews.sql', 32: '032_eval_questions.sql', 33: '033_undo_received.sql', 34: '034_edit_approved_items.sql', 35: '035_people_admin_only.sql', 36: '036_eval_types.sql', 37: '037_eval_form_names.sql', 38: '038_eval_communication.sql', 39: '039_eval_more_forms.sql' };
+const REQUIRED_SCHEMA_VERSION = 40;
+const MIGRATIONS = { 2: '002_form_fields.sql', 3: '003_archive_and_import.sql', 4: '004_cost_adjustments.sql', 5: '005_editable_permissions.sql', 6: '006_seasons.sql', 7: '007_one_vendor_per_request.sql', 8: '008_roles_admin_history.sql', 9: '009_form_rules_layout_exports.sql', 10: '010_workflow_budgets_notifications.sql', 11: '011_notification_choices.sql', 12: '012_link_imported_requests.sql', 13: '013_history_drafts_ticket.sql', 14: '014_finances.sql', 15: '015_sponsors.sql', 16: '016_request_watchers.sql', 17: '017_attachments.sql', 18: '018_treasurer_ledger.sql', 19: '019_fix_wording_pickup.sql', 20: '020_ledger_category.sql', 21: '021_budget_categories.sql', 22: '022_paid_status.sql', 23: '023_rename_category_fix.sql', 24: '024_cancel_approved.sql', 25: '025_treasurer_tools.sql', 26: '026_sponsor_history.sql', 27: '027_sponsor_outreach.sql', 28: '028_solar_evals.sql', 29: '029_onesolar.sql', 30: '030_onesolar_wording.sql', 31: '031_eval_self_reviews.sql', 32: '032_eval_questions.sql', 33: '033_undo_received.sql', 34: '034_edit_approved_items.sql', 35: '035_people_admin_only.sql', 36: '036_eval_types.sql', 37: '037_eval_form_names.sql', 38: '038_eval_communication.sql', 39: '039_eval_more_forms.sql', 40: '040_guests.sql' };
 
 /** Shared config object handed to every view. Mutated in place on reload. */
 const config = {};
@@ -36,7 +36,7 @@ async function reloadConfig() {
     statuses: STATUSES,
     editableStatuses: EDITABLE_STATUSES,
     lists: settings.lists || {}, // Admin → Orders → Lists, layout & Excel
-    appearance: settings.appearance || {}, // Admin → OneSolar → Logo & accent, Banner & messages; Orders → Statuses & colors, Page intros
+    appearance: settings.appearance || {}, // Admin → one.solar → Logo & accent, Banner & messages; Orders → Statuses & colors, Page intros
     layout: settings.layout || {}, // Admin → Request page
     exports: settings.exports || {}, // Admin → Orders → Lists, layout & Excel
     workflow: settings.workflow || {}, // Admin → Workflow (rules, budgets)
@@ -45,7 +45,7 @@ async function reloadConfig() {
     ledger: settings.ledger || {}, // Finances: purchasing steps, category notes (migration 025)
   });
   setLedgerSettings(config.ledger);
-  document.title = `${APPS[APP].name} · OneSolar`;
+  document.title = `${APPS[APP].name} · one.solar`;
   setCurrentSeason(config.season);
   setNotificationsOn(config.notifications.enabled);
   setAppearance(config.appearance, { defaultPriority: config.defaultPriority });
@@ -54,7 +54,7 @@ async function reloadConfig() {
 }
 
 /**
- * Logo and accent color from Admin → OneSolar → Logo & accent (also shown on the sign-in page).
+ * Logo and accent color from Admin → one.solar → Logo & accent (also shown on the sign-in page).
  * Remembered for the other apps too (shared/onesolar.js, rememberBrand).
  */
 function applyBranding() {
@@ -63,7 +63,7 @@ function applyBranding() {
   rememberBrand(a);
 }
 
-/** Announcement banner (Admin → OneSolar → Banner & messages) — hidden after its end date. */
+/** Announcement banner (Admin → one.solar → Banner & messages) — hidden after its end date. */
 function updateAnnouncement() {
   const box = document.getElementById('announcement');
   const ann = config.appearance?.announcement;
@@ -107,6 +107,9 @@ function updateChrome() {
   document.querySelectorAll('.topbar [data-perm]').forEach((node) => {
     node.hidden = !auth.signedIn || !node.dataset.perm.split(' ').some((p) => auth.can(p));
   });
+  // 040: Guests (not accepted yet) only get the waiting page, so no Requests / New Request.
+  const guest = auth.signedIn && auth.isGuest;
+  document.querySelectorAll('[data-nav="requests"], [data-nav="new"]').forEach((node) => (node.hidden = guest));
   // Help tab only when the team has written help text.
   document.getElementById('nav-help').hidden = !auth.signedIn || !hasHelp(config);
   updateAnnouncement();
@@ -129,7 +132,7 @@ function updateChrome() {
 }
 
 async function refreshNavCounts() {
-  if (!auth.signedIn || APP !== 'orders') return; // the counts are on Orders' menu
+  if (!auth.signedIn || auth.isGuest || APP !== 'orders') return; // the counts are on Orders' menu
   let total = 0;
   const set = (id, n) => {
     const badge = document.getElementById(id);
@@ -267,7 +270,7 @@ async function main() {
     return;
   }
 
-  // OneSolar's home screen sends people here to sign in (?next=/one.solar/): go back there afterwards.
+  // one.solar's home screen sends people here to sign in (?next=/one.solar/): go back there afterwards.
   const next = new URLSearchParams(location.search).get('next');
   if (next && /^\/(?!\/)[\w.~\/-]*$/.test(next)) {
     try { sessionStorage.setItem('sg-next', next); } catch {}

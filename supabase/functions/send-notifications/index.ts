@@ -60,8 +60,8 @@ const money = (n: unknown) =>
 export function placeholders(payload: Record<string, unknown>, siteUrl: string): Record<string, string> {
   const s = (k: string) => (payload[k] == null ? '' : String(payload[k]).trim());
   const base = siteUrl ? siteUrl.replace(/#.*$/, '').replace(/\/?$/, '/') : '';
-  // Other OneSolar apps on the same site. The website address is the Orders app (…/one.solar/orders/),
-  // so the OneSolar root is one folder up, and app paths like "evals/#/evals/…" are relative to it.
+  // Other one.solar apps on the same site. The website address is the Orders app (…/one.solar/orders/),
+  // so the one.solar root is one folder up, and app paths like "evals/#/evals/…" are relative to it.
   const origin = base.match(/^https?:\/\/[^/]+/)?.[0] || '';
   const root = /\/orders\/$/.test(base) ? base.slice(0, -'orders/'.length) : '';
   let appPath = s('app_path');
@@ -224,7 +224,7 @@ async function sendViaSmtp(env: (k: string) => string | undefined, to: string, m
     });
   }
   await transport.sendMail({
-    from: { name: env('SMTP_FROM_NAME') || `OneSolar · ${teamName}`, address: env('SMTP_USER')! },
+    from: { name: env('SMTP_FROM_NAME') || `one.solar · ${teamName}`, address: env('SMTP_USER')! },
     to,
     subject: m.subject,
     text: emailText(m),

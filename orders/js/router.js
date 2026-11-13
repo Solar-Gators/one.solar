@@ -45,11 +45,28 @@ function noAccess() {
     <h1>You don't have access to ${APP === 'orders' ? 'this page' : esc(name)}</h1>
     <p class="muted">Your role (${esc(auth.roleLabel)}) can't open it. If you need it, ask ${WHO_TO_ASK[APP]} to give you a role that can.</p>
     <div class="form-actions">
-      <a class="btn btn-primary" href="${esc(appUrl(''))}">OneSolar home</a>
+      <a class="btn btn-primary" href="${esc(appUrl(''))}">one.solar home</a>
       ${APP !== 'orders' ? `<a class="btn" href="${esc(appUrl('orders/'))}">Orders</a>` : '<a class="btn" href="#/home">Orders home</a>'}
     </div>
   </section>`;
 }
+
+/** 040: a Guest (signed up, not accepted yet) sees this instead of the team's pages. */
+function waitingPage() {
+  const name = auth.displayName;
+  return `<section class="card no-access">
+    <h1>You're signed up${name ? `, ${esc(name.split(' ')[0])}` : ''}. Almost in!</h1>
+    <p>Someone on the team needs to accept you before you can see orders, evals and the rest of one.solar.
+      Anyone on the team can: ask your Chief Engineer, a lead or anyone on the e-board to accept you on the one.solar home screen.</p>
+    <p class="muted">Until then you can use the public tools on the home screen. This page updates once you're in.</p>
+    <div class="form-actions">
+      <a class="btn btn-primary" href="${esc(appUrl(''))}">one.solar home</a>
+      <button type="button" class="btn" id="guest-check">Check again</button>
+      <a class="btn btn-ghost" href="#/account">My account</a>
+    </div>
+  </section>`;
+}
+const GUEST_OK = /^\/(account|reset-password|help)$/;
 
 const ROUTES = [
   { pattern: /^\/home$/, nav: 'home', view: renderHome },
@@ -102,7 +119,7 @@ export function startRouter(ctx, { onRender } = {}) {
     const token = ++renderToken;
     // No address (the app was just opened): the app's own first page (Orders' Home, the Sponsors board…).
     const path = location.hash.replace(/^#/, '') || homePath();
-    // A page of another OneSolar app (e.g. an old orders/#/sponsors/… link): open it there.
+    // A page of another one.solar app (e.g. an old orders/#/sponsors/… link): open it there.
     const owner = appOf(path);
     if (owner && owner !== APP) {
       location.replace(`${appUrl(`${owner}/`)}${location.search}#${path}`);
@@ -119,6 +136,7 @@ export function startRouter(ctx, { onRender } = {}) {
       location.hash = route.redirect();
       return;
     }
+    const guest = auth.signedIn && !auth.recovering && auth.isGuest && !GUEST_OK.test(path);
 
     document.body.classList.toggle('signed-out', !auth.signedIn);
     document.querySelectorAll('[data-nav]').forEach((a) => a.classList.toggle('active', a.dataset.nav === route.nav));
@@ -129,7 +147,14 @@ export function startRouter(ctx, { onRender } = {}) {
     // Render into a detached element so a slow, stale view can't overwrite a newer one.
     const el = document.createElement('div');
     try {
-      if (route.perm && !route.perm.some((p) => auth.can(p))) {
+      if (guest) {
+        el.innerHTML = waitingPage();
+        el.querySelector('#guest-check').addEventListener('click', async () => {
+          await auth.refresh();
+          if (auth.isGuest) el.querySelector('.muted').textContent = 'Not yet. Ask someone on the team to accept you, then check again.';
+          else render();
+        });
+      } else if (route.perm && !route.perm.some((p) => auth.can(p))) {
         el.innerHTML = noAccess();
       } else {
         await route.view(el, { ...ctx, params, rerender: render });

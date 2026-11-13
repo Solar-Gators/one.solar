@@ -1,5 +1,5 @@
 /**
- * OneSolar: what every app shares in code.
+ * one.solar: what every app shares in code.
  *
  *   import { ROOT, appUrl, signInUrl, isLocal, getTheme, setTheme } from '../shared/onesolar.js';
  *
@@ -51,7 +51,7 @@ matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', () => ge
 addEventListener('storage', (e) => e.key === 'theme' && applyTheme());
 
 /**
- * The team's logo and accent color (Admin → OneSolar → Logo & accent, settings "appearance").
+ * The team's logo and accent color (Admin → one.solar → Logo & accent, settings "appearance").
  * Any app that reads the settings (Orders, Finances, Sponsors, Admin, the home screen) calls
  * rememberBrand(appearance); every app then shows them: theme.js applies the accent before the
  * page draws, and the top bar's logo (account-menu.js, syncLogo) uses the logo.

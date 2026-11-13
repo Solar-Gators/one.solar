@@ -28,9 +28,9 @@ Skip the **Share** button and GatorWire works entirely offline, with no account 
 1. Replace `gatorwire/index.html` with the new build.
 2. Run `npm run gatorwire` (from the repo folder), then commit both `gatorwire/index.html` and `gatorwire/onesolar-light.css`.
 
-`npm run gatorwire` ([`tools/gatorwire-onesolar.mjs`](../tools/gatorwire-onesolar.mjs)) makes the build fit OneSolar, and it's safe to run more than once:
+`npm run gatorwire` ([`tools/gatorwire-onesolar.mjs`](../tools/gatorwire-onesolar.mjs)) makes the build fit one.solar, and it's safe to run more than once:
 - **Picking the shared file:** the Share dialog lists every `.json` file in the repository (with its size) to pick from, plus **A new file…** to start a separate project, instead of a box where you had to type the exact file name. **↻ Refresh** looks again. Private repositories are listed once you paste your token. (Code: [`tools/gatorwire/file-picker.js`](../tools/gatorwire/file-picker.js).)
 - **The Share button** (top right) is a real button with plainer words: **Share with the team** (orange, not shared yet), **View only · add a token to edit** (shared, no token), **Shared · up to date**, and so on. Click it to share, add your token or check for changes.
-- **The OneSolar look:** the OneSolar top bar (logo back to the home screen, and the shared Light / Dark switch) above GatorWire's toolbar, from [`gatorwire/onesolar-skin.css`](../gatorwire/onesolar-skin.css) and [`onesolar-skin.js`](../gatorwire/onesolar-skin.js). GatorWire's dark colours are already OneSolar's; `gatorwire/onesolar-light.css` is generated with the light version of every colour the build writes into its styles.
+- **The one.solar look:** the one.solar top bar (logo back to the home screen, and the shared Light / Dark switch) above GatorWire's toolbar, from [`gatorwire/onesolar-skin.css`](../gatorwire/onesolar-skin.css) and [`onesolar-skin.js`](../gatorwire/onesolar-skin.js). GatorWire's dark colours are already one.solar's; `gatorwire/onesolar-light.css` is generated with the light version of every colour the build writes into its styles.
 
 The build is minified, so the tool finds the parts it changes by what the code looks like. If a future build is very different, it stops and says what it couldn't find. The longer-term fix is to move the file picker into GatorWire's own source.

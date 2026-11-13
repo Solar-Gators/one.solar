@@ -1,6 +1,6 @@
 /**
  * Two Admin pages that point to settings kept somewhere else:
- *   #/admin/home  — OneSolar → Home screen: what's customized there, and a button to edit it on the home
+ *   #/admin/home  — one.solar → Home screen: what's customized there, and a button to edit it on the home
  *                   screen itself (✎ Edit home screen, hub/home.js; settings "onesolar", migration 029)
  *   #/admin/apps  — Other apps → where Sponsors, Finances and Solar Evals keep their own settings
  */
@@ -27,7 +27,7 @@ export async function renderHomeScreen(el) {
   const list = (items) => (items.length ? `<ul class="plain-list">${items.join('')}</ul>` : '<p class="muted small">None.</p>');
 
   el.innerHTML = `
-    ${adminHeader('home', 'The OneSolar home screen: the app cards everyone sees, in which order, and links to other sites.')}
+    ${adminHeader('home', 'The one.solar home screen: the app cards everyone sees, in which order, and links to other sites.')}
     <div class="two-col">
       <section class="card">
         <h2>Edit it on the home screen</h2>

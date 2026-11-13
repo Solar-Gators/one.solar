@@ -1,12 +1,12 @@
 /*
- * GatorWire in the OneSolar look (hooked into the build by tools/gatorwire-onesolar.mjs).
- * GatorWire's dark colours are already OneSolar's dark ones; this adds the light ones (the
- * shared Light / Dark setting), the OneSolar top bar above GatorWire's toolbar, and a toolbar
+ * GatorWire in the one.solar look (hooked into the build by tools/gatorwire-onesolar.mjs).
+ * GatorWire's dark colours are already one.solar's dark ones; this adds the light ones (the
+ * shared Light / Dark setting), the one.solar top bar above GatorWire's toolbar, and a toolbar
  * that sits under it like the other apps' page headers. Values match ../shared/onesolar.css
  * (not loaded here: GatorWire has its own .topbar, --bg, --blue… that it would clash with).
  */
 
-/* ---- Light: OneSolar's light colours under GatorWire's token names ---- */
+/* ---- Light: one.solar's light colours under GatorWire's token names ---- */
 :root[data-theme="light"] {
   color-scheme: light;
   --uf-orange: #f26b1d;
@@ -26,13 +26,13 @@
   background: var(--bg);
 }
 :root[data-theme="dark"] { color-scheme: dark; }
-/* Light: orange used as text or icons on a light background takes the darker OneSolar orange
+/* Light: orange used as text or icons on a light background takes the darker one.solar orange
    (UF orange on white is too faint to read); orange fills and borders stay bright. */
 :root[data-theme="light"] :is(.new-connector-button > b, .menu-popover button:hover, .toolbar-brand, .zoom-controls button.active,
   .ce-mirror:hover, .ce-expand:hover, .import-panel > header span, .drawio-panel > header span, .project-menu > button > b,
   .topbar-actions button > b) { color: #c2410c; }
 
-/* ---- The page: OneSolar top bar, then GatorWire filling the rest ---- */
+/* ---- The page: one.solar top bar, then GatorWire filling the rest ---- */
 body { display: flex; flex-direction: column; }
 #root { flex: 1; min-height: 0; height: auto; }
 
@@ -60,7 +60,7 @@ body { display: flex; flex-direction: column; }
 [data-theme="dark"] .os-accent { color: var(--uf-orange, #fa4616); }
 [data-theme="dark"] .os-app, [data-theme="dark"] .os-theme { color: #a8b8ce; }
 [data-theme="dark"] .os-theme:hover { background: #0f325c; }
-/* Phones: like the other apps' top bar, the app name goes first, then "OneSolar", so the bar never overflows. */
+/* Phones: like the other apps' top bar, the app name goes first, then "one.solar", so the bar never overflows. */
 @media (max-width: 640px) {
   .os-bar { padding: 8px 16px; gap: 8px 12px; }
   .os-app { display: none; }
@@ -69,10 +69,10 @@ body { display: flex; flex-direction: column; }
   .os-divider, .os-brand > span:not(.os-divider):not(.os-app) { display: none; }
 }
 
-/* ---- GatorWire's own top bar becomes its toolbar, under the OneSolar bar ---- */
+/* ---- GatorWire's own top bar becomes its toolbar, under the one.solar bar ---- */
 :root .studio-shell > .topbar { background: var(--panel); border-bottom: 1px solid var(--line); }
 :root .studio-shell > .topbar::before { display: none; }
-/* The logo and "GatorWire" are in the OneSolar bar now, so GatorWire's own logo and name go. */
+/* The logo and "GatorWire" are in the one.solar bar now, so GatorWire's own logo and name go. */
 .studio-shell > .topbar > .team-logo,
 .studio-shell > .topbar > .brand-divider,
 .studio-shell > .topbar > .brand-copy { display: none; }

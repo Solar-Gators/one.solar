@@ -1,5 +1,5 @@
 /*
- * OneSolar home screen: sections of app cards, favourites, search, and the admins' Edit home screen.
+ * one.solar home screen: sections of app cards, favourites, search, and the admins' Edit home screen.
  * Colours, top bar, buttons, inputs, cards and dialogs come from ../shared/onesolar.css.
  */
 
@@ -114,3 +114,11 @@ body:not(.ready) main { visibility: hidden; }
   .icon-row { flex-direction: column; }
   footer { padding: 0 16px 24px; }
 }
+
+/* 040: people waiting to be accepted into the team */
+.waiting { padding: 16px 18px; margin-bottom: 20px; border-left: 4px solid var(--orange, #fa4616); }
+.waiting .section-title { margin-top: 0; }
+.waiting-list { list-style: none; margin: 10px 0 0; padding: 0; }
+.waiting-list li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0; border-top: 1px solid var(--border-soft); flex-wrap: wrap; }
+.waiting-list li:first-child { border-top: 0; }
+.waiting-who { min-width: 0; overflow-wrap: anywhere; }

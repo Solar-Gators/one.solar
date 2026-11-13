@@ -1,5 +1,5 @@
 /**
- * The apps on the OneSolar home screen. Add, remove or reorder cards here.
+ * The apps on the one.solar home screen. Add, remove or reorder cards here.
  *
  *   id        short name, used for the icon colour
  *   name      card title
@@ -91,7 +91,7 @@ export const APPS = [
     id: 'admin',
     section: 'apps',
     name: 'Admin',
-    blurb: 'Settings for all of OneSolar (people, positions, the season, logo, notifications) and for each app.',
+    blurb: 'Settings for all of one.solar (people, positions, the season, logo, notifications) and for each app.',
     href: 'admin/',
     icon: '⚙️',
     access: ['users.manage', 'settings.edit', 'site.customize', 'seasons.manage', 'workflow.edit'],

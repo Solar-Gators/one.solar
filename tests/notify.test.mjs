@@ -97,7 +97,7 @@ test('Solar Evals messages link to the Solar Evals page on the same site', () =>
   assert.deepEqual(m.facts, [['Member', 'Kit Member'], ['Semester', 'Spring 2027']]);
 });
 
-test('with the OneSolar address (…/one.solar/orders/), Solar Evals links go to evals/ next to it', () => {
+test('with the one.solar address (…/one.solar/orders/), Solar Evals links go to evals/ next to it', () => {
   const site = { ...settings, siteUrl: 'https://solar-gators.github.io/one.solar/orders/' };
   const ev = (app_path) => render({ event: 'eval_update', payload: { what: 'x', app_path, recipient_name: 'Kit' } }, site).link;
   assert.equal(ev('/Custom-Apps/solarevals#/evals/abc'), 'https://solar-gators.github.io/one.solar/evals/#/evals/abc');

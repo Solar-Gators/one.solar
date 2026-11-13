@@ -20,7 +20,7 @@ const ANY_ADMIN = ['users.manage', 'settings.edit', 'site.customize', 'seasons.m
 
 /**
  * Admin pages, each shown only with its permission, grouped by where they apply:
- *   OneSolar    — every app: accounts and positions, the team and season, logo, banner, notifications, home screen
+ *   one.solar    — every app: accounts and positions, the team and season, logo, banner, notifications, home screen
  *   Orders      — only the Orders app: the request form, approvals, how requests are shown
  *   Other apps  — Sponsors, Finances and Solar Evals keep their settings inside each app; one page links there
  * Also used by the router. [key, label, permissions, group, hidden]
@@ -28,13 +28,13 @@ const ANY_ADMIN = ['users.manage', 'settings.edit', 'site.customize', 'seasons.m
  * templates are sections of "Lists, layout & Excel", and History opens from the "History" link on each page.
  */
 export const ADMIN_TABS = [
-  ['users', 'Users', ['users.manage'], 'OneSolar'],
-  ['roles', 'Roles & permissions', ['users.manage', 'roles.edit'], 'OneSolar'],
-  ['season', 'Team & season', ['settings.edit', 'seasons.manage'], 'OneSolar'],
-  ['brand', 'Logo & accent', ['site.customize'], 'OneSolar'],
-  ['text', 'Banner & messages', ['site.customize'], 'OneSolar'],
-  ['notifications', 'Notifications', ['workflow.edit'], 'OneSolar'],
-  ['home', 'Home screen', ['site.customize'], 'OneSolar'],
+  ['users', 'Users', ['users.manage'], 'one.solar'],
+  ['roles', 'Roles & permissions', ['users.manage', 'roles.edit'], 'one.solar'],
+  ['season', 'Team & season', ['settings.edit', 'seasons.manage'], 'one.solar'],
+  ['brand', 'Logo & accent', ['site.customize'], 'one.solar'],
+  ['text', 'Banner & messages', ['site.customize'], 'one.solar'],
+  ['notifications', 'Notifications', ['workflow.edit'], 'one.solar'],
+  ['home', 'Home screen', ['site.customize'], 'one.solar'],
   ['fields', 'Request form', ['settings.edit'], 'Orders'],
   ['dropdowns', 'Dropdowns & rules', ['settings.edit'], 'Orders'],
   ['workflow', 'Approval rules', ['workflow.edit'], 'Orders'],
@@ -46,11 +46,11 @@ export const ADMIN_TABS = [
   ['lists', 'Request lists', ['site.customize'], 'Orders', true],
   ['page', 'Request page', ['site.customize'], 'Orders', true],
   ['exports', 'Excel templates', ['site.customize'], 'Orders', true],
-  ['history', 'History', ['users.manage', 'settings.edit', 'site.customize', 'workflow.edit'], 'OneSolar', true],
+  ['history', 'History', ['users.manage', 'settings.edit', 'site.customize', 'workflow.edit'], 'one.solar', true],
 ];
 /** One line under the tabs: where this group's settings apply. */
 const GROUP_SCOPE = {
-  OneSolar: 'Applies to every OneSolar app.',
+  one.solar: 'Applies to every one.solar app.',
   Orders: 'Only the Orders app: purchase requests.',
   'Other apps': 'Sponsors, Finances and Solar Evals keep their own settings inside each app.',
 };
@@ -134,16 +134,22 @@ async function renderPeople(el, { rerender, config }, part) {
   const lockedRow = (p) => v35 && !iAmAdmin && (p.roles || []).includes('admin');
   const flagOf = (p) => rejoinedFlag(p, removed);
   const flagged = people.filter(flagOf);
-  // Member is what you are with no other role, so it isn't a checkbox.
-  const assignable = roles.filter((r) => r.key !== 'member');
-  const BUILT_IN = new Set(['member', 'ce', 'treasurer', 'admin']);
+  // Member is what you are with no other role, so it isn't a checkbox. Guest (040) is what you are
+  // until someone accepts you: Accept (or ticking any role) makes them a member.
+  const assignable = roles.filter((r) => r.key !== 'member' && r.key !== 'guest');
+  const BUILT_IN = new Set(['member', 'ce', 'treasurer', 'admin', 'guest']);
   const holds = (p, key) => (p.roles || []).includes(key);
+  const isGuest = (p) => (p.roles || []).length > 0 && p.roles.every((r) => r === 'guest');
+  const canAccept = auth.can('people.accept');
+  const guests = people.filter(isGuest);
   const count = (key) => people.filter((p) => (key === 'member' ? !p.roles.some((r) => r !== 'member') : holds(p, key))).length;
 
   const summary = `${people.length} account${people.length === 1 ? '' : 's'} · ${roles.map((r) => `${count(r.key)} ${esc(r.label)}`).join(' · ')}`;
   const removedWhen = (r) => `Removed ${fmtDate(r.removed_at)}${r.removed_by_name ? ` by ${esc(r.removed_by_name)}` : ''}${r.note ? `: “${esc(r.note)}”` : ''}`;
   const usersPart = `
-    ${about(`New people create their own account from the sign-in page and start as <strong>Member</strong>.
+    ${about(`New people create their own account from the sign-in page and start as <strong>Guest</strong>: they see only the public
+      tools until someone on the team accepts them (on the one.solar home screen, or <strong>Accept</strong> here), which makes them a <strong>Member</strong>.
+      Ticking any role for a guest accepts them too.
       Tick the roles each person should have. Someone can have several (e.g. Treasurer + Admin) and gets everything those roles allow.
       What each role can do is set under <a href="#/admin/roles">Roles &amp; permissions</a>.
       ${v35 ? `Only an <strong>Admin</strong> can make someone an Admin, take it away, or change an Admin's roles.` : ''}
@@ -152,12 +158,15 @@ async function renderPeople(el, { rerender, config }, part) {
       their requests, approvals and evals keep their name. If the same email signs up again, they're flagged here.` : ''}`)}
     ${flagged.length ? `<div class="alert alert-warning" role="status"><strong>${flagged.length === 1 ? '1 person who was removed has' : `${flagged.length} people who were removed have`} signed up again:</strong>
       ${flagged.map((p) => esc(p.full_name || p.email)).join(', ')}. Let them back in, or remove them again, on their row below.</div>` : ''}
+    ${guests.length ? `<div class="alert alert-info" role="status"><strong>${guests.length === 1 ? '1 person is' : `${guests.length} people are`} waiting to join the team:</strong>
+      ${guests.map((p) => esc(p.full_name || p.email)).join(', ')}. ${canAccept ? 'Accept them on their row below' : 'Someone who can accept new people can let them in'}, or remove anyone who isn't on Solar Gators.</div>` : ''}
     <div id="user-errors"></div>
     <div class="toolbar">
       <input type="search" id="people-q" placeholder="Search name or email" aria-label="Search people">
       <select id="people-filter" aria-label="Show">
         <option value="">Everyone</option>
         <option value="leads">Only people with a role</option>
+        ${guests.length ? '<option value="guests">Waiting to join</option>' : ''}
         ${assignable.map((r) => `<option value="${esc(r.key)}">${esc(r.label)}</option>`).join('')}
       </select>
       <span class="muted" id="people-count">${people.length} people</span>
@@ -175,7 +184,8 @@ async function renderPeople(el, { rerender, config }, part) {
                     <button type="button" class="btn btn-sm btn-danger" data-remove="${esc(p.id)}">Remove again</button></span></div>` : ''}</td>
                 <td data-label="Email">${esc(p.email)}</td>
                 <td class="nowrap" data-label="Joined">${fmtDate(p.created_at)}</td>
-                <td data-label="Roles"><div class="role-chips">
+                <td data-label="Roles">${isGuest(p) ? `<div class="guest-row"><span class="field-tag">Waiting to join</span>
+                  ${canAccept ? `<button type="button" class="btn btn-sm btn-primary" data-accept="${esc(p.id)}">Accept as Member</button>` : ''}</div>` : ''}<div class="role-chips">
                   ${assignable
                     .map(
                       (r) => {
@@ -261,7 +271,7 @@ async function renderPeople(el, { rerender, config }, part) {
       const row = el.querySelector(`tr[data-user="${CSS.escape(p.id)}"]`);
       const text = `${p.full_name} ${p.email}`.toLowerCase();
       const ok = words.every((w) => text.includes(w)) &&
-        (!role || (role === 'leads' ? p.roles.some((r) => r !== 'member') : holds(p, role)));
+        (!role || (role === 'leads' ? p.roles.some((r) => r !== 'member' && r !== 'guest') : role === 'guests' ? isGuest(p) : holds(p, role)));
       row.hidden = !ok;
       if (ok) shown++;
     }
@@ -293,6 +303,23 @@ async function renderPeople(el, { rerender, config }, part) {
         userErrors.innerHTML = errorBox(err);
         box.checked = !box.checked;
         row.querySelectorAll('input').forEach((b) => (b.disabled = false));
+      }
+    })
+  );
+
+  // Accept someone who signed up (040).
+  el.querySelectorAll('[data-accept]').forEach((button) =>
+    button.addEventListener('click', async () => {
+      const person = people.find((p) => p.id === button.dataset.accept);
+      userErrors.innerHTML = '';
+      button.disabled = true;
+      try {
+        await api.acceptMember(person.id);
+        setFlash(`${person.full_name || person.email} is on the team now, as a Member.`);
+        await rerender();
+      } catch (err) {
+        userErrors.innerHTML = errorBox(err);
+        button.disabled = false;
       }
     })
   );
@@ -570,7 +597,7 @@ async function renderSettings(el, { rerender, reloadConfig }, part) {
         <div class="hint">Each new season adds its year: ${esc(general.requestIdPrefix || 'SG')} → ${esc(nextPrefix)}-001 for ${esc(nextSeason)}.</div></div>
       <div class="field"><label for="s-domains">Allowed sign-up email domains <span class="muted">(one per line)</span></label>
         <textarea id="s-domains" name="allowedEmailDomains" rows="2">${esc((general.allowedEmailDomains || []).join('\n'))}</textarea>
-        <div class="hint">Who can make a OneSolar account (one account for every app). Leave empty to allow any email address.</div></div>
+        <div class="hint">Who can make a one.solar account (one account for every app). Leave empty to allow any email address.</div></div>
       <div class="form-actions"><button type="submit" class="btn btn-primary">Save team settings</button></div>
     </form>`;
 
@@ -603,7 +630,7 @@ async function renderSettings(el, { rerender, reloadConfig }, part) {
     ${takeFlash()}
     ${adminHeader(part, part === 'dropdowns'
       ? 'The options in each dropdown, and rules that apply to every request.'
-      : 'The team name, who can make a OneSolar account, and the yearly season change (Orders, Finances and Sponsors all follow the season).')}
+      : 'The team name, who can make a one.solar account, and the yearly season change (Orders, Finances and Sponsors all follow the season).')}
     <div id="settings-errors"></div>
     ${part === 'dropdowns'
       ? dropdownsPart

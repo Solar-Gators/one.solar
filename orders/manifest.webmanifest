@@ -1,6 +1,6 @@
 {
-  "name": "OneSolar",
-  "short_name": "OneSolar",
+  "name": "one.solar",
+  "short_name": "one.solar",
   "description": "Solar Gators' team app: parts requests, approvals, ordering and delivery, sponsors and finances.",
   "id": "./",
   "start_url": "./#/home",

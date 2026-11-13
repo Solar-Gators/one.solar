@@ -60,7 +60,7 @@ export function todayISO() {
 
 const slug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-');
 
-// ---- Appearance (Admin → Orders → Statuses & colors; OneSolar → Logo & accent) -------------------------------------------
+// ---- Appearance (Admin → Orders → Statuses & colors; one.solar → Logo & accent) -------------------------------------------
 // Status labels/colors and priority colors come from the `appearance` settings.
 // Colors are named tones (see .tone-* in styles.css) so text always stays readable.
 
@@ -506,7 +506,7 @@ export function fitTables(root) {
 }
 
 /**
- * Ask for a line (or a few lines) of text in a OneSolar dialog, instead of the browser's prompt()
+ * Ask for a line (or a few lines) of text in a one.solar dialog, instead of the browser's prompt()
  * (which looks out of place, especially on phones). Resolves with the trimmed text, or null if cancelled.
  *   const name = await askText({ title: 'New sponsor', label: 'Sponsor or donor name', ok: 'Add sponsor' });
  */

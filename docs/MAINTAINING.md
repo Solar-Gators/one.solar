@@ -1,4 +1,4 @@
-# Maintaining OneSolar
+# Maintaining one.solar
 
 This guide is for whoever maintains the site: setting it up from scratch, running it locally, applying database updates, and understanding the code. Most of it is about Orders, the biggest app and the owner of the database. For what each app does and how the team uses it, see the [README](../README.md), [Orders](orders.md) and [Solar Evals](solar-evals.md).
 
@@ -9,7 +9,7 @@ This guide is for whoever maintains the site: setting it up from scratch, runnin
 - **Changing the site:** edit files, commit, and push to `main`. Pages redeploys in about a minute.
 
 **Permissions** live in the database (`permissions` and `role_permissions` tables), not in code:
-- **Changing what a role can do:** use **Admin → OneSolar → Roles & permissions** on the site. The Table Editor works too.
+- **Changing what a role can do:** use **Admin → one.solar → Roles & permissions** on the site. The Table Editor works too.
 - **Lockout protection:** the database refuses any change (to a role or to the grid) that would leave nobody with `users.manage`. The Admin role always keeps `roles.edit`, and the last Admin can't drop the Admin role or be removed.
 - **Admin is special (035):** only Admins can give or take the Admin role, change an Admin's roles, or remove an Admin. Everyone else with `users.manage` can do the rest.
 - **Removing someone who left (035):** Admin → Users → **Remove…** deletes their login; what they did keeps their name, and the removal is kept in `removed_people`. If the same email signs up again, people managers see a flag (Users page, and a line under the top bar) until someone clicks **Let them back in** or **Remove again**.
@@ -56,7 +56,7 @@ select id, 'admin' from public.profiles where email = 'you@ufl.edu'
 on conflict do nothing;
 ```
 
-Refresh the page. From now on, roles are assigned from **Admin → OneSolar → Users**.
+Refresh the page. From now on, roles are assigned from **Admin → one.solar → Users**.
 
 ### 5. Publish on GitHub Pages
 Push this folder to a GitHub repository. Then go to **Settings → Pages → Build and deployment**, set **Deploy from a branch**, choose `main` and `/ (root)`, and save. The site appears at `https://<org>.github.io/<repo>/` within a minute or two, with Orders at `…/orders/`.
@@ -98,7 +98,7 @@ npm test
 ## How it works
 
 ```
-index.html               OneSolar home screen (hub/: its script, card list and styles)
+index.html               one.solar home screen (hub/: its script, card list and styles)
 shared/                  What every app shares:
   onesolar.css           colours (light + dark), top bar, account menu, buttons, forms, cards, tables, alerts
   theme.js               light / dark before the page draws
@@ -164,9 +164,9 @@ Each migration only needs to run once.
 
 ## Email & Teams notifications
 
-How it works: every workflow step (submit, approve, order, …) writes messages into the `notification_outbox` table in the same database transaction, so nothing is lost. The **send-notifications** Edge Function delivers them. The website calls it right after each action, and **Admin → OneSolar → Notifications → Send waiting messages now** does too. Failed messages are retried up to 5 times, and the log on that page shows each one.
+How it works: every workflow step (submit, approve, order, …) writes messages into the `notification_outbox` table in the same database transaction, so nothing is lost. The **send-notifications** Edge Function delivers them. The website calls it right after each action, and **Admin → one.solar → Notifications → Send waiting messages now** does too. Failed messages are retried up to 5 times, and the log on that page shows each one.
 
-Nothing is sent until an Admin turns it on in **Admin → OneSolar → Notifications**. You need the Edge Function plus **at least one** way to send:
+Nothing is sent until an Admin turns it on in **Admin → one.solar → Notifications**. You need the Edge Function plus **at least one** way to send:
 - **Email via Gmail** (simplest, reliable): a team Gmail account sends the emails.
 - **Power Automate** (for Teams, and it can also send the emails from Outlook): one flow receives every message and either posts it to the person in Teams or emails it.
 
@@ -211,16 +211,16 @@ If both are set, email goes through Gmail and Teams through the flow. If only `F
 If UF's tenant doesn't offer the trigger, or says it needs a premium license, post into a team channel instead: in step 4 choose **Post in: Channel** and pick your team's channel. The card still names the request; it just isn't a private message.
 
 ### 3. Turn it on
-1. **Admin → OneSolar → Notifications**: tick **Send notifications**, check the website address, choose email / Teams per event, and **Save**.
+1. **Admin → one.solar → Notifications**: tick **Send notifications**, check the website address, choose email / Teams per event, and **Save**.
 2. Click **Send me a test email** and **Send me a test Teams message**. Setup problems (missing secret, wrong password, flow error) show right there and in **Recent messages**.
 
-3. **Schedule the sender (recommended):** Supabase → **Integrations → Cron → Create job** → type "Supabase Edge Function" → `send-notifications`, every 5–10 minutes. "Needs your approval" messages wait (30 minutes by default, Admin → OneSolar → Notifications) so a CE approving their own order doesn't notify the others; the schedule is what sends the ones still waiting. It also retries failed messages.
+3. **Schedule the sender (recommended):** Supabase → **Integrations → Cron → Create job** → type "Supabase Edge Function" → `send-notifications`, every 5–10 minutes. "Needs your approval" messages wait (30 minutes by default, Admin → one.solar → Notifications) so a CE approving their own order doesn't notify the others; the schedule is what sends the ones still waiting. It also retries failed messages.
 
 ## Yearly handover checklist
 
-When the new leads take over (usually with **Admin → OneSolar → Team & season → Start a new season**):
-1. **Start the season:** Admin → OneSolar → Team & season → **Start a new season**. Numbering restarts (e.g. SG27-001), last season moves to the Archive, and unfinished orders stay in the queues.
-2. **Roles:** give the new Chief Engineer and Treasurer their roles in **Admin → OneSolar → Users**, and set graduating leads to Member (or **Remove…** people who left the team). At least one person must always keep "Manage people", and there must always be an Admin.
+When the new leads take over (usually with **Admin → one.solar → Team & season → Start a new season**):
+1. **Start the season:** Admin → one.solar → Team & season → **Start a new season**. Numbering restarts (e.g. SG27-001), last season moves to the Archive, and unfinished orders stay in the queues.
+2. **Roles:** give the new Chief Engineer and Treasurer their roles in **Admin → one.solar → Users**, and set graduating leads to Member (or **Remove…** people who left the team). At least one person must always keep "Manage people", and there must always be an Admin.
 3. **Supabase:** invite the new leads to the Supabase organization (Organization settings → Team) so someone can run database updates and restore the project if it pauses.
 4. **GitHub:** give the new leads access to the `Solar-Gators/one.solar` repository.
 5. **Email (optional):** if you set up custom SMTP for sign-up and password-reset emails, make sure the account behind it isn't tied to someone who's graduating.

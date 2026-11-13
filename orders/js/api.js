@@ -567,6 +567,11 @@ export const api = {
     unwrap(await supabase.rpc('clear_removed_flag', { p_email: email }));
   },
 
+  /** 040: accept someone who signed up (a Guest) into the team as a Member. */
+  async acceptMember(userId) {
+    unwrap(await supabase.rpc('accept_member', { p_user: userId }));
+  },
+
   // ---- Settings history ------------------------------------------------------
 
   /** Saved versions of settings and permissions, newest first. */
