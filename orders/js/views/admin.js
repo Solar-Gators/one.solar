@@ -50,7 +50,7 @@ export const ADMIN_TABS = [
 ];
 /** One line under the tabs: where this group's settings apply. */
 const GROUP_SCOPE = {
-  one.solar: 'Applies to every one.solar app.',
+  'one.solar': 'Applies to every one.solar app.',
   Orders: 'Only the Orders app: purchase requests.',
   'Other apps': 'Sponsors, Finances and Solar Evals keep their own settings inside each app.',
 };
