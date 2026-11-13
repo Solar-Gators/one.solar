@@ -6,7 +6,7 @@ This guide is for whoever maintains the site: setting it up from scratch, runnin
 - **Website:** plain HTML/CSS/JavaScript, served by **GitHub Pages** from the `main` branch. There is no build step and no server.
 - **Accounts + database:** [Supabase](https://supabase.com) (free tier). It handles sign-in, stores the data, and enforces every permission.
 - **Live site:** https://solar-gators.github.io/one.solar/ (Orders at `/one.solar/orders/`)
-- **Changing the site:** edit files, commit, and push to `main`. Pages redeploys in about a minute.
+- **Changing the site:** edit files on a branch, open a pull request, and merge when the tests pass. The **Deploy site** workflow tests again and publishes in a few minutes; a failing test publishes nothing. See [RELEASING.md](RELEASING.md) (including how to revert).
 
 **Permissions** live in the database (`permissions` and `role_permissions` tables), not in code:
 - **Changing what a role can do:** use **Admin → one.solar → Roles & permissions** on the site. The Table Editor works too.
@@ -93,7 +93,14 @@ await fakeReset()   // wipe local data
 npm test
 ```
 
-`npm test` runs every test file in `tests/`. `npm run test:import` checks spreadsheet column recognition against the real headers of the 2024-25, 2025-26, and 2026-27 sheets. `npm run test:db` runs every file in `supabase/migrations/` in PGlite and checks the security rules as different users, e.g. "a Member can't approve", "a Chief Engineer can't mark ordered", "you can't edit someone else's draft", and "non-UF emails can't sign up". Run it after any database change. `tests/notify.test.mjs` checks how notification messages are written (placeholders, email HTML, the Teams card).
+`npm test` runs every test file in `tests/`. `npm run test:import` checks spreadsheet column recognition against the real headers of the 2024-25, 2025-26, and 2026-27 sheets. `npm run test:db` runs every file in `supabase/migrations/` in PGlite and checks the security rules as different users, e.g. "a Member can't approve", "a Chief Engineer can't mark ordered", "you can't edit someone else's draft", and "non-UF emails can't sign up". Run it after any database change. `tests/notify.test.mjs` checks how notification messages are written (placeholders, email HTML, the Teams card). `tests/site.test.mjs` checks what GitHub Pages publishes (only the site, no broken local links, exact CDN versions) and `tests/workflows.test.mjs` checks that the GitHub Actions workflows only deploy after the tests pass.
+
+```bash
+npx playwright install chromium   # once per computer
+npm run test:smoke
+```
+
+`npm run test:smoke` (`tests/e2e/`) opens every app in Chromium on the fake backend, signed out and as an Admin, and fails on any JavaScript error or any request to the real Supabase. GitHub runs all of this on every pull request and before every deploy: see [RELEASING.md](RELEASING.md).
 
 ## How it works
 

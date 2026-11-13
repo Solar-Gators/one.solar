@@ -1,0 +1,63 @@
+# Tests for every pull request and every branch push, and the gate in front of every deploy
+# (deploy.yml calls this workflow; nothing is published unless it passes).
+#
+#   npm test            syntax of every script, the published-site check, import/finance/notification
+#                       unit tests, and the database security + workflow tests (PGlite)
+#   npm run test:smoke  every app opens in a real browser on the fake backend, with no JavaScript errors
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches-ignore: [main] # main is tested by deploy.yml, which calls this workflow
+  workflow_call:
+    inputs:
+      simulate_test_failure:
+        description: Fail on purpose (to check that a failed test stops the deploy)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Simulated test failure (requested)
+        if: ${{ inputs.simulate_test_failure }}
+        run: |
+          echo "::error::Failing on purpose: simulate_test_failure was ticked. Nothing will be deployed."
+          exit 1
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Unit, site and database tests
+        run: npm test
+
+      - name: Install the test browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Browser smoke tests
+        run: npm run test:smoke
+        env:
+          CI: 'true'
+
+      # Fake-backend data only (no member data), so the report is safe to keep in this public repo.
+      - name: Keep the smoke-test report when it fails
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-test-report
+          path: playwright-report/
+          retention-days: 7

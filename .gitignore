@@ -14,3 +14,8 @@ data/
 
 # Solar Evals local stand-in database (test accounts)
 evals/dev/
+
+# Build output and browser-test results (tools/build-site.mjs, npm run test:smoke)
+_site/
+playwright-report/
+test-results/
