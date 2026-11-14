@@ -1,0 +1,143 @@
+/* Inventory (050): only loaded by inventory/index.html. Uses the shared one.solar colours, so dark mode just works. */
+
+.inv-head h1 { overflow-wrap: anywhere; }
+.form-grid .span-4 { grid-column: 1 / -1; }
+.text-danger { color: var(--red); }
+.inline-field { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+.inline-field input { width: auto; }
+.chip.is-active { background: var(--navy); color: var(--surface); }
+
+/* Find box, filters */
+.inv-find { display: flex; gap: 8px; margin: 0 0 16px; }
+.inv-find input { flex: 1; min-width: 0; font-size: 16px; }
+.inv-filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+.inv-filters input[type="search"] { flex: 1 1 220px; min-width: 0; }
+.inv-filters select { flex: 0 1 auto; max-width: 100%; }
+
+/* Tiles are links */
+a.inv-tile { text-decoration: none; color: inherit; }
+a.inv-tile:hover { border-color: var(--orange); }
+.inv-tile.is-bad strong { color: var(--red); }
+
+/* Item summary and big buttons (a scanned label lands here, often on a phone) */
+.inv-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 14px; }
+.inv-summary > div { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; }
+.inv-summary strong { font-size: 22px; }
+.inv-big strong { font-size: 28px; color: var(--navy); }
+.inv-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 16px; }
+.inv-actions .btn-lg { min-height: 48px; padding: 0 20px; font-size: 16px; }
+.inv-safety > div { margin-top: 4px; }
+.inv-photo { max-width: 220px; border-radius: 8px; border: 1px solid var(--border); margin-top: 8px; }
+.inv-changes summary { cursor: pointer; }
+.inv-changes summary h2 { display: inline; font-size: 16px; }
+.inv-hazard-dot { color: var(--red); }
+.inv-hazard-pick { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 6px 0 10px; }
+.inv-matches ul { margin: 6px 0 0; }
+.inv-spec { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) auto; gap: 6px; margin-bottom: 6px; }
+.inv-fieldset, fieldset.inv-plain { border: 0; padding: 0; margin: 14px 0; min-width: 0; }
+.inv-fieldset legend { font-weight: 600; margin-bottom: 6px; }
+.inv-children .chip { text-decoration: none; }
+
+/* History */
+.inv-history, .inv-op-lines { list-style: none; margin: 0; padding: 0; }
+.inv-op { padding: 10px 0; border-bottom: 1px solid var(--border-soft); }
+.inv-op:last-child { border-bottom: 0; }
+.inv-op-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.inv-op-head .btn { margin-left: auto; }
+.inv-op-lines { margin-top: 4px; font-size: 14px; }
+.inv-op.is-undone .inv-op-lines { text-decoration: line-through; color: var(--muted); }
+.inv-op.is-undo { background: var(--surface-2); padding-left: 8px; border-radius: 6px; }
+.inv-qty, .is-in, .is-out { font-variant-numeric: tabular-nums; font-weight: 600; }
+.is-in { color: var(--green); }
+.is-out { color: var(--red); }
+
+/* Dialogs */
+.inv-dialog { width: min(520px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow: auto; }
+.inv-dialog-wide { width: min(720px, calc(100vw - 32px)); }
+.inv-dialog select[size] { width: 100%; }
+.inv-amount-row { display: flex; gap: 8px; align-items: center; }
+.inv-amount-row input { flex: 1; min-width: 0; font-size: 18px; }
+.inv-amount { display: flex; gap: 8px; align-items: center; }
+.inv-unit { color: var(--muted); }
+.inv-attr { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
+.inv-lot-fields { border: 1px solid var(--border-soft); border-radius: 8px; padding: 8px 12px; margin: 10px 0; }
+
+/* Receive */
+.inv-receive-req tr.is-done td { color: var(--muted); }
+
+/* Counts */
+.inv-count-input { width: 110px; font-size: 18px; text-align: right; }
+.inv-count-input.is-saved { border-color: var(--green); }
+tr.is-recount td { background: var(--surface-2); }
+.inv-due { columns: 2; }
+
+/* Reports */
+.inv-roll { border-bottom: 1px solid var(--border-soft); padding: 8px 0; }
+.inv-roll summary { cursor: pointer; display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: baseline; }
+.inv-roll-cost { font-weight: 700; }
+.inv-bars li { display: grid; grid-template-columns: 70px minmax(0, 1fr) 90px; gap: 8px; align-items: center; padding: 3px 0; }
+.inv-bar { display: block; height: 12px; width: var(--w); min-width: 2px; background: var(--orange); border-radius: 3px; }
+
+/* Setup */
+.inv-tree li { padding: 4px 0 4px calc(var(--depth, 0) * 22px); }
+.inv-tree li.is-archived, .inv-org.is-archived, li.is-archived { color: var(--muted); }
+.inv-org { padding: 10px 0; border-bottom: 1px solid var(--border-soft); }
+.inv-org-head { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; }
+.inv-org-tools { display: inline-flex; gap: 10px; }
+.inv-org-subs { margin: 6px 0 0 18px; }
+.inv-steps { padding-left: 20px; }
+.inv-mapping .field label { font-size: 13px; }
+tr.is-bad td { background: color-mix(in srgb, var(--red) 8%, transparent); }
+
+/* Scan */
+.inv-scan-view { position: relative; max-width: 420px; margin: 0 auto 12px; }
+.inv-scan-view video { width: 100%; border-radius: 10px; background: #000; aspect-ratio: 1; object-fit: cover; }
+.inv-scan-frame { position: absolute; inset: 18%; border: 3px solid var(--orange); border-radius: 12px; pointer-events: none; }
+
+/* Labels */
+.inv-label-setup .form-grid { align-items: end; }
+.inv-pick-list { max-height: 260px; overflow: auto; border: 1px solid var(--border-soft); border-radius: 6px; padding: 6px; }
+.inv-label-sheet { display: flex; flex-wrap: wrap; gap: 8px; }
+.inv-label { margin: 0; display: flex; gap: 8px; align-items: center; border: 1px dashed var(--border); border-radius: 6px; padding: 6px; background: #fff; color: #000; break-inside: avoid; page-break-inside: avoid; }
+.inv-label svg { flex: none; }
+.inv-label figcaption { display: flex; flex-direction: column; min-width: 0; font-size: 11px; line-height: 1.25; overflow-wrap: anywhere; }
+.inv-label figcaption strong { font-size: 12px; }
+.inv-label-small { width: 2.4in; }
+.inv-label-small svg { width: 0.9in; height: 0.9in; }
+.inv-label-medium { width: 3.4in; }
+.inv-label-medium svg { width: 1.6in; height: 1.6in; }
+.inv-label-medium figcaption { font-size: 13px; }
+.inv-label-large { width: 4.6in; }
+.inv-label-large svg { width: 2.6in; height: 2.6in; }
+.inv-label-large figcaption { font-size: 16px; }
+.inv-label-preview { margin-top: 12px; }
+
+@media print {
+  .topbar, .footer, .banner, .announcement, .no-print, .page-header .card-actions, .inv-head .card-actions { display: none !important; }
+  body, .container { background: #fff; padding: 0; margin: 0; max-width: none; }
+  .inv-label { border-color: #bbb; }
+}
+
+@media (max-width: 760px) {
+  .inv-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .inv-attr { grid-template-columns: minmax(0, 1fr); }
+  .inv-actions .btn-lg { flex: 1 1 calc(50% - 8px); }
+  .inv-due { columns: 1; }
+  .inv-spec { grid-template-columns: minmax(0, 1fr) auto; }
+  .inv-spec input:nth-child(2) { grid-column: 1; }
+}
+
+/* Inventory has seven menu links: fold them into "Menu" up to 1200px (other apps fold at 960px), so the top bar stays one line. */
+@media (min-width: 961px) and (max-width: 1200px) {
+  body[data-app="inventory"] .topbar-inner { flex-wrap: wrap; }
+  body[data-app="inventory"] .brand { order: 1; flex: 1; }
+  body[data-app="inventory"] .new-cta { order: 2; }
+  body[data-app="inventory"] .account-menu { order: 2; }
+  body[data-app="inventory"] .menu-btn { display: inline-flex; order: 3; flex: none; min-height: 40px; min-width: 40px; justify-content: center; }
+  body[data-app="inventory"] .nav {
+    order: 4; display: none; flex: none; flex-direction: column; flex-wrap: nowrap; gap: 2px;
+    width: 100%; margin: 0; padding: 6px 0 4px; border-top: 1px solid var(--border-soft);
+  }
+  body[data-app="inventory"].nav-open .nav { display: flex; }
+  body[data-app="inventory"] .nav a { padding: 10px 12px; font-size: 15px; }
+}

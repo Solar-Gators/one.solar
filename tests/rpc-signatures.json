@@ -414,6 +414,166 @@
   "returns": "jsonb",
   "anon": false
  },
+ "inv_can_view": {
+  "args": "",
+  "returns": "boolean",
+  "anon": false
+ },
+ "inventory_adjust": {
+  "args": "p_op uuid, p jsonb",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "inventory_archive_category": {
+  "args": "p_id uuid, p_archived boolean",
+  "returns": "void",
+  "anon": false
+ },
+ "inventory_archive_location": {
+  "args": "p_id uuid, p_archived boolean",
+  "returns": "void",
+  "anon": false
+ },
+ "inventory_consume": {
+  "args": "p_op uuid, p jsonb",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "inventory_count_add_line": {
+  "args": "p_count uuid, p jsonb",
+  "returns": "uuid",
+  "anon": false
+ },
+ "inventory_count_cancel": {
+  "args": "p_count uuid",
+  "returns": "void",
+  "anon": false
+ },
+ "inventory_count_reconcile": {
+  "args": "p_op uuid, p_count uuid",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "inventory_count_record": {
+  "args": "p_line uuid, p_qty numeric, p_note text",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "inventory_count_recount": {
+  "args": "p_line uuid",
+  "returns": "void",
+  "anon": false
+ },
+ "inventory_count_start": {
+  "args": "p jsonb",
+  "returns": "uuid",
+  "anon": false
+ },
+ "inventory_count_submit": {
+  "args": "p_count uuid",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "inventory_delete_supplier_part": {
+  "args": "p_id uuid",
+  "returns": "void",
+  "anon": false
+ },
+ "inventory_find_matches": {
+  "args": "p jsonb",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "inventory_import": {
+  "args": "p_op uuid, p jsonb",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "inventory_link_order_line": {
+  "args": "p_line uuid, p_item uuid, p_units_per numeric",
+  "returns": "void",
+  "anon": false
+ },
+ "inventory_order_lines": {
+  "args": "p_request uuid, p_open_only boolean",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "inventory_overview": {
+  "args": "",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "inventory_quarantine": {
+  "args": "p_op uuid, p jsonb",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "inventory_receive": {
+  "args": "p_op uuid, p jsonb",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "inventory_receive_order": {
+  "args": "p_op uuid, p jsonb",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "inventory_return": {
+  "args": "p_op uuid, p jsonb",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "inventory_reverse": {
+  "args": "p_op uuid, p_target uuid, p_reason text",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "inventory_save_category": {
+  "args": "p_id uuid, p_name text, p_parent uuid",
+  "returns": "uuid",
+  "anon": false
+ },
+ "inventory_save_item": {
+  "args": "p_id uuid, p jsonb",
+  "returns": "uuid",
+  "anon": false
+ },
+ "inventory_save_location": {
+  "args": "p_id uuid, p jsonb",
+  "returns": "uuid",
+  "anon": false
+ },
+ "inventory_save_lot": {
+  "args": "p_id uuid, p jsonb",
+  "returns": "void",
+  "anon": false
+ },
+ "inventory_save_settings": {
+  "args": "p jsonb",
+  "returns": "void",
+  "anon": false
+ },
+ "inventory_save_supplier_part": {
+  "args": "p_id uuid, p_item uuid, p jsonb",
+  "returns": "uuid",
+  "anon": false
+ },
+ "inventory_set_count_classes": {
+  "args": "p jsonb",
+  "returns": "integer",
+  "anon": false
+ },
+ "inventory_transfer": {
+  "args": "p_op uuid, p jsonb",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "inventory_usage": {
+  "args": "p_from date, p_to date",
+  "returns": "jsonb",
+  "anon": false
+ },
  "is_admin": {
   "args": "p_user uuid",
   "returns": "boolean",
@@ -468,6 +628,41 @@
   "args": "p_name text",
   "returns": "text",
   "anon": true
+ },
+ "org_add_subsystems": {
+  "args": "p_division uuid, p_names text[]",
+  "returns": "integer",
+  "anon": false
+ },
+ "org_archive_division": {
+  "args": "p_id uuid, p_archived boolean",
+  "returns": "void",
+  "anon": false
+ },
+ "org_archive_subsystem": {
+  "args": "p_id uuid, p_archived boolean",
+  "returns": "void",
+  "anon": false
+ },
+ "org_copy_from_evals": {
+  "args": "",
+  "returns": "integer",
+  "anon": false
+ },
+ "org_reorder": {
+  "args": "p_kind text, p_ids uuid[]",
+  "returns": "void",
+  "anon": false
+ },
+ "org_save_division": {
+  "args": "p_id uuid, p_name text, p_sort integer",
+  "returns": "uuid",
+  "anon": false
+ },
+ "org_save_subsystem": {
+  "args": "p_id uuid, p_division uuid, p_name text, p_sort integer",
+  "returns": "uuid",
+  "anon": false
  },
  "purge_old_diagnostics": {
   "args": "",

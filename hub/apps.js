@@ -61,6 +61,19 @@ export const APPS = [
     access: ['finances.view', 'finances.edit'],
   },
   {
+    id: 'inventory',
+    section: 'apps',
+    name: 'Inventory',
+    blurb: 'What the shop has and where: take parts out for a subsystem, receive deliveries, count shelves.',
+    href: 'inventory/',
+    icon: '🧰',
+    access: ['inventory.view', 'inventory.use', 'inventory.receive', 'inventory.count', 'inventory.manage'],
+    links: [
+      { label: 'Scan a label', href: 'inventory/#/inventory/scan' },
+      { label: 'Receive', href: 'inventory/#/inventory/receive', access: ['inventory.receive', 'inventory.manage'] },
+    ],
+  },
+  {
     id: 'evals',
     section: 'apps',
     name: 'Solar Evals',

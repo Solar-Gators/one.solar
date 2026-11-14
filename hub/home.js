@@ -235,6 +235,7 @@ const PERM_WORDS = {
   'sponsors.view': 'see Sponsors', 'sponsors.edit': 'edit Sponsors', 'finances.view': 'see Finances', 'finances.edit': 'edit Finances',
   'request.review': 'review requests', 'request.order': 'order requests', 'evals.view': 'see evaluations', 'evals.write': 'write evaluations',
   'users.manage': 'manage people', 'settings.edit': 'edit settings', 'site.customize': 'customize the site', 'seasons.manage': 'manage seasons', 'workflow.edit': 'edit approval rules',
+  'inventory.view': 'see Inventory', 'inventory.use': 'use parts', 'inventory.receive': 'receive stock', 'inventory.count': 'count stock', 'inventory.manage': 'manage Inventory',
 };
 const defaultWords = (access = 'public') =>
   access === 'public' ? 'everyone' : access === 'signedIn' ? 'anyone signed in' : `people who can ${access.map((p) => PERM_WORDS[p] || p).join(' or ')}`;

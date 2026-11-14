@@ -19,6 +19,9 @@ import { getValue, displayValue, isVisible, MONEY_FIELDS, shippingPerRequest, re
 import { pageLayout, copyAllowed, detailFieldList, itemColumnList } from '../pageLayout.js';
 import { approvalState, canReview, workflowSettings, budgetSummary, budgetFor, hasBudgets } from '../workflow.js';
 import { COMMITTED, stepChoices, stepOf } from '../ledger.js';
+import { inv } from '../inventory/api.js';
+import { fmtNum } from '../inventory/core.js';
+import { appUrl } from '../../../shared/onesolar.js';
 
 /** Copy buttons (for pasting into purchasing forms) go to whoever Admin → Request page says. */
 let layout = null; // set on each render from the `layout` settings
@@ -360,6 +363,11 @@ function historyCard(r) {
     if (e.kind === 'linked') {
       // 048: an imported request linked to its requester's account when they joined the team.
       events.push({ when: e.created_at, text: `<strong>${esc(e.note || 'Linked to an account')}</strong>`, kind: e.kind });
+      continue;
+    }
+    if (e.kind === 'inventory') {
+      // 050: received in Inventory ("6 of 10 × M3 screws received: CAB-A").
+      events.push({ when: e.created_at, text: `<strong>Received in Inventory</strong> by ${esc(e.actor_name || 'unknown')}`, comment: e.note || '', kind: e.kind });
       continue;
     }
     if (e.kind === 'arrived') {
@@ -802,6 +810,7 @@ export async function renderRequestDetail(el, { config, params, rerender }) {
       </div>
       <aside class="detail-side">
         ${actionPanel(r, config, { names, budget, purchase })}
+        <div id="inventory-panel"></div>
         ${ledgerViewer() && notesShown(r) && Number(config.schemaVersion) >= 18 ? treasurerNotesCard(r, purchase) : ''}
         <div id="request-files"></div>
         ${showWatchers && watchers ? watchersCard(r, watchers, people, names) : ''}
@@ -812,6 +821,7 @@ export async function renderRequestDetail(el, { config, params, rerender }) {
     </div>`;
 
   bindCopyButtons(el);
+  inventoryPanel(el.querySelector('#inventory-panel'), r, config);
 
   const errors = el.querySelector('#action-errors');
   // `message` may be a function, worked out after the action (e.g. "still waiting on Cara").
@@ -1245,4 +1255,24 @@ export async function renderRequestDetail(el, { config, params, rerender }) {
       }
     });
   });
+}
+
+const INV_PERMS = ['inventory.view', 'inventory.use', 'inventory.receive', 'inventory.count', 'inventory.manage'];
+/**
+ * 050: what Inventory has received of an ordered request, line by line, with a link to receive the rest there.
+ * Only for people with an Inventory permission, once the request is ordered. Filled in after the page shows.
+ */
+async function inventoryPanel(box, r, config) {
+  if (!box || Number(config.schemaVersion) < 50 || ![STATUS.ORDERED, STATUS.RECEIVED].includes(r.status) || !INV_PERMS.some((p) => auth.can(p))) return;
+  const lines = await inv.orderLines(r.id, false).catch(() => null);
+  if (!lines?.length || !box.isConnected) return;
+  const got = lines.filter((l) => Number(l.received) > 0).length;
+  const open = lines.filter((l) => Number(l.outstanding) > 0).length;
+  const canReceive = auth.can('inventory.receive') || auth.can('inventory.manage');
+  const href = appUrl(`inventory/#/inventory/receive/${encodeURIComponent(r.request_number)}`);
+  box.innerHTML = `<section class="card"><div class="card-head"><h2>Inventory</h2>${canReceive && open
+    ? `<a class="btn btn-sm btn-primary" href="${esc(href)}">Receive in Inventory</a>` : ''}</div>
+    ${got ? `<ul class="plain-list small">${lines.map((l) => `<li>${esc(l.item_name || 'Item')}: <strong>${esc(fmtNum(l.received))} of ${esc(fmtNum(l.quantity))}</strong> received${l.link ? ` · <a href="${esc(appUrl(`inventory/#/inventory/items/${l.link.item_id}`))}">${esc(l.link.sku)}</a>` : ''}</li>`).join('')}</ul>`
+      : '<p class="muted small">Nothing received in Inventory yet. Receiving it there puts it on the shelf (or straight to a subsystem) and marks lines arrived here.</p>'}
+  </section>`;
 }

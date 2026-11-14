@@ -527,8 +527,10 @@ const permsOf = async (role) =>
   (await db.query(`select permission from role_permissions where role = $1 order by 1`, [role])).rows.map((r) => r.permission);
 
 await test('everyone signed in can read the permission list', async () => {
-  const { rows } = await as(member, () => db.query(`select key from permissions order by sort`));
-  assert.deepEqual(rows.map((r) => r.key), ['request.review', 'people.accept', 'request.order', 'settings.edit', 'site.customize', 'seasons.manage', 'workflow.edit', 'finances.view', 'finances.edit', 'sponsors.view', 'sponsors.edit', 'evals.templates', 'evals.write', 'evals.view', 'users.manage', 'evals.types', 'roles.edit']);
+  // Ties in sort (people.accept and request.review are both 1) are ordered by key, so the list is always the same.
+  const { rows } = await as(member, () => db.query(`select key from permissions order by sort, key`));
+  assert.deepEqual(rows.map((r) => r.key), ['people.accept', 'request.review', 'request.order', 'settings.edit', 'site.customize', 'seasons.manage', 'workflow.edit', 'finances.view', 'finances.edit', 'sponsors.view', 'sponsors.edit', 'evals.templates', 'evals.write', 'evals.view', 'evals.types', 'users.manage', 'roles.edit',
+    'inventory.view', 'inventory.use', 'inventory.receive', 'inventory.count', 'inventory.manage']);
 });
 
 await test('members cannot change permissions', async () => {
@@ -573,7 +575,8 @@ await test('the whole grid saves at once, so "Manage people" can move between ro
   assert.ok(!(await permsOf('treasurer')).includes('users.manage'));
   // And a grid that leaves nobody able to manage people is refused as a whole.
   await as(grid, () => rejects(rpc('set_permission_matrix', [{ ce: ['request.review'], member: ['request.review'] }]), /At least one person must keep/));
-  assert.deepEqual(await permsOf('member'), []); // nothing from the refused save stuck (043: members don't accept people)
+  // Nothing from the refused save stuck (043: members don't accept people; 050: members see and use inventory).
+  assert.deepEqual(await permsOf('member'), ['inventory.use', 'inventory.view']);
   await as(grid, () => rpc('set_permission_matrix', [{ treasurer: ['request.order', 'settings.edit', 'users.manage'] }])); // restore
 });
 
@@ -705,7 +708,7 @@ await test('no roles means Member; unknown roles are refused', async () => {
 
 await test('Admin has every permission, including the new ones', async () => {
   const perms = (await db.query(`select string_agg(permission, ',' order by permission) as p from role_permissions where role = 'admin'`)).rows[0].p;
-  assert.equal(perms, 'evals.templates,evals.types,evals.view,evals.write,finances.edit,finances.view,people.accept,request.order,request.review,roles.edit,seasons.manage,settings.edit,site.customize,sponsors.edit,sponsors.view,users.manage,workflow.edit');
+  assert.equal(perms, 'evals.templates,evals.types,evals.view,evals.write,finances.edit,finances.view,inventory.count,inventory.manage,inventory.receive,inventory.use,inventory.view,people.accept,request.order,request.review,roles.edit,seasons.manage,settings.edit,site.customize,sponsors.edit,sponsors.view,users.manage,workflow.edit');
 });
 
 await test('custom roles: create, rename, grant, and delete', async () => {
@@ -794,7 +797,7 @@ await test('permission grid changes are versioned and can be undone', async () =
   assert.equal(after.length, before.length + 1);
   assert.deepEqual(after.at(-1).value.member, ['request.review']);
   await as(grid, () => rpc('restore_settings_version', [before.at(-1).id]));
-  assert.deepEqual(await permsOf('member'), []);
+  assert.deepEqual(await permsOf('member'), ['inventory.use', 'inventory.view']); // as before (050's defaults)
 });
 
 await test('even the first Lists/Appearance change can be undone (back to defaults)', async () => {
@@ -1885,7 +1888,7 @@ console.log('Solar Evals (028)');
   await setRole(evalCe, 'ce'); await setRole(evalCe2, 'ce'); await setRole(eboard, 'eboard');
   // Earlier tests reset the CE role's permissions; put back what 028 gives it.
   await db.exec(`insert into role_permissions (role, permission) values ('ce', 'evals.templates'), ('ce', 'evals.write'), ('ce', 'evals.view') on conflict do nothing`);
-  assert.deepEqual((await db.query(`select permission from role_permissions where role = 'eboard' order by 1`)).rows.map((r) => r.permission), ['evals.templates', 'evals.types', 'evals.view', 'people.accept']);
+  assert.deepEqual((await db.query(`select permission from role_permissions where role = 'eboard' order by 1`)).rows.map((r) => r.permission), ['evals.templates', 'evals.types', 'evals.view', 'inventory.use', 'inventory.view', 'people.accept']);
   const MASTER = '00000000-0000-4000-8000-0000000000a1';
   const sel = (uid, sql, args = []) => as(uid, async () => (await db.query(sql, args)).rows);
   const visible = (uid) => sel(uid, `select id from evals`).then((r) => r.map((x) => x.id));
