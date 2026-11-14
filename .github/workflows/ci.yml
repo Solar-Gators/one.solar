@@ -3,7 +3,8 @@
 #
 #   npm test            syntax of every script, the published-site check, import/finance/notification
 #                       unit tests, and the database security + workflow tests (PGlite)
-#   npm run test:smoke  every app opens in a real browser on the fake backend, with no JavaScript errors
+#   npm run test:smoke  every app opens in a real browser on the fake backend with no JavaScript errors, and the
+#                       everyday workflows work (submit → approve → order, Finances, Sponsors, Evals)
 name: CI
 
 on:
@@ -48,7 +49,7 @@ jobs:
       - name: Install the test browser
         run: npx playwright install --with-deps chromium
 
-      - name: Browser smoke tests
+      - name: Browser smoke and workflow tests
         run: npm run test:smoke
         env:
           CI: 'true'

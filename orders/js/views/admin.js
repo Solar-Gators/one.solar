@@ -34,6 +34,7 @@ export const ADMIN_TABS = [
   ['brand', 'Logo & accent', ['site.customize'], 'one.solar'],
   ['text', 'Banner & messages', ['site.customize'], 'one.solar'],
   ['notifications', 'Notifications', ['workflow.edit'], 'one.solar'],
+  ['diagnostics', 'Diagnostics', ['workflow.edit'], 'one.solar'],
   ['home', 'Home screen', ['site.customize'], 'one.solar'],
   ['fields', 'Request form', ['settings.edit'], 'Orders'],
   ['dropdowns', 'Dropdowns & rules', ['settings.edit'], 'Orders'],
@@ -79,7 +80,7 @@ export function adminHeader(active, intro = '', actions = '') {
     .join('');
   const siblings = items.filter((t) => t[3] === group);
   const subnav = siblings.length > 1 && page !== 'history'
-    ? `<nav class="admin-subnav" aria-label="${esc(group)}">${siblings.map(([key, label]) => `<a href="#/admin/${key}" ${here(key === page)}>${esc(label)}</a>`).join('')}</nav>`
+    ? `<nav class="admin-subnav" aria-label="${esc(group)}">${siblings.map(([key, label]) => `<a href="#/admin/${key}" ${here(key === page)}>${esc(label)}${key === 'diagnostics' ? ' <span class="nav-count" data-diag-count hidden title="New in the last 24 hours"></span>' : ''}</a>`).join('')}</nav>`
     : '';
   const jump = `<label class="admin-jump"><span class="sr-only">Admin page</span><select data-admin-jump>${page === 'history' ? '<option value="history" selected>History</option>' : ''}${groups
     .map((g) => `<optgroup label="${esc(g)}">${items
@@ -121,9 +122,33 @@ export const rejoinedFlag = (person, removed) =>
   removed.find((r) => !r.cleared_at && r.email.toLowerCase() === (person.email || '').toLowerCase()
     && new Date(r.removed_at) <= new Date(person.created_at)) || null;
 
+/** "Added Treasurer; removed CE", "Accepted", "Removed from the site: note", from a role_changes row (042). */
+export function describeRoleChange(c, roles) {
+  const label = (k) => roles.find((r) => r.key === k)?.label || k;
+  const before = c.old_roles || [];
+  const after = c.new_roles || [];
+  if (c.via === 'sign-up') return 'Signed up (Guest)';
+  if (c.via === 'accept_member') return 'Accepted as Member';
+  if (c.via === 'remove_person') return `Removed from the site${c.note ? `: ${c.note}` : ''}`;
+  const one = c.via === 'database' && /^(added|removed) (.+)$/.exec(c.note || ''); // one role row, changed outside the site
+  if (one) return `${one[1] === 'added' ? 'Added' : 'Removed'} ${label(one[2])}`;
+  const added = after.filter((k) => !before.includes(k) && k !== 'member' && k !== 'guest').map(label);
+  const taken = before.filter((k) => !after.includes(k) && k !== 'member' && k !== 'guest').map(label);
+  const parts = [added.length ? `Added ${added.join(', ')}` : '', taken.length ? `removed ${taken.join(', ')}` : ''].filter(Boolean);
+  if (!parts.length) return before.includes('guest') && !after.includes('guest') ? 'Accepted as Member' : 'No change';
+  const text = parts.join('; ');
+  return text[0].toUpperCase() + text.slice(1);
+}
+
 async function renderPeople(el, { rerender, config }, part) {
-  const [people, removed] = await Promise.all([api.listProfiles(), part === 'users' ? api.listRemovedPeople().catch(() => []) : []]);
   const roles = auth.roles;
+  const showChanges = part === 'users' && Number(config?.schemaVersion) >= 42 && auth.can('users.manage');
+  const [people, removed, problems, changes] = await Promise.all([
+    api.listProfiles(),
+    part === 'users' ? api.listRemovedPeople().catch(() => []) : [],
+    showChanges && !auth.hasRole('admin') ? api.roleChangeProblems(roles.filter((r) => !['member', 'guest', 'alumni'].includes(r.key)).map((r) => r.key)).catch(() => ({})) : {},
+    showChanges ? api.listRoleChanges().catch(() => []) : [],
+  ]);
   const me = auth.user.id;
   // 035: only Admins give or take the Admin role (or change an Admin), and only "Edit roles &
   // permissions" changes roles themselves. Before 035, "Manage people" did everything.
@@ -131,13 +156,35 @@ async function renderPeople(el, { rerender, config }, part) {
   const iAmAdmin = auth.hasRole('admin');
   const canEditRoles = v35 ? auth.can('roles.edit') : auth.can('users.manage');
   const canManage = auth.can('users.manage');
-  const lockedRow = (p) => v35 && !iAmAdmin && (p.roles || []).includes('admin');
+  // 042: nobody but an Admin changes their own roles, and a people manager only gives or takes roles
+  // whose permissions they hold (never Admin, or a role that manages people / roles / the workflow).
+  const v42 = Number(config?.schemaVersion) >= 42;
+  // 044: people who leave are deactivated (Former member) and keep their history; only Admins delete accounts.
+  const v44 = Number(config?.schemaVersion) >= 44;
+  const lockedRow = (p) => (v35 && !iAmAdmin && (p.roles || []).includes('admin')) || (v42 && !iAmAdmin && p.id === me);
+  const lockedWhy = (p) => (p.id === me && v42 ? 'Only an Admin can change your roles' : 'Only an Admin can change an Admin&#39;s roles');
   const flagOf = (p) => rejoinedFlag(p, removed);
   const flagged = people.filter(flagOf);
   // Member is what you are with no other role, so it isn't a checkbox. Guest (040) is what you are
   // until someone accepts you: Accept (or ticking any role) makes them a member.
-  const assignable = roles.filter((r) => r.key !== 'member' && r.key !== 'guest');
-  const BUILT_IN = new Set(['member', 'ce', 'treasurer', 'admin', 'guest']);
+  const assignable = roles.filter((r) => !['member', 'guest', 'alumni'].includes(r.key));
+  const BUILT_IN = new Set(['member', 'ce', 'treasurer', 'admin', 'guest', 'alumni']);
+  const isFormer = (p) => (p.roles || []).includes('alumni');
+  const formers = people.filter(isFormer);
+  /** The buttons at the end of a row. */
+  const actionsFor = (p) => {
+    if (p.id === me || lockedRow(p) || flagOf(p)) return '';
+    if (!v44) return `<button type="button" class="btn btn-sm btn-ghost danger-link" data-remove="${esc(p.id)}" title="For someone who left the team">Remove…</button>`;
+    if (isFormer(p)) {
+      return `<button type="button" class="btn btn-sm" data-reactivate="${esc(p.id)}">Reactivate</button>${iAmAdmin
+        ? ` <button type="button" class="btn btn-sm btn-ghost danger-link" data-remove="${esc(p.id)}" data-permanent>Delete permanently…</button>` : ''}`;
+    }
+    if (isGuest(p)) return iAmAdmin ? `<button type="button" class="btn btn-sm btn-ghost danger-link" data-remove="${esc(p.id)}">Delete…</button>` : '';
+    // Deactivating takes their roles away, so the same rule as unticking them applies (042).
+    const why = (p.roles || []).map((r) => problems[r]).find(Boolean);
+    if (why) return `<button type="button" class="btn btn-sm btn-ghost" disabled title="${esc(why)}">Deactivate…</button>`;
+    return `<button type="button" class="btn btn-sm btn-ghost danger-link" data-deactivate="${esc(p.id)}" title="For someone who left the team">Deactivate…</button>`;
+  };
   const holds = (p, key) => (p.roles || []).includes(key);
   const isGuest = (p) => (p.roles || []).length > 0 && p.roles.every((r) => r === 'guest');
   const canAccept = auth.can('people.accept');
@@ -153,8 +200,13 @@ async function renderPeople(el, { rerender, config }, part) {
       Tick the roles each person should have. Someone can have several (e.g. Treasurer + Admin) and gets everything those roles allow.
       What each role can do is set under <a href="#/admin/roles">Roles &amp; permissions</a>.
       ${v35 ? `Only an <strong>Admin</strong> can make someone an Admin, take it away, or change an Admin's roles.` : ''}
+      ${v42 ? `Only an Admin can change their own roles or hand out roles that manage people, roles, or the workflow (like CE and Treasurer).
+      Others who manage people can give or take only roles whose abilities they have themselves; a greyed-out box says why.` : ''}
       At least one person must always be able to manage people, so the site won't let the last one lose that ability.
-      ${v35 ? `<br><br><strong>Remove</strong> is for someone who left the team: their login is deleted so they can't sign in, and
+      ${v44 ? `<br><br><strong>Deactivate</strong> is for someone who left the team: they become a <strong>Former member</strong>, lose access to
+      everything (evals included) and can't sign in, and everything they did stays, with their name. <strong>Reactivate</strong> brings them back.
+      Only an Admin can delete an account for good, and only a former member's or a guest's.`
+      : v35 ? `<br><br><strong>Remove</strong> is for someone who left the team: their login is deleted so they can't sign in, and
       their requests, approvals and evals keep their name. If the same email signs up again, they're flagged here.` : ''}`)}
     ${flagged.length ? `<div class="alert alert-warning" role="status"><strong>${flagged.length === 1 ? '1 person who was removed has' : `${flagged.length} people who were removed have`} signed up again:</strong>
       ${flagged.map((p) => esc(p.full_name || p.email)).join(', ')}. Let them back in, or remove them again, on their row below.</div>` : ''}
@@ -167,6 +219,7 @@ async function renderPeople(el, { rerender, config }, part) {
         <option value="">Everyone</option>
         <option value="leads">Only people with a role</option>
         ${guests.length ? '<option value="guests">Waiting to join</option>' : ''}
+        ${formers.length ? `<option value="former">Former members (${formers.length})</option>` : ''}
         ${assignable.map((r) => `<option value="${esc(r.key)}">${esc(r.label)}</option>`).join('')}
       </select>
       <span class="muted" id="people-count">${people.length} people</span>
@@ -181,16 +234,18 @@ async function renderPeople(el, { rerender, config }, part) {
                 <td class="cell-primary" data-label=""><strong>${esc(p.full_name || '—')}</strong>${p.id === me ? ' <span class="muted small">(you)</span>' : ''}
                   ${flagOf(p) ? `<div class="rejoined-flag"><span class="flag-text">⚠ ${removedWhen(flagOf(p))}. Signed up again ${fmtDate(p.created_at)}.</span>
                     <span class="flag-actions"><button type="button" class="btn btn-sm" data-let-back="${esc(p.email)}">Let them back in</button>
-                    <button type="button" class="btn btn-sm btn-danger" data-remove="${esc(p.id)}">Remove again</button></span></div>` : ''}</td>
+                    ${!v44 || iAmAdmin ? `<button type="button" class="btn btn-sm btn-danger" data-remove="${esc(p.id)}">Remove again</button>` : ''}</span></div>` : ''}</td>
                 <td data-label="Email">${esc(p.email)}</td>
                 <td class="nowrap" data-label="Joined">${fmtDate(p.created_at)}</td>
                 <td data-label="Roles">${isGuest(p) ? `<div class="guest-row"><span class="field-tag">Waiting to join</span>
-                  ${canAccept ? `<button type="button" class="btn btn-sm btn-primary" data-accept="${esc(p.id)}">Accept as Member</button>` : ''}</div>` : ''}<div class="role-chips">
+                  ${canAccept ? `<button type="button" class="btn btn-sm btn-primary" data-accept="${esc(p.id)}">Accept as Member</button>` : ''}</div>` : ''}${isFormer(p)
+                  ? '<span class="field-tag" title="Deactivated: no access, history kept">Former member</span>' : ''}<div class="role-chips" ${isFormer(p) ? 'hidden' : ''}>
                   ${assignable
                     .map(
                       (r) => {
-                        const off = lockedRow(p) || (v35 && r.key === 'admin' && !iAmAdmin);
-                        const why = lockedRow(p) ? 'Only an Admin can change an Admin&#39;s roles' : off ? 'Only an Admin can give or take the Admin role' : '';
+                        const off = lockedRow(p) || (v35 && r.key === 'admin' && !iAmAdmin) || Boolean(problems[r.key]);
+                        const why = lockedRow(p) ? lockedWhy(p) : problems[r.key] ? esc(problems[r.key])
+                          : off ? 'Only an Admin can give or take the Admin role' : '';
                         return `<label class="role-chip ${holds(p, r.key) ? 'on' : ''} ${off ? 'is-locked' : ''}" ${why ? `title="${why}"` : ''}>
                         <input type="checkbox" data-role="${esc(r.key)}" ${holds(p, r.key) ? 'checked' : ''} ${off ? 'disabled' : ''}
                           aria-label="${esc(r.label)} for ${esc(p.full_name || p.email)}">${esc(r.label)}</label>`;
@@ -198,7 +253,7 @@ async function renderPeople(el, { rerender, config }, part) {
                     )
                     .join('')}
                 </div></td>
-                ${v35 && canManage ? `<td class="center" data-label="">${p.id === me || lockedRow(p) || flagOf(p) ? '' : `<button type="button" class="btn btn-sm btn-ghost danger-link" data-remove="${esc(p.id)}" title="For someone who left the team">Remove…</button>`}</td>` : ''}
+                ${v35 && canManage ? `<td class="center nowrap" data-label="">${actionsFor(p)}</td>` : ''}
               </tr>`
             )
             .join('')}
@@ -213,6 +268,16 @@ async function renderPeople(el, { rerender, config }, part) {
           <td data-label="Email">${esc(r.email)}</td>
           <td data-label="Had">${esc((r.roles || []).map((k) => roles.find((x) => x.key === k)?.label || k).join(', ') || 'Member')}</td>
           <td data-label="Removed">${removedWhen(r)}${r.cleared_at ? `<div class="muted small">Signed up again; let back in by ${esc(r.cleared_by_name || 'someone')} ${fmtDate(r.cleared_at)}</div>` : ''}</td>
+        </tr>`).join('')}</tbody>
+      </table></div></div></details>` : ''}
+    ${changes.length ? `<details class="about removed-list" id="role-changes"><summary>Role changes (${changes.length === 200 ? 'latest 200' : changes.length})</summary><div>
+      <div class="table-wrap flat"><table class="table stack-mobile">
+        <thead><tr><th>When</th><th>Person</th><th>Change</th><th>By</th></tr></thead>
+        <tbody>${changes.map((c) => `<tr>
+          <td class="nowrap" data-label="When">${fmtDate(c.changed_at)}</td>
+          <td class="cell-primary" data-label="">${esc(c.target_name || c.target_email || '—')}</td>
+          <td data-label="Change">${esc(describeRoleChange(c, roles))}</td>
+          <td data-label="By">${esc(c.actor_name || (c.via === 'sign-up' ? 'Signed up' : 'Database (not through the site)'))}</td>
         </tr>`).join('')}</tbody>
       </table></div></div></details>` : ''}`;
   const rolesPart = `
@@ -271,7 +336,8 @@ async function renderPeople(el, { rerender, config }, part) {
       const row = el.querySelector(`tr[data-user="${CSS.escape(p.id)}"]`);
       const text = `${p.full_name} ${p.email}`.toLowerCase();
       const ok = words.every((w) => text.includes(w)) &&
-        (!role || (role === 'leads' ? p.roles.some((r) => r !== 'member' && r !== 'guest') : role === 'guests' ? isGuest(p) : holds(p, role)));
+        (!role || (role === 'leads' ? p.roles.some((r) => !['member', 'guest', 'alumni'].includes(r)) : role === 'guests' ? isGuest(p)
+          : role === 'former' ? isFormer(p) : holds(p, role)));
       row.hidden = !ok;
       if (ok) shown++;
     }
@@ -329,6 +395,31 @@ async function renderPeople(el, { rerender, config }, part) {
     button.addEventListener('click', async () => {
       const person = people.find((p) => p.id === button.dataset.remove);
       const name = person.full_name || person.email;
+      if (v44) {
+        const typed = await askText({
+          title: `Delete ${name}'s account for good?`,
+          label: `Type their email (${person.email}) to confirm`,
+          placeholder: person.email,
+          hint: 'Their login is deleted and can\'t be brought back. Their requests, approvals, evals and eval notes keep their name. If they sign up again, they\'re flagged here.',
+          ok: 'Delete permanently',
+        });
+        if (typed === null) return;
+        if (typed.toLowerCase() !== (person.email || '').toLowerCase()) {
+          userErrors.innerHTML = errorBox(new Error("That isn't their email address, so nothing was deleted."));
+          return;
+        }
+        userErrors.innerHTML = '';
+        button.disabled = true;
+        try {
+          await api.removePerson(person.id, isFormer(person) ? 'Deleted (former member)' : 'Deleted (guest)');
+          setFlash(`${name}'s account was deleted.`);
+          await rerender();
+        } catch (err) {
+          userErrors.innerHTML = errorBox(err);
+          button.disabled = false;
+        }
+        return;
+      }
       const note = await askText({
         title: `Remove ${name}?`,
         label: 'Why? (optional, kept for the record)',
@@ -351,6 +442,51 @@ async function renderPeople(el, { rerender, config }, part) {
       }
     })
   );
+  // 044: deactivate / reactivate.
+  el.querySelectorAll('[data-deactivate]').forEach((button) =>
+    button.addEventListener('click', async () => {
+      const person = people.find((p) => p.id === button.dataset.deactivate);
+      const name = person.full_name || person.email;
+      const note = await askText({
+        title: `Deactivate ${name}?`,
+        label: 'Why? (optional, kept for the record)',
+        placeholder: 'e.g. Graduated, left the team',
+        hint: `They lose access to every one.solar app (evals included) and can't sign in. Their roles are recorded, and everything they did keeps their name. You can reactivate them later.`,
+        ok: 'Deactivate',
+        multiline: true,
+        required: false,
+      });
+      if (note === null) return;
+      userErrors.innerHTML = '';
+      button.disabled = true;
+      try {
+        await api.deactivatePerson(person.id, note);
+        setFlash(`${name} is now a former member.`);
+        await rerender();
+      } catch (err) {
+        userErrors.innerHTML = errorBox(err);
+        button.disabled = false;
+      }
+    })
+  );
+  el.querySelectorAll('[data-reactivate]').forEach((button) =>
+    button.addEventListener('click', async () => {
+      const person = people.find((p) => p.id === button.dataset.reactivate);
+      const name = person.full_name || person.email;
+      if (!confirm(`Reactivate ${name}? They come back as a Member and can sign in again. Tick any other roles they need afterwards.`)) return;
+      userErrors.innerHTML = '';
+      button.disabled = true;
+      try {
+        await api.reactivatePerson(person.id, []);
+        setFlash(`${name} is back on the team, as a Member.`);
+        await rerender();
+      } catch (err) {
+        userErrors.innerHTML = errorBox(err);
+        button.disabled = false;
+      }
+    })
+  );
+
   el.querySelectorAll('[data-let-back]').forEach((button) =>
     button.addEventListener('click', async () => {
       userErrors.innerHTML = '';
@@ -584,6 +720,8 @@ async function renderSettings(el, { rerender, reloadConfig }, part) {
       </div>
     </form>`;
 
+  // 043: only an Admin changes who can sign up.
+  const domainsLocked = Number(general.schemaVersion) >= 43 && !auth.hasRole('admin');
   const teamCard = `
     <form id="settings-form" class="card" novalidate>
       <h2>Team</h2>
@@ -596,8 +734,13 @@ async function renderSettings(el, { rerender, reloadConfig }, part) {
         <input id="s-prefix" name="requestIdPrefix" type="text" value="${esc(general.requestIdPrefix || '')}" maxlength="10">
         <div class="hint">Each new season adds its year: ${esc(general.requestIdPrefix || 'SG')} → ${esc(nextPrefix)}-001 for ${esc(nextSeason)}.</div></div>
       <div class="field"><label for="s-domains">Allowed sign-up email domains <span class="muted">(one per line)</span></label>
-        <textarea id="s-domains" name="allowedEmailDomains" rows="2">${esc((general.allowedEmailDomains || []).join('\n'))}</textarea>
-        <div class="hint">Who can make a one.solar account (one account for every app). Leave empty to allow any email address.</div></div>
+        <textarea id="s-domains" name="allowedEmailDomains" rows="2" ${domainsLocked ? 'readonly aria-describedby="s-domains-lock"' : ''}>${esc((general.allowedEmailDomains || []).join('\n'))}</textarea>
+        <div class="hint">Who can make a one.solar account (one account for every app). Leave empty to allow any email address.</div>
+        ${domainsLocked ? '<div class="hint" id="s-domains-lock">Only an Admin can change this.</div>' : ''}</div>
+      ${Number(general.schemaVersion) >= 44 ? `<div class="field"><label class="rule-toggle"><input type="checkbox" name="formerMembersCanSignIn"
+          ${general.formerMembersCanSignIn ? 'checked' : ''} ${domainsLocked ? 'disabled' : ''}> Former members can still sign in</label>
+        <div class="hint">Off (recommended): deactivating someone also blocks their sign-in. On: they can sign in, but only see a page saying
+          their access has ended. Either way they see none of the team's data.${domainsLocked ? ' Only an Admin can change this.' : ''}</div></div>` : ''}
       <div class="form-actions"><button type="submit" class="btn btn-primary">Save team settings</button></div>
     </form>`;
 
@@ -668,6 +811,7 @@ async function renderSettings(el, { rerender, reloadConfig }, part) {
         teamName: data.teamName.trim() || 'Solar Gators',
         requestIdPrefix: data.requestIdPrefix.trim().toUpperCase() || 'SG',
         allowedEmailDomains: lines(data.allowedEmailDomains.toLowerCase()).map((d) => d.replace(/^@/, '')),
+        ...(Number(general.schemaVersion) >= 44 && auth.hasRole('admin') ? { formerMembersCanSignIn: data.formerMembersCanSignIn === 'on' } : {}),
       };
       button.disabled = true;
       try {

@@ -23,6 +23,7 @@ import { renderAttachments } from '../attachments.js';
 import { readItemFile } from '../itemImport.js';
 import { readSponsorRows, toSponsorCard, guessCar } from '../sponsorImport.js';
 import { groupSponsors, sponsorKey, tagLookalikes } from '../sponsorGroups.js';
+import { mountRecentlyDeleted } from '../recentlyDeleted.js';
 
 const STAGE_KINDS = [
   ['open', 'Working on it'],
@@ -168,9 +169,11 @@ export async function renderSponsors(el, { config, rerender, reloadConfig }) {
       </select>` : ''}
     </div>
     <div id="sp-errors"></div>
-    <div id="sp-body"></div>`;
+    <div id="sp-body"></div>
+    ${canEdit() ? '<div id="sp-deleted"></div>' : ''}`;
 
   const errors = el.querySelector('#sp-errors');
+  mountRecentlyDeleted(el.querySelector('#sp-deleted'), ['sponsor_card'], { onRestored: (out) => { location.hash = `#/sponsors/${out.record_id}`; } });
   const body = el.querySelector('#sp-body');
 
   const returning = (c) => {
@@ -1188,7 +1191,7 @@ export async function renderSponsorCard(el, { config, params, rerender }) {
         return;
       }
       if (btn.id === 'delete-card') {
-        if (!confirm(`Delete ${card.name} and its whole history? This can't be undone.\n\nTip: moving it to "${stages.find((s) => s.kind === 'lost')?.label || 'Not this year'}" keeps the history for future teams.`)) return;
+        if (!confirm(`Delete ${card.name} and its whole history? You can restore it from Recently deleted (bottom of the Sponsors page) for 90 days.\n\nTip: moving it to "${stages.find((s) => s.kind === 'lost')?.label || 'Not this year'}" keeps the history for future teams.`)) return;
         await api.deleteSponsorCard(card.id);
         dirty = false;
         releaseGuard();

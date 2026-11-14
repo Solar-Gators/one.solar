@@ -3,6 +3,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://xvacijpdfqccsigcoctg.supabase.co wss://xvacijpdfqccsigcoctg.supabase.co; worker-src 'self' blob:; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Admin · one.solar</title>
   <link rel="icon" type="image/png" href="../shared/assets/favicon.png">
@@ -42,6 +43,7 @@
             </div>
           </div>
           <button type="button" id="menu-install" hidden>Install the app</button>
+          <button type="button" id="menu-report">Report a problem</button>
           <button type="button" id="menu-sign-out">Sign out</button>
         </div>
       </div>

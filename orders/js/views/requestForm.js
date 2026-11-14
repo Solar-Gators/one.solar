@@ -47,6 +47,8 @@ const fitBoxes = (list) => {
 };
 
 export async function renderRequestForm(el, { config, params }) {
+  // 045: one per form. Clicking Submit twice, or again after a dropped connection, makes one request.
+  const clientToken = crypto.randomUUID();
   let existing = null;
   let source = null; // "Order again": the request being copied (this form makes a new one)
   if (params.id && params.copy) {
@@ -622,7 +624,7 @@ export async function renderRequestForm(el, { config, params }) {
     errorsEl.innerHTML = '';
     clearMarks();
     try {
-      const number = await api.saveRequest(existing?.id, payload);
+      const number = await api.saveRequest(existing?.id, { ...payload, clientToken: existing ? undefined : clientToken });
       let attached = '';
       if (pendingFile) {
         attached = await attachTo(number, pendingFile).then(

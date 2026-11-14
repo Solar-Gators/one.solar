@@ -7,34 +7,9 @@
  */
 import { readFileSync } from 'node:fs';
 import { test, expect } from '@playwright/test';
+import { watch, open, signUp } from './helpers.mjs';
 
 const ADMIN = { name: 'Smoke Admin', email: 'smoke-admin@ufl.edu', password: 'fake-only-smoke-pass-1' };
-
-/** Console messages that are expected and harmless. Keep this list short, with a reason for each. */
-const IGNORED_CONSOLE = [
-  /favicon\.ico/, // the dev server has no favicon at the site root
-];
-
-/** Watch a page: collect errors, and block (and record) any request to the real Supabase. */
-async function watch(page) {
-  const problems = [];
-  page.on('pageerror', (err) => problems.push(`page error: ${err.message}`));
-  page.on('console', (msg) => {
-    if (msg.type() === 'error' && !IGNORED_CONSOLE.some((re) => re.test(msg.text()))) problems.push(`console error: ${msg.text()}`);
-  });
-  await page.route(/^https:\/\/[^/]*\.supabase\.co\//, (route) => {
-    problems.push(`request to the real Supabase: ${route.request().url()}`);
-    return route.abort();
-  });
-  return problems;
-}
-
-/** Open a page, wait for its landmark, then give late scripts a moment to throw. */
-async function open(page, path, landmark) {
-  await page.goto(path);
-  await expect(page.locator(landmark).first()).toBeVisible();
-  await page.waitForTimeout(500);
-}
 
 test.describe('signed out', () => {
   const PAGES = [
@@ -61,6 +36,9 @@ test.describe('signed out', () => {
  * version Orders, Finances, Sponsors and Admin import, created with the same options, talking to a stub
  * server (nothing reaches a real project).
  */
+test.describe('supabase-js', () => {
+// It talks to a stub server, which the page's Content-Security-Policy would (rightly) block.
+test.use({ bypassCSP: true });
 test('the pinned supabase-js loads and works with our client options', async ({ page }) => {
   const source = readFileSync(new URL('../../orders/js/supabase.js', import.meta.url), 'utf8');
   const url = source.match(/https:\/\/cdn\.jsdelivr\.net\/npm\/@supabase\/supabase-js@\d+\.\d+\.\d+\/\+esm/)?.[0];
@@ -87,6 +65,7 @@ test('the pinned supabase-js loads and works with our client options', async ({ 
   expect(calls).toEqual(['/rest/v1/app_settings', '/rest/v1/rpc/waiting_guests']);
   expect(problems).toEqual([]);
 });
+});
 
 test.describe('signed in as an Admin', () => {
   test.describe.configure({ mode: 'serial' });
@@ -97,16 +76,7 @@ test.describe('signed in as an Admin', () => {
   test.beforeAll(async ({ browser }) => {
     page = await browser.newPage();
     problems = await watch(page);
-    // A new account (a Guest), then made an Admin directly in the fake database.
-    await open(page, '/orders/', '#auth-form');
-    await page.locator('[data-mode="signup"]').first().click();
-    await page.fill('#l-name', ADMIN.name);
-    await page.fill('#l-email', ADMIN.email);
-    await page.fill('#l-pass', ADMIN.password);
-    await page.locator('#auth-form [type="submit"]').click();
-    await expect(page.locator('#auth-form')).toHaveCount(0);
-    await page.evaluate((email) => window.fakeSql(
-      `insert into profile_roles (user_id, role) select id, 'admin' from profiles where email = $1 on conflict do nothing`, [email]), ADMIN.email);
+    await signUp(page, ADMIN, ['admin']); // a new account (a Guest), then made an Admin in the fake database
   });
   test.afterAll(async () => page?.close());
   test.afterEach(() => {
@@ -151,6 +121,88 @@ test.describe('signed in as an Admin', () => {
     await requests.click();
     await expect(page).toHaveURL(/#\/requests/);
     await expect(page.locator('#app')).not.toBeEmpty();
+  });
+
+  test('lists show every request even past Supabase\'s per-request row cap (paging)', async () => {
+    // Supabase returns at most "Max rows" (1000) per request; the fake does the same, here capped at 3.
+    await open(page, '/orders/', '#main-nav a');
+    await page.evaluate(async () => {
+      const season = `(select value ->> 'season' from app_settings where key = 'general')`;
+      for (let i = 1; i <= 8; i++) {
+        await window.fakeSql(`insert into requests (request_number, title, status, season) values ($1, $2, 'Submitted', ${season}) on conflict do nothing`,
+          [`PAGE-${i}`, `Paging test ${i}`]);
+      }
+      await window.fakeSql(`insert into requests (request_number, title, status, season) values ('PAGE-OLD', 'Old season', 'Received', '2019-2020') on conflict do nothing`);
+      localStorage.setItem('fake-max-rows', '3');
+    });
+    try {
+      await open(page, '/orders/#/requests', '#app a[href="#/requests/PAGE-1"]');
+      await expect(page.locator('#app a[href^="#/requests/PAGE-"]')).toHaveCount(8);
+      await expect(page.locator('#app option', { hasText: '2019-2020' })).toHaveCount(1); // seasons are paged too
+    } finally {
+      await page.evaluate(() => localStorage.removeItem('fake-max-rows'));
+    }
+  });
+
+  test('an error in a page reaches Admin → Diagnostics, and Report a problem works (046)', async () => {
+    await open(page, '/orders/', '#main-nav a');
+    await page.evaluate(() => setTimeout(() => { throw new Error('Smoke test: deliberate error for riley@ufl.edu'); }));
+    await expect.poll(() => page.evaluate(async () =>
+      (await window.fakeSql(`select message from client_errors where message like '%Smoke test%'`)).map((r) => r.message.replace(/^Uncaught (Error: )?/, '')))).toEqual(['Smoke test: deliberate error for [email]']); // the address was blanked
+    // That error was the point of this test, not a problem with the page.
+    const thrown = problems.splice(0);
+    expect(thrown).toEqual(['page error: Smoke test: deliberate error for riley@ufl.edu']);
+
+    await page.locator('#account-btn').click();
+    await page.locator('#menu-report').click();
+    await page.fill('#os-report-text', 'The queue page looked empty');
+    await page.locator('.os-report-dialog [type="submit"]').click();
+    await expect(page.locator('.os-report-msg')).toHaveText('Thanks, an Admin will see this.');
+    await page.locator('.os-report-dialog [data-report-cancel]').click();
+
+    await open(page, '/admin/#/admin/diagnostics', '#app h2');
+    await expect(page.locator('#app')).toContainText('Smoke test: deliberate error for [email]');
+    await expect(page.locator('#app')).toContainText('The queue page looked empty');
+    await expect(page.locator('[data-diag-count]').first()).toHaveText('2');
+  });
+
+  test('saving settings someone else changed meanwhile says so instead of overwriting them (045)', async () => {
+    await open(page, '/admin/#/admin/season', '#settings-form #s-team');
+    // Someone else saves the team settings while this page is open.
+    await page.evaluate(async () => {
+      await window.fakeSql(`insert into auth.users (email, raw_user_meta_data, password) values ('other-admin@ufl.edu', '{"full_name":"Olive Other"}', 'x') on conflict do nothing`);
+      await window.fakeSql(`update app_settings set value = value || '{"teamName":"Their name"}',
+        updated_by = (select id from profiles where email = 'other-admin@ufl.edu') where key = 'general'`);
+    });
+    await page.fill('#s-team', 'My name');
+    await page.locator('#settings-form [type="submit"]').click();
+    await expect(page.locator('#settings-errors')).toContainText('Olive Other changed these settings');
+    const name = await page.evaluate(async () => (await window.fakeSql(`select value->>'teamName' t from app_settings where key = 'general'`))[0].t);
+    expect(name).toBe('Their name'); // theirs wasn't overwritten
+    // After a reload the page has their version, and saving works.
+    await page.reload();
+    await expect(page.locator('#settings-form #s-team')).toHaveValue('Their name');
+    await page.fill('#s-team', 'Solar Gators');
+    await page.locator('#settings-form [type="submit"]').click();
+    await expect(page.locator('.alert-success')).toContainText('Team settings saved');
+  });
+
+  test('a database behind or ahead of the page shows the version banner (shared/version-check.js)', async () => {
+    const setSchema = (delta) => page.evaluate(async (d) => {
+      const { SCHEMA_VERSION } = await import('/shared/version.js');
+      await window.fakeSql(`update app_settings set value = jsonb_set(value, '{schemaVersion}', to_jsonb($1::int)) where key = 'general'`, [SCHEMA_VERSION + d]);
+    }, delta);
+    await open(page, '/orders/', '#main-nav a');
+    await expect(page.locator('#os-version-banner')).toHaveCount(0); // in step: nothing
+    try {
+      await setSchema(-1);
+      await open(page, '/orders/', '#os-version-banner.updating');
+      await open(page, '/evals/?fake', '#os-version-banner.updating');
+      await setSchema(+1);
+      await open(page, '/orders/', '#os-version-banner.reload');
+    } finally {
+      await setSchema(0);
+    }
   });
 
   test('the app switcher opens and goes to another app', async () => {

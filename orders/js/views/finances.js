@@ -12,7 +12,8 @@
  */
 import { api } from '../api.js';
 import { auth } from '../auth.js';
-import { esc, fmtMoney, fmtDate, errorBox, setFlash, takeFlash, renderRichText, askText } from '../ui.js';
+import { esc, fmtMoney, fmtDate, errorBox, setFlash, takeFlash, renderRichText, askText, selfApprovedTag } from '../ui.js';
+import { mountRecentlyDeleted } from '../recentlyDeleted.js';
 import { requestFields, fieldOptions } from '../formFields.js';
 import { workflowSettings, hasBudgets } from '../workflow.js';
 import { loadExcelJS } from '../excel.js';
@@ -117,9 +118,11 @@ export async function renderFinances(el, ctx) {
     <nav class="segmented fin-tabs" aria-label="Finances">${TABS.map(([k, label]) => `<a href="#/finances" data-tab="${k}" ${k === view.tab ? 'aria-current="page"' : ''}>${esc(label)}${
       k === 'purchases' ? ` <span class="muted small">${lines.length}</span>` : ''}</a>`).join('')}</nav>
     <div id="fin-errors"></div>
-    <div id="fin-tab"></div>`;
+    <div id="fin-tab"></div>
+    ${canEdit ? '<div id="fin-deleted"></div>' : ''}`;
 
   const errors = el.querySelector('#fin-errors');
+  mountRecentlyDeleted(el.querySelector('#fin-deleted'), ['purchase', 'fund', 'finance_sheet', 'finance_row'], { onRestored: () => rerender() });
   const showError = (err) => (errors.innerHTML = errorBox(err));
   const box = el.querySelector('#fin-tab');
 
@@ -227,7 +230,7 @@ function drawPurchases(box, s) {
       <td class="ledger-status" data-label="Status">${statusCell(l)}</td>
       <td class="ledger-desc cell-primary" data-label="">${own && canEdit
         ? input(l, 'description', l.description, 'placeholder="What was bought" aria-label="Description"')
-        : own ? esc(l.description) : `<a href="#/requests/${esc(l.number)}"><span class="mono small">${esc(l.number)}</span> ${esc(l.description)}</a>`}</td>
+        : own ? esc(l.description) : `<a href="#/requests/${esc(l.number)}"><span class="mono small">${esc(l.number)}</span> ${esc(l.description)}</a>${selfApprovedTag(l.request)}`}</td>
       <td class="num ledger-cost" data-label="Cost">${own && canEdit ? input(l, 'amount', l.amount === null ? '' : fmtMoney(l.amount), 'inputmode="decimal" placeholder="$" aria-label="Cost"') : money(l.amount)}</td>
       <td class="ledger-dept" data-label="M/E">${canEdit ? input(l, 'dept', l.dept, 'list="fin-depts" maxlength="20" aria-label="M/E"') : esc(l.dept)}</td>
       <td class="ledger-cat" data-label="Category">${categoryCell(l)}</td>
@@ -363,7 +366,7 @@ function drawPurchases(box, s) {
         onChange: () => {},
       });
     } else if (btn.hasAttribute('data-delete')) {
-      if (!confirm(`Delete "${l.description || 'this purchase'}"? This can't be undone.`)) return;
+      if (!confirm(`Delete "${l.description || 'this purchase'}"? You can restore it from Recently deleted for 90 days.`)) return;
       try {
         await api.deletePurchase(l.purchaseId);
         await rerender();

@@ -13,7 +13,7 @@ import { renderAttachments } from '../attachments.js';
 import { auth } from '../auth.js';
 import {
   STATUS, DECISION_LABELS, esc, fmtMoney, fmtDate, fmtDateTime, todayISO,
-  statusBadge, priorityTag, isOverdue, errorBox, setFlash, takeFlash, copyButton, bindCopyButtons,
+  statusBadge, selfApprovedTag, priorityTag, isOverdue, errorBox, setFlash, takeFlash, copyButton, bindCopyButtons,
 } from '../ui.js';
 import { getValue, displayValue, isVisible, MONEY_FIELDS, shippingPerRequest, requestFields, itemFields } from '../formFields.js';
 import { pageLayout, copyAllowed, detailFieldList, itemColumnList } from '../pageLayout.js';
@@ -355,6 +355,11 @@ function historyCard(r) {
       const prev = [...logged].filter((x) => x.kind === 'received' && x.created_at < e.created_at).pop();
       if (prev) events.push({ when: prev.created_at, text: `<strong>Marked received</strong> by ${esc(prev.actor_name || 'unknown')}`, kind: 'received' });
       events.push({ when: e.created_at, text: `<strong>Received undone</strong> by ${esc(e.actor_name || 'unknown')}: back to Ordered`, comment: e.note, kind: 'restored' });
+      continue;
+    }
+    if (e.kind === 'linked') {
+      // 048: an imported request linked to its requester's account when they joined the team.
+      events.push({ when: e.created_at, text: `<strong>${esc(e.note || 'Linked to an account')}</strong>`, kind: e.kind });
       continue;
     }
     if (e.kind === 'arrived') {
@@ -772,7 +777,7 @@ export async function renderRequestDetail(el, { config, params, rerender }) {
       <div>
         <div class="eyebrow mono"><span class="copy-wrap">${esc(r.request_number)}${showCopy() ? copyButton(r.request_number, 'request ID', { keep: true }) : ''}</span>${r.season ? ` <span class="muted">· ${esc(r.season)} season</span>` : ''}</div>
         <h1>${esc(r.title || 'Untitled request')}</h1>
-        <p class="subtitle">${statusBadge(r.status)} ${priorityTag(r.priority)}</p>
+        <p class="subtitle">${statusBadge(r.status)}${selfApprovedTag(r)} ${priorityTag(r.priority)}</p>
       </div>
       <div class="big-total"><span class="muted small">Request total</span><span class="copy-wrap">${fmtMoney(r.total)}${showCopy() ? copyButton(r.total.toFixed(2), 'request total', { keep: true }) : ''}</span></div>
     </div>

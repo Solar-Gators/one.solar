@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://xvacijpdfqccsigcoctg.supabase.co wss://xvacijpdfqccsigcoctg.supabase.co; worker-src 'self' blob:; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Solar Evals · one.solar</title>
 <meta name="description" content="Solar Gators semester member reviews: CE rubrics and evaluations, signed in with one.solar accounts.">
@@ -146,6 +147,7 @@ code{font-family:ui-monospace,Consolas,monospace;font-size:12.5px;background:var
 .sheetwrap{container-type:inline-size;width:100%;max-width:1056px;min-width:760px}
 .ptools{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;margin:0 0 7px;font-size:12.5px;color:var(--muted)}
 .ptools .warn{color:var(--bad);font-weight:700}
+.empty .warn{color:var(--bad);font-weight:600}
 .ptools .btn{padding:4px 10px;font-size:12.3px}
 .page{--u:calc(100cqw / 1056);--navy:#0b2545;--pmut:#5d6d7e;--pline:#cfd8df;--cat:#e8eef8;--zeb:#f6f8fb;--orng:#f26b1d;
   position:relative;background:#fff;color:#1d2a36;font-family:var(--paper-font);min-height:calc(816 * var(--u));
@@ -579,6 +581,8 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
    row-level security in the database protects the data. */
 import { SUPABASE_URL, SUPABASE_ANON_KEY, appUrl, signInUrl } from "../shared/onesolar.js";
 import { renderAccount } from "../shared/account-menu.js";
+import { startVersionCheck } from "../shared/version-check.js";
+import { startErrorReporter } from "../shared/error-reporter.js";
 import { mountAppSwitcher } from "../shared/app-switcher.js";
 mountAppSwitcher(); // ⊞ next to the logo: jump to any other one.solar app (Ctrl + K)
 const ORDERS_URL = appUrl("orders/");
@@ -590,6 +594,8 @@ const MASTER_SEED = "00000000-0000-4000-8000-0000000000a1";
    (../tools/fake-supabase.js, the same one Orders uses with npm run dev:fake), so the database's own rules apply. */
 const FAKE = ["localhost", "127.0.0.1"].includes(location.hostname) && new URLSearchParams(location.search).has("fake");
 const sb = FAKE ? (await import("../tools/fake-supabase.js")).supabase : createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+startVersionCheck(sb);
+startErrorReporter(sb, "evals");
 
 /* =========================================================
    SMALL HELPERS
@@ -643,12 +649,13 @@ async function loadMe(session){
   if (!prof) throw new Error("This account has no one.solar profile yet. Sign in on the one.solar sign-in page once first.");
   let roles = (await rows(sb.from("profile_roles").select("role").eq("user_id", id))).map(r => r.role);
   if (!roles.length) roles = ["guest"];
-  const guest = roles.every(r => r === "guest");   // 040: signed up, not accepted into the team yet
+  const guest = roles.every(r => r === "guest" || r === "alumni");   // not on the team: not accepted yet (040) or deactivated (044)
+  const former = roles.includes("alumni");
   const perms = (await rows(sb.from("role_permissions").select("permission").in("role", roles))).map(p => p.permission);
   const labels = await rows(sb.from("roles").select("key, label")).catch(() => []);
   // Shown under your name in the top bar, like the other one.solar apps: "Chief Engineer".
   const roleLabel = roles.map(r => labels.find(l => l.key === r)?.label || r).join(" · ");
-  me = {id, name:prof.full_name || prof.email, email:(prof.email || "").toLowerCase(), perms:new Set(perms), roleLabel, guest};
+  me = {id, name:prof.full_name || prof.email, email:(prof.email || "").toLowerCase(), perms:new Set(perms), roleLabel, guest, former};
   if (guest) return;   // a guest can't read anyone else, so there's nothing more to load
   people = await rows(sb.from("profiles").select("id, full_name, email").order("full_name"));
   [roleRows, permRows, permList] = await Promise.all([rows(sb.from("profile_roles").select("user_id, role")),
@@ -753,7 +760,8 @@ function showSignIn(msg=""){
   $("#fSignIn").addEventListener("submit", async e => {
     e.preventDefault(); $("#siGo").disabled = true;
     const { error } = await sb.auth.signInWithPassword({email:$("#siEmail").value.trim(), password:$("#siPass").value});
-    if (error) { $("#siGo").disabled = false; toast(error.message === "Invalid login credentials" ? "That email and password don't match a one.solar account." : error.message, 5000); }
+    if (error) { $("#siGo").disabled = false; toast(error.message === "Invalid login credentials" ? "That email and password don't match a one.solar account."
+      : /user is banned/i.test(error.message) ? "Your one.solar access has ended. If this is a mistake, ask an Admin to reactivate you." : error.message, 5000); }
   });
   $("#siEmail").focus();
 }
@@ -778,11 +786,28 @@ async function boot(session){
   return booting;
 }
 /** 040: signed up but not accepted into the team yet: nothing to see here until someone accepts them. */
-function showGuest(){
+async function showGuest(){
   $("#tabs").hidden = true; drawAccount();
   $("#side").innerHTML = "";
-  $("#main").innerHTML = `<div class="empty"><h3>You're signed up. Almost in!</h3>
-    <p>Someone on the team needs to accept you before you can use Solar Evals. Anyone on the team can: ask your Chief Engineer, a lead or anyone on the e-board to accept you on the one.solar home screen.</p>
+  // U-1: email confirmed (043 needs it) and which positions can accept them.
+  let confirmed = true, accepters = [];
+  if (!(me && me.former)) {
+    try {
+      const [{ data:{ session } }, rp, rl] = await Promise.all([sb.auth.getSession(),
+        sb.from("role_permissions").select("role").eq("permission", "people.accept"), sb.from("roles").select("key,label").order("sort")]);
+      confirmed = !!(session?.user?.email_confirmed_at || session?.user?.confirmed_at);
+      const keys = new Set((rp.data || []).map(r => r.role));
+      accepters = (rl.data || []).filter(r => keys.has(r.key) && !["guest","alumni","member"].includes(r.key)).map(r => r.label);
+    } catch (e) { /* the page still works without it */ }
+  }
+  const askWho = accepters.length ? "your " + esc(accepters.join(", ").replace(/, ([^,]*)$/, " or $1")) : "your Chief Engineer or anyone on the e-board";
+  $("#main").innerHTML = me && me.former
+    ? `<div class="empty"><h3>Your one.solar access has ended</h3>
+    <p>You're listed as a former member, so Solar Evals isn't available to you any more. If that's a mistake, ask an Admin to reactivate you.</p>
+    <div class="row"><a class="btn primary" href="../">one.solar home</a><button class="btn" id="guestCheck">Check again</button></div></div>`
+    : `<div class="empty"><h3>You're signed up. Almost in!</h3>
+    <p>Someone on the team needs to accept you before you can use Solar Evals. Ask ${askWho} to accept you on the one.solar home screen.</p>
+    <p class="${confirmed ? "" : "warn"}" data-email-confirmed="${confirmed}">${confirmed ? "✓ Email address confirmed." : "✗ Email address not confirmed yet. Click the link in the email we sent you; nobody can accept you until you do."}</p>
     <div class="row"><a class="btn primary" href="../">one.solar home</a><button class="btn" id="guestCheck">Check again</button></div></div>`;
   $("#guestCheck").onclick = async () => {
     const { data:{ session } } = await sb.auth.getSession();

@@ -19,6 +19,7 @@
  * docs/MAINTAINING.md has the rest ("Adding an app").
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { cspMeta } from './csp.mjs';
 
 const args = process.argv.slice(2);
 const flag = (k, d) => {
@@ -100,6 +101,7 @@ const page = `<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
+  ${cspMeta()}
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>${html(name)} · one.solar</title>
   <link rel="icon" href="../shared/assets/favicon.png">

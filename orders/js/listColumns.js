@@ -6,7 +6,7 @@
  * Cost center — keyed by the field key) or a computed value (Requested, Total,
  * Status, Approved date, …). Column objects are the same shape as ui.js COLUMNS.
  */
-import { COLUMNS, priorityTag, statusLabel, optionChip } from './ui.js';
+import { COLUMNS, priorityTag, statusLabel, optionChip, isSelfApproved } from './ui.js';
 import { requestFields, getValue, displayValue, fieldOptions, answerable } from './formFields.js';
 
 export const LISTS = {
@@ -105,8 +105,8 @@ export function listSort(listName, config) {
 export function availableFilters(config) {
   return [
     {
-      key: 'owner', label: 'Whose requests', options: [['mine', 'My requests'], ['watching', 'Requests I watch']], all: 'Everyone',
-      match: (r, v, ctx) => (v === 'watching' ? ctx.watching?.has(r.id) : r.created_by === ctx.userId),
+      key: 'owner', label: 'Whose requests', options: [['mine', 'My requests'], ['watching', 'Requests I watch'], ['self-approved', 'Self-approved']], all: 'Everyone',
+      match: (r, v, ctx) => (v === 'watching' ? ctx.watching?.has(r.id) : v === 'self-approved' ? isSelfApproved(r) : r.created_by === ctx.userId),
     },
     { key: 'status', label: 'Status', options: config.statuses.map((s) => [s, statusLabel(s)]), all: 'All statuses', match: (r, v) => r.status === v },
     ...requestFields(config)

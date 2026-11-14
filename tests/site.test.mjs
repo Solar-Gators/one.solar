@@ -11,6 +11,7 @@ import { mkdtempSync, readFileSync, existsSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, posix } from 'node:path';
 import { buildSite } from '../tools/build-site.mjs';
+import { PAGES, cspMeta } from '../tools/csp.mjs';
 
 let passed = 0;
 function test(name, fn) {
@@ -47,6 +48,9 @@ test('only the site is published (no tests, migrations, tools, docs or package f
   }
   assert.ok(existsSync(join(out, 'version.json')), 'version.json was not written');
   assert.equal(JSON.parse(readFileSync(join(out, 'version.json'), 'utf8')).sha, 'test-sha');
+  // The page code knows its own commit too (shared/version-check.js compares it with version.json).
+  assert.match(readFileSync(join(out, 'shared/version.js'), 'utf8'), /export const VERSION = "test-sha";/);
+  assert.match(readFileSync(new URL('../shared/version.js', import.meta.url), 'utf8'), /export const VERSION = 'dev';/, 'the repo copy stays "dev"');
 });
 
 /** Local references in one published file, as site paths ("orders/js/api.js"). */
@@ -92,6 +96,7 @@ test('every local page, script, style and icon the site refers to is published',
       if (resolved === null) { missing.push(`${file}: "${ref}" is an absolute path (breaks under /one.solar/)`); continue; }
       if (NOT_PUBLISHED_ON_PURPOSE.has(resolved)) continue;
       const ok = published.has(resolved) || published.has(posix.join(resolved, 'index.html')) || resolved === '.' ||
+        resolved === 'version.json' || // written by the build itself (--version)
         (resolved.endsWith('/') && published.has(resolved + 'index.html'));
       if (!ok) missing.push(`${file}: "${ref}" → ${resolved}`);
     }
@@ -109,6 +114,15 @@ test('every library from a CDN names an exact version', () => {
     }
   }
   assert.deepEqual(floating, []);
+});
+
+test('every app page carries the Content-Security-Policy, up to date (tools/csp.mjs)', () => {
+  const missing = PAGES.filter((page) => !readFileSync(join(out, page), 'utf8').includes(cspMeta()));
+  assert.deepEqual(missing, [], 'run: node tools/csp.mjs');
+  for (const page of PAGES) {
+    const html = readFileSync(join(out, page), 'utf8');
+    assert.ok(html.indexOf(cspMeta()) < html.indexOf('<script'), `${page}: the policy must come before any script`);
+  }
 });
 
 rmSync(out, { recursive: true, force: true });

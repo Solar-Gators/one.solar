@@ -67,10 +67,17 @@ export const auth = {
     const shown = labels.length > 1 ? state.roles.filter((r) => mine.includes(r.key) && r.key !== 'member').map((r) => r.label) : labels;
     return shown.join(' · ') || 'Member';
   },
-  /** Signed in, but not accepted into the team yet (040): sees only the public apps. */
+  /**
+   * Signed in, but not on the team: not accepted yet (040, Guest) or deactivated (044, Former member).
+   * Either way they see only the public apps.
+   */
   get isGuest() {
     const mine = state.profile?.roles || [];
-    return !!state.profile && mine.every((r) => r === 'guest');
+    return !!state.profile && mine.every((r) => r === 'guest' || r === 'alumni');
+  },
+  /** Deactivated (044): was on the team, isn't any more. */
+  get isFormer() {
+    return (state.profile?.roles || []).includes('alumni');
   },
   /** Does the signed-in person have this role? */
   hasRole(key) {
@@ -78,6 +85,11 @@ export const auth = {
   },
   get roles() {
     return state.roles;
+  },
+  /** 043: only accounts with a confirmed email address can be accepted. */
+  get emailConfirmed() {
+    const u = state.session?.user;
+    return !!(u?.email_confirmed_at || u?.confirmed_at);
   },
   get recovering() {
     return state.recovering;

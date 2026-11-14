@@ -275,7 +275,7 @@ export function openColumnEditor(box, { sheet, sheets, rowsCount, config, onDone
     } else if (btn.id === 'col-cancel') {
       onDone();
     } else if (btn.id === 'sheet-delete') {
-      if (!confirm(`Delete the sheet "${sheet.name}" and all ${rowsCount} of its rows? This can't be undone. (Download it first if you might need it.)`)) return;
+      if (!confirm(`Delete the sheet "${sheet.name}" and all ${rowsCount} of its rows? You can restore it, rows and all, from Recently deleted (bottom of Finances) for 90 days.`)) return;
       try {
         await api.deleteFinanceSheet(sheet.id);
         setView({ sheetId: null });

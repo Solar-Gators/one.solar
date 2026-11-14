@@ -22,7 +22,7 @@ export const siteUrl = () => `${location.origin}${location.pathname}`;
 
 const DB_NAME = 'idb://sg-orders-fake';
 // Keep in sync with the files in supabase/migrations/.
-const MIGRATIONS = ['001_initial.sql', '002_form_fields.sql', '003_archive_and_import.sql', '004_cost_adjustments.sql', '005_editable_permissions.sql', '006_seasons.sql', '007_one_vendor_per_request.sql', '008_roles_admin_history.sql', '009_form_rules_layout_exports.sql', '010_workflow_budgets_notifications.sql', '011_notification_choices.sql', '012_link_imported_requests.sql', '013_history_drafts_ticket.sql', '014_finances.sql', '015_sponsors.sql', '016_request_watchers.sql', '017_attachments.sql', '018_treasurer_ledger.sql', '019_fix_wording_pickup.sql', '020_ledger_category.sql', '021_budget_categories.sql', '022_paid_status.sql', '023_rename_category_fix.sql', '024_cancel_approved.sql', '025_treasurer_tools.sql', '026_sponsor_history.sql', '027_sponsor_outreach.sql', '028_solar_evals.sql', '029_onesolar.sql', '030_onesolar_wording.sql', '031_eval_self_reviews.sql', '032_eval_questions.sql', '033_undo_received.sql', '034_edit_approved_items.sql', '035_people_admin_only.sql', '036_eval_types.sql', '037_eval_form_names.sql', '038_eval_communication.sql', '039_eval_more_forms.sql', '040_guests.sql'];
+const MIGRATIONS = ['001_initial.sql', '002_form_fields.sql', '003_archive_and_import.sql', '004_cost_adjustments.sql', '005_editable_permissions.sql', '006_seasons.sql', '007_one_vendor_per_request.sql', '008_roles_admin_history.sql', '009_form_rules_layout_exports.sql', '010_workflow_budgets_notifications.sql', '011_notification_choices.sql', '012_link_imported_requests.sql', '013_history_drafts_ticket.sql', '014_finances.sql', '015_sponsors.sql', '016_request_watchers.sql', '017_attachments.sql', '018_treasurer_ledger.sql', '019_fix_wording_pickup.sql', '020_ledger_category.sql', '021_budget_categories.sql', '022_paid_status.sql', '023_rename_category_fix.sql', '024_cancel_approved.sql', '025_treasurer_tools.sql', '026_sponsor_history.sql', '027_sponsor_outreach.sql', '028_solar_evals.sql', '029_onesolar.sql', '030_onesolar_wording.sql', '031_eval_self_reviews.sql', '032_eval_questions.sql', '033_undo_received.sql', '034_edit_approved_items.sql', '035_people_admin_only.sql', '036_eval_types.sql', '037_eval_form_names.sql', '038_eval_communication.sql', '039_eval_more_forms.sql', '040_guests.sql', '041_migration_ledger.sql', '042_role_guard.sql', '043_accept_guard.sql', '044_deactivate.sql', '045_conflicts.sql', '046_diagnostics.sql', '047_soft_delete.sql', '048_imports_links.sql'];
 const SESSION_KEY = 'sg-orders-fake-session';
 
 const STUB = `
@@ -30,11 +30,16 @@ const STUB = `
   create role authenticated nologin;
   create schema auth;
   create table auth.users (id uuid primary key default gen_random_uuid(), email text unique not null,
-                           raw_user_meta_data jsonb default '{}', password text not null);
+                           raw_user_meta_data jsonb default '{}', password text not null,
+                           email_confirmed_at timestamptz default now(), banned_until timestamptz);
   create function auth.uid() returns uuid language sql stable
     as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
   grant usage on schema auth to anon, authenticated;
   grant usage on schema public to anon, authenticated;
+  -- Like a real Supabase project: new objects in public are granted to anon/authenticated unless a migration revokes them.
+  alter default privileges in schema public grant all on tables to anon, authenticated;
+  alter default privileges in schema public grant all on functions to anon, authenticated;
+  alter default privileges in schema public grant all on sequences to anon, authenticated;
 `;
 
 const ready = (async () => {
@@ -92,6 +97,11 @@ const toError = (e) => ({ message: e.message, details: e.detail || null, code: e
 // Embedded relations used by the app: name -> [fk column, one-to-one?]
 const EMBEDS = { request_events: ['request_id', false], request_items: ['request_id', false], approvals: ['request_id', false], order_information: ['request_id', true], cost_changes: ['request_id', false], profile_roles: ['user_id', false] };
 
+/** Supabase's per-request row cap. Set localStorage "fake-max-rows" (e.g. 5) to try paging with little data. */
+const maxRows = () => {
+  try { return Math.max(1, Number(localStorage.getItem('fake-max-rows')) || 1000); } catch { return 1000; }
+};
+
 class Query {
   constructor(table) {
     this.table = table;
@@ -122,12 +132,26 @@ class Query {
     this.filters.push(`t.${col} = any($${this.params.length})`);
     return this;
   }
+  is(col, value) {
+    this.filters.push(`t.${col} is ${value === null ? 'null' : value ? 'true' : 'false'}`);
+    return this;
+  }
+  gte(col, value) {
+    this.params.push(value);
+    this.filters.push(`t.${col} >= $${this.params.length}`);
+    return this;
+  }
+  lte(col, value) {
+    this.params.push(value);
+    this.filters.push(`t.${col} <= $${this.params.length}`);
+    return this;
+  }
   order(col, { ascending = true } = {}) {
     this.orders.push(`t.${col} ${ascending ? 'asc' : 'desc'}`);
     return this;
   }
   range(from, to) {
-    this.limitSql = ` limit ${Number(to) - Number(from) + 1} offset ${Number(from)}`;
+    this.limitSql = ` limit ${Math.min(Number(to) - Number(from) + 1, maxRows())} offset ${Number(from)}`;
     return this;
   }
   limit(n) {
@@ -142,7 +166,7 @@ class Query {
     this.mode = 'single';
     return this;
   }
-  sql() {
+  sql(capped = true) {
     const parts = this.columns.split(',').map((s) => s.trim()).filter(Boolean).map((c) => {
       // Embeds: "table(*)" or "table(col, col)".
       const m = c.match(/^(\w+)\(([^)]*)\)$/);
@@ -156,13 +180,14 @@ class Query {
     });
     const where = this.filters.length ? ` where ${this.filters.join(' and ')}` : '';
     const order = this.orders.length ? ` order by ${this.orders.join(', ')}` : '';
-    return `select ${parts.join(', ')} from ${this.table} t${where}${order}${this.limitSql || ''}`;
+    // Like Supabase (API settings → "Max rows", 1000 by default): one request returns at most this many rows.
+    return `select ${parts.join(', ')} from ${this.table} t${where}${order}${this.limitSql || (capped ? ` limit ${maxRows()}` : '')}`;
   }
   async run() {
     try {
       return await asCurrentUser(async (db) => {
         if (this.head) {
-          const { rows } = await db.query(`select count(*)::int as n from (${this.sql()}) q`, this.params);
+          const { rows } = await db.query(`select count(*)::int as n from (${this.sql(false)}) q`, this.params); // counts aren't capped
           return { data: null, count: rows[0].n, error: null };
         }
         const { rows } = await db.query(this.sql(), this.params);
@@ -193,9 +218,18 @@ function setSession(next, event) {
   listeners.forEach((cb) => cb(event, session));
 }
 
-async function superuser(sql, params) {
-  const db = await ready;
-  return (await db.query(sql, params)).rows;
+/**
+ * As the database owner, like the Supabase SQL editor: nobody signed in (auth.uid() is null). Waits its turn,
+ * so it never runs while a page query has switched to a user's role.
+ */
+function superuser(sql, params) {
+  const run = queue.then(async () => {
+    const db = await ready;
+    await db.query(`select set_config('request.jwt.claim.sub', '', false)`);
+    return (await db.query(sql, params)).rows;
+  });
+  queue = run.catch(() => {});
+  return run;
 }
 
 const authApi = {
@@ -207,15 +241,17 @@ const authApi = {
     return { data: { subscription: { unsubscribe: () => listeners.delete(cb) } } };
   },
   async signInWithPassword({ email, password }) {
-    const [user] = await superuser(`select id, email from auth.users where lower(email) = lower($1) and password = $2`, [email, password]);
+    const [user] = await superuser(`select id, email, email_confirmed_at, banned_until > now() as banned from auth.users where lower(email) = lower($1) and password = $2`, [email, password]);
     if (!user) return { data: {}, error: { message: 'Invalid login credentials' } };
+    if (user.banned) return { data: {}, error: { message: 'User is banned' } };
+    delete user.banned;
     setSession({ user }, 'SIGNED_IN');
     return { data: { session }, error: null };
   },
   async signUp({ email, password, options }) {
     try {
       const [user] = await superuser(
-        `insert into auth.users (email, password, raw_user_meta_data) values ($1, $2, $3) returning id, email`,
+        `insert into auth.users (email, password, raw_user_meta_data) values ($1, $2, $3) returning id, email, email_confirmed_at`,
         [email, password, options?.data || {}]
       );
       setSession({ user }, 'SIGNED_IN');

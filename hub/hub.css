@@ -122,3 +122,14 @@ body:not(.ready) main { visibility: hidden; }
 .waiting-list li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0; border-top: 1px solid var(--border-soft); flex-wrap: wrap; }
 .waiting-list li:first-child { border-top: 0; }
 .waiting-who { min-width: 0; overflow-wrap: anywhere; }
+/* 043: accept / turn away; accounts that haven't confirmed their email wait */
+.waiting-actions { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.waiting-actions .danger-link { color: var(--red); }
+.waiting-actions .field-tag { font-size: 12px; padding: 3px 8px; border-radius: 999px; background: var(--border-soft, #eef0f3); color: var(--muted); }
+
+/* U-1: the one-time "You're in" card */
+.welcome { margin: 0 0 18px; border-left: 4px solid var(--orange, #f57c20); }
+.welcome-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.welcome-head h2 { margin: 0; font-size: 1.15rem; }
+.welcome p { margin: 8px 0; }
+.welcome-next { margin: 6px 0 0; padding-left: 20px; display: grid; gap: 4px; }

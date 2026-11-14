@@ -206,7 +206,11 @@ export async function renderImport(el, { config, rerender, reloadConfig, embedde
       e.target.disabled = true;
       e.target.textContent = 'Importing…';
       try {
-        await api.importArchive({ season: state.season, sourceFile: state.file.name, sheet: sheet.name, columns: sheet.columns, rows });
+        const archive = { season: state.season, sourceFile: state.file.name, sheet: sheet.name, columns: sheet.columns, rows };
+        await api.importArchive(archive).catch((err) => {
+          if (err.repeat && confirm(err.message)) return api.importArchive({ ...archive, allowRepeat: true });
+          throw err;
+        });
         setFlash(`Imported ${rows.length} rows into the ${state.season} archive.`);
         Object.assign(state, { file: null, sheets: null });
         await rerender();
@@ -360,7 +364,11 @@ export async function renderImport(el, { config, rerender, reloadConfig, embedde
           });
         }
         // One call, so the database imports all of them or none (no half-imported sheets).
-        const created = await api.importRequests(picked.map(({ total, subteam, mapped, ...r }) => r));
+        const sheetRows = picked.map(({ total, subteam, mapped, ...r }) => r);
+        const created = await api.importRequests(sheetRows, { sourceFile: state.file.name }).catch((err) => {
+          if (err.repeat && confirm(err.message)) return api.importRequests(sheetRows, { sourceFile: state.file.name, allowRepeat: true });
+          throw err;
+        });
         await reloadConfig();
         setFlash(`Imported ${created} requests from ${state.file.name}.`);
         Object.assign(state, { file: null, sheets: null, subsystemMap: {}, target: '', picked: {}, existing: null });

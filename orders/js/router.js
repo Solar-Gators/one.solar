@@ -16,6 +16,7 @@ import { renderAppearance, renderBrand, renderHistory } from './views/adminSetup
 import { renderDisplay, renderTextBanner, renderIntros } from './views/adminPages.js';
 import { renderHomeScreen, renderOtherApps } from './views/adminApps.js';
 import { renderWorkflow, renderNotifications } from './views/adminWorkflow.js';
+import { renderDiagnostics } from './views/diagnostics.js';
 import { renderHelp } from './views/help.js';
 import { renderHome } from './views/home.js';
 import { renderRequestForm } from './views/requestForm.js';
@@ -28,6 +29,8 @@ import { renderSponsors, renderSponsorCard } from './views/sponsors.js';
 import { renderExport } from './views/exportPage.js';
 import { renderArchive } from './views/archive.js';
 import { errorBox, esc } from './ui.js';
+import { api } from './api.js';
+import { needsText, rolesWith } from './messages.js';
 import { confirmLeave } from './leaveGuard.js';
 import { APP, APPS, appOf, homePath } from './appMode.js';
 import { appUrl } from '../../shared/onesolar.js';
@@ -39,10 +42,15 @@ const tabPerms = (name) => ADMIN_TABS.find(([key]) => key === name)[2];
 
 /** A page your role can't open: say who to ask, and give a way out. */
 const WHO_TO_ASK = { finances: 'the Treasurer or an Admin', sponsors: 'the Business Coordinator or an Admin', admin: 'an Admin', orders: 'a Chief Engineer or an Admin' };
-function noAccess() {
+async function noAccess(perms) {
   const name = APPS[APP].name;
+  // U-2: name the permission and the roles that have it (both readable by everyone signed in).
+  const needs = await Promise.all([api.listPermissions(), api.listRolePermissions()])
+    .then(([permissions, rolePermissions]) => needsText(perms, { permissions, rolePermissions, roles: auth.roles }))
+    .catch(() => '');
   return `<section class="card no-access">
     <h1>You don't have access to ${APP === 'orders' ? 'this page' : esc(name)}</h1>
+    ${needs ? `<p data-needs>${esc(needs)}</p>` : ''}
     <p class="muted">Your role (${esc(auth.roleLabel)}) can't open it. If you need it, ask ${WHO_TO_ASK[APP]} to give you a role that can.</p>
     <div class="form-actions">
       <a class="btn btn-primary" href="${esc(appUrl(''))}">one.solar home</a>
@@ -52,12 +60,35 @@ function noAccess() {
 }
 
 /** 040: a Guest (signed up, not accepted yet) sees this instead of the team's pages. */
-function waitingPage() {
+async function waitingPage() {
   const name = auth.displayName;
+  if (auth.isFormer) {
+    return `<section class="card no-access">
+    <h1>Your one.solar access has ended</h1>
+    <p>Your account was moved to former members, so the team's orders, evals and other apps aren't available to you any more.
+      Everything you did is still there, with your name on it.</p>
+    <p class="muted">If this is a mistake, ask an Admin to reactivate you.</p>
+    <div class="form-actions">
+      <a class="btn btn-primary" href="${esc(appUrl(''))}">one.solar home</a>
+      <button type="button" class="btn" id="guest-check">Check again</button>
+    </div>
+  </section>`;
+  }
+  // U-1: where they stand. Email confirmed (043 needs it), and which positions can accept them.
+  const accepters = await api.listRolePermissions()
+    .then((rp) => rolesWith(['people.accept'], rp, auth.roles).filter((r) => r !== 'Member'))
+    .catch(() => []);
+  const confirmed = auth.emailConfirmed;
   return `<section class="card no-access">
     <h1>You're signed up${name ? `, ${esc(name.split(' ')[0])}` : ''}. Almost in!</h1>
     <p>Someone on the team needs to accept you before you can see orders, evals and the rest of one.solar.
-      Anyone on the team can: ask your Chief Engineer, a lead or anyone on the e-board to accept you on the one.solar home screen.</p>
+      Ask ${accepters.length ? `your ${esc(accepters.join(', ').replace(/, ([^,]*)$/, ' or $1'))}` : 'your Chief Engineer or anyone on the e-board'} to accept you on the one.solar home screen.</p>
+    <ul class="waiting-steps">
+      <li class="${confirmed ? 'done' : 'todo'}" data-email-confirmed="${confirmed}">${confirmed
+        ? '✓ Email address confirmed'
+        : '✗ Email address not confirmed yet. Click the link in the email we sent you; nobody can accept you until you do.'}</li>
+      <li class="todo">… Waiting for someone to accept you</li>
+    </ul>
     <p class="muted">Until then you can use the public tools on the home screen. This page updates once you're in.</p>
     <div class="form-actions">
       <a class="btn btn-primary" href="${esc(appUrl(''))}">one.solar home</a>
@@ -104,6 +135,7 @@ const ROUTES = [
   { pattern: /^\/admin\/text$/, nav: 'admin', view: renderTextBanner, perm: tabPerms('text') },
   { pattern: /^\/admin\/workflow$/, nav: 'admin', view: renderWorkflow, perm: tabPerms('workflow') },
   { pattern: /^\/admin\/notifications$/, nav: 'admin', view: renderNotifications, perm: tabPerms('notifications') },
+  { pattern: /^\/admin\/diagnostics$/, nav: 'admin', view: renderDiagnostics, perm: tabPerms('diagnostics') },
   { pattern: /^\/help$/, nav: 'help', view: renderHelp },
   { pattern: /^\/admin\/history(?:\/([\w,]+))?$/, nav: 'admin', view: renderHistory, perm: tabPerms('history') },
   // "Admin" opens the first tab this person can use.
@@ -148,14 +180,14 @@ export function startRouter(ctx, { onRender } = {}) {
     const el = document.createElement('div');
     try {
       if (guest) {
-        el.innerHTML = waitingPage();
+        el.innerHTML = await waitingPage();
         el.querySelector('#guest-check').addEventListener('click', async () => {
           await auth.refresh();
-          if (auth.isGuest) el.querySelector('.muted').textContent = 'Not yet. Ask someone on the team to accept you, then check again.';
+          if (auth.isGuest) el.querySelector('.muted').textContent = auth.isFormer ? 'Still a former member. Ask an Admin to reactivate you.' : 'Not yet. Ask someone on the team to accept you, then check again.';
           else render();
         });
       } else if (route.perm && !route.perm.some((p) => auth.can(p))) {
-        el.innerHTML = noAccess();
+        el.innerHTML = await noAccess(route.perm);
       } else {
         await route.view(el, { ...ctx, params, rerender: render });
       }

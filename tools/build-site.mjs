@@ -8,7 +8,7 @@
  * With --version it also writes version.json ({ sha, builtAt }) so you can see which commit is live.
  */
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, rmSync, copyFileSync, writeFileSync, existsSync } from 'node:fs';
+import { mkdirSync, rmSync, copyFileSync, writeFileSync, existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -45,6 +45,11 @@ export function buildSite({ out = join(ROOT, '_site'), version = '' } = {}) {
   }
   if (version) {
     writeFileSync(join(out, 'version.json'), JSON.stringify({ sha: version, builtAt: new Date().toISOString() }) + '\n');
+    // …and into the page code, so an open page can tell a newer build went live (shared/version-check.js).
+    const stamp = join(out, 'shared', 'version.js');
+    const code = readFileSync(stamp, 'utf8');
+    if (!code.includes("export const VERSION = 'dev';")) throw new Error('shared/version.js: VERSION line not found');
+    writeFileSync(stamp, code.replace("export const VERSION = 'dev';", `export const VERSION = ${JSON.stringify(version)};`));
   }
   return files;
 }
