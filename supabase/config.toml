@@ -1,0 +1,13 @@
+# Read by Supabase's GitHub integration (Settings → Integrations → GitHub → "Deploy to production").
+# On each push to main it runs the new files in supabase/migrations/ and deploys the functions listed here.
+#
+# Kept small on purpose: no [auth], [api], [db] or [remotes] sections, so the integration never changes
+# the live project's sign-in settings (Site URL, redirect URLs, SMTP). Those stay in the dashboard.
+# tests/migrations.test.mjs checks this file.
+
+project_id = "one-solar"
+
+# The notification sender checks callers itself (a team member's sign-in, or the scheduled job's
+# CRON_SECRET), and the scheduled job has no sign-in, so Supabase's own JWT check must stay off.
+[functions.send-notifications]
+verify_jwt = false

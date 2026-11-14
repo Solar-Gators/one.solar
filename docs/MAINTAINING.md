@@ -167,15 +167,29 @@ Request IDs (`SG-001`, …) come from a database sequence, and the prefix is set
 
 ## Database updates
 
-New features sometimes need a database change. These live in `supabase/migrations/` as numbered files. When one is added, leads see a yellow **"Database update needed"** banner naming the file. To apply it:
+New features sometimes need a database change. These live in `supabase/migrations/` as numbered files. When one is added, leads see a yellow **"Database update needed"** banner naming the file until it's applied.
+
+### Automatic (once set up below)
+Supabase's GitHub integration (Supabase → **Settings → Integrations → GitHub**, repository `Solar-Gators/one.solar`, **Deploy to production** on, branch `main`) runs every new file in `supabase/migrations/` when it reaches `main`, and redeploys the functions listed in `supabase/config.toml` (with **Verify JWT** off for send-notifications). It keeps its own list of what ran, in `supabase_migrations.schema_migrations`; our ledger (`schema_migrations`, below) still records and guards every file too.
+- **Put database changes through a pull request**, so the tests (which build the whole database from the migrations) pass *before* it reaches `main`. A push straight to `main` would migrate the live database while the tests are still running.
+- **Back up first** (see [RECOVERY.md](RECOVERY.md)) before merging anything that changes or removes data.
+- After merging: Supabase → **Settings → Integrations → GitHub** (or the commit's checks on GitHub) shows the run; the "Database update needed" banner goes away; `select * from schema_migrations order by version desc limit 3;` shows the new file.
+- **If it fails:** nothing from that file is kept (each file is one transaction). Fix it in a new commit and merge again. Never edit a file that already ran: add the next number instead.
+- Files must be named `NNN_name.sql` (lowercase, underscores), must not contain their own `begin`/`commit`, and nothing that can't run in a transaction (`create index concurrently`, `vacuum`). `tests/migrations.test.mjs` checks this, and `supabase/config.toml`.
+- `supabase/config.toml` has no `[auth]`/`[api]`/`[db]`/`[remotes]` sections on purpose, so the integration never changes sign-in settings (Site URL, redirects, SMTP). Keep it that way.
+
+**Setting it up (once):** run `supabase/ops/record_migration_history.sql` in the SQL Editor (it copies what already ran from our ledger into Supabase's history, so nothing is run twice; every row should say `matches`), then turn on **Deploy to production**. Turning it on before that would make it try to run 001 onwards again.
+
+### By hand (before it's set up, or if it's turned off)
 1. **Back up first** (see [RECOVERY.md](RECOVERY.md)), at least before anything that changes or removes data.
 2. Open the file on GitHub and copy its contents.
 3. In Supabase, go to **SQL Editor → New query**, paste, and click **Run**.
    - **Several at once:** `node tools/bundle-migrations.mjs 49 52` writes `supabase/bundles/049-052.sql`. Paste that and run it once; it's all or nothing (if any file fails, none are applied).
 4. Check it was recorded: `select * from schema_migrations order by version desc limit 3;`
 5. **Then** merge the website change that needs it. The website must never need something the database doesn't have yet.
+6. With automatic migrations set up, a file run by hand must also be added to Supabase's history (run `supabase/ops/record_migration_history.sql` again), or the integration will try to run it again on the next push (it's refused by our ledger, and that deploy shows as failed).
 
-**Where the live database is:** 041–048 were applied on 2026-11-14. **049** (purchasing steps in Orders) is waiting to be run; after it, the next file is **050**. (The SGAA draft migration, kept outside this repo, must be numbered after whatever is here when it's ready.)
+**Where the live database is:** 041–049 were applied by hand on 2026-11-14; the next file is **050**. (The SGAA draft migration, kept outside this repo, must be numbered after whatever is here when it's ready.)
 
 **The ledger (from 041).** `schema_migrations` lists every migration. 001–040 are marked `baseline`: they were run by hand before the ledger existed and are *not individually verified*; `schema_baseline` records how the database compared with the repo when the ledger started. From 041 on, each file records itself as its **last** statement. Postgres runs the whole file as one transaction, so if anything fails, nothing is kept and nothing is recorded: fix the problem and run the same file again. Running a file twice, or skipping one, is refused with a message saying which to run.
 

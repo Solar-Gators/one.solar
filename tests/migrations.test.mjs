@@ -6,10 +6,13 @@
  *   - every later migration starts with migration_begin(N) and ends with migration_done(N, file), so a
  *     re-run, a run out of order, or a failure halfway leaves the ledger (and the schema) unchanged.
  *
+ *   - automatic migrations (Supabase GitHub integration): file names, supabase/config.toml, and
+ *     supabase/ops/record_migration_history.sql.
+ *
  *   node tests/migrations.test.mjs
  */
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { freshDb, migrationFiles, migrationNumber, MIGRATIONS_DIR, FINGERPRINT_SQL, strictHash } from './support/supabase-stub.mjs';
 import { baselineAt40, CHECK_FILE } from '../tools/baseline.mjs';
 
@@ -213,6 +216,50 @@ await test('the baseline is the same whether the migrations were pasted with Win
     return strictHash(db);
   };
   assert.equal(await build(true), await build(false));
+});
+
+
+console.log('Automatic migrations (Supabase GitHub integration)');
+
+await test('every migration file is named the way the Supabase CLI reads it (NNN_name.sql) and runs in one transaction', () => {
+  for (const f of files) {
+    assert.match(f, /^\d{3}_[a-z0-9_]+\.sql$/, `${f}: the integration reads "<version>_<name>.sql"`);
+    const sql = sqlOf(f).replace(/--.*$/gm, '');
+    // The integration runs each file in a single transaction: these would fail there.
+    assert.doesNotMatch(sql, /^\s*(begin|commit|rollback)\s*;/im, `${f}: no begin/commit of its own`);
+    assert.doesNotMatch(sql, /\bconcurrently\b/i, `${f}: no "concurrently" (it can't run in a transaction)`);
+    assert.doesNotMatch(sql, /^\s*vacuum\b/im, `${f}: no vacuum`);
+  }
+});
+
+await test('supabase/config.toml deploys every function, keeps send-notifications\' JWT check off, and never touches Auth', () => {
+  const toml = read('supabase/config.toml');
+  const declared = [...toml.matchAll(/^\[functions\.([a-z0-9-]+)\]/gm)].map((m) => m[1]);
+  const folders = readdirSync(new URL('../supabase/functions/', import.meta.url), { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name);
+  assert.deepEqual(declared.sort(), folders.sort(), 'each folder in supabase/functions has a [functions.<name>] section');
+  const section = toml.split(/^\[functions\.send-notifications\]/m)[1].split(/^\[/m)[0];
+  assert.match(section, /^verify_jwt\s*=\s*false\s*$/m, 'send-notifications: verify_jwt = false (the scheduled job has no sign-in)');
+  // Without [remotes] the integration leaves these alone, but none belong here anyway: they're set in the dashboard.
+  for (const s of ['auth', 'api', 'db', 'remotes', 'storage', 'experimental']) {
+    assert.doesNotMatch(toml, new RegExp(`^\\[${s}[\\].]`, 'm'), `no [${s}] section`);
+  }
+});
+
+await test('record_migration_history.sql gives Supabase\'s history exactly one row per migration file, and runs twice safely', async () => {
+  const sql = read('supabase/ops/record_migration_history.sql');
+  await db.exec(sql);
+  await db.exec(sql);
+  const rows = (await db.query(`select version, name from supabase_migrations.schema_migrations order by version`)).rows;
+  assert.deepEqual(rows.map((r) => `${r.version}_${r.name}.sql`), files);
+  const checks = (await db.query(sql.slice(sql.lastIndexOf('select h.version')))).rows;
+  assert.ok(checks.every((r) => r.check === 'matches'));
+});
+
+await test('record_migration_history.sql refuses a ledger with a gap, and records nothing', async () => {
+  const gap = await freshDb();
+  await gap.exec(`delete from public.schema_migrations where version = 7`);
+  await rejects(gap.exec(read('supabase/ops/record_migration_history.sql')), /missing 007/);
+  assert.equal((await gap.query(`select count(*)::int n from information_schema.tables where table_schema = 'supabase_migrations'`)).rows[0].n, 0);
 });
 
 console.log(`\n${passed} passed`);
