@@ -3,7 +3,7 @@
  * Node runs the TypeScript file directly (type stripping, Node 22.18+).
  */
 import assert from 'node:assert/strict';
-import { fill, render, emailHtml, emailText, flowPayload, placeholders } from '../supabase/functions/send-notifications/index.ts';
+import { fill, render, emailHtml, emailText, flowPayload, placeholders, caller } from '../supabase/functions/send-notifications/index.ts';
 
 let passed = 0;
 function test(name, fn) {
@@ -119,5 +119,44 @@ test('the team logo sits under the email and the Teams card (when the website ad
   assert.equal(bare.logo, '');
   assert.doesNotMatch(emailHtml(bare), /<img/);
 });
+
+// Who may run the function (S-7): a team member's sign-in, or the scheduled job's secret. Nothing else.
+{
+  const USER = '11111111-2222-3333-4444-555555555555';
+  const env = (k) => ({ SUPABASE_URL: 'https://p.supabase.test', SUPABASE_SERVICE_ROLE_KEY: 'service', CRON_SECRET: 'cron-secret-123' })[k];
+  const req = (headers) => new Request('https://p.supabase.test/functions/v1/send-notifications', { method: 'POST', headers });
+  /** A pretend Supabase: which tokens are signed in, and who has a team role. */
+  const fakeFetch = (tokens, members) => async (url, init) => {
+    if (url.endsWith('/auth/v1/user')) {
+      const id = tokens[init.headers.Authorization.replace('Bearer ', '')];
+      return id ? new Response(JSON.stringify({ id })) : new Response('{}', { status: 401 });
+    }
+    const id = url.match(/user_id=eq\.([^&]+)/)[1];
+    return new Response(JSON.stringify(members.includes(id) ? [{ role: 'member' }] : []));
+  };
+  const checks = [
+    ['a team member\'s sign-in', { authorization: 'Bearer aaa.bbb.ccc' }, { 'aaa.bbb.ccc': USER }, [USER], 'member'],
+    ['a Guest or former member (no team role)', { authorization: 'Bearer aaa.bbb.ccc' }, { 'aaa.bbb.ccc': USER }, [], ''],
+    ['an expired or made-up token', { authorization: 'Bearer xxx.yyy.zzz' }, {}, [USER], ''],
+    ['the public key alone', { authorization: 'Bearer sb_publishable_abc' }, {}, [], ''],
+    ['nothing at all', {}, {}, [], ''],
+    ['the scheduled job with the right secret', { 'x-cron-secret': 'cron-secret-123' }, {}, [], 'cron'],
+    ['a wrong secret', { 'x-cron-secret': 'cron-secret-124' }, {}, [], ''],
+  ];
+  for (const [what, headers, tokens, members, expected] of checks) {
+    try {
+      assert.equal(await caller(req(headers), env, fakeFetch(tokens, members)), expected, what);
+      passed++;
+      console.log(`  ✓ caller check: ${what} → ${expected || 'refused'}`);
+    } catch (err) {
+      console.error(`  ✗ caller check: ${what}\n    ${err.message}`);
+      process.exitCode = 1;
+    }
+  }
+  // Without CRON_SECRET set, no header value works (an empty secret never matches).
+  const noCron = (k) => (k === 'CRON_SECRET' ? undefined : env(k));
+  assert.equal(await caller(req({ 'x-cron-secret': '' }), noCron, fakeFetch({}, [])), '');
+  passed++;
+}
 
 console.log(`\n${passed} passed${process.exitCode ? ', some FAILED' : ''}`);

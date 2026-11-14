@@ -166,6 +166,16 @@ export const isSelfApproved = (r) =>
 export const selfApprovedTag = (r) =>
   isSelfApproved(r) ? ' <span class="field-tag self-approved" title="The person who made this request also approved it">Self-approved</span>' : '';
 
+/**
+ * Where an approved request is with purchasing (049), e.g. "Request sent", next to its status. Only when
+ * Finances → Edit steps lets this person see steps in Orders (the API sets r.purchaseStep then).
+ */
+export const stepTag = (r) => {
+  if (r?.status !== STATUS.APPROVED || !r.purchaseStep) return '';
+  const key = requestStep(r) || r.purchaseStep;
+  return ` <span class="step-chip step-${esc(stepOf(key).tone)}" title="Where it is with purchasing">${esc(stepOf(key).label)}</span>`;
+};
+
 export const statusBadge = (status) =>
   `<span class="badge tone-${statusColor(status)}" data-status="${esc(status)}">${esc(statusLabel(status))}</span>`;
 
@@ -301,8 +311,9 @@ export const COLUMNS = {
   },
   status: {
     label: 'Status',
-    cell: (r) => statusBadge(r.status) + selfApprovedTag(r),
-    sort: (r) => STATUSES.indexOf(r.status), // workflow order, not alphabetical
+    cell: (r) => statusBadge(r.status) + stepTag(r) + selfApprovedTag(r),
+    // Workflow order, not alphabetical; approved requests by their purchasing step when it's shown.
+    sort: (r) => STATUSES.indexOf(r.status) + (r.purchaseStep ? Math.max(0, STEPS.findIndex((x) => x.key === requestStep(r))) / 100 : 0),
     dirLabels: { asc: 'Draft → Received', desc: 'Received → Draft' },
   },
   neededBy: {
@@ -388,7 +399,10 @@ export const COLUMNS = {
 
 /** Where a request is with purchasing: the Treasurer's step before ordering, then from its status. */
 function requestStep(r) {
-  if (r.status === STATUS.APPROVED) return r.purchase === undefined ? '' : COMMITTED.has(r.purchase?.dept_status) ? r.purchase.dept_status : 'to_submit';
+  if (r.status === STATUS.APPROVED) {
+    if (r.purchase === undefined) return !r.purchaseStep ? '' : COMMITTED.has(r.purchaseStep) ? r.purchaseStep : 'to_submit';
+    return COMMITTED.has(r.purchase?.dept_status) ? r.purchase.dept_status : 'to_submit';
+  }
   return { Ordered: 'ordered', Received: 'received', Cancelled: 'cancelled' }[r.status] || '';
 }
 for (const [key, col] of Object.entries(COLUMNS)) col.key = key;

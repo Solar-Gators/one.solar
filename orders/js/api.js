@@ -86,6 +86,23 @@ function unwrap({ data, error }) {
 }
 
 /** Add items/approvals/order info and computed totals to a request row. */
+let stepsAvailable = true;
+/**
+ * 049: the Treasurer's purchasing step on approved requests, where Finances → Edit steps → "Who sees these
+ * steps in Orders" lets this person see it. Sets r.purchaseStep (a step key); leaves it unset otherwise.
+ */
+async function attachSteps(rows) {
+  if (!stepsAvailable || !rows.some((r) => r.status === 'Approved')) return rows;
+  const res = await supabase.rpc('request_steps', { p_season: null });
+  if (res.error) {
+    if (missingFunction(res.error)) stepsAvailable = false; // before 049
+    return rows;
+  }
+  const steps = res.data?.steps || {};
+  for (const r of rows) if (r.status === 'Approved' && steps[r.id]) r.purchaseStep = steps[r.id];
+  return rows;
+}
+
 function hydrate(row) {
   const items = [...(row.request_items || [])]
     .sort((a, b) => a.position - b.position)
@@ -169,7 +186,7 @@ export const api = {
       if (notSeason) return [];
       res = await run();
     }
-    return remember('request', unwrap(res)).map(hydrate);
+    return attachSteps(remember('request', unwrap(res)).map(hydrate));
   },
 
   /** Seasons that have requests, newest first. */
@@ -199,6 +216,7 @@ export const api = {
     // History entries (submitted, resubmitted, withdrawn, ordered, received), from migration 013.
     const ev = await supabase.from('request_events').select('*').eq('request_id', r.id).order('id');
     r.events = ev.error ? [] : ev.data;
+    await attachSteps([r]);
     return r;
   },
 
@@ -215,7 +233,7 @@ export const api = {
     const res = await selectRequests((select) =>
       supabase.from('requests').select(select).eq('created_by', userId).order('created_at', { ascending: false }).limit(limit)
     );
-    return res.error ? [] : res.data.map(hydrate);
+    return res.error ? [] : attachSteps(res.data.map(hydrate));
   },
 
   /** How many of your requests were sent back for changes (for the Requests tab badge). */

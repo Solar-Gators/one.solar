@@ -519,6 +519,11 @@
   "returns": "text",
   "anon": false
  },
+ "request_steps": {
+  "args": "p_season text",
+  "returns": "jsonb",
+  "anon": false
+ },
  "restore_deleted_record": {
   "args": "p_id bigint",
   "returns": "jsonb",

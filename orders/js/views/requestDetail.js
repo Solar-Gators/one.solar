@@ -13,7 +13,7 @@ import { renderAttachments } from '../attachments.js';
 import { auth } from '../auth.js';
 import {
   STATUS, DECISION_LABELS, esc, fmtMoney, fmtDate, fmtDateTime, todayISO,
-  statusBadge, selfApprovedTag, priorityTag, isOverdue, errorBox, setFlash, takeFlash, copyButton, bindCopyButtons,
+  statusBadge, selfApprovedTag, stepTag, priorityTag, isOverdue, errorBox, setFlash, takeFlash, copyButton, bindCopyButtons,
 } from '../ui.js';
 import { getValue, displayValue, isVisible, MONEY_FIELDS, shippingPerRequest, requestFields, itemFields } from '../formFields.js';
 import { pageLayout, copyAllowed, detailFieldList, itemColumnList } from '../pageLayout.js';
@@ -777,7 +777,7 @@ export async function renderRequestDetail(el, { config, params, rerender }) {
       <div>
         <div class="eyebrow mono"><span class="copy-wrap">${esc(r.request_number)}${showCopy() ? copyButton(r.request_number, 'request ID', { keep: true }) : ''}</span>${r.season ? ` <span class="muted">· ${esc(r.season)} season</span>` : ''}</div>
         <h1>${esc(r.title || 'Untitled request')}</h1>
-        <p class="subtitle">${statusBadge(r.status)}${selfApprovedTag(r)} ${priorityTag(r.priority)}</p>
+        <p class="subtitle">${statusBadge(r.status)}${stepTag(r)}${selfApprovedTag(r)} ${priorityTag(r.priority)}</p>
       </div>
       <div class="big-total"><span class="muted small">Request total</span><span class="copy-wrap">${fmtMoney(r.total)}${showCopy() ? copyButton(r.total.toFixed(2), 'request total', { keep: true }) : ''}</span></div>
     </div>

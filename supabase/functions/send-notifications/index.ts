@@ -14,7 +14,14 @@
  *   SMTP_USER    Gmail address that sends the emails, e.g. solargators.orders@gmail.com
  *   SMTP_PASS    That account's 16-letter Google "app password".
  *   SMTP_HOST / SMTP_PORT / SMTP_FROM_NAME   optional (smtp.gmail.com / 465 / team name).
+ *   CRON_SECRET  optional: a long random string. The scheduled job (supabase/ops/cron_send_notifications.sql)
+ *                sends it in an x-cron-secret header, so delayed messages go out without anyone on the site.
  * SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are provided by Supabase.
+ *
+ * Who may run it (S-7): someone signed in who is on the team (not a Guest or former member), or the
+ * scheduled job with CRON_SECRET. Anything else gets 401, so the public key alone can't trigger runs.
+ * That means "Verify JWT" can be off for this function: it checks callers itself (the scheduled job has
+ * no sign-in to send).
  *
  * Deploy: see docs/MAINTAINING.md → "Email & Teams notifications".
  * This file has no imports at the top so it can also be loaded by the Node tests.
@@ -43,6 +50,7 @@ const FALLBACK: Record<string, Template> = {
   cancelled: { subject: '{request_number} was cancelled', body: '"{title}" was approved but cancelled by {approver} before it was ordered.\nWhy: {comment}' },
   ordered: { subject: '{request_number} has been ordered', body: '"{title}" has been ordered.\nOrder / ticket number: {ticket}' },
   received: { subject: '{request_number} has arrived', body: '"{title}" was marked received by {received_by}.\nWhere: {where}' },
+  purchase_step: { subject: '{request_number}: {step}', body: '"{title}" is now at "{step}" with purchasing.' },
   items_changed: { subject: '{request_number}: the items changed', body: '{approver} changed the items on "{title}" (now {total}):\n{changes}\nWhy: {comment}' },
   request_update: { subject: '{request_number} is now {status}', body: '"{title}" ({requester}) is now {status}. You\'re getting this because you watch it.' },
   sponsor_update: { subject: '{sponsor}: {what}', body: '{actor} updated {sponsor} on the Sponsors board: {what}.' },
@@ -81,6 +89,7 @@ export function placeholders(payload: Record<string, unknown>, siteUrl: string):
     vendor: s('vendor'),
     comment: s('comment'),
     changes: s('changes'),
+    step: s('step'),
     approver: s('approver'),
     ticket: s('ticket'),
     where: s('where'),
@@ -232,6 +241,43 @@ async function sendViaSmtp(env: (k: string) => string | undefined, to: string, m
   });
 }
 
+/** Two strings equal, in time that doesn't depend on where they differ. */
+function sameSecret(a: string, b: string): boolean {
+  if (!a || !b || a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
+/**
+ * Who is calling: 'cron' (the scheduled job's secret), 'member' (a signed-in team member), or '' (refuse).
+ * The sign-in token is checked with Supabase Auth, and membership in profile_roles (any role but Guest or
+ * former member). Exported for tests, with fetch passed in.
+ */
+export async function caller(
+  req: Request,
+  env: (k: string) => string | undefined,
+  fetchFn: typeof fetch = fetch,
+): Promise<'cron' | 'member' | ''> {
+  const cronSecret = env('CRON_SECRET') || '';
+  if (cronSecret && sameSecret(req.headers.get('x-cron-secret') || '', cronSecret)) return 'cron';
+  const token = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '').trim();
+  if (!token || !token.includes('.')) return ''; // not a sign-in token (e.g. the public key)
+  const url = env('SUPABASE_URL')!;
+  const key = env('SUPABASE_SERVICE_ROLE_KEY')!;
+  const who = await fetchFn(`${url}/auth/v1/user`, { headers: { apikey: key, Authorization: `Bearer ${token}` } });
+  if (!who.ok) return '';
+  const user = await who.json().catch(() => null);
+  if (!user?.id || !/^[0-9a-f-]{36}$/i.test(user.id)) return '';
+  const roles = await fetchFn(
+    `${url}/rest/v1/profile_roles?user_id=eq.${user.id}&role=not.in.(guest,alumni)&select=role&limit=1`,
+    { headers: { apikey: key, Authorization: `Bearer ${key}` } },
+  );
+  if (!roles.ok) return '';
+  const rows = await roles.json().catch(() => []);
+  return Array.isArray(rows) && rows.length ? 'member' : '';
+}
+
 async function handle(req: Request): Promise<Response> {
   const cors = {
     'Access-Control-Allow-Origin': '*',
@@ -241,6 +287,12 @@ async function handle(req: Request): Promise<Response> {
 
   // @ts-ignore Deno global
   const env = (k: string): string | undefined => Deno.env.get(k);
+  if (!(await caller(req, env))) {
+    return new Response(JSON.stringify({ error: 'Only someone signed in on the team (or the scheduled job) can send notifications.' }), {
+      status: 401,
+      headers: { ...cors, 'Content-Type': 'application/json' },
+    });
+  }
   const url = env('SUPABASE_URL')!;
   const key = env('SUPABASE_SERVICE_ROLE_KEY')!;
   const headers = { apikey: key, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' };

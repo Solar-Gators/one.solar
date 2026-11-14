@@ -3,6 +3,14 @@
 How one.solar's data is backed up, and how to get it back. Read this **before** you need it, and run the
 drill (below) once a semester.
 
+## Before reaching for a backup
+
+Most accidents can be undone on the site, without a backup:
+- **A sponsor card or a Finances record** (custom sheet, sheet row, purchase, funding source) deleted by mistake: **Recently deleted** at the bottom of Sponsors or Finances, for 90 days. It comes back with its history, watchers and files (047).
+- **A request** deleted by the Treasurer: its History; **settings**: the **History** link on each Admin page.
+- **Someone who left:** they were *deactivated*, not deleted; Admin → Users → Former members → **Reactivate** (044).
+- **A role change:** Admin → Users → Role changes shows who changed what (042).
+
 ## What has to be saved
 
 | What | Where it lives | In a database dump? |
@@ -12,7 +20,8 @@ drill (below) once a semester.
 | The sign-up trigger, the attachments bucket and its rules | `auth` / `storage` schemas (added by our migrations) | **No**: run `supabase/restore/post_restore.sql` |
 | Attached files (receipts, quotes, photos) | Supabase Storage, bucket `attachments` | **No**: copied separately |
 | The website | This GitHub repo | n/a (redeploy from git) |
-| Edge Function secrets (Power Automate URL, email keys) | Supabase → Edge Functions → Secrets | **No**: keep them in the team's password manager |
+| Edge Function secrets (Power Automate URL, email keys, `CRON_SECRET`) | Supabase → Edge Functions → Secrets | **No**: keep them in the team's password manager |
+| The notification schedule and its secret | `cron` schema and Supabase Vault | **No**: re-run `supabase/ops/cron_send_notifications.sql` |
 
 Supabase's free plan keeps **no** automatic backups. Until the nightly backup below is running, take one by
 hand before every database update (`docs/MAINTAINING.md` → "Database updates").

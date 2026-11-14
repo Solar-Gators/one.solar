@@ -1,8 +1,8 @@
 # Solar Evals
 
-**https://solar-gators.github.io/one.solar/evals/** · [`evals/index.html`](../evals/index.html)
+**https://one.ufsolargators.org/evals/** · [`evals/index.html`](../evals/index.html)
 
-Semester reviews, filled out online instead of on paper. Sign in with your **[one.solar](https://solar-gators.github.io/one.solar/)** account; everything is kept in the one.solar (Orders) database (migrations `028`, `031`, `032`, `036_eval_types.sql`, `037_eval_form_names.sql`, `038_eval_communication.sql` and `039_eval_more_forms.sql`).
+Semester reviews, filled out online instead of on paper. Sign in with your **[one.solar](https://one.ufsolargators.org/)** account; everything is kept in the one.solar (Orders) database (migrations `028`, `031`, `032`, `036_eval_types.sql`, `037_eval_form_names.sql`, `038_eval_communication.sql` and `039_eval_more_forms.sql`).
 
 Everything below is set up on the page, not in code: the forms, the questionnaires, and the whole flow for each kind of eval.
 

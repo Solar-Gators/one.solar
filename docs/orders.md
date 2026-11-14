@@ -1,6 +1,6 @@
 # one.solar · Orders
 
-**https://solar-gators.github.io/one.solar/orders/** · part of **[one.solar](https://solar-gators.github.io/one.solar/)**, the home screen for every Solar Gators app
+**https://one.ufsolargators.org/orders/** · part of **[one.solar](https://one.ufsolargators.org/)**, the home screen for every Solar Gators app
 
 The Solar Gators purchasing website. It replaces the shared Excel order sheet. Members request parts, a Chief Engineer approves them, and the Treasurer orders them and tracks delivery. Every step is recorded, so anyone on the team can see where an order stands and what was bought in past seasons.
 
@@ -121,6 +121,8 @@ Changed your mind? Open a submitted request and click **Withdraw request** to tu
 - **Purchases:** the ledger. Every request shows up here once it's approved, plus anything bought outside the site (**+ Add a purchase**: a PayPal invoice, a quote over the phone).
   - Each line has its **purchasing step**, colored like the old sheet's legend: To submit → Request sent (to MAE / ECE purchasing) → Dept approved → Ordered → Received, or Cancelled. Purchases added on Finances can also be **Paid**: a payment with nothing to order (a debt, a reimbursement); it counts as spent (needs `022_paid_status.sql`). Click a step at the top to see only those lines.
   - **Edit steps…** (next to the steps) renames them to match your legend (e.g. "Approved", "MAE ordered"), changes their colors, reorders or hides them, or adds your own. A new step counts either as in the pipeline (before ordering; requests can be set to it) or as spent (for purchases added here). Removing one moves its purchases back to To submit (or Paid). (Needs `025_treasurer_tools.sql`.)
+  - **Who sees these steps in Orders** (in the same dialog): only Finances people (the default), also the requester and the request's watchers, or everyone on the team. They then see the step next to "Approved" in request lists, on the request page and on Home (e.g. "Approved · Request sent"), until it's ordered. Notes and categories stay in Finances. With requesters allowed, Admin → Notifications → **Purchasing step changed** can message them when the step moves. Ordered / Received / Cancelled show Orders' own name for them when it's different. (Needs `049_steps_in_orders.sql`.)
+- **Download .xlsx** on Sponsors: the sponsors shown (season, car and search apply), with stage, amount, lead, contacts and dates.
   - Also **M/E** (who orders it: M = MAE, E = ECE, A = other), category, order #, date, notes, and 📎 for receipts and quotes.
   - A request's description, cost, category and order # come from the request; Ordered and Received are marked on the request itself (they record the date and ticket number, and tell the requester).
   - The Treasurer can change a request's **Category** to count it toward another budget (e.g. older orders that answered Subsystem, after budgets switched to Cost center). Moved ones show in blue; clear the box to go back to what the request says. The approver's over-budget check uses the same category. (Needs `020_ledger_category.sql`.)
@@ -169,7 +171,7 @@ Changed your mind? Open a submitted request and click **Withdraw request** to tu
 - Permissions: **See sponsors** / **Edit sponsors**. A **Business Coordinator** role has both (and can see Finances). Chief Engineers and the Treasurer can see the board and watch cards.
 
 ### Solar Evals (semester member reviews)
-**[Solar Evals](https://solar-gators.github.io/Custom-Apps/solarevals)** is a separate page (in the Custom-Apps repo) that signs in with Order Form accounts and keeps its data in this database. (Needs `028_solar_evals.sql`.)
+**[Solar Evals](https://one.ufsolargators.org/evals/)** (`evals/` in this repo) signs in with one.solar accounts and keeps its data in this database. (Needs `028_solar_evals.sql`.)
 - **Rubrics:** the master template (from the master PDF) and a version per CE division. Saving always adds a new version; history, compare, and print the blank form.
 - **Evaluations:** a CE fills out the form on the page: ratings, N/O, header blanks, feedback boxes. It saves as they go, and keeps its own copy of the rubric it was written on.
 - **Who sees what** (enforced by the database): a **draft** only by its CE. **Finished**: also every CE, the **E-board**, and the subsystem lead picked on the eval. **Shared**: also the member, through the Order Form account that has the email the CE typed (sharing fails if no account has it yet), and the member can add comments. A shared eval is locked until the CE stops sharing it. Only drafts can be deleted.
@@ -227,7 +229,7 @@ On a phone, one menu lists every page, grouped the same way. Each page appears o
   - **Request page:** which fields show in a request's Details box and Items table, and in what order. Also: fields only leads see, who gets copy buttons, and whether Items comes first.
   - **Excel templates:** your own columns and headings, one row per item or per request, an optional status filter, and a file name.
 - **Statuses & colors:** rename how statuses are shown (e.g. "Ordered" → "Purchased") and pick their colors, plus priority colors and colors for dropdown answers (e.g. one per Cost center). Only the display changes; the workflow stays the same. Finances shows the same statuses.
-- **Page intros:** your own intro line under the title of each Orders page (including Home).
+- **Page intros** (one.solar section): your own intro line under the title of each Orders page (including Home), and of Finances and Sponsors.
 - **Import old orders:**
   - A **past season** goes into the Archive with every column kept.
   - **This season's** sheet becomes real requests, including their approvals, order status, ticket numbers, and shipping.

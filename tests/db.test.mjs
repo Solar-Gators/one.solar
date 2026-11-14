@@ -2978,4 +2978,68 @@ console.log('Imports can\'t repeat by accident; names link when someone joins (0
   });
 }
 
+
+console.log('Purchasing steps in Orders (049)');
+
+{
+  const other = await signUp('other049@ufl.edu', 'Otto Other');
+  const watcher = await signUp('watcher049@ufl.edu', 'Wren Watcher');
+  const { id } = await approved(); // Mia's request
+  await as(treasurer, () => rpc('save_purchase', [null, { request_id: id, dept_status: 'sent' }]));
+  await db.query(`insert into request_watchers (request_id, user_id) values ($1, $2)`, [id, watcher]);
+  const ledger = async () => (await db.query(`select value from app_settings where key = 'ledger'`)).rows[0]?.value || {};
+  const shownTo = async (who) => (await as(treasurer, async () => rpc('update_settings', ['ledger', { ...(await ledger()), showStepsInOrders: who }])));
+  const stepsFor = async (uid) => (await as(uid, () => rpc('request_steps', [null]))).rows[0].result;
+
+  await test('by default only Finances people (and whoever orders) see a request\'s step', async () => {
+    assert.equal((await stepsFor(treasurer)).steps[id], 'sent');
+    assert.equal((await stepsFor(ce)).steps[id], 'sent'); // CEs can see Finances
+    const mine = await stepsFor(member);
+    assert.deepEqual([mine.shownTo, mine.all, mine.steps], ['finances', false, {}]);
+    const fresh = await approved(); // no Finances line yet: "To submit"
+    assert.equal((await stepsFor(treasurer)).steps[fresh.id], 'to_submit');
+  });
+
+  await test('"requester": the requester and watchers see it, nobody else; "team": everyone on the team', async () => {
+    await shownTo('requester');
+    assert.equal((await stepsFor(member)).steps[id], 'sent');
+    assert.equal((await stepsFor(watcher)).steps[id], 'sent');
+    assert.equal((await stepsFor(other)).steps[id], undefined);
+    assert.equal((await stepsFor(other)).all, false);
+    await shownTo('team');
+    const all = await stepsFor(other);
+    assert.deepEqual([all.steps[id], all.all], ['sent', true]);
+    const guest = await signUpGuest('guest049@ufl.edu', 'Gus Guest');
+    assert.deepEqual((await stepsFor(guest)).steps, {}); // Guests aren't on the team yet
+    await as(null, () => rejects(rpc('request_steps', [null]), /permission denied/));
+  });
+
+  await test('only "Edit Finances" changes who sees steps, and only to one of the three choices', async () => {
+    await as(member, async () => rejects(rpc('update_settings', ['ledger', { ...(await ledger()), showStepsInOrders: 'finances' }]), /does not allow|finances\.edit/));
+    await as(treasurer, async () => rejects(rpc('update_settings', ['ledger', { ...(await ledger()), showStepsInOrders: 'everyone' }]), /must be finances, requester or team/));
+  });
+
+  await test('"Purchasing step changed" goes to the requester and watchers, with the step\'s name, only when they can see steps', async () => {
+    await as(admin, async () => {
+      const n = (await db.query(`select value from app_settings where key = 'notifications'`)).rows[0].value;
+      await rpc('update_settings', ['notifications', { ...n, enabled: true, events: { ...n.events, purchase_step: { email: true } } }]);
+    });
+    await db.exec(`delete from notification_outbox`);
+    await as(treasurer, async () => rpc('update_settings', ['ledger', { ...(await ledger()), steps: [
+      { key: 'to_submit', label: 'To submit' }, { key: 'sent', label: 'Request sent' }, { key: 'dept_approved', label: 'MAE signed off' },
+      { key: 'ordered', label: 'Ordered' }, { key: 'received', label: 'Received' }, { key: 'paid', label: 'Paid' }, { key: 'cancelled', label: 'Cancelled' },
+    ] }]));
+    await shownTo('requester');
+    const line = (await db.query(`select id from finance_purchases where request_id = $1`, [id])).rows[0].id;
+    await as(treasurer, () => rpc('save_purchase', [line, { dept_status: 'dept_approved' }]));
+    const msgs = (await db.query(`select event, email, payload ->> 'step' step from notification_outbox where event = 'purchase_step' order by email`)).rows;
+    assert.deepEqual(msgs.map((m) => [m.email, m.step]), [['member@ufl.edu', 'MAE signed off'], ['watcher049@ufl.edu', 'MAE signed off']]);
+    // Saving the same step again, or other fields, sends nothing new; with "finances" nothing is sent.
+    await as(treasurer, () => rpc('save_purchase', [line, { dept_status: 'dept_approved', notes: 'x' }]));
+    await shownTo('finances');
+    await as(treasurer, () => rpc('save_purchase', [line, { dept_status: 'sent' }]));
+    assert.equal((await db.query(`select count(*)::int n from notification_outbox where event = 'purchase_step'`)).rows[0].n, 2);
+  });
+}
+
 console.log(`\n${passed} passed${process.exitCode ? ', some FAILED' : ''}`);

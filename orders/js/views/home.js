@@ -5,7 +5,7 @@
  */
 import { api } from '../api.js';
 import { auth } from '../auth.js';
-import { STATUS, esc, fmtDate, fmtMoney, statusBadge, takeFlash, introText } from '../ui.js';
+import { STATUS, esc, fmtDate, fmtMoney, statusBadge, stepTag, takeFlash, introText } from '../ui.js';
 import { shippingPerRequest } from '../formFields.js';
 import { hasHelp } from './help.js';
 import { sponsorFollowUps } from './sponsors.js';
@@ -94,7 +94,7 @@ export async function renderHome(el, { config }) {
                     (r) => `<li><a href="#/requests/${esc(r.request_number)}">
                       <span class="recent-title"><strong>${esc(r.title || 'Untitled request')}</strong>
                         <span class="muted small">${esc(r.request_number)} · ${fmtDate(r.created_at)} · ${fmtMoney(r.total)}</span></span>
-                      ${statusBadge(r.status)}
+                      <span class="nowrap">${statusBadge(r.status)}${stepTag(r)}</span>
                     </a></li>`
                   )
                   .join('')}</ul>`

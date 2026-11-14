@@ -70,6 +70,37 @@ test.describe('workflows', () => {
     await expect(page.locator('#app tr', { hasText: 'Flow test cells' })).toContainText('Ordered');
   });
 
+  test('purchasing steps show in Orders next to "Approved"; Finances → Edit steps sets who sees them (049)', async () => {
+    await open(page, '/orders/#/new', '#f-title');
+    await page.fill('#f-title', 'Flow step test');
+    await page.selectOption('#f-subsystem', { index: 1 });
+    await page.fill('#f-needed_by', '2030-01-15');
+    await page.fill('#f-justification', 'Checking the step chip.');
+    await page.fill('#f-vendor', 'Acme');
+    const item = page.locator('tr[data-index="0"]');
+    await item.locator('[data-ifield="item_name"]').fill('Bolt');
+    await item.locator('[data-ifield="product_link"]').fill('https://example.com/bolt');
+    await item.locator('[data-ifield="quantity"]').fill('1');
+    await item.locator('[data-ifield="unit_price"]').fill('3');
+    await page.getByRole('button', { name: 'Submit Request' }).click();
+    await expect(page.locator('.alert-success')).toContainText('submitted for approval');
+    await page.getByRole('button', { name: 'Approve', exact: true }).click();
+    await expect(page.locator('.alert-success')).toContainText('approved');
+    await page.selectOption('#r-step', 'sent');
+    await expect(page.locator('#r-step-status')).not.toHaveText('');
+
+    await open(page, '/orders/#/requests', '#app table');
+    await expect(page.locator('#app tr', { hasText: 'Flow step test' }).locator('.step-chip')).toHaveText('Request sent');
+
+    await open(page, '/finances/', '#ledger-add');
+    await page.locator('#edit-steps').click();
+    await page.selectOption('#steps-shown-to', 'requester');
+    await page.getByRole('button', { name: 'Save steps' }).click();
+    await expect(page.locator('.alert-success')).toContainText('Purchasing steps saved');
+    const saved = await sql(page, `select value ->> 'showStepsInOrders' v from app_settings where key = 'ledger'`);
+    expect(saved[0].v).toBe('requester');
+  });
+
   test('Finances: a purchase added by hand is saved', async () => {
     await open(page, '/finances/', '#ledger-add');
     await page.locator('#ledger-add').click();

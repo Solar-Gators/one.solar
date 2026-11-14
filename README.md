@@ -1,6 +1,6 @@
 # one.solar
 
-Every Solar Gators team app, in one place and one repo: **https://solar-gators.github.io/one.solar/**
+Every Solar Gators team app, in one place and one repo: **https://one.ufsolargators.org/**
 
 | App | Address | Folder | Guide |
 | --- | --- | --- | --- |
@@ -93,10 +93,10 @@ real database. `npm test` runs the database, notification and import tests, and 
 ## Publishing
 Merging to `main` runs the tests and then publishes the site with the **Deploy site** workflow: nothing is
 published if a test fails. Setup, releasing, checking what's live and reverting: **[docs/RELEASING.md](docs/RELEASING.md)**.
-(Until the one-time switch in that guide, Pages still publishes from the branch: **Deploy from a branch**, **main**, **/ (root)**.)
+Since 2026-11-14 Pages publishes through that tested deploy (Source: **GitHub Actions**), at **https://one.ufsolargators.org/**.
 Everything committed here is public; spreadsheets are kept out by `.gitignore`.
 
-A custom domain (e.g. `one.ufsolargators.org`) can go in **Settings → Pages → Custom domain**, with a CNAME DNS record
+The custom domain `one.ufsolargators.org` is set in **Settings → Pages → Custom domain**, with a CNAME DNS record
 pointing at `solar-gators.github.io`. The apps link to each other with relative paths, so they all move together.
 Then add the new address to Supabase → Authentication → URL Configuration, and update Admin → one.solar → Notifications →
 Website address.

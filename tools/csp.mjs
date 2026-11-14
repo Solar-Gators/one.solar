@@ -48,7 +48,8 @@ const TAG = /[ \t]*<meta http-equiv="Content-Security-Policy"[^>]*>\r?\n/;
 
 /** The page with the tag in place: replaced if there, otherwise right after <meta charset>. */
 export function withCsp(html, url) {
-  if (TAG.test(html)) return html.replace(TAG, (m) => `${m.match(/^[ \t]*/)[0]}${cspMeta(url)}\n`);
+  // Keeps the line's own ending (a Windows checkout has CRLF), so --check only flags a real change.
+  if (TAG.test(html)) return html.replace(TAG, (m) => `${m.match(/^[ \t]*/)[0]}${cspMeta(url)}${m.endsWith('\r\n') ? '\r\n' : '\n'}`);
   return html.replace(/([ \t]*)(<meta charset="utf-8">)(\r?\n)/i, (_, indent, charset, nl) => `${indent}${charset}${nl}${indent}${cspMeta(url)}${nl}`);
 }
 

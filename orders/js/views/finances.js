@@ -12,7 +12,7 @@
  */
 import { api } from '../api.js';
 import { auth } from '../auth.js';
-import { esc, fmtMoney, fmtDate, errorBox, setFlash, takeFlash, renderRichText, askText, selfApprovedTag } from '../ui.js';
+import { esc, fmtMoney, fmtDate, errorBox, setFlash, takeFlash, renderRichText, askText, selfApprovedTag, statusLabel, introText } from '../ui.js';
 import { mountRecentlyDeleted } from '../recentlyDeleted.js';
 import { requestFields, fieldOptions } from '../formFields.js';
 import { workflowSettings, hasBudgets } from '../workflow.js';
@@ -96,7 +96,7 @@ export async function renderFinances(el, ctx) {
         <h1>Finances</h1>
         <p class="subtitle">${seasonList.length > 1
           ? `<select id="fin-season" aria-label="Season" class="inline-select">${seasonList.map((s) => `<option ${s === season ? 'selected' : ''}>${esc(s)}</option>`).join('')}</select>`
-          : esc(season)} season${canEdit ? '' : ' · view only'}</p>
+          : esc(season)} season${canEdit ? '' : ' · view only'}${introText('finances', '') ? ` · ${introText('finances', '')}` : ''}</p>
       </div>
       <div class="card-actions">
         ${canEdit ? `<label class="btn btn-sm">Import from spreadsheet…<input type="file" id="fin-import" accept=".xlsx" hidden></label>` : ''}
@@ -693,6 +693,14 @@ function editSteps({ lines, config, reloadConfig, rerender }) {
   const COUNTS = { pipeline: 'In the pipeline', spent: 'Spent', none: "Doesn't count" };
   const FIXED = { to_submit: 'Where approved requests start.', ordered: 'Set by Mark as Ordered on the request.', received: 'Set by Mark as Received on the request.', paid: 'For purchases added on Finances.', cancelled: 'Set by cancelling the request.' };
   let steps = STEPS.map((x) => ({ ...x }));
+  let shownTo = config.ledger?.showStepsInOrders || 'finances';
+  const canShow = Number(config.schemaVersion) >= 49;
+  // The steps a request's status sets: Orders calls them by its own status names (Admin → Appearance).
+  const ORDERS_NAME = { ordered: 'Ordered', received: 'Received', cancelled: 'Cancelled' };
+  const ordersNote = (x) => {
+    const s = ORDERS_NAME[x.key];
+    return s && statusLabel(s) !== x.label.trim() ? ` Orders calls it "${statusLabel(s)}".` : '';
+  };
   const used = (k) => lines.filter((l) => l.status === k);
   const dialog = document.createElement('dialog');
   dialog.className = 'card sheet-dialog steps-dialog';
@@ -706,7 +714,7 @@ function editSteps({ lines, config, reloadConfig, rerender }) {
         <tbody>${steps.map((x, i) => `<tr data-i="${i}">
           <td class="nowrap"><button type="button" class="icon-btn" data-up="${i}" ${i ? '' : 'disabled'} aria-label="Move up">↑</button><button type="button" class="icon-btn" data-down="${i}" ${i < steps.length - 1 ? '' : 'disabled'} aria-label="Move down">↓</button></td>
           <td><input data-label="${i}" value="${esc(x.label)}" maxlength="40" aria-label="Step name" required>
-            <div class="muted small">${esc(FIXED[x.key] || (isStandardStep(x.key) ? '' : 'Your own step.'))}</div></td>
+            <div class="muted small">${esc((FIXED[x.key] || (isStandardStep(x.key) ? '' : 'Your own step.')) + ordersNote(x))}</div></td>
           <td><select data-tone="${i}" class="step-select step-${esc(x.tone)}" aria-label="Color">${STEP_TONES.map((t) => `<option value="${t}" ${t === x.tone ? 'selected' : ''}>${TONE_NAMES[t]}</option>`).join('')}</select></td>
           <td>${isStandardStep(x.key)
             ? `<span class="muted small">${COUNTS[x.counts]}</span>`
@@ -716,6 +724,16 @@ function editSteps({ lines, config, reloadConfig, rerender }) {
         </tr>`).join('')}</tbody>
       </table></div>
       <button type="button" class="btn btn-sm" id="step-add">+ Add a step</button>
+      ${canShow ? `<label class="field steps-shown-to">
+        <span>Who sees these steps in Orders</span>
+        <select id="steps-shown-to">
+          <option value="finances" ${shownTo === 'finances' ? 'selected' : ''}>Only people who can see Finances (and whoever orders)</option>
+          <option value="requester" ${shownTo === 'requester' ? 'selected' : ''}>Also the requester and people watching the request</option>
+          <option value="team" ${shownTo === 'team' ? 'selected' : ''}>Everyone on the team</option>
+        </select>
+        <span class="muted small">Shown next to "${esc(statusLabel('Approved'))}" in Orders until the request is ordered, e.g. "${esc(statusLabel('Approved'))} · ${esc(stepOf('sent').label)}". Notes and categories stay in Finances.
+          Requesters can also get a message when the step changes (Admin → Notifications → Purchasing step changed).</span>
+      </label>` : ''}
       <div id="steps-errors"></div>
       <div class="form-actions">
         <button type="button" class="btn btn-ghost" id="steps-reset" title="Back to the standard names, colors and order">Reset</button>
@@ -738,6 +756,7 @@ function editSteps({ lines, config, reloadConfig, rerender }) {
     if (t.dataset.tone !== undefined) (steps[t.dataset.tone].tone = t.value), (t.className = `step-select step-${t.value}`);
     if (t.dataset.counts !== undefined) steps[t.dataset.counts].counts = t.value;
     if (t.dataset.hide !== undefined) steps[t.dataset.hide].hidden = t.checked;
+    if (t.id === 'steps-shown-to') shownTo = t.value;
   });
   dialog.addEventListener('click', (e) => {
     const b = e.target.closest('button');
@@ -785,6 +804,7 @@ function editSteps({ lines, config, reloadConfig, rerender }) {
       await api.updateSettings('ledger', {
         ...(config.ledger || {}),
         steps: steps.map((x) => ({ key: x.key, label: x.label.trim(), tone: x.tone, hint: x.hint || '', counts: x.counts, ...(x.hidden ? { hidden: true } : {}) })),
+        ...(canShow ? { showStepsInOrders: shownTo } : {}),
       });
       close();
       setFlash('Purchasing steps saved.');

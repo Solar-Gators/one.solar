@@ -3,10 +3,12 @@
 This guide is for whoever maintains the site: setting it up from scratch, running it locally, applying database updates, and understanding the code. Most of it is about Orders, the biggest app and the owner of the database. For what each app does and how the team uses it, see the [README](../README.md), [Orders](orders.md) and [Solar Evals](solar-evals.md).
 
 **Stack**
-- **Website:** plain HTML/CSS/JavaScript, served by **GitHub Pages** from the `main` branch. There is no build step and no server.
+- **Website:** plain HTML/CSS/JavaScript on **GitHub Pages**. No server; the deploy only copies the site's files after the tests pass (see [RELEASING.md](RELEASING.md)).
 - **Accounts + database:** [Supabase](https://supabase.com) (free tier). It handles sign-in, stores the data, and enforces every permission.
-- **Live site:** https://solar-gators.github.io/one.solar/ (Orders at `/one.solar/orders/`)
-- **Changing the site:** edit files on a branch, open a pull request, and merge when the tests pass. The **Deploy site** workflow tests again and publishes in a few minutes; a failing test publishes nothing. See [RELEASING.md](RELEASING.md) (including how to revert).
+- **Live site:** https://one.ufsolargators.org/ (Orders at `/orders/`). The old `solar-gators.github.io/one.solar/` addresses redirect there.
+- **Changing the site:** push to `main` (or merge a pull request). The **Deploy site** workflow runs every test and publishes in about 5 minutes; a failing test publishes nothing. See [RELEASING.md](RELEASING.md) (including how to revert).
+- **When something breaks for someone:** Admin → one.solar → **Diagnostics** lists errors pages hit and **Report a problem** messages (046), whether the website and database versions match, and failed notifications.
+- **Deleted by mistake:** sponsor cards and Finances records (sheets, rows, purchases, funding sources) can be put back from **Recently deleted** at the bottom of Sponsors or Finances for 90 days (047). Requests and settings have their own History / restore.
 
 **Permissions** live in the database (`permissions` and `role_permissions` tables), not in code:
 - **Changing what a role can do:** use **Admin → one.solar → Roles & permissions** on the site. The Table Editor works too.
@@ -38,8 +40,8 @@ This guide is for whoever maintains the site: setting it up from scratch, runnin
 ### 2. Configure sign-in
 In Supabase, go to **Authentication**:
 - **URL Configuration**
-  - **Site URL:** the Orders address, e.g. `https://solar-gators.github.io/one.solar/orders/`
-  - **Redirect URLs:** add `https://solar-gators.github.io/one.solar/**` and `http://localhost:5173/**` (for local testing).
+  - **Site URL:** the site's address, e.g. `https://one.ufsolargators.org/`
+  - **Redirect URLs:** add `https://one.ufsolargators.org/**` and `http://localhost:5173/**` (for local testing). Keep the old `https://solar-gators.github.io/one.solar/**` for a while after a domain change, for emails sent before it.
 - **Emails.** This one matters. Supabase's built-in email service only delivers to members of your Supabase organization, and only a few messages per hour. Pick one:
   - **Recommended:** set up custom SMTP (**Authentication → Emails → SMTP Settings**) with a free provider such as Resend or Brevo. Confirmation and password-reset emails will then work for everyone.
   - **Quick start:** turn off **Confirm email** (**Authentication → Sign In / Providers → Email**). People can sign up and use the site immediately. Only @ufl.edu addresses are accepted, and new accounts can't do anything beyond submit requests until a lead gives them a role. Password-reset emails still need SMTP.
@@ -61,9 +63,9 @@ on conflict do nothing;
 Refresh the page. From now on, roles are assigned from **Admin → one.solar → Users**.
 
 ### 5. Publish on GitHub Pages
-Push this folder to a GitHub repository. Then go to **Settings → Pages → Build and deployment**, set **Deploy from a branch**, choose `main` and `/ (root)`, and save. The site appears at `https://<org>.github.io/<repo>/` within a minute or two, with Orders at `…/orders/`.
+Push this folder to a GitHub repository, then follow [RELEASING.md → One-time setup](RELEASING.md#one-time-setup-a-repo-admin-in-github-done-2026-11-14): Pages source **GitHub Actions** and the `PAGES_FROM_ACTIONS` variable. Only the website's own files are published, after the tests pass.
 
-> Everything in the repo is public on Pages. `.gitignore` already excludes spreadsheets so real order sheets don't get published.
+> The repository itself is public. `.gitignore` keeps spreadsheets and `data/` out of it, so real order sheets never reach GitHub.
 
 ## Running locally
 
@@ -169,12 +171,16 @@ New features sometimes need a database change. These live in `supabase/migration
 1. **Back up first** (see [RECOVERY.md](RECOVERY.md)), at least before anything that changes or removes data.
 2. Open the file on GitHub and copy its contents.
 3. In Supabase, go to **SQL Editor → New query**, paste, and click **Run**.
+   - **Several at once:** `node tools/bundle-migrations.mjs 49 52` writes `supabase/bundles/049-052.sql`. Paste that and run it once; it's all or nothing (if any file fails, none are applied).
 4. Check it was recorded: `select * from schema_migrations order by version desc limit 3;`
 5. **Then** merge the website change that needs it. The website must never need something the database doesn't have yet.
 
+**Where the live database is:** 041–048 were applied on 2026-11-14. **049** (purchasing steps in Orders) is waiting to be run; after it, the next file is **050**. (The SGAA draft migration, kept outside this repo, must be numbered after whatever is here when it's ready.)
+
 **The ledger (from 041).** `schema_migrations` lists every migration. 001–040 are marked `baseline`: they were run by hand before the ledger existed and are *not individually verified*; `schema_baseline` records how the database compared with the repo when the ledger started. From 041 on, each file records itself as its **last** statement. Postgres runs the whole file as one transaction, so if anything fails, nothing is kept and nothing is recorded: fix the problem and run the same file again. Running a file twice, or skipping one, is refused with a message saying which to run.
 
-### Before 041
+### Before 041 (done on the live database; for a copy restored from before then)
+The check ignores line endings (a file pasted from Windows stores CRLF in function source, and that's not a difference).
 1. Run [`supabase/checks/040_baseline_check.sql`](../supabase/checks/040_baseline_check.sql) in the SQL editor. It's read-only.
 2. **No rows**: run 041.
 3. **Rows with `blocks_041 = true`** (a table, column, function, policy or trigger differs from migrations 001–040): usually a migration file was changed after it was run, or something was edited in the dashboard. Fix it by re-running the current definition from the latest migration that defines that object (search `supabase/migrations/` for its name), then run the check again. Only if the team decides a difference is correct, set `v_accept_differences := true` and write why in `v_note` near the top of 041; 041 records that in `schema_baseline`.
@@ -206,8 +212,9 @@ Nothing is sent until an Admin turns it on in **Admin → one.solar → Notifica
 ### 1. Deploy the Edge Function (once)
 1. Supabase → **Edge Functions → Deploy a new function → Via Editor**.
 2. Name it exactly `send-notifications`.
-3. Replace the sample code with the contents of `supabase/functions/send-notifications/index.ts` and click **Deploy**. Leave "Verify JWT" on.
-4. To update it later, open the function → **Code**, paste the new file, and deploy again.
+3. Replace the sample code with the contents of `supabase/functions/send-notifications/index.ts` and click **Deploy**.
+4. **Turn "Verify JWT" off** for this function (its details page). The function checks callers itself (S-7): only someone signed in who is on the team, or the scheduled job with `CRON_SECRET`, can make it send; everything else gets 401. With "Verify JWT" on, the scheduled job can't call it. Deploy the new code **before** turning it off.
+5. To update it later, open the function → **Code**, paste the new file, and deploy again.
    **After migration 015 (Sponsors board), redeploy it once.** Older versions send "Sponsor card updated" messages with blanks like {sponsor} in them.
 
 (With the Supabase CLI instead: `supabase functions deploy send-notifications`.)
@@ -247,7 +254,11 @@ If UF's tenant doesn't offer the trigger, or says it needs a premium license, po
 1. **Admin → one.solar → Notifications**: tick **Send notifications**, check the website address, choose email / Teams per event, and **Save**.
 2. Click **Send me a test email** and **Send me a test Teams message**. Setup problems (missing secret, wrong password, flow error) show right there and in **Recent messages**.
 
-3. **Schedule the sender (recommended):** Supabase → **Integrations → Cron → Create job** → type "Supabase Edge Function" → `send-notifications`, every 5–10 minutes. "Needs your approval" messages wait (30 minutes by default, Admin → one.solar → Notifications) so a CE approving their own order doesn't notify the others; the schedule is what sends the ones still waiting. It also retries failed messages.
+3. **Schedule the sender (recommended):** "Needs your approval" messages wait (30 minutes by default, Admin → one.solar → Notifications) so a CE approving their own order doesn't notify the others; the schedule is what sends the ones still waiting, and it retries failed messages.
+   1. Supabase → **Integrations**: turn on **pg_cron** and **pg_net**.
+   2. Make a long random secret (`openssl rand -hex 32`) and add it as **CRON_SECRET** in Edge Functions → Secrets.
+   3. Open [`supabase/ops/cron_send_notifications.sql`](../supabase/ops/cron_send_notifications.sql), put the same secret where it says, run it in the SQL Editor, and clear it from the editor. The secret is stored in Supabase Vault, not in the schedule or the repo.
+   4. Check: `select * from cron.job_run_details order by start_time desc limit 5;` shows runs every 5 minutes.
 
 ## Yearly handover checklist
 
@@ -257,5 +268,5 @@ When the new leads take over (usually with **Admin → one.solar → Team & seas
 3. **Supabase:** invite the new leads to the Supabase organization (Organization settings → Team) so someone can run database updates and restore the project if it pauses.
 4. **GitHub:** give the new leads access to the `Solar-Gators/one.solar` repository.
 5. **Email (optional):** if you set up custom SMTP for sign-up and password-reset emails, make sure the account behind it isn't tied to someone who's graduating.
-6. **Notifications:** the Power Automate flow belongs to whoever built it. Add the new leads as co-owners (flow → **Share**) before the old owner's UF account goes away, or rebuild it and update `FLOW_URL`. Hand over the team Gmail's password too.
+6. **Notifications:** keep `CRON_SECRET` with the other secrets in the team's password manager. The Power Automate flow belongs to whoever built it. Add the new leads as co-owners (flow → **Share**) before the old owner's UF account goes away, or rebuild it and update `FLOW_URL`. Hand over the team Gmail's password too.
 7. **Workflow rules:** rules that name specific people (Admin → Orders → Approval rules) need updating when those people leave. A rule whose people are all gone falls back to "any Chief Engineer".

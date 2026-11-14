@@ -359,9 +359,11 @@ export const INTRO_PAGES = [
   ['treasurer', 'Treasurer', 'How many requests are waiting to be ordered or delivered.'],
   ['archive', 'Archive', 'Orders from past seasons.'],
   ['export', 'Export', 'Download requests and items as an Excel workbook.'],
+  ['finances', 'Finances', 'The season and whether you can edit (the standard line).'],
+  ['sponsors', 'Sponsors', 'Sponsorships and donations, from first contact to thank-you. Every season stays here for the next team.'],
 ];
 
-/** Orders → Page intros: the line under each Orders page's title. */
+/** one.solar → Page intros: the line under each page's title (Orders, Finances, Sponsors). */
 export const renderIntros = (el, ctx) => renderTextBanner(el, ctx, 'intros');
 
 /**
@@ -386,7 +388,7 @@ export async function renderTextBanner(el, { config, rerender, reloadConfig }, p
   el.innerHTML = `
     ${takeFlash()}
     ${adminHeader(part, intros
-      ? 'The line under the title of each Orders page.'
+      ? 'The line under the title of each page in Orders, Finances and Sponsors.'
       : 'What everyone sees across one.solar: a banner for news, a note on the sign-in page, and the Help page.')}
     <div id="text-errors"></div>
     <form id="text-form" novalidate>

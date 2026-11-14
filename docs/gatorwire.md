@@ -1,6 +1,6 @@
 # GatorWire
 
-**https://solar-gators.github.io/one.solar/gatorwire/** · [`gatorwire/index.html`](../gatorwire/index.html)
+**https://one.ufsolargators.org/gatorwire/** · [`gatorwire/index.html`](../gatorwire/index.html)
 
 Turns a draw.io wiring diagram into a full wiring spec: every connector, conductor, and splice defined in one place.
 

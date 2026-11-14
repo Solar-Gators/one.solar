@@ -64,7 +64,9 @@ await test("041's schema_fingerprint() is exactly supabase/checks/fingerprint.sq
 
 const base = await baselineAt40();
 await test('the committed 040 baseline check and 041\'s expected hash are up to date', () => {
-  assert.equal(readFileSync(CHECK_FILE, 'utf8'), base.sql, 'run: node tools/baseline.mjs');
+  // Line endings aside (a Windows checkout has CRLF; 041 hashes without them too).
+  const lf = (s) => s.replace(/\r\n/g, '\n');
+  assert.equal(lf(readFileSync(CHECK_FILE, 'utf8')), lf(base.sql), 'run: node tools/baseline.mjs');
   assert.match(sqlOf('041_migration_ledger.sql'), new RegExp(`c_expected constant text := '${base.hash}'`), 'update c_expected in 041');
 });
 

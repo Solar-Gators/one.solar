@@ -17,13 +17,14 @@
  */
 import { api } from '../api.js';
 import { auth } from '../auth.js';
-import { esc, fmtMoney, fmtDate, fmtDateTime, errorBox, setFlash, takeFlash, renderRichText, askText } from '../ui.js';
+import { esc, fmtMoney, fmtDate, fmtDateTime, errorBox, setFlash, takeFlash, renderRichText, askText, introText } from '../ui.js';
 import { guardLeaving, releaseGuard } from '../leaveGuard.js';
 import { renderAttachments } from '../attachments.js';
 import { readItemFile } from '../itemImport.js';
 import { readSponsorRows, toSponsorCard, guessCar } from '../sponsorImport.js';
 import { groupSponsors, sponsorKey, tagLookalikes } from '../sponsorGroups.js';
 import { mountRecentlyDeleted } from '../recentlyDeleted.js';
+import { loadExcelJS } from '../excel.js';
 
 const STAGE_KINDS = [
   ['open', 'Working on it'],
@@ -62,6 +63,46 @@ const hasCars = (config) => Number(config.schemaVersion) >= 26;
 const carsOf = (cards) => [...new Set([...cards].sort((a, b) => String(b.created_at).localeCompare(String(a.created_at))).map((c) => c.car).filter(Boolean))];
 const hasOutreach = (config) => Number(config.schemaVersion) >= 27;
 const daysSince = (date) => Math.round((Date.parse(today()) - Date.parse(date)) / 864e5);
+/** The sponsors shown, as an Excel sheet (like Orders' and Finances' downloads). */
+async function downloadSponsors(list, { stageLabel, nameOf, cars, season }) {
+  const ExcelJS = await loadExcelJS();
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('Sponsors');
+  const day = (d) => (d ? new Date(`${String(d).slice(0, 10)}T00:00:00Z`) : null);
+  ws.columns = [
+    { header: 'Sponsor', key: 'name', width: 28 }, { header: 'Season', key: 'season', width: 11 },
+    ...(cars ? [{ header: 'Car', key: 'car', width: 12 }] : []),
+    { header: 'Stage', key: 'stage', width: 16 }, { header: 'Amount', key: 'amount', width: 12 }, { header: 'Kind', key: 'kind', width: 14 },
+    { header: 'Category', key: 'category', width: 16 }, { header: 'Lead', key: 'owner', width: 18 }, { header: 'Contact', key: 'contact', width: 20 },
+    { header: 'Contact email', key: 'email', width: 26 }, { header: 'Website', key: 'website', width: 26 }, { header: 'Last contacted', key: 'contacted', width: 14 },
+    { header: 'Follow up', key: 'follow', width: 12 }, { header: 'Tags', key: 'tags', width: 20 }, { header: 'Description', key: 'description', width: 48 },
+  ];
+  for (const c of list) {
+    ws.addRow({
+      name: c.name, season: c.season || '', car: c.car || '', stage: stageLabel(c.stage),
+      amount: c.amount === null || c.amount === undefined ? null : Number(c.amount), kind: c.kind || '', category: c.category || '',
+      owner: nameOf(c.owner_id), contact: c.contact_name || '', email: c.contact_email || '', website: c.website || '',
+      contacted: day(c.contacted_on), follow: day(c.follow_up), tags: (c.tags || []).join(', '), description: c.description || '',
+    });
+  }
+  ws.getColumn('amount').numFmt = '"$"#,##0.00';
+  ws.getColumn('contacted').numFmt = 'mm/dd/yyyy';
+  ws.getColumn('follow').numFmt = 'mm/dd/yyyy';
+  ws.getRow(1).eachCell((cell) => {
+    cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0B2545' } };
+  });
+  ws.views = [{ state: 'frozen', ySplit: 1 }];
+  ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: ws.columns.length } };
+  const blob = new Blob([await wb.xlsx.writeBuffer()], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `Solar_Gators_Sponsors_${season && season !== 'all' ? season : 'all_seasons'}.xlsx`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
 /** What a card brought in: its amount once it's in a received / done stage. */
 const gaveOf = (stages, c) => (['received', 'done'].includes(stages.find((s) => s.key === c.stage)?.kind) ? Number(c.amount) || 0 : 0);
 /** "Flare · 2023-2024" */
@@ -131,13 +172,14 @@ export async function renderSponsors(el, { config, rerender, reloadConfig }) {
     <div class="page-header">
       <div>
         <h1>Sponsors</h1>
-        <p class="subtitle">Sponsorships and donations, from first contact to thank-you. Every season stays here for the next team.</p>
+        <p class="subtitle">${introText('sponsors', 'Sponsorships and donations, from first contact to thank-you. Every season stays here for the next team.')}</p>
       </div>
       <div class="card-actions sp-actions">
         ${canEdit() ? '<button type="button" class="btn btn-primary" id="new-card">+ New sponsor</button>' : ''}
         ${canEdit() && hasCars(config) ? '<button type="button" class="btn" id="sp-import">Import from spreadsheet…</button>' : ''}
         ${canEdit() && outreach ? '<button type="button" class="btn" id="sp-tags">Tags</button>' : ''}
         ${canEdit() ? '<button type="button" class="btn" id="board-settings">Board settings</button>' : ''}
+        <button type="button" class="btn" id="sp-download" title="The sponsors shown (season, car and search filters apply)">Download .xlsx</button>
       </div>
     </div>
     <div id="settings-box"></div>
@@ -503,6 +545,10 @@ export async function renderSponsors(el, { config, rerender, reloadConfig }) {
     if (btn.id === 'sp-import') {
       btn.hidden = true;
       openImport(el.querySelector('#settings-box'), { config, cards, cars, rerender, onDone: () => (btn.hidden = false) });
+    }
+    if (btn.id === 'sp-download') {
+      const list = cards.filter(matches).sort((a, b) => (b.season || '').localeCompare(a.season || '') || a.name.localeCompare(b.name));
+      downloadSponsors(list, { stageLabel, nameOf, cars: cars.length > 0, season: view.season }).catch((err) => (errors.innerHTML = errorBox(err)));
     }
     if (btn.id === 'board-settings') {
       btn.hidden = true;
