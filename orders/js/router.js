@@ -28,6 +28,19 @@ import { renderFinances } from './views/finances.js';
 import { renderSponsors, renderSponsorCard } from './views/sponsors.js';
 import { renderExport } from './views/exportPage.js';
 import { renderArchive } from './views/archive.js';
+import { renderInvDashboard } from './views/inventory/dashboard.js';
+import { renderInvItems } from './views/inventory/items.js';
+import { renderInvItem } from './views/inventory/item.js';
+import { renderInvItemForm } from './views/inventory/itemForm.js';
+import { renderInvLocation } from './views/inventory/location.js';
+import { renderInvReceive } from './views/inventory/receive.js';
+import { renderInvActivity } from './views/inventory/activity.js';
+import { renderInvCounts, renderInvCount } from './views/inventory/counts.js';
+import { renderInvReports } from './views/inventory/reports.js';
+import { renderInvSetup, renderAdminOrg } from './views/inventory/setup.js';
+import { renderInvLabels } from './views/inventory/labels.js';
+import { renderInvScan } from './views/inventory/scan.js';
+import { INV_PERMS } from './views/inventory/kit.js';
 import { errorBox, esc } from './ui.js';
 import { api } from './api.js';
 import { needsText, rolesWith } from './messages.js';
@@ -41,7 +54,7 @@ const LEADS = ['request.review', 'request.order'];
 const tabPerms = (name) => ADMIN_TABS.find(([key]) => key === name)[2];
 
 /** A page your role can't open: say who to ask, and give a way out. */
-const WHO_TO_ASK = { finances: 'the Treasurer or an Admin', sponsors: 'the Business Coordinator or an Admin', admin: 'an Admin', orders: 'a Chief Engineer or an Admin' };
+const WHO_TO_ASK = { finances: 'the Treasurer or an Admin', sponsors: 'the Business Coordinator or an Admin', admin: 'an Admin', orders: 'a Chief Engineer or an Admin', inventory: 'an inventory manager or an Admin' };
 async function noAccess(perms) {
   const name = APPS[APP].name;
   // U-2: name the permission and the roles that have it (both readable by everyone signed in).
@@ -115,6 +128,21 @@ const ROUTES = [
   { pattern: /^\/sponsors$/, nav: 'sponsors', view: renderSponsors, perm: ['sponsors.view', 'sponsors.edit'] },
   { pattern: /^\/sponsors\/([^/]+)$/, nav: 'sponsors', view: renderSponsorCard, perm: ['sponsors.view', 'sponsors.edit'] },
   { pattern: /^\/archive$/, nav: 'requests', view: renderArchive },
+  // Inventory (050). Anyone with an Inventory permission can look; each page offers only what their role can do.
+  { pattern: /^\/inventory$/, nav: 'inv-home', view: renderInvDashboard, perm: INV_PERMS },
+  { pattern: /^\/inventory\/items$/, nav: 'inv-items', view: renderInvItems, perm: INV_PERMS },
+  { pattern: /^\/inventory\/items\/new$/, nav: 'inv-items', view: renderInvItemForm, perm: INV_PERMS },
+  { pattern: /^\/inventory\/items\/([^/]+)\/edit$/, nav: 'inv-items', view: renderInvItemForm, perm: INV_PERMS },
+  { pattern: /^\/inventory\/items\/([^/]+)$/, nav: 'inv-items', view: renderInvItem, perm: INV_PERMS },
+  { pattern: /^\/inventory\/locations\/([^/]+)$/, nav: 'inv-items', view: renderInvLocation, perm: INV_PERMS },
+  { pattern: /^\/inventory\/receive(?:\/([^/]+))?$/, nav: 'inv-receive', view: renderInvReceive, perm: INV_PERMS },
+  { pattern: /^\/inventory\/activity$/, nav: 'inv-activity', view: renderInvActivity, perm: INV_PERMS },
+  { pattern: /^\/inventory\/counts$/, nav: 'inv-counts', view: renderInvCounts, perm: INV_PERMS },
+  { pattern: /^\/inventory\/counts\/([^/]+)$/, nav: 'inv-counts', view: renderInvCount, perm: INV_PERMS },
+  { pattern: /^\/inventory\/reports$/, nav: 'inv-reports', view: renderInvReports, perm: INV_PERMS },
+  { pattern: /^\/inventory\/setup(?:\/(\w+))?$/, nav: 'inv-setup', view: renderInvSetup, perm: [...INV_PERMS, 'settings.edit'] },
+  { pattern: /^\/inventory\/labels$/, nav: 'inv-items', view: renderInvLabels, perm: INV_PERMS },
+  { pattern: /^\/inventory\/scan$/, nav: 'inv-scan', view: renderInvScan, perm: INV_PERMS },
   { pattern: /^\/export$/, nav: 'requests', view: renderExport },
   { pattern: /^\/admin\/users$/, nav: 'admin', view: renderUsers, perm: tabPerms('users') },
   { pattern: /^\/admin\/fields$/, nav: 'admin', view: renderFormFields, perm: tabPerms('fields') },
@@ -131,6 +159,7 @@ const ROUTES = [
   { pattern: /^\/admin\/brand$/, nav: 'admin', view: renderBrand, perm: tabPerms('brand') },
   { pattern: /^\/admin\/intros$/, nav: 'admin', view: renderIntros, perm: tabPerms('intros') },
   { pattern: /^\/admin\/home$/, nav: 'admin', view: renderHomeScreen, perm: tabPerms('home') },
+  { pattern: /^\/admin\/org$/, nav: 'admin', view: renderAdminOrg, perm: tabPerms('org') },
   { pattern: /^\/admin\/apps$/, nav: 'admin', view: renderOtherApps, perm: tabPerms('apps') },
   { pattern: /^\/admin\/text$/, nav: 'admin', view: renderTextBanner, perm: tabPerms('text') },
   { pattern: /^\/admin\/workflow$/, nav: 'admin', view: renderWorkflow, perm: tabPerms('workflow') },
@@ -150,11 +179,12 @@ export function startRouter(ctx, { onRender } = {}) {
   const render = async () => {
     const token = ++renderToken;
     // No address (the app was just opened): the app's own first page (Orders' Home, the Sponsors board…).
-    const path = location.hash.replace(/^#/, '') || homePath();
+    // "#/inventory/items?q=bolt": the page, then its filters (kept in the address, so a link or Back keeps them).
+    const [path, search = ''] = (location.hash.replace(/^#/, '') || homePath()).split('?');
     // A page of another one.solar app (e.g. an old orders/#/sponsors/… link): open it there.
     const owner = appOf(path);
     if (owner && owner !== APP) {
-      location.replace(`${appUrl(`${owner}/`)}${location.search}#${path}`);
+      location.replace(`${appUrl(`${owner}/`)}${location.search}#${path}${search ? `?${search}` : ''}`);
       return;
     }
     let route = ROUTES.find((r) => r.pattern.test(path));
@@ -174,7 +204,7 @@ export function startRouter(ctx, { onRender } = {}) {
     document.querySelectorAll('[data-nav]').forEach((a) => a.classList.toggle('active', a.dataset.nav === route.nav));
 
     const match = route.pattern ? path.match(route.pattern) : [];
-    const params = { id: match?.[1] ? decodeURIComponent(match[1]) : null, copy: !!route.copy };
+    const params = { id: match?.[1] ? decodeURIComponent(match[1]) : null, copy: !!route.copy, query: new URLSearchParams(search) };
 
     // Render into a detached element so a slow, stale view can't overwrite a newer one.
     const el = document.createElement('div');

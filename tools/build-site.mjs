@@ -21,6 +21,7 @@ export const SITE_PATHS = [
   'finances/',
   'sponsors/',
   'admin/',
+  'inventory/',
   'evals/',
   'gatorwire/',
   'scope-map/',

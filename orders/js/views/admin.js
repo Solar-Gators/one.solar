@@ -37,6 +37,7 @@ export const ADMIN_TABS = [
   ['notifications', 'Notifications', ['workflow.edit'], 'one.solar'],
   ['diagnostics', 'Diagnostics', ['workflow.edit'], 'one.solar'],
   ['home', 'Home screen', ['site.customize'], 'one.solar'],
+  ['org', 'CE divisions & subsystems', ['settings.edit', 'inventory.manage'], 'one.solar'],
   ['fields', 'Request form', ['settings.edit'], 'Orders'],
   ['dropdowns', 'Dropdowns & rules', ['settings.edit'], 'Orders'],
   ['workflow', 'Approval rules', ['workflow.edit'], 'Orders'],
