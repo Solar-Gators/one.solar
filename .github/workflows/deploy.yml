@@ -1,0 +1,70 @@
+# Publishes the site to GitHub Pages, only after every test passes.
+#
+#   test   → the CI workflow (ci.yml). If it fails, nothing below runs.
+#   build  → copies just the site (tools/build-site.mjs: index.html, hub/, orders/, finances/, sponsors/,
+#            admin/, evals/, gatorwire/, scope-map/, shared/) plus version.json (this commit).
+#   deploy → publishes it. Runs only after the repository variable PAGES_FROM_ACTIONS is "true", which
+#            you set when you switch Settings → Pages → Source to "GitHub Actions" (docs/RELEASING.md).
+#            Until then the site keeps publishing from the branch exactly as before.
+#
+# Check the gate any time: Actions → Deploy site → Run workflow → tick "Fail the tests on purpose".
+# The test job fails and build + deploy show as skipped; the live site is unchanged.
+name: Deploy site
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      simulate_test_failure:
+        description: Fail the tests on purpose (checks that nothing deploys)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+# One deploy at a time; a newer push waits instead of cancelling one halfway through publishing.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  test:
+    uses: ./.github/workflows/ci.yml
+    with:
+      simulate_test_failure: ${{ inputs.simulate_test_failure == true }}
+
+  build:
+    needs: test
+    if: ${{ success() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Build the site folder
+        run: node tools/build-site.mjs --out=_site --version=${{ github.sha }}
+
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+
+  deploy:
+    needs: [test, build]
+    if: ${{ success() && vars.PAGES_FROM_ACTIONS == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

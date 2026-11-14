@@ -27,6 +27,8 @@ import * as appList from './apps.js';
 import { SUPABASE_URL, SUPABASE_ANON_KEY, appUrl, isLocal, signInUrl, rememberBrand } from '../shared/onesolar.js';
 import { renderAccount, syncLogo } from '../shared/account-menu.js';
 import { rememberApps, safeHref } from '../shared/app-switcher.js';
+import { startVersionCheck } from '../shared/version-check.js';
+import { startErrorReporter } from '../shared/error-reporter.js';
 
 const APPS = appList.APPS || [];
 const SECTIONS = appList.SECTIONS || [{ id: 'apps', name: 'Team apps' }, { id: 'tools', name: 'Engineering tools' }, { id: 'links', name: 'Links' }];
@@ -41,6 +43,9 @@ const sb = FAKE
   : (await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm')).createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       auth: { flowType: 'pkce', persistSession: true, detectSessionInUrl: false },
     });
+
+startVersionCheck(sb);
+startErrorReporter(sb, 'hub');
 
 const me = { user: null, name: '', roles: [], perms: new Set(), roleLabel: '', guest: false };
 let waiting = []; // 040: people who signed up and wait to be accepted (for those who can accept them)
@@ -90,13 +95,15 @@ async function loadMe() {
   waiting = [];
   if (!me.user) return;
   const [{ data: profile }, { data: roles }] = await Promise.all([
-    sb.from('profiles').select('full_name, email').eq('id', me.user.id).maybeSingle(),
+    sb.from('profiles').select('full_name, email, created_at').eq('id', me.user.id).maybeSingle(),
     sb.from('profile_roles').select('role').eq('user_id', me.user.id),
   ]);
   me.name = profile?.full_name || me.user.email || '';
+  me.createdAt = profile?.created_at || null;
   me.roles = (roles || []).map((r) => r.role);
   if (!me.roles.length) me.roles = ['guest'];
-  me.guest = me.roles.every((r) => r === 'guest'); // 040: signed up, not accepted into the team yet
+  me.guest = me.roles.every((r) => r === 'guest' || r === 'alumni'); // not on the team: not accepted yet (040) or deactivated (044)
+  me.former = me.roles.includes('alumni');
   const [{ data: perms }, { data: labels }] = await Promise.all([
     sb.from('role_permissions').select('permission').in('role', me.roles),
     sb.from('roles').select('key, label').in('key', me.roles),
@@ -110,7 +117,9 @@ async function loadMe() {
 async function loadWaiting() {
   waiting = [];
   if (!me.user || me.guest || !me.perms.has('people.accept')) return;
-  const { data, error } = await sb.rpc('waiting_guests', {});
+  // 043 adds whether they confirmed their email; before 043 only waiting_guests exists.
+  let { data, error } = await sb.rpc('waiting_people', {});
+  if (error && /waiting_people|function|schema cache/i.test(error.message || '')) ({ data, error } = await sb.rpc('waiting_guests', {}));
   if (!error && Array.isArray(data)) waiting = data;
 }
 
@@ -128,7 +137,10 @@ function drawWaiting() {
     <ul class="waiting-list">${waiting.map((w) => `<li data-guest="${esc(w.id)}">
       <span class="waiting-who"><strong>${esc(w.full_name || w.email)}</strong>${w.full_name ? ` <span class="muted">${esc(w.email)}</span>` : ''}
         <span class="muted small">· signed up ${ago(w.created_at)}</span></span>
-      <button type="button" class="btn btn-sm btn-primary" data-accept="${esc(w.id)}">Accept as Member</button></li>`).join('')}</ul>
+      <span class="waiting-actions">${w.email_confirmed === false
+        ? '<span class="field-tag" title="They need to click the link in the email one.solar sent them before they can be accepted">Email not confirmed yet</span>'
+        : `<button type="button" class="btn btn-sm btn-primary" data-accept="${esc(w.id)}">Accept as Member</button>`}
+      ${'email_confirmed' in w ? `<button type="button" class="btn btn-sm btn-ghost danger-link" data-decline="${esc(w.id)}">Not on the team…</button>` : ''}</span></li>`).join('')}</ul>
     <p class="alert alert-error" id="waiting-error" role="alert" hidden></p>`;
 }
 
@@ -151,6 +163,29 @@ async function accept(btn) {
   const note = $('#waiting-done');
   note.textContent = `${w.full_name || w.email} is on the team now, as a Member. Give them other roles in Admin → Users if they need them.`;
   note.hidden = false;
+}
+
+/** 043: turn away someone who isn't on Solar Gators (their account is deleted; a new sign-up is flagged). */
+async function decline(btn) {
+  const w = waiting.find((x) => x.id === btn.dataset.decline);
+  if (!w) return;
+  const who = w.full_name || w.email;
+  const note = prompt(`Turn away ${who}? Their account is deleted. If they sign up again, Admin → Users flags it.\n\nWhy (optional; only people who manage people see it):`, '');
+  if (note === null) return;
+  btn.disabled = true;
+  const { error } = await sb.rpc('decline_guest', { p_user: w.id, p_note: note });
+  if (error) {
+    btn.disabled = false;
+    const e = $('#waiting-error');
+    e.textContent = error.message;
+    e.hidden = false;
+    return;
+  }
+  waiting = waiting.filter((x) => x !== w);
+  drawWaiting();
+  const done = $('#waiting-done');
+  done.textContent = `${who} was turned away.`;
+  done.hidden = false;
 }
 
 const canCustomize = () => me.perms.has('site.customize');
@@ -270,8 +305,10 @@ function draw() {
   drawAnnouncement();
   renderAccount($('#account'), { user: me.user, name: me.name, role: me.roleLabel, onSignOut: signOut });
   $('#hello').innerHTML = greeting();
-  $('#lede').textContent = me.guest
-    ? "You're signed up! Someone on the team needs to accept you before you can use the team's apps. Ask your Chief Engineer, a lead or anyone on the e-board. Until then, here are the public tools."
+  $('#lede').textContent = me.former
+    ? "Your one.solar access has ended: you're listed as a former member. If that's a mistake, ask an Admin. The public tools are below."
+    : me.guest
+    ? "You're signed up! Someone on the team needs to accept you before you can use the team's apps. Ask your Chief Engineer or anyone on the e-board. Until then, here are the public tools."
     : me.user
     ? 'Everything Solar Gators, in one place. Pick an app.'
     : 'Solar Gators\' team apps, in one place. Sign in with your one.solar account to see everything you have access to.';
@@ -279,6 +316,7 @@ function draw() {
   document.body.classList.toggle('editing-home', editing);
   drawWaiting();
   if (editing) return drawEditing();
+  drawWelcome(cardsOf(settings).filter((c) => sees(c)));
 
   const cards = cardsOf(settings);
   const shown = cards.filter((c) => sees(c));
@@ -307,6 +345,33 @@ function draw() {
   $('#more').innerHTML = !me.user && locked.length
     ? `<p class="muted"><a class="link-btn" href="${esc(signInUrl())}">Sign in</a> for ${forAll.length ? `${forAll.map((c) => esc(c.name)).join(', ')}, and ` : ''}the apps your position can use.</p>`
     : '';
+}
+
+// ---- "You're in" (U-1): once, for someone newly on the team ---------------------------------------
+
+const WELCOME_DAYS = 45; // accounts older than this were on the team before this card existed
+const welcomeKey = () => `onesolar:welcomed:${me.user?.id}`;
+function welcomed() {
+  try { return !!localStorage.getItem(welcomeKey()); } catch { return true; } // no storage: don't nag
+}
+function drawWelcome(shown) {
+  const box = $('#welcome');
+  const recent = me.createdAt && Date.now() - new Date(me.createdAt).getTime() < WELCOME_DAYS * 864e5;
+  box.hidden = !me.user || me.guest || !recent || welcomed();
+  if (box.hidden) return;
+  const apps = shown.filter((c) => c.access && c.access !== 'public' && !isExternal(safeHref(c.href) || ''));
+  box.innerHTML = `<div class="welcome-head"><h2>You're in, ${esc(me.name.split(' ')[0] || 'welcome')}!</h2>
+      <button type="button" class="btn btn-sm btn-ghost" id="welcome-done">Got it</button></div>
+    <p>You're on the team as <strong>${esc(me.roleLabel)}</strong>. ${apps.length ? `That opens ${apps.map((c) => `<a href="${esc(appUrl(safeHref(c.href) || '#'))}">${esc(c.name)}</a>`).join(', ')}.` : 'The apps below are the ones you can use.'}</p>
+    <ul class="welcome-next">
+      <li><a href="${esc(appUrl('orders/#/help'))}">Read the 2-minute guide</a>: what to do in your first week.</li>
+      <li><a href="${esc(appUrl('orders/#/account'))}">Choose your notifications</a>: email or Teams, and for what.</li>
+      <li>Stuck, or something looks broken? Use <strong>Report a problem</strong> in your account menu (top right).</li>
+    </ul>`;
+  $('#welcome-done').onclick = () => {
+    try { localStorage.setItem(welcomeKey(), new Date().toISOString()); } catch {}
+    box.hidden = true;
+  };
 }
 
 // ---- Editing the home screen (admins) ---------------------------------------------------------
@@ -566,6 +631,7 @@ document.addEventListener('click', async (e) => {
   const t = e.target;
   if (t.closest('[data-fav]')) return toggleFav(t.closest('[data-fav]').dataset.fav);
   if (t.closest('[data-accept]')) return accept(t.closest('[data-accept]'));
+  if (t.closest('[data-decline]')) return decline(t.closest('[data-decline]'));
   if (t.closest('#edit-open')) {
     await loadPositions();
     startEditing();

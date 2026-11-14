@@ -8,19 +8,10 @@
  */
 import { readFileSync, readdirSync } from 'node:fs';
 import { PGlite } from '@electric-sql/pglite';
+import { SUPABASE_STUB } from './support/supabase-stub.mjs';
 import assert from 'node:assert/strict';
 
-const SUPABASE_STUB = `
-  create role anon nologin;
-  create role authenticated nologin;
-  create schema auth;
-  create table auth.users (id uuid primary key, email text not null, raw_user_meta_data jsonb default '{}');
-  create function auth.uid() returns uuid language sql stable
-    as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
-  grant usage on schema auth to anon, authenticated;
-  grant usage on schema public to anon, authenticated;
-`;
-
+// The Supabase stand-in (auth schema, roles, Supabase's default grants) is shared: tests/support/supabase-stub.mjs.
 const db = new PGlite();
 await db.exec(SUPABASE_STUB);
 const MIGRATIONS = new URL('../supabase/migrations/', import.meta.url);
@@ -276,9 +267,10 @@ await test('members cannot change roles', async () => {
   await as(member, () => rejects(rpc('set_user_role', [other, 'ce']), /does not allow/));
 });
 
-await test('CE can promote a member', async () => {
-  await as(ce, () => rpc('set_user_role', [other, 'treasurer']));
-  assert.equal(await roleOf(other), 'treasurer');
+await test('CE cannot hand out Treasurer (it can manage people: Admin only, 042)', async () => {
+  await as(ce, () => rejects(rpc('set_user_role', [other, 'treasurer']), /Only an Admin can give or take "Treasurer"/));
+  assert.equal(await roleOf(other), 'member');
+  await setRole(other, 'treasurer'); // as an Admin would; the tests below expect it
 });
 
 const currentForm = async () => (await db.query(`select value from app_settings where key = 'form'`)).rows[0].value;
@@ -306,7 +298,8 @@ await test('the website cannot change the schema version', async () => {
   const general = (await db.query(`select value from app_settings where key = 'general'`)).rows[0].value;
   await as(ce, () => rpc('update_settings', ['general', { ...general, schemaVersion: 99 }]));
   const after = (await db.query(`select value from app_settings where key = 'general'`)).rows[0].value;
-  assert.equal(after.schemaVersion, 40);
+  assert.equal(after.schemaVersion, general.schemaVersion);
+  assert.notEqual(after.schemaVersion, 99);
 });
 
 console.log('Form fields');
@@ -559,10 +552,9 @@ await test('unknown permissions and roles are refused', async () => {
   assert.deepEqual(await permsOf('ce'), ['request.review', 'settings.edit', 'users.manage']); // unchanged
 });
 
-await test('you can change your own role', async () => {
-  await as(ce, () => rpc('set_user_role', [ce, 'treasurer']));
-  assert.equal(await roleOf(ce), 'treasurer');
-  await as(ce, () => rpc('set_user_role', [ce, 'ce']));
+await test('you cannot change your own roles unless you are an Admin (042)', async () => {
+  await as(ce, () => rejects(rpc('set_user_role', [ce, 'treasurer']), /can't change your own roles/));
+  await as(ce, () => rejects(rpc('set_user_role', [ce, 'member']), /can't change your own roles/));
   assert.equal(await roleOf(ce), 'ce');
 });
 
@@ -581,15 +573,16 @@ await test('the whole grid saves at once, so "Manage people" can move between ro
   assert.ok(!(await permsOf('treasurer')).includes('users.manage'));
   // And a grid that leaves nobody able to manage people is refused as a whole.
   await as(grid, () => rejects(rpc('set_permission_matrix', [{ ce: ['request.review'], member: ['request.review'] }]), /At least one person must keep/));
-  assert.deepEqual(await permsOf('member'), ['people.accept']); // nothing from the refused save stuck
+  assert.deepEqual(await permsOf('member'), []); // nothing from the refused save stuck (043: members don't accept people)
   await as(grid, () => rpc('set_permission_matrix', [{ treasurer: ['request.order', 'settings.edit', 'users.manage'] }])); // restore
 });
 
 await test('the last person who can manage people cannot demote themselves', async () => {
   // Leave exactly one person with users.manage: only the treasurer role has it, and only `treasurer` holds it.
   await as(grid, () => rpc('set_role_permissions', ['ce', ['request.review', 'settings.edit']]));
-  await as(treasurer, () => rpc('set_user_role', [other, 'member']));
-  await as(treasurer, () => rejects(rpc('set_user_role', [treasurer, 'member']), /At least one person must keep/));
+  await setRole(other, 'member');
+  // Since 042 nobody but an Admin changes their own roles, so this can't even start.
+  await as(treasurer, () => rejects(rpc('set_user_role', [treasurer, 'member']), /can't change your own roles/));
   assert.equal(await roleOf(treasurer), 'treasurer');
   await as(grid, () => rpc('set_role_permissions', ['ce', ['request.review', 'settings.edit', 'users.manage']])); // restore
 });
@@ -688,8 +681,12 @@ await test('the rule is skipped when the Vendor field is hidden', async () => {
 
 console.log('Multiple roles & Admin');
 
+// Since 042 only an Admin hands out roles that can manage people (CE, Treasurer).
+const firstAdmin = await signUp('first.admin@ufl.edu', 'Fay First');
+await setRole(firstAdmin, 'admin');
+
 await test('someone can hold several roles; their permissions combine', async () => {
-  await as(ce, () => rpc('set_user_roles', [other, ['treasurer', 'ce']]));
+  await as(firstAdmin, () => rpc('set_user_roles', [other, ['treasurer', 'ce']]));
   assert.equal(await roleOf(other), 'ce,treasurer');
   // They can both review (CE) and order (Treasurer).
   const req = await as(member, () => rpc('save_request', [null, vendorRequest, [twoVendors[0]], 'submit']));
@@ -700,9 +697,9 @@ await test('someone can hold several roles; their permissions combine', async ()
 });
 
 await test('no roles means Member; unknown roles are refused', async () => {
-  await as(ce, () => rpc('set_user_roles', [other, []]));
+  await as(firstAdmin, () => rpc('set_user_roles', [other, []]));
   assert.equal(await roleOf(other), 'member');
-  await as(ce, () => rejects(rpc('set_user_roles', [other, ['ce', 'wizard']]), /Unknown role "wizard"/));
+  await as(firstAdmin, () => rejects(rpc('set_user_roles', [other, ['ce', 'wizard']]), /Unknown role "wizard"/));
   assert.equal(await roleOf(other), 'member'); // unchanged
 });
 
@@ -732,6 +729,9 @@ await test('lockout protection still holds with several roles', async () => {
     ce: ['request.review'], treasurer: ['request.order'], admin: ['request.review', 'roles.edit'],
   }]), /At least one person must keep/));
 });
+
+// The extra Admin was only for the tests above (Admins get notifications, so it would change later lists).
+await db.query(`delete from auth.users where id = $1`, [firstAdmin]);
 
 console.log('Finer permissions');
 
@@ -794,7 +794,7 @@ await test('permission grid changes are versioned and can be undone', async () =
   assert.equal(after.length, before.length + 1);
   assert.deepEqual(after.at(-1).value.member, ['request.review']);
   await as(grid, () => rpc('restore_settings_version', [before.at(-1).id]));
-  assert.deepEqual(await permsOf('member'), ['people.accept']);
+  assert.deepEqual(await permsOf('member'), []);
 });
 
 await test('even the first Lists/Appearance change can be undone (back to defaults)', async () => {
@@ -1113,12 +1113,12 @@ await test('imported requests are linked to accounts by name (012)', async () =>
   await as(ce, () => rpc('import_requests', [[{ title: 'Nuts', requester: 'Zach', subsystem: 'Battery', date: '2026-09-13', status: 'Received', items: [{ item_name: 'Nuts', quantity: '1', unit_price: '1' }] }]]));
   assert.equal((await db.query(`select created_by from requests where title = 'Nuts'`)).rows[0].created_by, null);
 
-  // Fixing your name on My account picks up your requests.
+  // 048: renaming yourself no longer picks up requests (someone could rename to take them); joining does.
   await as(ce, () => rpc('import_requests', [[{ title: 'Bolts', requester: 'Pat Quinn', subsystem: 'Battery', date: '2026-09-13', status: 'Received', items: [{ item_name: 'Bolts', quantity: '1', unit_price: '1' }] }]]));
   const pat = await signUp('pat@ufl.edu', 'PQ');
   assert.equal(await ownerOf('Pat Quinn'), null);
   await as(pat, () => rpc('update_my_profile', ['Pat Quinn']));
-  assert.equal(await ownerOf('Pat Quinn'), 'Pat Quinn');
+  assert.equal(await ownerOf('Pat Quinn'), null);
   // Requests made on the site keep their real owner.
   assert.equal((await db.query(`select count(*)::int n from requests r join profiles p on p.id = r.created_by where r.requester = 'Austin Stang' and p.email <> 'member@ufl.edu'`)).rows[0].n, 0);
 });
@@ -2312,11 +2312,12 @@ console.log('People: roles except Admin, removing someone (035)');
   await db.exec(`insert into role_permissions values ('ce', 'users.manage') on conflict do nothing`);
 
   await test('people managers give roles but not Admin; only Admins change an Admin', async () => {
-    await as(chief, () => rpc('set_user_roles', [leaver, ['treasurer']]));
+    await as(chief, () => rejects(rpc('set_user_roles', [leaver, ['treasurer']]), /Only an Admin can give or take "Treasurer"/));
+    await as(boss, () => rpc('set_user_roles', [leaver, ['treasurer']]));
     assert.equal(await roleOf(leaver), 'treasurer');
-    await as(chief, () => rejects(rpc('set_user_roles', [leaver, ['treasurer', 'admin']]), /Only an Admin can make someone an Admin/));
+    await as(chief, () => rejects(rpc('set_user_roles', [leaver, ['treasurer', 'admin']]), /Only an Admin can give or take the Admin role/));
     await as(chief, () => rejects(rpc('set_user_roles', [boss, ['admin', 'ce']]), /Only an Admin can change an Admin/));
-    await as(chief, () => rejects(rpc('set_user_roles', [chief, ['admin']]), /Only an Admin/));
+    await as(chief, () => rejects(rpc('set_user_roles', [chief, ['admin']]), /can't change your own roles/));
     await as(boss, () => rpc('set_user_roles', [plain, ['admin']]));
     await as(boss, () => rpc('set_user_roles', [plain, ['member']]));
     assert.equal(await roleOf(plain), 'member');
@@ -2333,19 +2334,20 @@ console.log('People: roles except Admin, removing someone (035)');
     for (const id of others) await db.query(`insert into profile_roles values ($1, 'admin')`, [id]);
   });
 
-  await test('removing someone deletes their login and keeps their name on what they did', async () => {
+  await test('deleting someone (an Admin, after deactivating them, 044) deletes their login and keeps their name on what they did', async () => {
     const { rows } = await as(leaver, () => rpc('save_request', [null, { title: 'Leaver draft', requester: 'Lee Leaver' }, [], 'draft']));
     const num = rows[0].result;
     await as(plain, () => rejects(rpc('remove_person', [leaver, 'Graduated']), /does not allow/));
-    await as(chief, () => rejects(rpc('remove_person', [chief, '']), /can't remove yourself/));
-    await as(chief, () => rejects(rpc('remove_person', [boss, '']), /Only an Admin can remove an Admin/));
-    await as(chief, () => rpc('remove_person', [leaver, 'Graduated in May']));
+    await as(chief, () => rejects(rpc('remove_person', [leaver, '']), /Only an Admin can delete an account/));
+    await as(boss, () => rejects(rpc('remove_person', [leaver, '']), /Deactivate them first/));
+    await as(boss, () => rpc('deactivate_person', [leaver, 'Graduated']));
+    await as(boss, () => rpc('remove_person', [leaver, 'Graduated in May']));
     assert.equal((await db.query(`select count(*)::int n from auth.users where id = $1`, [leaver])).rows[0].n, 0);
     assert.equal((await db.query(`select count(*)::int n from profiles where id = $1`, [leaver])).rows[0].n, 0);
     const req = (await db.query(`select requester, created_by from requests where request_number = $1`, [num])).rows[0];
     assert.deepEqual(req, { requester: 'Lee Leaver', created_by: null });
     const rec = (await db.query(`select email, full_name, roles, note, removed_by_name, cleared_at from removed_people where email = 'leaver@ufl.edu'`)).rows[0];
-    assert.deepEqual(rec, { email: 'leaver@ufl.edu', full_name: 'Lee Leaver', roles: ['treasurer'], note: 'Graduated in May', removed_by_name: 'Chris Chief', cleared_at: null });
+    assert.deepEqual(rec, { email: 'leaver@ufl.edu', full_name: 'Lee Leaver', roles: ['treasurer'], note: 'Graduated in May', removed_by_name: 'Bo Boss', cleared_at: null }); // the roles they had before
   });
 
   await test('if they sign up again, people managers see the removal (members do not) until it is cleared', async () => {
@@ -2391,7 +2393,10 @@ console.log('Guests: new accounts wait to be accepted (040)');
     assert.equal((await db.query(`select eval_rule_match('{"rule":"anyone"}', $1) m`, [guest])).rows[0].m, false);
   });
 
-  await test('anyone on the team (a plain member too) sees who is waiting and can accept them', async () => {
+  await test('Admin, CE and E-board see who is waiting and accept them; a plain member no longer can (043)', async () => {
+    await as(lead, () => rejects(rpc('accept_member', [guest]), /does not allow/));
+    await as(lead, () => rejects(db.query(`select * from waiting_guests()`), /does not allow/));
+    await setRole(lead, 'eboard');
     const waiting = (await as(lead, () => db.query(`select * from waiting_guests()`))).rows.map((r) => r.email);
     assert.deepEqual(waiting, ['newbie2@ufl.edu', 'newbie@ufl.edu']);
     await as(lead, () => rpc('accept_member', [guest]));
@@ -2412,7 +2417,564 @@ console.log('Guests: new accounts wait to be accepted (040)');
     await rejects(db.query(`insert into role_permissions values ('guest', 'request.review')`), /Guests can't have permissions/);
     await rejects(db.query(`delete from roles where key = 'guest'`), /Guest is built in/);
     const key = (await as(grid, () => rpc('create_role', ['Faculty Advisor']))).rows[0].result;
-    assert.ok((await permsOf(key)).includes('people.accept')); // new roles can accept people too
+    assert.ok(!(await permsOf(key)).includes('people.accept')); // 043: new roles don't accept people unless an Admin says so
+  });
+}
+
+
+console.log('Role guard: nobody gives themselves more power; every change is recorded (042)');
+
+{
+  await db.exec(`insert into roles (key, label, sort) values ('rg_mgr', 'RG Manager', 90), ('rg_reviewer', 'RG Reviewer', 91),
+      ('rg_buyer', 'RG Buyer', 92), ('rg_boss', 'RG Boss', 93);
+    insert into role_permissions values ('rg_mgr', 'users.manage'), ('rg_mgr', 'request.review'),
+      ('rg_reviewer', 'request.review'), ('rg_buyer', 'request.order'), ('rg_boss', 'workflow.edit');`);
+  const mgr = await signUp('rg.mgr@ufl.edu', 'Rae Manager');
+  const p1 = await signUp('rg.one@ufl.edu', 'Uma One');
+  const p2 = await signUp('rg.two@ufl.edu', 'Tom Two');
+  await setRole(mgr, 'rg_mgr');
+  await setRole(p2, 'treasurer');
+  const changes = async (who) => (await db.query(
+    `select actor_name, old_roles, new_roles, via, note from role_changes where target_id = $1 order by id`, [who])).rows;
+
+  await test('a people manager gives and takes roles whose permissions they hold, and it is recorded', async () => {
+    await as(mgr, () => rpc('set_user_roles', [p1, ['rg_reviewer']]));
+    assert.equal(await roleOf(p1), 'rg_reviewer');
+    await as(mgr, () => rpc('set_user_roles', [p1, []])); // back to Member
+    assert.equal(await roleOf(p1), 'member');
+    const rows = (await changes(p1)).filter((r) => r.via === 'set_user_roles');
+    assert.deepEqual(rows, [
+      { actor_name: 'Rae Manager', old_roles: ['member'], new_roles: ['rg_reviewer'], via: 'set_user_roles', note: '' },
+      { actor_name: 'Rae Manager', old_roles: ['rg_reviewer'], new_roles: ['member'], via: 'set_user_roles', note: '' },
+    ]); // one row per change, not one per role row
+  });
+
+  await test("a people manager can't give a role with permissions they don't have", async () => {
+    await as(mgr, () => rejects(rpc('set_user_roles', [p1, ['rg_buyer']]), /can't give or take "RG Buyer": it includes things you can't do yourself/));
+    await as(mgr, () => rejects(rpc('set_user_roles', [p1, ['rg_reviewer', 'rg_buyer']]), /RG Buyer/)); // all or nothing
+    assert.equal(await roleOf(p1), 'member');
+  });
+
+  await test("a people manager can't give or take privileged roles (Admin, CE, Treasurer, custom ones that manage people or the workflow)", async () => {
+    for (const role of ['admin', 'ce', 'treasurer', 'rg_boss', 'rg_mgr']) {
+      await as(mgr, () => rejects(rpc('set_user_roles', [p1, [role]]), /Only an Admin can give or take/));
+    }
+    await as(mgr, () => rejects(rpc('set_user_roles', [p2, ['member']]), /Only an Admin can give or take "Treasurer"/));
+    assert.deepEqual([await roleOf(p1), await roleOf(p2)], ['member', 'treasurer']);
+  });
+
+  await test("nobody but an Admin changes their own roles; a member can't change anyone's", async () => {
+    await as(mgr, () => rejects(rpc('set_user_roles', [mgr, ['rg_mgr', 'rg_reviewer']]), /can't change your own roles/));
+    await as(p2, () => rejects(rpc('set_user_role', [p2, 'ce']), /can't change your own roles/)); // the old one-role function too
+    await as(p1, () => rejects(rpc('set_user_roles', [p1, ['rg_reviewer']]), /does not allow/));
+    await as(mgr, () => rejects(rpc('set_user_roles', [p1, ['guest']]), /Guest isn't a role you can give/));
+  });
+
+  await test('an Admin can give any role, change their own, and the last-Admin guard still holds', async () => {
+    await as(admin, () => rpc('set_user_roles', [p1, ['rg_boss', 'rg_buyer']]));
+    assert.equal(await roleOf(p1), 'rg_boss,rg_buyer');
+    await as(admin, () => rpc('set_user_roles', [p1, ['member']]));
+    await as(admin, () => rpc('set_user_roles', [admin, ['admin', 'rg_reviewer']]));
+    assert.equal(await roleOf(admin), 'admin,rg_reviewer');
+    await as(admin, () => rpc('set_user_roles', [admin, ['admin']]));
+    const admins = (await db.query(`select user_id from profile_roles where role = 'admin' and user_id <> $1`, [admin])).rows.map((r) => r.user_id);
+    for (const id of admins) await db.query(`delete from profile_roles where user_id = $1 and role = 'admin'`, [id]);
+    await as(admin, () => rejects(rpc('set_user_roles', [admin, ['ce']]), /last Admin/));
+    for (const id of admins) await db.query(`insert into profile_roles values ($1, 'admin')`, [id]);
+    assert.equal(await roleOf(admin), 'admin');
+  });
+
+  await test('the website asks which roles a person may change (the boxes it greys out)', async () => {
+    const problem = async (role) => (await as(mgr, () => rpc('role_change_problem', [role]))).rows[0].result;
+    assert.equal(await problem('rg_reviewer'), '');
+    assert.equal(await problem('member'), '');
+    assert.match(await problem('rg_buyer'), /can't do yourself/);
+    assert.match(await problem('treasurer'), /Only an Admin/);
+    assert.equal((await as(admin, () => rpc('role_change_problem', ['treasurer']))).rows[0].result, '');
+    await as(null, () => rejects(rpc('role_change_problem', ['admin']), /permission denied/));
+  });
+
+  await test('sign-up, accepting, changes made in the database, and removals are recorded too', async () => {
+    const newbie = await signUpGuest('rg.new@ufl.edu', 'Ned New');
+    await as(admin, () => rpc('accept_member', [newbie]));
+    await db.query(`insert into profile_roles values ($1, 'rg_buyer')`, [newbie]); // e.g. the SQL editor
+    await as(admin, () => rpc('deactivate_person', [newbie, ''])); // 044: deleting needs deactivating first
+    await as(admin, () => rpc('remove_person', [newbie, 'Test account']));
+    assert.deepEqual((await changes(newbie)).map((r) => [r.via, r.old_roles, r.new_roles, r.note]), [
+      ['sign-up', [], ['guest'], 'added guest'],
+      ['accept_member', ['guest'], ['member'], ''], // Guest goes in the same change, not as a row of its own
+      ['database', ['member'], ['member', 'rg_buyer'], 'added rg_buyer'],
+      ['deactivate_person', ['member', 'rg_buyer'], ['alumni'], ''],
+      ['remove_person', ['alumni'], [], 'Test account'],
+    ]); // the removal is one row, not one per role the cascade deletes
+  });
+
+  await test('only people managers read the record; nobody writes it from the website', async () => {
+    assert.equal((await as(member, () => db.query(`select count(*)::int n from role_changes`))).rows[0].n, 0);
+    assert.ok((await as(mgr, () => db.query(`select count(*)::int n from role_changes`))).rows[0].n > 0);
+    await as(mgr, () => rejects(db.query(`insert into role_changes (via) values ('forged')`), /permission denied/));
+    await as(mgr, () => rejects(db.query(`delete from role_changes`), /permission denied/));
+    await as(mgr, () => rejects(rpc('log_role_change', [p1, [], ['admin'], 'forged', '']), /permission denied/));
+  });
+}
+
+
+console.log('Accepting people: who, and only confirmed accounts (043)');
+
+{
+  // Right after the migrations (the tests above rewrote CE's permissions by hand, so look at a fresh copy).
+  const { freshDb } = await import('./support/supabase-stub.mjs');
+  const clean = await freshDb();
+  const holders = (await clean.query(`select string_agg(role, ',' order by role) r from role_permissions where permission = 'people.accept'`)).rows[0].r;
+  await clean.close();
+  await db.exec(`insert into role_permissions values ('ce', 'people.accept') on conflict do nothing`);
+  const ceA = await signUp('acc.ce@ufl.edu', 'Ari Accept');
+  await setRole(ceA, 'ce');
+  const tres = await signUp('acc.tres@ufl.edu', 'Tara Tres');
+  await setRole(tres, 'treasurer');
+  const fresh = await signUpGuest('acc.unconfirmed@ufl.edu', 'Una Unconfirmed');
+  await db.query(`update auth.users set email_confirmed_at = null where id = $1`, [fresh]);
+  const ok = await signUpGuest('acc.confirmed@ufl.edu', 'Cole Confirmed');
+  const spam = await signUpGuest('acc.stranger@ufl.edu', 'Stan Stranger');
+
+  await test('only Admin, CE and E-board can accept people (unless an Admin ticks it for another role)', async () => {
+    assert.equal(holders, 'admin,ce,eboard');
+    await as(tres, () => rejects(rpc('accept_member', [ok]), /does not allow/));
+    await as(tres, () => rejects(db.query(`select * from waiting_people()`), /does not allow/));
+    assert.equal((await db.query(`select count(*)::int n from pg_trigger where tgname = 'new_role_can_accept'`)).rows[0].n, 0);
+  });
+
+  await test('waiting_people says who confirmed their email; an unconfirmed account cannot be accepted', async () => {
+    const rows = (await as(ceA, () => db.query(`select email, email_confirmed from waiting_people() where email like 'acc.%' order by email`))).rows;
+    assert.deepEqual(rows.map((r) => [r.email, r.email_confirmed]),
+      [['acc.confirmed@ufl.edu', true], ['acc.stranger@ufl.edu', true], ['acc.unconfirmed@ufl.edu', false]]);
+    await as(ceA, () => rejects(rpc('accept_member', [fresh]), /haven't confirmed their email/));
+    assert.equal(await roleOf(fresh), 'guest');
+    await as(ceA, () => rpc('accept_member', [ok]));
+    assert.equal(await roleOf(ok), 'member');
+    // waiting_guests (pages from before 043) still works
+    assert.ok((await as(ceA, () => db.query(`select email from waiting_guests()`))).rows.some((r) => r.email === 'acc.stranger@ufl.edu'));
+  });
+
+  await test('declining someone deletes the account, lists them under Removed people, and records it', async () => {
+    await as(tres, () => rejects(rpc('decline_guest', [spam, '']), /does not allow/));
+    await as(ceA, () => rejects(rpc('decline_guest', [ok, '']), /already on the team/));
+    await as(ceA, () => rpc('decline_guest', [spam, 'Not on the team']));
+    assert.equal((await db.query(`select count(*)::int n from auth.users where id = $1`, [spam])).rows[0].n, 0);
+    const rec = (await db.query(`select full_name, note, removed_by_name from removed_people where email = 'acc.stranger@ufl.edu'`)).rows[0];
+    assert.deepEqual(rec, { full_name: 'Stan Stranger', note: 'Not accepted. Not on the team', removed_by_name: 'Ari Accept' });
+    const log = (await db.query(`select via, old_roles, new_roles from role_changes where target_id = $1 order by id desc limit 1`, [spam])).rows[0];
+    assert.deepEqual(log, { via: 'decline_guest', old_roles: ['guest'], new_roles: [] });
+    await as(ceA, () => rpc('decline_guest', [spam, ''])); // twice is harmless
+  });
+
+  await test('only an Admin changes which email addresses can sign up', async () => {
+    const general = (await db.query(`select value from app_settings where key = 'general'`)).rows[0].value;
+    await as(ce, () => rejects(rpc('update_settings', ['general', { ...general, allowedEmailDomains: ['gmail.com'] }]), /Only an Admin can change which email/));
+    await as(ce, () => rpc('update_settings', ['general', { ...general, requestIdPrefix: general.requestIdPrefix }])); // other settings are fine
+    await as(admin, () => rpc('update_settings', ['general', { ...general, allowedEmailDomains: ['ufl.edu', 'sfcollege.edu'] }]));
+    assert.deepEqual((await db.query(`select value->'allowedEmailDomains' d from app_settings where key = 'general'`)).rows[0].d, ['ufl.edu', 'sfcollege.edu']);
+    // …and undoing it through the history is guarded too
+    const hist = (await db.query(`select id from settings_history where key = 'general' order by id desc limit 1 offset 1`)).rows[0];
+    if (hist) await as(ce, () => rejects(rpc('restore_settings_version', [hist.id]), /Only an Admin can change which email/));
+    await as(admin, () => rpc('update_settings', ['general', general]));
+  });
+}
+
+
+console.log('Former members: deactivate instead of delete (044)');
+
+{
+  // Owner-side setup must not run as whoever the last as(...) call signed in.
+  const asOwner = () => db.query(`select set_config('request.jwt.claim.sub', '', false)`);
+  const mgr = await signUp('d.mgr@ufl.edu', 'Dee Manager');
+  await setRole(mgr, 'ce'); // CE: manages people (the tests above may have changed CE's list, so make sure)
+  await db.exec(`insert into role_permissions values ('ce', 'users.manage') on conflict do nothing`);
+  const leaving = await signUp('d.leaving@ufl.edu', 'Lou Leaving');
+  const tres = await signUp('d.tres@ufl.edu', 'Tia Tres');
+  await setRole(tres, 'treasurer');
+  const subject = await signUp('d.subject@ufl.edu', 'Sid Subject');
+
+  // Lou wrote a request, an eval (as evaluator) and an input note; Sid has a shared eval of their own.
+  const num = (await as(leaving, () => rpc('save_request', [null, { title: 'Lou request', requester: 'Lou Leaving' }, [], 'draft']))).rows[0].result;
+  await asOwner();
+  const evalId = (await db.query(`insert into evals (rubric, evaluator_id, subject_id, member_id, status, kind)
+    values ('{}', $1, $2, $2, 'shared', 'ce') returning id`, [leaving, subject])).rows[0].id;
+  const otherEval = (await db.query(`insert into evals (rubric, evaluator_id, subject_id, status, kind)
+    values ('{}', $1, $2, 'draft', 'ce') returning id`, [mgr, subject])).rows[0].id;
+  await db.query(`insert into eval_input_notes (eval_id, author_id, author_name, body) values ($1, $2, 'Lou Leaving', 'Solid work.')`, [otherEval, leaving]);
+  await db.query(`insert into eval_questions (owner_id, questions) values ($1, '[{"id":"q1","text":"What went well?"}]')`, [leaving]);
+  await db.query(`insert into request_watchers (request_id, user_id) select id, $1 from requests where request_number = $2 on conflict do nothing`, [leaving, num]);
+  await db.query(`insert into notification_outbox (event, recipient_id, email, channel) values ('test', $1, 'd.leaving@ufl.edu', 'email')`, [leaving]);
+  const count = async (who, table) => (await as(who, () => db.query(`select count(*)::int n from ${table}`))).rows[0].n;
+
+  await test('before: Lou is on the team and can read the eval they wrote', async () => {
+    assert.equal(await count(leaving, 'evals'), 1);
+    assert.ok(await count(leaving, 'requests') > 0);
+  });
+
+  await test("who can deactivate: people managers, not themselves, the role rules apply, Admins only for Admins", async () => {
+    await as(member, () => rejects(rpc('deactivate_person', [leaving, '']), /does not allow/));
+    await as(mgr, () => rejects(rpc('deactivate_person', [mgr, '']), /can't deactivate yourself/));
+    await as(mgr, () => rejects(rpc('deactivate_person', [tres, '']), /Only an Admin can give or take "Treasurer"/)); // 042's rule
+    await as(mgr, () => rejects(rpc('deactivate_person', [admin, '']), /Only an Admin can deactivate an Admin/));
+    const guestX = await signUpGuest('d.guest@ufl.edu', 'Gus Guest');
+    await as(mgr, () => rejects(rpc('deactivate_person', [guestX, '']), /haven't been accepted/));
+  });
+
+  await test('deactivating: roles become Former member, recorded; watchers and queued messages go; sign-in is blocked', async () => {
+    await as(mgr, () => rpc('deactivate_person', [leaving, 'Graduated']));
+    assert.equal(await roleOf(leaving), 'alumni');
+    const log = (await db.query(`select via, old_roles, new_roles, note from role_changes where target_id = $1 order by id desc limit 1`, [leaving])).rows[0];
+    assert.deepEqual(log, { via: 'deactivate_person', old_roles: ['member'], new_roles: ['alumni'], note: 'Graduated' });
+    assert.equal((await db.query(`select count(*)::int n from request_watchers where user_id = $1`, [leaving])).rows[0].n, 0);
+    assert.deepEqual((await db.query(`select status from notification_outbox where recipient_id = $1`, [leaving])).rows.map((r) => r.status), ['failed']);
+    await asOwner();
+    await db.query(`insert into notification_outbox (event, recipient_id, email, channel) values ('test', $1, 'd.leaving@ufl.edu', 'email')`, [leaving]);
+    assert.equal((await db.query(`select count(*)::int n from notification_outbox where recipient_id = $1`, [leaving])).rows[0].n, 1); // the new one was dropped
+    assert.equal((await db.query(`select banned_until = 'infinity' b from auth.users where id = $1`, [leaving])).rows[0].b, true);
+    await as(mgr, () => rpc('deactivate_person', [leaving, ''])); // twice is harmless
+  });
+
+  await test("a former member reads none of the team's data (evals they wrote and their own included) and can change nothing", async () => {
+    for (const t of ['requests', 'request_items', 'approvals', 'evals', 'eval_input_notes', 'eval_questions', 'eval_types', 'finance_rows',
+      'sponsor_cards', 'settings_history', 'attachments', 'role_changes']) {
+      assert.equal(await count(leaving, t), 0, t);
+    }
+    assert.deepEqual((await as(leaving, () => db.query(`select id from profiles`))).rows.map((r) => r.id), [leaving]); // only themselves
+    await as(leaving, () => rejects(rpc('save_request', [null, { title: 'x' }, [], 'draft']), /access has ended/));
+    await as(leaving, () => rejects(rpc('eval_input_note_save', [otherEval, 'More']), /access has ended|Only someone asked/));
+    // The subject of a shared eval who is deactivated can't read it either (D-6).
+    await as(admin, () => rpc('deactivate_person', [subject, '']));
+    assert.equal(await count(subject, 'evals'), 0);
+  });
+
+  await test('what they did stays, with their name', async () => {
+    const req = (await db.query(`select created_by, requester from requests where request_number = $1`, [num])).rows[0];
+    assert.deepEqual(req, { created_by: leaving, requester: 'Lou Leaving' });
+    assert.ok(await count(mgr, `(select 1 from profiles where id = '${leaving}') x`) === 1); // still listed for people managers
+  });
+
+  await test("former members aren't waiting guests: they can't be accepted, turned away, or given roles by ticking boxes", async () => {
+    const waiting = (await as(admin, () => db.query(`select id from waiting_guests() union all select id from waiting_people()`))).rows.map((r) => r.id);
+    assert.ok(!waiting.includes(leaving));
+    await as(admin, () => rejects(rpc('accept_member', [leaving]), /former member/));
+    await as(admin, () => rejects(rpc('decline_guest', [leaving, '']), /former member/));
+    await as(admin, () => rejects(rpc('set_user_roles', [leaving, ['member']]), /Use Reactivate/));
+    await as(admin, () => rejects(rpc('set_user_roles', [member, ['alumni']]), /use Deactivate/));
+    await rejects(db.query(`insert into role_permissions values ('alumni', 'request.review')`), /Former members can't have permissions/);
+    await rejects(db.query(`delete from roles where key = 'alumni'`), /Former member is built in/);
+  });
+
+  await test('reactivating gives roles back (under the role rules), restores access, and lifts the sign-in block', async () => {
+    await as(mgr, () => rejects(rpc('reactivate_person', [leaving, ['treasurer']]), /Only an Admin can give or take "Treasurer"/));
+    await as(mgr, () => rejects(rpc('reactivate_person', [member, []]), /aren't deactivated/));
+    await as(mgr, () => rpc('reactivate_person', [leaving, []]));
+    assert.equal(await roleOf(leaving), 'member');
+    assert.equal(await count(leaving, 'evals'), 1);
+    assert.equal((await db.query(`select banned_until from auth.users where id = $1`, [leaving])).rows[0].banned_until, null);
+    assert.equal((await db.query(`select via from role_changes where target_id = $1 order by id desc limit 1`, [leaving])).rows[0].via, 'reactivate_person');
+  });
+
+  await test('"Former members can sign in" (Admins only) skips the sign-in block', async () => {
+    const general = (await db.query(`select value from app_settings where key = 'general'`)).rows[0].value;
+    await as(ce, () => rejects(rpc('update_settings', ['general', { ...general, formerMembersCanSignIn: true }]), /Only an Admin can change whether former members/));
+    await as(admin, () => rpc('update_settings', ['general', { ...general, formerMembersCanSignIn: true }]));
+    await as(mgr, () => rpc('deactivate_person', [leaving, '']));
+    assert.equal((await db.query(`select banned_until from auth.users where id = $1`, [leaving])).rows[0].banned_until, null);
+    await as(admin, () => rpc('update_settings', ['general', general]));
+  });
+
+  await test('deleting a former member (Admins only) keeps their eval notes and archives their questions', async () => {
+    await as(mgr, () => rejects(rpc('remove_person', [leaving, '']), /Only an Admin can delete/));
+    await as(admin, () => rejects(rpc('remove_person', [member, '']), /Deactivate them first/));
+    await as(admin, () => rpc('remove_person', [leaving, 'Left in 2026']));
+    const note = (await db.query(`select author_id, author_name, body from eval_input_notes where eval_id = $1`, [otherEval])).rows;
+    assert.deepEqual(note, [{ author_id: null, author_name: 'Lou Leaving', body: 'Solid work.' }]);
+    const arch = (await db.query(`select former_owner_name, questions from eval_questions_archive where former_owner_id = $1`, [leaving])).rows;
+    assert.deepEqual(arch, [{ former_owner_name: 'Lou Leaving', questions: [{ id: 'q1', text: 'What went well?' }] }]);
+    const rec = (await db.query(`select roles from removed_people where email = 'd.leaving@ufl.edu' order by removed_at desc limit 1`)).rows[0];
+    assert.deepEqual(rec.roles, ['member']); // what they had before they were deactivated
+    // The evaluator keeps reading the note (it's on their eval).
+    assert.equal(await count(mgr, 'eval_input_notes where eval_id = \'' + otherEval + '\''), 1);
+  });
+}
+
+
+console.log('Two people editing the same thing; double submits (045)');
+
+{
+  const conflict = async (promise, pattern) => {
+    const err = await rejects(promise, pattern);
+    assert.equal(err.code, 'OS409', 'error code');
+  };
+  const stampOf = async (table, id) => (await db.query(`select updated_at, updated_by from ${table} where id = $1`, [id])).rows[0];
+
+  await test('Finances cells: a change by someone else since you looked is refused; your own, or the same value, is not', async () => {
+    const sheet = (await as(treasurer, () => rpc('save_finance_sheet', [null, 'Conflicts', [{ key: 'amt', label: 'Amount', type: 'money' }]]))).rows[0].result;
+    const [row] = (await as(treasurer, () => rpc('add_finance_rows', [sheet, [{ data: {} }]]))).rows[0].result;
+    await as(admin, () => rpc('set_finance_cell_checked', [row.id, 'amt', '10', '']));        // admin saw it empty: fine
+    await conflict(as(treasurer, () => rpc('set_finance_cell_checked', [row.id, 'amt', '12', ''])), /Ada Admin changed this cell to “10”/);
+    await as(treasurer, () => rpc('set_finance_cell_checked', [row.id, 'amt', '10', '']));     // typed the same value: nothing lost
+    await as(treasurer, () => rpc('set_finance_cell_checked', [row.id, 'amt', '12', '10']));   // saw 10: fine
+    await as(treasurer, () => rpc('set_finance_cell_checked', [row.id, 'amt', '14', '10']));   // stale, but the last change was their own
+    await as(treasurer, () => rpc('set_finance_cell_checked', [row.id, 'amt', '15', null]));   // null: no check (like the old function)
+    assert.equal((await db.query(`select data->>'amt' a from finance_rows where id = $1`, [row.id])).rows[0].a, '15');
+    await as(member, () => rejects(rpc('set_finance_cell_checked', [row.id, 'amt', '1', '15']), /does not allow/));
+    await as(treasurer, () => rpc('delete_finance_sheet', [sheet]));
+  });
+
+  await test('settings: refused if someone else saved after you loaded them; the new stamp lets you save again', async () => {
+    const before = (await db.query(`select value, updated_at from app_settings where key = 'general'`)).rows[0];
+    await as(ce, () => rpc('update_settings', ['general', { ...before.value, teamName: 'Solar Gators (CE)' }]));
+    await conflict(as(admin, () => rpc('update_settings_checked', ['general', { ...before.value, teamName: 'Mine' }, before.updated_at])),
+      /changed these settings at \d{1,2}:\d\d [AP]M, after you opened it/);
+    const fresh = (await db.query(`select updated_at from app_settings where key = 'general'`)).rows[0].updated_at;
+    const next = (await as(admin, () => rpc('update_settings_checked', ['general', { ...before.value, teamName: 'Mine' }, fresh]))).rows[0].result;
+    await as(admin, () => rpc('update_settings_checked', ['general', before.value, next])); // and again, with what came back
+    assert.equal((await db.query(`select value->>'teamName' t from app_settings where key = 'general'`)).rows[0].t, before.value.teamName);
+  });
+
+  await test('sponsor cards: an edit by someone else is a conflict, moving a card is not', async () => {
+    const id = await cardRpc(coordinator, 'save_sponsor_card', [null, { name: 'Conflict Co', kind: 'Sponsorship' }]);
+    const seen = (await stampOf('sponsor_cards', id)).updated_at;
+    const stage = (await db.query(`select stage from sponsor_cards where id = $1`, [id])).rows[0].stage;
+    await as(admin, () => rpc('move_sponsor_card', [id, stage, 9999]));
+    assert.equal(String((await stampOf('sponsor_cards', id)).updated_at), String(seen)); // a move isn't an edit
+    const res = (await as(coordinator, () => rpc('save_sponsor_card_checked', [id, { description: 'Called them' }, seen]))).rows[0].result;
+    assert.equal(res.id, id);
+    await as(admin, () => rpc('save_sponsor_card', [id, { description: 'Emailed them' }]));
+    assert.equal((await stampOf('sponsor_cards', id)).updated_by, admin);
+    await conflict(as(coordinator, () => rpc('save_sponsor_card_checked', [id, { description: 'Mine' }, res.updated_at])), /Ada Admin changed this sponsor card/);
+    assert.equal((await db.query(`select description from sponsor_cards where id = $1`, [id])).rows[0].description, 'Emailed them');
+  });
+
+  await test("the Treasurer's ledger: an edit by someone else is a conflict", async () => {
+    const created = (await as(treasurer, () => rpc('save_purchase_checked', [null, { description: 'Conflict bolts', amount: '5', category: 'Misc' }, null]))).rows[0].result;
+    await as(admin, () => rpc('save_purchase', [created.id, { notes: 'Admin note' }]));
+    await conflict(as(treasurer, () => rpc('save_purchase_checked', [created.id, { notes: 'Mine' }, created.updated_at])), /changed this purchase/);
+    const now = (await stampOf('finance_purchases', created.id)).updated_at;
+    await as(treasurer, () => rpc('save_purchase_checked', [created.id, { notes: 'Mine' }, now]));
+    await as(treasurer, () => rpc('delete_purchase', [created.id]));
+  });
+
+  await test('request items: checked against the request as the page read it', async () => {
+    const num = (await as(member, () => rpc('save_request', [null, { title: 'Conflict draft' }, [], 'draft']))).rows[0].result;
+    const r = (await db.query(`select id, updated_at, updated_by from requests where request_number = $1`, [num])).rows[0];
+    assert.equal(r.updated_by, null); // made, not edited
+    await as(member, () => rpc('save_request', [r.id, { title: 'Conflict draft 2' }, [], 'draft']));
+    assert.equal((await stampOf('requests', r.id)).updated_by, member);
+    await conflict(as(treasurer, () => rpc('edit_request_items_checked', [r.id, [], 'x', r.updated_at])), /Mia M[^ ]* changed this request/);
+  });
+
+  await test('a double-clicked Submit makes one request; another person reusing the token gets nothing', async () => {
+    const token = '0000aaaa-0000-4000-8000-00000000c0de';
+    const count = async () => (await db.query(`select count(*)::int n from requests where client_token = $1`, [token])).rows[0].n;
+    const first = (await as(member, () => rpc('save_request_once', [token, completeRequest, completeItems, 'submit']))).rows[0].result;
+    const second = (await as(member, () => rpc('save_request_once', [token, completeRequest, completeItems, 'submit']))).rows[0].result;
+    assert.equal(second, first);
+    assert.equal(await count(), 1);
+    await as(other, () => rejects(rpc('save_request_once', [token, completeRequest, completeItems, 'submit']), /duplicate key|unique/));
+    assert.equal(await count(), 1);
+    const plain = (await as(member, () => rpc('save_request_once', [null, { title: 'No token' }, [], 'draft']))).rows[0].result;
+    assert.notEqual(plain, first);
+  });
+}
+
+
+console.log('Diagnostics: errors and problem reports (046)');
+
+{
+  const log = (who, p) => as(who, () => rpc('log_client_error', [p]));
+  const rows = async (where = 'true') => (await db.query(`select * from client_errors where ${where} order by id`)).rows;
+  await db.exec(`delete from client_errors`);
+
+  await test('signed out or in, a page can log an error; tokens, emails and the query string are blanked', async () => {
+    await log(null, { kind: 'error', app: 'orders', version: 'abc123', message: 'Boom for someone@ufl.edu',
+      detail: 'at x (orders/js/api.js:12) token eyJhbGciOi.eyJzdWIiOiIx.c2lnbmF0dXJl', path: '/orders/?code=SECRET123#/requests/SG27-001?x=1', ua: 'Test' });
+    const [r] = await rows();
+    assert.equal(r.user_id, null);
+    assert.equal(r.message, 'Boom for [email]');
+    assert.equal(r.detail, 'at x (orders/js/api.js:12) token [token]');
+    assert.equal(r.path, '/orders/#/requests/SG27-001');
+    assert.ok(!JSON.stringify(r).includes('SECRET123'));
+  });
+
+  await test('long fields are cut; unknown kinds become "error"', async () => {
+    await log(member, { kind: 'weird', message: 'x'.repeat(900), detail: 'y'.repeat(5000), app: 'a-very-long-app-name-indeed', ua: 'u'.repeat(400) });
+    const [r] = await rows(`user_id = '${member}'`);
+    assert.deepEqual([r.kind, r.message.length, r.detail.length, r.app.length, r.ua.length], ['error', 500, 2000, 20, 200]);
+  });
+
+  await test('the same error from the same person within 10 minutes adds to a count; reports never collapse', async () => {
+    for (let i = 0; i < 3; i++) await log(other, { kind: 'error', message: 'Same thing', version: 'v1' });
+    const same = await rows(`user_id = '${other}' and message = 'Same thing'`);
+    assert.deepEqual(same.map((r) => r.count), [3]);
+    await log(other, { kind: 'report', message: 'The page froze' });
+    await log(other, { kind: 'report', message: 'The page froze' });
+    assert.equal((await rows(`user_id = '${other}' and kind = 'report'`)).length, 2);
+  });
+
+  await test('caps: 10 a minute per person, 30 a minute from signed-out pages', async () => {
+    for (let i = 0; i < 15; i++) await log(ce, { kind: 'error', message: `CE error ${i}` });
+    assert.equal((await rows(`user_id = '${ce}'`)).length, 10);
+    for (let i = 0; i < 40; i++) await log(null, { kind: 'error', message: `Anon error ${i}` });
+    assert.equal((await rows(`user_id is null`)).length, 30);
+  });
+
+  await test('only people who can change the workflow (Admins) read diagnostics or resolve reports', async () => {
+    assert.equal((await as(member, () => db.query(`select count(*)::int n from client_errors`))).rows[0].n, 0);
+    assert.equal((await as(null, () => rejects(db.query(`select count(*) from client_errors`), /permission denied/))) !== undefined, true);
+    assert.ok((await as(admin, () => db.query(`select count(*)::int n from client_errors`))).rows[0].n > 40);
+    const [report] = await rows(`kind = 'report'`);
+    await as(member, () => rejects(rpc('set_client_error_status', [report.id, 'resolved']), /does not allow/));
+    await as(admin, () => rpc('set_client_error_status', [report.id, 'resolved']));
+    assert.equal((await rows(`id = ${report.id}`))[0].status, 'resolved');
+    await as(member, () => rejects(db.query(`insert into client_errors (kind) values ('error')`), /permission denied/));
+  });
+
+  await test('diagnostics older than 90 days are purged', async () => {
+    await db.exec(`update client_errors set last_at = now() - interval '91 days' where user_id is null`);
+    const gone = (await as(admin, () => rpc('purge_old_diagnostics', []))).rows[0].result;
+    assert.equal(gone, 30); // every signed-out row (the cap kept 30)
+    await as(member, () => rejects(rpc('purge_old_diagnostics', []), /does not allow/));
+  });
+}
+
+console.log('Recently deleted: restoring sponsor cards and Finances records (047)');
+
+{
+  const deleted = async (kind) => (await db.query(`select * from deleted_records where kind = $1 order by id desc`, [kind])).rows;
+  const restore = (who, id) => as(who, () => rpc('restore_deleted_record', [id]));
+  const season = (await db.query(`select value ->> 'season' s from app_settings where key = 'general'`)).rows[0].s;
+
+  await test('a deleted sponsor card comes back with its activity, watchers, files and Finances links', async () => {
+    const leaver = await signUp('leaver047@ufl.edu', 'Lee Leaver');
+    const card = (await as(coordinator, () => rpc('save_sponsor_card', [null, { name: 'Restore Me Inc', kind: 'Sponsorship' }]))).rows[0].result;
+    await as(coordinator, () => rpc('add_sponsor_comment', [card, 'Called them twice.']));
+    await db.query(`insert into sponsor_watchers (card_id, user_id) values ($1, $2), ($1, $3) on conflict do nothing`, [card, coordinator, leaver]);
+    await db.query(`insert into attachments (sponsor_card_id, path, file_name) values ($1, 'sponsors/x/logo.png', 'logo.png')`, [card]);
+    const sheet = (await as(treasurer, () => rpc('save_finance_sheet', [null, 'Sponsor income 047', []]))).rows[0].result;
+    const [row] = (await as(treasurer, () => rpc('add_finance_rows', [sheet, [{ data: {} }]]))).rows[0].result;
+    await db.query(`update finance_rows set sponsor_card_id = $1 where id = $2`, [card, row.id]);
+    const before = (await db.query(`select to_jsonb(c) - 'updated_at' j from sponsor_cards c where id = $1`, [card])).rows[0].j;
+
+    await as(coordinator, () => rpc('delete_sponsor_card', [card]));
+    assert.equal((await db.query(`select count(*)::int n from sponsor_cards where id = $1`, [card])).rows[0].n, 0);
+    assert.equal((await db.query(`select sponsor_card_id from finance_rows where id = $1`, [row.id])).rows[0].sponsor_card_id, null);
+    const [d] = await deleted('sponsor_card');
+    assert.deepEqual([d.label, d.deleted_by_name, d.children.sponsor_watchers.length, d.children.attachments.length], ['Restore Me Inc', 'Cora Coordinator', 2, 1]);
+
+    // Lee leaves before it's restored: they're dropped from the watchers, nothing fails.
+    await db.query(`delete from auth.users where id = $1`, [leaver]);
+    const out = (await restore(coordinator, d.id)).rows[0].result;
+    assert.equal(out.record_id, card);
+    const after = (await db.query(`select to_jsonb(c) - 'updated_at' j from sponsor_cards c where id = $1`, [card])).rows[0].j;
+    assert.deepEqual(after, before);
+    assert.deepEqual((await db.query(`select user_id from sponsor_watchers where card_id = $1`, [card])).rows.map((r) => r.user_id), [coordinator]);
+    const activity = (await db.query(`select kind, body from sponsor_activity where card_id = $1 order by id`, [card])).rows;
+    assert.ok(activity.some((a) => a.body === 'Called them twice.'));
+    assert.match(activity.at(-1).body, /^Restored \(deleted by Cora Coordinator on /);
+    assert.equal((await db.query(`select count(*)::int n from attachments where sponsor_card_id = $1`, [card])).rows[0].n, 1);
+    assert.equal((await db.query(`select sponsor_card_id from finance_rows where id = $1`, [row.id])).rows[0].sponsor_card_id, card);
+    assert.ok((await db.query(`select restored_at from deleted_records where id = $1`, [d.id])).rows[0].restored_at);
+    await as(coordinator, () => rejects(rpc('restore_deleted_record', [d.id]), /already restored by Cora Coordinator/));
+  });
+
+  await test('a deleted custom sheet comes back with all its rows; a row on its own comes back too', async () => {
+    const sheet = (await as(treasurer, () => rpc('save_finance_sheet', [null, 'Delete me 047', [{ key: 'who', label: 'Who', type: 'text' }]]))).rows[0].result;
+    const rows = (await as(treasurer, () => rpc('add_finance_rows', [sheet, [{ data: { who: 'A' } }, { data: { who: 'B' } }]]))).rows[0].result;
+    await as(treasurer, () => rpc('delete_finance_rows', [[rows[0].id]]));
+    await as(treasurer, () => rpc('delete_finance_sheet', [sheet]));
+    const [rowCopy] = await deleted('finance_row');
+    await as(treasurer, () => rejects(rpc('restore_deleted_record', [rowCopy.id]), /Its sheet was deleted too/));
+    const [sheetCopy] = await deleted('finance_sheet');
+    await restore(treasurer, sheetCopy.id);
+    assert.deepEqual((await db.query(`select data ->> 'who' w from finance_rows where sheet_id = $1`, [sheet])).rows.map((r) => r.w), ['B']);
+    await restore(treasurer, rowCopy.id);
+    assert.deepEqual((await db.query(`select data ->> 'who' w from finance_rows where sheet_id = $1 order by position`, [sheet])).rows.map((r) => r.w).sort(), ['A', 'B']);
+  });
+
+  await test('purchases and funding sources come back; empty purchase lines aren\'t kept', async () => {
+    const p = (await as(treasurer, () => rpc('save_purchase', [null, { description: 'Restore this purchase', amount: '42' }]))).rows[0].result;
+    const empty = (await as(treasurer, () => rpc('save_purchase', [null, {}]))).rows[0].result;
+    const f = (await as(treasurer, () => rpc('save_fund', [null, { season, name: 'Restore this fund', expected: '500' }]))).rows[0].result;
+    const n = (await deleted('purchase')).length;
+    await as(treasurer, () => rpc('delete_purchase', [empty]));
+    assert.equal((await deleted('purchase')).length, n);
+    await as(treasurer, () => rpc('delete_purchase', [p]));
+    await as(treasurer, () => rpc('delete_fund', [f]));
+    await restore(treasurer, (await deleted('purchase'))[0].id);
+    await restore(treasurer, (await deleted('fund'))[0].id);
+    assert.equal((await db.query(`select amount::float a from finance_purchases where id = $1`, [p])).rows[0].a, 42);
+    assert.equal((await db.query(`select expected::float e from finance_funds where id = $1`, [f])).rows[0].e, 500);
+  });
+
+  await test('only people who can edit that area see or restore what was deleted there', async () => {
+    const card = (await as(coordinator, () => rpc('save_sponsor_card', [null, { name: 'Gone Again LLC', kind: 'Sponsorship' }]))).rows[0].result;
+    await as(coordinator, () => rpc('delete_sponsor_card', [card]));
+    const [d] = await deleted('sponsor_card');
+    assert.equal((await as(member, () => db.query(`select count(*)::int n from deleted_records`))).rows[0].n, 0);
+    assert.equal((await as(treasurer, () => db.query(`select count(*)::int n from deleted_records where kind = 'sponsor_card'`))).rows[0].n, 0);
+    assert.ok((await as(treasurer, () => db.query(`select count(*)::int n from deleted_records where kind = 'purchase'`))).rows[0].n > 0);
+    await as(member, () => rejects(rpc('restore_deleted_record', [d.id]), /does not allow/));
+    await as(treasurer, () => rejects(rpc('restore_deleted_record', [d.id]), /does not allow/));
+    await as(member, () => rejects(db.query(`insert into deleted_records (kind, record_id, snapshot) values ('fund', gen_random_uuid(), '{}')`), /permission denied/));
+    await as(member, () => rejects(rpc('keep_deleted', ['fund', card, 'x', '', {}, {}]), /permission denied/));
+  });
+}
+
+console.log('Imports can\'t repeat by accident; names link when someone joins (048)');
+
+{
+  const ownerOf = async (title) =>
+    (await db.query(`select p.full_name from requests r left join profiles p on p.id = r.created_by where r.title = $1`, [title])).rows[0]?.full_name ?? null;
+  const row = (title, requester) => ({ title, requester, subsystem: 'Battery', date: '2026-09-20', status: 'Received', items: [{ item_name: title, quantity: '1', unit_price: '2' }] });
+
+  await test('importing the same requests twice is refused (OS410) unless asked to; who did it first is named', async () => {
+    const sheet = [row('Washers 048', 'Quinn Zed')];
+    assert.equal((await as(admin, () => rpc('import_requests_once', [sheet, 'Orders 2026.xlsx', false]))).rows[0].result, 1);
+    const err = await as(admin, () => rejects(rpc('import_requests_once', [sheet, 'Orders 2026.xlsx', false]), /already imported on .* by Ada Admin\. Import again anyway\?/));
+    assert.equal(err.code, 'OS410');
+    assert.equal((await db.query(`select count(*)::int n from requests where title = 'Washers 048'`)).rows[0].n, 1);
+    await as(admin, () => rpc('import_requests_once', [sheet, 'Orders 2026.xlsx', true]));
+    assert.equal((await db.query(`select count(*)::int n from requests where title = 'Washers 048'`)).rows[0].n, 2);
+    const batches = (await as(admin, () => db.query(`select source_file, row_count, imported_by_name from import_batches where kind = 'requests'`))).rows;
+    assert.deepEqual(batches.map((b) => [b.source_file, b.row_count, b.imported_by_name]), [['Orders 2026.xlsx', 1, 'Ada Admin'], ['Orders 2026.xlsx', 1, 'Ada Admin']]);
+    // A different sheet is fine; people who can't import can't, or see the log.
+    await as(admin, () => rpc('import_requests_once', [[row('Spacers 048', 'Quinn Zed')], 'Other.xlsx', false]));
+    await as(member, () => rejects(rpc('import_requests_once', [[row('Sneaky 048', 'X')], '', true]), /does not allow/));
+    assert.equal((await as(member, () => db.query(`select count(*)::int n from import_batches`))).rows[0].n, 0);
+  });
+
+  await test('archived sheets: the same rows twice are refused too', async () => {
+    const rows = [{ Item: 'Old bolt', Cost: '1' }];
+    await as(admin, () => rpc('import_archive_once', ['2019-2020', 'Old.xlsx', 'Sheet1', ['Item', 'Cost'], rows, false]));
+    await as(admin, () => rejects(rpc('import_archive_once', ['2019-2020', 'Old.xlsx', 'Sheet1', ['Item', 'Cost'], rows, false]), /already imported/));
+    await as(admin, () => rpc('import_archive_once', ['2019-2020', 'Old.xlsx', 'Sheet1', ['Item', 'Cost'], rows, true]));
+  });
+
+  await test('a Guest named like a requester gets nothing; once accepted, the requests are linked and their History says so', async () => {
+    // "Quinn Zed" signs up: still a Guest. Imports and renames don't hand them anyone's requests.
+    const quinn = await signUpGuest('quinn048@ufl.edu', 'Quinn Zed');
+    await as(admin, () => rpc('import_requests_once', [[row('Rivets 048', 'Quinn Zed')], 'More.xlsx', false]));
+    assert.deepEqual([await ownerOf('Washers 048'), await ownerOf('Rivets 048')], [null, null]);
+    await as(quinn, () => rpc('update_my_profile', ['Quinn Zed']));
+    assert.equal(await ownerOf('Rivets 048'), null);
+
+    await as(admin, () => rpc('accept_member', [quinn]));
+    assert.deepEqual([await ownerOf('Washers 048'), await ownerOf('Spacers 048'), await ownerOf('Rivets 048')], ['Quinn Zed', 'Quinn Zed', 'Quinn Zed']);
+    const ev = (await db.query(`select e.actor_name, e.note from request_events e join requests r on r.id = e.request_id where r.title = 'Rivets 048' and e.kind = 'linked'`)).rows;
+    assert.deepEqual(ev.map((e) => e.actor_name), ['Ada Admin']);
+    assert.match(ev[0].note, /^Linked to Quinn Zed's account/);
+  });
+
+  await test('a new account can\'t take a member\'s requests by using their name', async () => {
+    await signUp('rory048@ufl.edu', 'Rory Real'); // on the team
+    await signUpGuest('fake-rory048@ufl.edu', 'Rory Real'); // a new sign-up using the same name
+    await as(admin, () => rpc('import_requests_once', [[row('Grommets 048', 'Rory Real')], 'Rory.xlsx', false]));
+    const owner = (await db.query(`select p.email from requests r join profiles p on p.id = r.created_by where r.title = 'Grommets 048'`)).rows[0]?.email;
+    assert.equal(owner, 'rory048@ufl.edu'); // only the member counts, so it isn't ambiguous either
   });
 }
 

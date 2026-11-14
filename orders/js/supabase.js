@@ -1,5 +1,10 @@
-/** The shared Supabase client. */
-import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+/**
+ * The shared Supabase client.
+ * The library version is pinned exactly (npm test refuses a floating "@2"): 2.119.0 is what "@2" served
+ * when it was pinned (2026-11-13), so nothing changed for users. Upgrade on purpose, in its own change,
+ * and run the release checklist (docs/RELEASING.md).
+ */
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0/+esm';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './site-config.js';
 
 export const isConfigured = !SUPABASE_URL.includes('YOUR-PROJECT') && !SUPABASE_ANON_KEY.startsWith('YOUR-');

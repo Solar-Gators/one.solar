@@ -1,5 +1,6 @@
 /** Shared formatting and small UI helpers used by every view. */
 import { STEPS, COMMITTED, stepOf, stepChoices } from './ledger.js';
+import { friendlyMessage } from './messages.js';
 
 // Workflow statuses. The database enforces the transitions (supabase/schema.sql);
 // keep this list in sync with the `status` check constraint there.
@@ -156,6 +157,15 @@ export const optionChip = (fieldKey, value) => {
   return t ? `<span class="chip-tone tone-${t}">${esc(value)}</span>` : esc(value);
 };
 
+/**
+ * The person who made the request also approved it (S-3). Allowed (a CE's own parts), but shown wherever
+ * money is decided, so it's noticed: request lists, the Treasurer's queue, the request page and Finances.
+ */
+export const isSelfApproved = (r) =>
+  !!r?.created_by && (r.approvals || []).some((a) => a.decision === 'approve' && a.approver_id === r.created_by);
+export const selfApprovedTag = (r) =>
+  isSelfApproved(r) ? ' <span class="field-tag self-approved" title="The person who made this request also approved it">Self-approved</span>' : '';
+
 export const statusBadge = (status) =>
   `<span class="badge tone-${statusColor(status)}" data-status="${esc(status)}">${esc(statusLabel(status))}</span>`;
 
@@ -291,7 +301,7 @@ export const COLUMNS = {
   },
   status: {
     label: 'Status',
-    cell: (r) => statusBadge(r.status),
+    cell: (r) => statusBadge(r.status) + selfApprovedTag(r),
     sort: (r) => STATUSES.indexOf(r.status), // workflow order, not alphabetical
     dirLabels: { asc: 'Draft → Received', desc: 'Received → Draft' },
   },
@@ -409,7 +419,7 @@ export function bindRowLinks(el) {
 export function errorBox(err) {
   err = err instanceof Error || err?.message ? err : new Error(String(err));
   const details = err.details?.length ? `<ul>${err.details.map((d) => `<li>${esc(d)}</li>`).join('')}</ul>` : '';
-  return `<div class="alert alert-error" role="alert"><strong>${esc(err.message)}</strong>${details}</div>`;
+  return `<div class="alert alert-error" role="alert"><strong>${esc(friendlyMessage(err))}</strong>${details}</div>`;
 }
 
 // ---- One-shot flash message shown on the next page render ----------------

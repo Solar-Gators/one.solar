@@ -6,13 +6,15 @@ This guide is for whoever maintains the site: setting it up from scratch, runnin
 - **Website:** plain HTML/CSS/JavaScript, served by **GitHub Pages** from the `main` branch. There is no build step and no server.
 - **Accounts + database:** [Supabase](https://supabase.com) (free tier). It handles sign-in, stores the data, and enforces every permission.
 - **Live site:** https://solar-gators.github.io/one.solar/ (Orders at `/one.solar/orders/`)
-- **Changing the site:** edit files, commit, and push to `main`. Pages redeploys in about a minute.
+- **Changing the site:** edit files on a branch, open a pull request, and merge when the tests pass. The **Deploy site** workflow tests again and publishes in a few minutes; a failing test publishes nothing. See [RELEASING.md](RELEASING.md) (including how to revert).
 
 **Permissions** live in the database (`permissions` and `role_permissions` tables), not in code:
 - **Changing what a role can do:** use **Admin → one.solar → Roles & permissions** on the site. The Table Editor works too.
 - **Lockout protection:** the database refuses any change (to a role or to the grid) that would leave nobody with `users.manage`. The Admin role always keeps `roles.edit`, and the last Admin can't drop the Admin role or be removed.
 - **Admin is special (035):** only Admins can give or take the Admin role, change an Admin's roles, or remove an Admin. Everyone else with `users.manage` can do the rest.
-- **Removing someone who left (035):** Admin → Users → **Remove…** deletes their login; what they did keeps their name, and the removal is kept in `removed_people`. If the same email signs up again, people managers see a flag (Users page, and a line under the top bar) until someone clicks **Let them back in** or **Remove again**.
+- **Someone who left (044):** Admin → Users → **Deactivate…** makes them a **Former member**: their roles go (recorded in `role_changes`), they see none of the team's data (evals included), they can't sign in (unless an Admin turns on *Former members can sign in* under Team & season), and everything they did keeps their name. **Reactivate** brings them back. Only an Admin can **Delete permanently…** an account, and only a former member's or a guest's (type their email to confirm); their eval notes are kept and their saved eval questions are archived. Deleted accounts are kept in `removed_people`; if the same email signs up again, people managers see a flag until someone clicks **Let them back in**.
+- **Roles (042):** only an Admin changes their own roles, or gives or takes Admin, CE, Treasurer or any role that can manage people, edit roles or change the workflow. Others who manage people can give or take only roles whose abilities they have themselves. Every change is in `role_changes` (Admin → Users → Role changes).
+- **Accepting people (043):** only Admin, CE and E-board can ("Accept new people"), and only once the person has confirmed their email. **Not on the team…** on the home screen turns someone away. Only an Admin changes the allowed sign-up email domains.
 - **Solar Evals is set up on its own page (036):** kinds of eval, groups, forms and questionnaires are rows in the database edited in Solar Evals → Setup / Forms / Questionnaires (`evals.types`, `evals.templates`). Each eval keeps a copy of its type's settings (`evals.type_settings`), and the row security reads that copy, so changing a type never changes who can see an eval already written until someone clicks **Apply to evals in progress**.
 - **Roles:** a person can hold several roles (`profile_roles` table); their permissions combine. Built-in roles are Member, Chief Engineer, Treasurer and Admin. More can be created on the site.
 - **Current permissions:**
@@ -21,7 +23,7 @@ This guide is for whoever maintains the site: setting it up from scratch, runnin
   - `settings.edit`: form fields, dropdown lists, team settings, request rules.
   - `site.customize`: list columns/filters/sorting, status and priority labels and colors.
   - `seasons.manage`: start a new season, import spreadsheets.
-  - `users.manage`: give people roles (not Admin), and remove people who left.
+  - `users.manage`: give people roles (not Admin or other people-managing roles: see 042 above), and deactivate people who left.
   - `roles.edit`: create, rename and delete roles, and the permission grid (Admin only by default).
   - `evals.write`, `evals.view`, `evals.templates`, `evals.types`: Solar Evals: fill out evals, see all evals, edit forms and questionnaires, set up kinds of eval (036).
 - **Settings history:** every version of `app_settings` (general, form, lists, appearance) and of the permission grid is kept in `settings_history`. Leads restore versions from the **History** link at the top of each Admin page.
@@ -93,7 +95,14 @@ await fakeReset()   // wipe local data
 npm test
 ```
 
-`npm test` runs every test file in `tests/`. `npm run test:import` checks spreadsheet column recognition against the real headers of the 2024-25, 2025-26, and 2026-27 sheets. `npm run test:db` runs every file in `supabase/migrations/` in PGlite and checks the security rules as different users, e.g. "a Member can't approve", "a Chief Engineer can't mark ordered", "you can't edit someone else's draft", and "non-UF emails can't sign up". Run it after any database change. `tests/notify.test.mjs` checks how notification messages are written (placeholders, email HTML, the Teams card).
+`npm test` runs every test file in `tests/`. `npm run test:import` checks spreadsheet column recognition against the real headers of the 2024-25, 2025-26, and 2026-27 sheets. `npm run test:db` runs every file in `supabase/migrations/` in PGlite and checks the security rules as different users, e.g. "a Member can't approve", "a Chief Engineer can't mark ordered", "you can't edit someone else's draft", and "non-UF emails can't sign up". Run it after any database change. `tests/notify.test.mjs` checks how notification messages are written (placeholders, email HTML, the Teams card). `tests/site.test.mjs` checks what GitHub Pages publishes (only the site, no broken local links, exact CDN versions) and `tests/workflows.test.mjs` checks that the GitHub Actions workflows only deploy after the tests pass.
+
+```bash
+npx playwright install chromium   # once per computer
+npm run test:smoke
+```
+
+`npm run test:smoke` (`tests/e2e/`) opens every app in Chromium on the fake backend, signed out and as an Admin, and fails on any JavaScript error or any request to the real Supabase. GitHub runs all of this on every pull request and before every deploy: see [RELEASING.md](RELEASING.md).
 
 ## How it works
 
@@ -157,10 +166,34 @@ Request IDs (`SG-001`, …) come from a database sequence, and the prefix is set
 ## Database updates
 
 New features sometimes need a database change. These live in `supabase/migrations/` as numbered files. When one is added, leads see a yellow **"Database update needed"** banner naming the file. To apply it:
-1. Open the file on GitHub and copy its contents.
-2. In Supabase, go to **SQL Editor → New query**, paste, and click **Run**.
+1. **Back up first** (see [RECOVERY.md](RECOVERY.md)), at least before anything that changes or removes data.
+2. Open the file on GitHub and copy its contents.
+3. In Supabase, go to **SQL Editor → New query**, paste, and click **Run**.
+4. Check it was recorded: `select * from schema_migrations order by version desc limit 3;`
+5. **Then** merge the website change that needs it. The website must never need something the database doesn't have yet.
 
-Each migration only needs to run once.
+**The ledger (from 041).** `schema_migrations` lists every migration. 001–040 are marked `baseline`: they were run by hand before the ledger existed and are *not individually verified*; `schema_baseline` records how the database compared with the repo when the ledger started. From 041 on, each file records itself as its **last** statement. Postgres runs the whole file as one transaction, so if anything fails, nothing is kept and nothing is recorded: fix the problem and run the same file again. Running a file twice, or skipping one, is refused with a message saying which to run.
+
+### Before 041
+1. Run [`supabase/checks/040_baseline_check.sql`](../supabase/checks/040_baseline_check.sql) in the SQL editor. It's read-only.
+2. **No rows**: run 041.
+3. **Rows with `blocks_041 = true`** (a table, column, function, policy or trigger differs from migrations 001–040): usually a migration file was changed after it was run, or something was edited in the dashboard. Fix it by re-running the current definition from the latest migration that defines that object (search `supabase/migrations/` for its name), then run the check again. Only if the team decides a difference is correct, set `v_accept_differences := true` and write why in `v_note` near the top of 041; 041 records that in `schema_baseline`.
+4. **Rows with `blocks_041 = false`** are grants (who may call or read what). They don't block 041, but review them: anything `anon` can call or any non-SELECT table grant is worth a look. 041 always refuses if a table has row-level security off or if `anon`/`authenticated` can write a table directly.
+
+### Writing a migration
+- **Never edit a migration that may have been run** (001 onwards, once merged). Add a new file with the next number.
+- Start with `select public.migration_begin(N);` and end with `select public.migration_done(N, 'NNN_name.sql');`. `npm test` checks both, and that the app's lists (`orders/js/main.js` `REQUIRED_SCHEMA_VERSION` + `MIGRATIONS`, `tools/fake-supabase.js` `MIGRATIONS`) include it.
+- Write it so it can simply be run again after a failure (`create or replace`, `if not exists`, `on conflict do nothing`).
+- Don't remove or rename anything the live website still uses in the same release: add first, remove in a later migration.
+
+### Changing a database function
+Supabase's API finds a function by **name and the names of the arguments sent**. Postgres treats `f(a, b)` and `f(a, b, c)` as *two* functions, and `create or replace` with a new argument list **adds a second one**, after which every call fails (PGRST203). So:
+1. **Same arguments, new body:** `create or replace` is fine.
+2. **A new optional input:** put it inside an existing `jsonb` argument if the function already reads keys from one (e.g. `p_fields ? 'expected_updated_at'`).
+3. Otherwise **a new function with a new name** (e.g. `…_checked`), keeping the old one for pages people still have open; remove the old one in a later migration.
+4. **A different result** (new columns): `drop function` + `create function` + the grants again, in the same file.
+
+`npm test` (`tests/rpc.test.mjs`) fails if a callable function gets a second version, if any callable signature changes without updating `tests/rpc-signatures.json` (`node tests/rpc.test.mjs --update`), or if any call in the website names a missing argument or function.
 
 ## Email & Teams notifications
 
@@ -220,7 +253,7 @@ If UF's tenant doesn't offer the trigger, or says it needs a premium license, po
 
 When the new leads take over (usually with **Admin → one.solar → Team & season → Start a new season**):
 1. **Start the season:** Admin → one.solar → Team & season → **Start a new season**. Numbering restarts (e.g. SG27-001), last season moves to the Archive, and unfinished orders stay in the queues.
-2. **Roles:** give the new Chief Engineer and Treasurer their roles in **Admin → one.solar → Users**, and set graduating leads to Member (or **Remove…** people who left the team). At least one person must always keep "Manage people", and there must always be an Admin.
+2. **Roles:** give the new Chief Engineer and Treasurer their roles in **Admin → one.solar → Users**, and set graduating leads to Member (or **Deactivate…** people who left the team). At least one person must always keep "Manage people", and there must always be an Admin.
 3. **Supabase:** invite the new leads to the Supabase organization (Organization settings → Team) so someone can run database updates and restore the project if it pauses.
 4. **GitHub:** give the new leads access to the `Solar-Gators/one.solar` repository.
 5. **Email (optional):** if you set up custom SMTP for sign-up and password-reset emails, make sure the account behind it isn't tied to someone who's graduating.

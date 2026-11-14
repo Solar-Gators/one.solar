@@ -4,6 +4,7 @@
  */
 import assert from 'node:assert/strict';
 import { ledgerLines, budgetTable, fundingTotals, readFinancialsSheet, setLedgerSettings, STEPS, stepOf } from '../orders/js/ledger.js';
+import { isSelfApproved, selfApprovedTag } from '../orders/js/ui.js';
 
 let passed = 0;
 function test(name, fn) {
@@ -129,6 +130,16 @@ test("the Treasurer's own steps: renamed, hidden, and new ones counting as pipel
   } finally {
     setLedgerSettings({});
   }
+});
+
+test('Self-approved: the person who made the request also approved it (not a rejection, not someone else)', () => {
+  const mine = { created_by: 'a', approvals: [{ decision: 'approve', approver_id: 'b' }, { decision: 'approve', approver_id: 'a' }] };
+  assert.equal(isSelfApproved(mine), true);
+  assert.match(selfApprovedTag(mine), /Self-approved/);
+  assert.equal(isSelfApproved({ created_by: 'a', approvals: [{ decision: 'reject', approver_id: 'a' }] }), false);
+  assert.equal(isSelfApproved({ created_by: 'a', approvals: [{ decision: 'approve', approver_id: 'b' }] }), false);
+  assert.equal(isSelfApproved({ created_by: null, approvals: [{ decision: 'approve', approver_id: null }] }), false);
+  assert.equal(selfApprovedTag(undefined), '');
 });
 
 console.log(`\n${passed} passed${process.exitCode ? ', some FAILED' : ''}`);

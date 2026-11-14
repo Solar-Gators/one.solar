@@ -1,25 +1,28 @@
 /**
  * A made-up Supabase client for trying the home screen on localhost (?fake).
  *   ?fake              a Member
+ *   ?fake=ce           Chief Engineer (accepts new people, 043)
  *   ?fake=admin        Admin (✎ Edit home screen; saved in this browser)
  *   ?fake=treasurer    Treasurer (Finances, Queue)
  *   ?fake=coordinator  Business Coordinator (Sponsors, Finances)
  *   ?fake=guest        a Guest: signed up, not accepted into the team yet (040)
+ *   ?fake=alumni       a former member (deactivated, 044)
  *   ?fake=out          signed out
  * Only loaded on localhost; it never talks to the real database.
  */
 const PERMS = {
   guest: [],
-  member: ['people.accept'],
+  alumni: [],
+  member: [],
   admin: ['users.manage', 'workflow.edit', 'site.customize', 'settings.edit', 'request.review', 'request.order', 'finances.view', 'sponsors.view', 'people.accept'],
   ce: ['request.review', 'sponsors.view', 'evals.write', 'evals.view', 'people.accept'],
-  treasurer: ['request.order', 'finances.view', 'finances.edit', 'sponsors.view', 'people.accept'],
-  coordinator: ['sponsors.view', 'sponsors.edit', 'finances.view', 'people.accept'],
+  treasurer: ['request.order', 'finances.view', 'finances.edit', 'sponsors.view'],
+  coordinator: ['sponsors.view', 'sponsors.edit', 'finances.view'],
 };
-// People waiting to be accepted (040), for everyone but a guest.
+// People waiting to be accepted (040), for those who can accept them (Admin, CE, E-board since 043).
 let waiting = [
-  { id: 'fake-guest-1', full_name: 'Sam Newcomer', email: 'sam.newcomer@ufl.edu', created_at: new Date(Date.now() - 864e5).toISOString() },
-  { id: 'fake-guest-2', full_name: '', email: 'j.doe@ufl.edu', created_at: new Date(Date.now() - 3 * 864e5).toISOString() },
+  { id: 'fake-guest-1', full_name: 'Sam Newcomer', email: 'sam.newcomer@ufl.edu', created_at: new Date(Date.now() - 864e5).toISOString(), email_confirmed: true },
+  { id: 'fake-guest-2', full_name: '', email: 'j.doe@ufl.edu', created_at: new Date(Date.now() - 3 * 864e5).toISOString(), email_confirmed: false },
 ];
 
 export function createFakeClient(kind) {
@@ -36,7 +39,7 @@ export function createFakeClient(kind) {
     try { return JSON.parse(localStorage.getItem('fake-onesolar-appearance')); } catch { return null; }
   };
   const rows = {
-    profiles: () => [{ full_name: 'Riley Tester', email: user.email }],
+    profiles: () => [{ full_name: 'Riley Tester', email: user.email, created_at: new Date(Date.now() - 2 * 864e5).toISOString() }],
     profile_roles: () => [{ role }],
     role_permissions: () => PERMS[role].map((permission) => ({ permission })),
     roles: () => [
@@ -70,10 +73,14 @@ export function createFakeClient(kind) {
   return {
     from: query,
     rpc: async (fn, { p_key, p_value, p_user } = {}) => {
-      if (fn === 'waiting_guests' || fn === 'accept_member') {
+      if (['waiting_guests', 'waiting_people', 'accept_member', 'decline_guest'].includes(fn)) {
         if (!PERMS[role].includes('people.accept')) return { data: null, error: { message: 'Your role does not allow this action (people.accept).' } };
-        if (fn === 'accept_member') waiting = waiting.filter((w) => w.id !== p_user);
-        return { data: fn === 'waiting_guests' ? waiting : null, error: null };
+        if (fn === 'accept_member' && waiting.find((w) => w.id === p_user)?.email_confirmed === false) {
+          return { data: null, error: { message: "They haven't confirmed their email address yet." } };
+        }
+        if (fn === 'accept_member' || fn === 'decline_guest') waiting = waiting.filter((w) => w.id !== p_user);
+        if (fn === 'waiting_guests') return { data: waiting.map(({ email_confirmed, ...w }) => w), error: null };
+        return { data: fn === 'waiting_people' ? waiting : null, error: null };
       }
       if (fn !== 'update_settings' || p_key !== 'onesolar') return { error: { message: 'Not in fake mode.' } };
       if (!PERMS[role].includes('site.customize')) return { error: { message: 'Your role does not allow this action (site.customize).' } };

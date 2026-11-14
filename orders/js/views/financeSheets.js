@@ -456,7 +456,7 @@ export async function renderSheets(el, { config, rerender, reloadConfig }) {
       return;
     }
     if (btn.dataset.deleteRow) {
-      if (!confirm('Delete this row? This can\'t be undone.')) return;
+      if (!confirm('Delete this row? You can restore it from Recently deleted (bottom of Finances) for 90 days.')) return;
       try {
         await api.deleteFinanceRows([btn.dataset.deleteRow]);
         rows.splice(rows.findIndex((r) => r.id === btn.dataset.deleteRow), 1);

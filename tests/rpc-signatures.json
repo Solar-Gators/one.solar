@@ -1,0 +1,732 @@
+{
+ "accept_member": {
+  "args": "p_user uuid",
+  "returns": "void",
+  "anon": false
+ },
+ "add_attachment": {
+  "args": "p_kind text, p_owner uuid, p_path text, p_url text, p_file_name text, p_size bigint, p_mime text, p_label text",
+  "returns": "uuid",
+  "anon": false
+ },
+ "add_finance_rows": {
+  "args": "p_sheet uuid, p_rows jsonb",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "add_sponsor_comment": {
+  "args": "p_id uuid, p_body text",
+  "returns": "void",
+  "anon": false
+ },
+ "ask_sponsors_again": {
+  "args": "p_ids uuid[], p_season text, p_car text",
+  "returns": "integer",
+  "anon": false
+ },
+ "attachment_access": {
+  "args": "p_kind text, p_owner uuid, p_edit boolean",
+  "returns": "boolean",
+  "anon": false
+ },
+ "attachment_counts": {
+  "args": "p_kind text",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "attachment_kind": {
+  "args": "a attachments",
+  "returns": "text",
+  "anon": true
+ },
+ "attachment_owner": {
+  "args": "a attachments",
+  "returns": "uuid",
+  "anon": true
+ },
+ "cancel_request": {
+  "args": "p_id uuid, p_reason text",
+  "returns": "void",
+  "anon": false
+ },
+ "check_rubric": {
+  "args": "p jsonb",
+  "returns": "void",
+  "anon": false
+ },
+ "claim_sponsor_card": {
+  "args": "p_id uuid, p_on boolean",
+  "returns": "void",
+  "anon": false
+ },
+ "clear_removed_flag": {
+  "args": "p_email text",
+  "returns": "void",
+  "anon": false
+ },
+ "create_role": {
+  "args": "p_label text",
+  "returns": "text",
+  "anon": false
+ },
+ "deactivate_person": {
+  "args": "p_user uuid, p_note text",
+  "returns": "void",
+  "anon": false
+ },
+ "decline_guest": {
+  "args": "p_user uuid, p_note text",
+  "returns": "void",
+  "anon": false
+ },
+ "delete_archive_import": {
+  "args": "p_id uuid",
+  "returns": "void",
+  "anon": false
+ },
+ "delete_attachment": {
+  "args": "p_id uuid",
+  "returns": "text",
+  "anon": false
+ },
+ "delete_finance_rows": {
+  "args": "p_ids uuid[]",
+  "returns": "void",
+  "anon": false
+ },
+ "delete_finance_sheet": {
+  "args": "p_id uuid",
+  "returns": "void",
+  "anon": false
+ },
+ "delete_fund": {
+  "args": "p_id uuid",
+  "returns": "void",
+  "anon": false
+ },
+ "delete_purchase": {
+  "args": "p_id uuid",
+  "returns": "void",
+  "anon": false
+ },
+ "delete_request": {
+  "args": "p_id uuid",
+  "returns": "void",
+  "anon": false
+ },
+ "delete_role": {
+  "args": "p_key text",
+  "returns": "void",
+  "anon": false
+ },
+ "delete_sponsor_card": {
+  "args": "p_id uuid",
+  "returns": "void",
+  "anon": false
+ },
+ "edit_request_items": {
+  "args": "p_id uuid, p_items jsonb, p_reason text",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "edit_request_items_checked": {
+  "args": "p_id uuid, p_items jsonb, p_reason text, p_expected_updated_at timestamp with time zone",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "eval_answers_visible": {
+  "args": "p_self uuid",
+  "returns": "boolean",
+  "anon": false
+ },
+ "eval_check_inputs": {
+  "args": "s jsonb, p_new uuid[], p_old uuid[], p_by text, p_writer uuid",
+  "returns": "void",
+  "anon": false
+ },
+ "eval_check_ratings": {
+  "args": "p_rubric jsonb, p_ratings jsonb",
+  "returns": "void",
+  "anon": false
+ },
+ "eval_check_rule": {
+  "args": "r jsonb, what text, allowed text[]",
+  "returns": "void",
+  "anon": false
+ },
+ "eval_check_settings": {
+  "args": "s jsonb",
+  "returns": "void",
+  "anon": false
+ },
+ "eval_check_settings_base": {
+  "args": "s jsonb",
+  "returns": "void",
+  "anon": false
+ },
+ "eval_clean_questions": {
+  "args": "p jsonb",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "eval_default_questions": {
+  "args": "",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "eval_default_settings": {
+  "args": "",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "eval_delete": {
+  "args": "p_id uuid",
+  "returns": "void",
+  "anon": false
+ },
+ "eval_form_remove": {
+  "args": "p_id text",
+  "returns": "void",
+  "anon": false
+ },
+ "eval_form_save": {
+  "args": "p_id text, p_name text, p_color text, p_parent text",
+  "returns": "text",
+  "anon": false
+ },
+ "eval_group_delete": {
+  "args": "p_id text",
+  "returns": "void",
+  "anon": false
+ },
+ "eval_group_save": {
+  "args": "p_id text, p_name text, p_members uuid[]",
+  "returns": "text",
+  "anon": false
+ },
+ "eval_inbox": {
+  "args": "",
+  "returns": "TABLE(self_id uuid, member_id uuid, member_name text, semester text, division text, subsystem text, lead_id uuid, template_label text, submitted_at timestamp with time zone, ce_eval_id uuid, ce_status text, meeting_at timestamp with time zone, type_id text, type_name text, input_ids uuid[])",
+  "anon": false
+ },
+ "eval_input_note_save": {
+  "args": "p_eval uuid, p_body text",
+  "returns": "void",
+  "anon": false
+ },
+ "eval_inputs_from": {
+  "args": "p jsonb",
+  "returns": "uuid[]",
+  "anon": false
+ },
+ "eval_latest_template": {
+  "args": "p_track text",
+  "returns": "uuid",
+  "anon": false
+ },
+ "eval_lbl": {
+  "args": "s jsonb, k text",
+  "returns": "text",
+  "anon": false
+ },
+ "eval_member_comment": {
+  "args": "p_id uuid, p_text text",
+  "returns": "void",
+  "anon": false
+ },
+ "eval_notify_inputs": {
+  "args": "p_eval uuid, p_old uuid[], p_new uuid[]",
+  "returns": "void",
+  "anon": false
+ },
+ "eval_questionnaire_remove": {
+  "args": "p_id uuid",
+  "returns": "void",
+  "anon": false
+ },
+ "eval_questionnaire_save": {
+  "args": "p_id uuid, p_name text, p_questions jsonb",
+  "returns": "uuid",
+  "anon": false
+ },
+ "eval_questions_for": {
+  "args": "p_ce uuid",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "eval_questions_save": {
+  "args": "p jsonb",
+  "returns": "void",
+  "anon": false
+ },
+ "eval_require_evaluator": {
+  "args": "s jsonb, p_type_name text",
+  "returns": "void",
+  "anon": false
+ },
+ "eval_rule_match": {
+  "args": "p_rule jsonb, p_user uuid",
+  "returns": "boolean",
+  "anon": false
+ },
+ "eval_save": {
+  "args": "p_id uuid, p jsonb",
+  "returns": "uuid",
+  "anon": false
+ },
+ "eval_schedule_meeting": {
+  "args": "p_id uuid, p_at timestamp with time zone, p_place text",
+  "returns": "void",
+  "anon": false
+ },
+ "eval_self_save": {
+  "args": "p_id uuid, p jsonb",
+  "returns": "uuid",
+  "anon": false
+ },
+ "eval_self_submit": {
+  "args": "p_id uuid, p_submit boolean",
+  "returns": "void",
+  "anon": false
+ },
+ "eval_self_visible": {
+  "args": "p_self uuid",
+  "returns": "boolean",
+  "anon": false
+ },
+ "eval_set_status": {
+  "args": "p_id uuid, p_status text",
+  "returns": "void",
+  "anon": false
+ },
+ "eval_slug": {
+  "args": "p_name text",
+  "returns": "text",
+  "anon": false
+ },
+ "eval_stage_ok": {
+  "args": "p_status text, p_need text",
+  "returns": "boolean",
+  "anon": false
+ },
+ "eval_start_review": {
+  "args": "p_self uuid",
+  "returns": "uuid",
+  "anon": false
+ },
+ "eval_subject_account": {
+  "args": "e evals",
+  "returns": "uuid",
+  "anon": false
+ },
+ "eval_template_fits": {
+  "args": "p_track text, s jsonb",
+  "returns": "boolean",
+  "anon": false
+ },
+ "eval_template_remove": {
+  "args": "p_id uuid",
+  "returns": "void",
+  "anon": false
+ },
+ "eval_template_save": {
+  "args": "p_track text, p_label text, p_note text, p_based_on uuid, p_rubric jsonb",
+  "returns": "uuid",
+  "anon": false
+ },
+ "eval_track_save": {
+  "args": "p_id text, p_name text, p_color text",
+  "returns": "text",
+  "anon": false
+ },
+ "eval_type_apply": {
+  "args": "p_id text",
+  "returns": "integer",
+  "anon": false
+ },
+ "eval_type_delete": {
+  "args": "p_id text",
+  "returns": "void",
+  "anon": false
+ },
+ "eval_type_for_new": {
+  "args": "p_type text",
+  "returns": "eval_types",
+  "anon": false
+ },
+ "eval_type_questions": {
+  "args": "s jsonb, p_ce uuid",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "eval_type_save": {
+  "args": "p_id text, p_name text, p_description text, p_active boolean, p_settings jsonb, p_note text",
+  "returns": "text",
+  "anon": false
+ },
+ "eval_visible_to_me": {
+  "args": "s jsonb, p_status text, p_subject uuid, p_member uuid, p_inputs uuid[]",
+  "returns": "boolean",
+  "anon": false
+ },
+ "first_last_key": {
+  "args": "p_name text",
+  "returns": "text",
+  "anon": true
+ },
+ "fix_request_wording": {
+  "args": "p_id uuid, p_request jsonb, p_items jsonb",
+  "returns": "integer",
+  "anon": false
+ },
+ "fmt_money": {
+  "args": "p numeric",
+  "returns": "text",
+  "anon": false
+ },
+ "has_permission": {
+  "args": "p_permission text",
+  "returns": "boolean",
+  "anon": false
+ },
+ "import_archive": {
+  "args": "p_season text, p_source_file text, p_sheet text, p_columns jsonb, p_rows jsonb",
+  "returns": "uuid",
+  "anon": false
+ },
+ "import_archive_once": {
+  "args": "p_season text, p_source_file text, p_sheet text, p_columns jsonb, p_rows jsonb, p_allow_repeat boolean",
+  "returns": "uuid",
+  "anon": false
+ },
+ "import_requests": {
+  "args": "p_requests jsonb",
+  "returns": "integer",
+  "anon": false
+ },
+ "import_requests_once": {
+  "args": "p_requests jsonb, p_source_file text, p_allow_repeat boolean",
+  "returns": "integer",
+  "anon": false
+ },
+ "import_sponsor_cards": {
+  "args": "p_cards jsonb, p_source text",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "is_admin": {
+  "args": "p_user uuid",
+  "returns": "boolean",
+  "anon": true
+ },
+ "is_member": {
+  "args": "p_user uuid",
+  "returns": "boolean",
+  "anon": false
+ },
+ "ledger_step_kind": {
+  "args": "p_key text",
+  "returns": "text",
+  "anon": false
+ },
+ "log_client_error": {
+  "args": "p jsonb",
+  "returns": "void",
+  "anon": true
+ },
+ "log_sponsor_contact": {
+  "args": "p_id uuid, p_date date, p_note text",
+  "returns": "void",
+  "anon": false
+ },
+ "mark_ordered": {
+  "args": "p_id uuid, p_order_date date, p_order_number text, p_notes text",
+  "returns": "void",
+  "anon": false
+ },
+ "mark_received": {
+  "args": "p_id uuid, p_received_date date, p_notes text",
+  "returns": "void",
+  "anon": false
+ },
+ "move_finance_row": {
+  "args": "p_row uuid, p_position double precision",
+  "returns": "void",
+  "anon": false
+ },
+ "move_sponsor_card": {
+  "args": "p_id uuid, p_stage text, p_position double precision",
+  "returns": "void",
+  "anon": false
+ },
+ "my_name": {
+  "args": "",
+  "returns": "text",
+  "anon": false
+ },
+ "name_key": {
+  "args": "p_name text",
+  "returns": "text",
+  "anon": true
+ },
+ "purge_old_diagnostics": {
+  "args": "",
+  "returns": "integer",
+  "anon": false
+ },
+ "purge_request": {
+  "args": "p_id uuid, p_reason text",
+  "returns": "text[]",
+  "anon": false
+ },
+ "queue_test_notification": {
+  "args": "p_channel text",
+  "returns": "void",
+  "anon": false
+ },
+ "reactivate_person": {
+  "args": "p_user uuid, p_roles text[]",
+  "returns": "void",
+  "anon": false
+ },
+ "remove_person": {
+  "args": "p_user_id uuid, p_note text",
+  "returns": "void",
+  "anon": false
+ },
+ "rename_category": {
+  "args": "p_from text, p_to text, p_drop_budget boolean",
+  "returns": "integer",
+  "anon": false
+ },
+ "rename_role": {
+  "args": "p_key text, p_label text",
+  "returns": "void",
+  "anon": false
+ },
+ "rename_sponsor_tag": {
+  "args": "p_from text, p_to text",
+  "returns": "integer",
+  "anon": false
+ },
+ "renew_sponsor_card": {
+  "args": "p_id uuid, p_season text",
+  "returns": "uuid",
+  "anon": false
+ },
+ "request_category": {
+  "args": "p_request_id uuid, p_field text",
+  "returns": "text",
+  "anon": false
+ },
+ "restore_deleted_record": {
+  "args": "p_id bigint",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "restore_request": {
+  "args": "p_id uuid",
+  "returns": "text",
+  "anon": false
+ },
+ "restore_settings_version": {
+  "args": "p_id bigint",
+  "returns": "void",
+  "anon": false
+ },
+ "retry_notification": {
+  "args": "p_id bigint",
+  "returns": "void",
+  "anon": false
+ },
+ "review_request": {
+  "args": "p_id uuid, p_decision text, p_comment text",
+  "returns": "void",
+  "anon": false
+ },
+ "role_change_problem": {
+  "args": "p_role text",
+  "returns": "text",
+  "anon": false
+ },
+ "save_finance_season": {
+  "args": "p_season text, p_fields jsonb",
+  "returns": "void",
+  "anon": false
+ },
+ "save_finance_sheet": {
+  "args": "p_id uuid, p_name text, p_columns jsonb, p_position integer",
+  "returns": "uuid",
+  "anon": false
+ },
+ "save_fund": {
+  "args": "p_id uuid, p_fields jsonb",
+  "returns": "uuid",
+  "anon": false
+ },
+ "save_fund_checked": {
+  "args": "p_id uuid, p_fields jsonb, p_expected_updated_at timestamp with time zone",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "save_purchase": {
+  "args": "p_id uuid, p_fields jsonb",
+  "returns": "uuid",
+  "anon": false
+ },
+ "save_purchase_checked": {
+  "args": "p_id uuid, p_fields jsonb, p_expected_updated_at timestamp with time zone",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "save_request": {
+  "args": "p_id uuid, p_request jsonb, p_items jsonb, p_action text",
+  "returns": "text",
+  "anon": false
+ },
+ "save_request_once": {
+  "args": "p_client_token uuid, p_request jsonb, p_items jsonb, p_action text",
+  "returns": "text",
+  "anon": false
+ },
+ "save_sponsor_card": {
+  "args": "p_id uuid, p_fields jsonb",
+  "returns": "uuid",
+  "anon": false
+ },
+ "save_sponsor_card_checked": {
+  "args": "p_id uuid, p_fields jsonb, p_expected_updated_at timestamp with time zone",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "save_sponsor_settings": {
+  "args": "p_value jsonb",
+  "returns": "void",
+  "anon": false
+ },
+ "set_budgets": {
+  "args": "p_budgets jsonb",
+  "returns": "void",
+  "anon": false
+ },
+ "set_client_error_status": {
+  "args": "p_id bigint, p_status text",
+  "returns": "void",
+  "anon": false
+ },
+ "set_finance_cell": {
+  "args": "p_row uuid, p_key text, p_value text",
+  "returns": "void",
+  "anon": false
+ },
+ "set_finance_cell_checked": {
+  "args": "p_row uuid, p_key text, p_value text, p_expected text",
+  "returns": "void",
+  "anon": false
+ },
+ "set_items_arrived": {
+  "args": "p_request uuid, p_items uuid[], p_arrived boolean, p_date date, p_note text",
+  "returns": "integer",
+  "anon": false
+ },
+ "set_permission_matrix": {
+  "args": "p_matrix jsonb",
+  "returns": "void",
+  "anon": false
+ },
+ "set_request_owner": {
+  "args": "p_id uuid, p_user_id uuid",
+  "returns": "void",
+  "anon": false
+ },
+ "set_request_watch": {
+  "args": "p_request uuid, p_user uuid, p_on boolean",
+  "returns": "void",
+  "anon": false
+ },
+ "set_role_permissions": {
+  "args": "p_role text, p_permissions text[]",
+  "returns": "void",
+  "anon": false
+ },
+ "set_sponsor_key": {
+  "args": "p_ids uuid[], p_key text",
+  "returns": "void",
+  "anon": false
+ },
+ "set_sponsor_watch": {
+  "args": "p_id uuid, p_user uuid, p_on boolean",
+  "returns": "void",
+  "anon": false
+ },
+ "set_user_role": {
+  "args": "p_user_id uuid, p_role text",
+  "returns": "void",
+  "anon": false
+ },
+ "set_user_roles": {
+  "args": "p_user_id uuid, p_roles text[]",
+  "returns": "void",
+  "anon": false
+ },
+ "start_new_season": {
+  "args": "p_season text",
+  "returns": "text",
+  "anon": false
+ },
+ "undo_received": {
+  "args": "p_id uuid",
+  "returns": "integer",
+  "anon": false
+ },
+ "update_item_costs": {
+  "args": "p_request_id uuid, p_items jsonb, p_reason text",
+  "returns": "integer",
+  "anon": false
+ },
+ "update_my_notification_events": {
+  "args": "p_events jsonb",
+  "returns": "void",
+  "anon": false
+ },
+ "update_my_notification_prefs": {
+  "args": "p_email boolean, p_teams boolean",
+  "returns": "void",
+  "anon": false
+ },
+ "update_my_profile": {
+  "args": "p_full_name text",
+  "returns": "void",
+  "anon": false
+ },
+ "update_settings": {
+  "args": "p_key text, p_value jsonb",
+  "returns": "void",
+  "anon": false
+ },
+ "update_settings_checked": {
+  "args": "p_key text, p_value jsonb, p_expected_updated_at timestamp with time zone",
+  "returns": "timestamp with time zone",
+  "anon": false
+ },
+ "waiting_guests": {
+  "args": "",
+  "returns": "TABLE(id uuid, full_name text, email text, created_at timestamp with time zone)",
+  "anon": false
+ },
+ "waiting_people": {
+  "args": "",
+  "returns": "TABLE(id uuid, full_name text, email text, created_at timestamp with time zone, email_confirmed boolean)",
+  "anon": false
+ },
+ "withdraw_request": {
+  "args": "p_id uuid",
+  "returns": "void",
+  "anon": false
+ },
+ "wording_field_keys": {
+  "args": "",
+  "returns": "text[]",
+  "anon": false
+ }
+}

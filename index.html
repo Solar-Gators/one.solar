@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://xvacijpdfqccsigcoctg.supabase.co wss://xvacijpdfqccsigcoctg.supabase.co; worker-src 'self' blob:; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>one.solar · Solar Gators</title>
   <meta name="description" content="one.solar: every Solar Gators team app in one place — Orders, Sponsors, Finances, Solar Evals, GatorWire and more.">
@@ -41,6 +42,7 @@
     </section>
     <p class="alert alert-success" id="waiting-done" role="status" hidden></p>
     <section class="card waiting" id="waiting" aria-label="Waiting to join the team" hidden></section>
+    <section class="card welcome" id="welcome" aria-label="Welcome to the team" hidden></section>
     <div id="apps" aria-label="Apps"></div>
     <div class="more" id="more"></div>
   </main>

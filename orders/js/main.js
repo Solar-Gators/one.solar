@@ -1,5 +1,5 @@
 /** App bootstrap: connect to Supabase, load settings + the signed-in user, start the router. */
-import { isConfigured } from './supabase.js';
+import { isConfigured, supabase } from './supabase.js';
 import { api, setNotificationsOn } from './api.js';
 import { auth } from './auth.js';
 import { startRouter } from './router.js';
@@ -7,16 +7,19 @@ import { APP, APPS, homePath } from './appMode.js';
 import { hasHelp } from './views/help.js';
 import { setLedgerSettings } from './ledger.js';
 import { mountAppSwitcher } from '../../shared/app-switcher.js';
+import { startVersionCheck } from '../../shared/version-check.js';
+import { startErrorReporter, openReportDialog } from '../../shared/error-reporter.js';
 import { rememberBrand, appUrl } from '../../shared/onesolar.js';
 import { rejoinedFlag } from './views/admin.js';
 import { STATUS, STATUSES, EDITABLE_STATUSES, esc, errorBox, setCurrentSeason, setAppearance, renderRichText, fitTables } from './ui.js';
 
 const app = document.getElementById('app');
 mountAppSwitcher(); // ⊞ next to the logo: jump to any other one.solar app (Ctrl + K)
+if (isConfigured) startErrorReporter(supabase, APP); // errors reach Admin → Diagnostics (046)
 
 // Bump when adding a file to supabase/migrations/ (the migration sets general.schemaVersion).
-const REQUIRED_SCHEMA_VERSION = 40;
-const MIGRATIONS = { 2: '002_form_fields.sql', 3: '003_archive_and_import.sql', 4: '004_cost_adjustments.sql', 5: '005_editable_permissions.sql', 6: '006_seasons.sql', 7: '007_one_vendor_per_request.sql', 8: '008_roles_admin_history.sql', 9: '009_form_rules_layout_exports.sql', 10: '010_workflow_budgets_notifications.sql', 11: '011_notification_choices.sql', 12: '012_link_imported_requests.sql', 13: '013_history_drafts_ticket.sql', 14: '014_finances.sql', 15: '015_sponsors.sql', 16: '016_request_watchers.sql', 17: '017_attachments.sql', 18: '018_treasurer_ledger.sql', 19: '019_fix_wording_pickup.sql', 20: '020_ledger_category.sql', 21: '021_budget_categories.sql', 22: '022_paid_status.sql', 23: '023_rename_category_fix.sql', 24: '024_cancel_approved.sql', 25: '025_treasurer_tools.sql', 26: '026_sponsor_history.sql', 27: '027_sponsor_outreach.sql', 28: '028_solar_evals.sql', 29: '029_onesolar.sql', 30: '030_onesolar_wording.sql', 31: '031_eval_self_reviews.sql', 32: '032_eval_questions.sql', 33: '033_undo_received.sql', 34: '034_edit_approved_items.sql', 35: '035_people_admin_only.sql', 36: '036_eval_types.sql', 37: '037_eval_form_names.sql', 38: '038_eval_communication.sql', 39: '039_eval_more_forms.sql', 40: '040_guests.sql' };
+const REQUIRED_SCHEMA_VERSION = 48;
+const MIGRATIONS = { 2: '002_form_fields.sql', 3: '003_archive_and_import.sql', 4: '004_cost_adjustments.sql', 5: '005_editable_permissions.sql', 6: '006_seasons.sql', 7: '007_one_vendor_per_request.sql', 8: '008_roles_admin_history.sql', 9: '009_form_rules_layout_exports.sql', 10: '010_workflow_budgets_notifications.sql', 11: '011_notification_choices.sql', 12: '012_link_imported_requests.sql', 13: '013_history_drafts_ticket.sql', 14: '014_finances.sql', 15: '015_sponsors.sql', 16: '016_request_watchers.sql', 17: '017_attachments.sql', 18: '018_treasurer_ledger.sql', 19: '019_fix_wording_pickup.sql', 20: '020_ledger_category.sql', 21: '021_budget_categories.sql', 22: '022_paid_status.sql', 23: '023_rename_category_fix.sql', 24: '024_cancel_approved.sql', 25: '025_treasurer_tools.sql', 26: '026_sponsor_history.sql', 27: '027_sponsor_outreach.sql', 28: '028_solar_evals.sql', 29: '029_onesolar.sql', 30: '030_onesolar_wording.sql', 31: '031_eval_self_reviews.sql', 32: '032_eval_questions.sql', 33: '033_undo_received.sql', 34: '034_edit_approved_items.sql', 35: '035_people_admin_only.sql', 36: '036_eval_types.sql', 37: '037_eval_form_names.sql', 38: '038_eval_communication.sql', 39: '039_eval_more_forms.sql', 40: '040_guests.sql', 41: '041_migration_ledger.sql', 42: '042_role_guard.sql', 43: '043_accept_guard.sql', 44: '044_deactivate.sql', 45: '045_conflicts.sql', 46: '046_diagnostics.sql', 47: '047_soft_delete.sql', 48: '048_imports_links.sql' };
 
 /** Shared config object handed to every view. Mutated in place on reload. */
 const config = {};
@@ -131,6 +134,15 @@ function updateChrome() {
     : '';
 }
 
+/** Admin: how many new errors / problem reports in the last 24 hours, on the Diagnostics tab (046). */
+async function refreshDiagnosticsBadge() {
+  if (APP !== 'admin' || !auth.signedIn || !auth.can('workflow.edit') || Number(config.schemaVersion) < 46) return;
+  const badges = document.querySelectorAll('[data-diag-count]');
+  if (!badges.length) return;
+  const n = await api.countRecentDiagnostics().catch(() => 0);
+  badges.forEach((b) => ((b.textContent = n), (b.hidden = !n)));
+}
+
 async function refreshNavCounts() {
   if (!auth.signedIn || auth.isGuest || APP !== 'orders') return; // the counts are on Orders' menu
   let total = 0;
@@ -178,6 +190,7 @@ function bindMenu() {
   document.getElementById('menu-btn')?.addEventListener('click', () => setMenu(!document.body.classList.contains('nav-open')));
   document.getElementById('account-btn').addEventListener('click', () => setAccountMenu(document.getElementById('account-pop').hidden));
   document.getElementById('menu-sign-out').addEventListener('click', () => (closeMenus(), auth.signOut()));
+  document.getElementById('menu-report')?.addEventListener('click', () => (closeMenus(), openReportDialog()));
   bindInstall();
   bindTheme();
   document.addEventListener('click', (e) => {
@@ -306,7 +319,8 @@ async function main() {
   bindMenu();
   updateChrome();
   fitTables(app);
-  const render = startRouter({ config, reloadConfig }, { onRender: () => (closeMenus(), updateChrome(), refreshNavCounts()) });
+  startVersionCheck(supabase); // "one.solar was updated. Reload." / "being updated" (shared/version-check.js)
+  const render = startRouter({ config, reloadConfig }, { onRender: () => (closeMenus(), updateChrome(), refreshNavCounts(), refreshDiagnosticsBadge()) });
 }
 
 main();

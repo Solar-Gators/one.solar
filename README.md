@@ -87,10 +87,13 @@ npm run dev:fake
 ```
 Open http://localhost:5173/. `dev:fake` needs no database: Orders runs every migration in an in-browser Postgres,
 and the home screen and Solar Evals use stand-ins (`/?fake`, `/?fake=admin`, `/evals/?fake`). `npm run dev` uses the
-real database. `npm test` runs the database, notification and import tests.
+real database. `npm test` runs the database, notification and import tests, and checks what gets published;
+`npm run test:smoke` opens every app in a browser (run `npx playwright install chromium` once first).
 
 ## Publishing
-GitHub → this repo → **Settings → Pages** → **Deploy from a branch**, branch **main**, folder **/ (root)**.
+Merging to `main` runs the tests and then publishes the site with the **Deploy site** workflow: nothing is
+published if a test fails. Setup, releasing, checking what's live and reverting: **[docs/RELEASING.md](docs/RELEASING.md)**.
+(Until the one-time switch in that guide, Pages still publishes from the branch: **Deploy from a branch**, **main**, **/ (root)**.)
 Everything committed here is public; spreadsheets are kept out by `.gitignore`.
 
 A custom domain (e.g. `one.ufsolargators.org`) can go in **Settings → Pages → Custom domain**, with a CNAME DNS record

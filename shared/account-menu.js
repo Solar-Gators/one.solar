@@ -14,6 +14,7 @@
  * Looks come from shared/onesolar.css (.account-menu, .account-pop, .theme-pick).
  */
 import { appUrl, signInUrl, getTheme, setTheme, applyTheme, getBrand } from './onesolar.js';
+import { canReport, openReportDialog } from './error-reporter.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
@@ -58,6 +59,7 @@ export function renderAccount(host, { user, name = '', role = '', onSignOut, lin
           <span>Appearance</span>
           <div class="theme-options">${themeButtons()}</div>
         </div>
+        ${canReport() ? '<button type="button" data-report>Report a problem</button>' : ''}
         <button type="button" data-sign-out>Sign out</button>
       </div>
     </div>`;
@@ -76,6 +78,11 @@ export function renderAccount(host, { user, name = '', role = '', onSignOut, lin
     if (t) {
       setTheme(t.dataset.themeSet);
       pop.querySelector('.theme-options').innerHTML = themeButtons();
+      return;
+    }
+    if (e.target.closest('[data-report]')) {
+      open(false);
+      openReportDialog();
       return;
     }
     if (e.target.closest('[data-sign-out]')) {

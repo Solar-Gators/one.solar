@@ -5,7 +5,7 @@
  */
 import { api } from '../api.js';
 import { auth } from '../auth.js';
-import { esc, requestTable, bindRowLinks, bindSorting, sortRows, statusBadge, takeFlash, introText, pageTabs } from '../ui.js';
+import { esc, requestTable, bindRowLinks, bindSorting, sortRows, statusBadge, selfApprovedTag, takeFlash, introText, pageTabs } from '../ui.js';
 import { listColumns, listSort, listFilters } from '../listColumns.js';
 
 // Kept while navigating around the app (not across reloads).
@@ -63,7 +63,7 @@ export async function renderRequestList(el, { config, rerender }) {
           .map(
             (r) => `<li>
               <a href="#/requests/${esc(r.request_number)}"><span class="mono small">${esc(r.request_number)}</span> ${esc(r.title || 'Untitled request')}</a>
-              ${statusBadge(r.status)}
+              ${statusBadge(r.status)}${selfApprovedTag(r)}
               <span class="muted small">${r.status === 'Changes Requested' ? `${esc(r.latest_approval?.approver || 'A reviewer')} asked for changes` : 'Not submitted yet'}${r.season && r.season !== config.season ? ` · ${esc(r.season)} season` : ''}</span>
             </li>`
           )

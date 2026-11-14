@@ -115,6 +115,7 @@
 .fields-table tr.is-hidden input[data-prop="label"] { color: var(--muted); text-decoration: line-through; }
 .center { text-align: center; }
 .field-tag { font-size: 11px; font-weight: 600; color: var(--muted); background: #eef1f4; border-radius: 4px; padding: 2px 6px; }
+.field-tag.self-approved { color: #8a4b00; background: #fff4e0; }
 .card-head p { margin: 2px 0 0; }
 .sticky-actions {
   position: sticky; bottom: 0; background: var(--bg); padding: 12px 0; align-items: center;
@@ -1308,6 +1309,7 @@ a.step-link:hover { text-decoration: underline; }
 [data-theme="dark"] .rule-order { background: var(--d-active); }
 [data-theme="dark"] .field-tag,
 [data-theme="dark"] .chip { background: var(--surface-2); }
+[data-theme="dark"] .field-tag.self-approved { background: #3a2a10; color: #ffcf8a; }
 [data-theme="dark"] .season-tag { background: #241d4a; color: #c9bbff; }
 [data-theme="dark"] .tag { background: #10294a; color: #a9c6ff; }
 [data-theme="dark"] .chip-return { background: #123322; color: #8fe0ab; }
@@ -1544,3 +1546,22 @@ a.step-link:hover { text-decoration: underline; }
 
 /* 040: someone waiting to be accepted into the team */
 .guest-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+
+/* Admin → Diagnostics (046) */
+.diag-facts { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 0; }
+.diag-facts dt { color: var(--muted); }
+.diag-facts dd { margin: 0; }
+.diag-stack { white-space: pre-wrap; font-size: 12px; background: var(--surface-2); padding: 8px; border-radius: 6px; overflow-x: auto; }
+.pre-wrap { white-space: pre-wrap; }
+@media (max-width: 600px) { .diag-facts { grid-template-columns: 1fr; } .diag-facts dd { margin-bottom: 8px; } }
+
+/* U-1: the Guest waiting page's checklist */
+.waiting-steps { list-style: none; padding: 0; margin: 12px 0; display: grid; gap: 6px; }
+.waiting-steps li { padding: 8px 12px; border-radius: 8px; background: var(--surface-2, #f4f6f8); }
+.waiting-steps li.done { color: #1d6b3a; background: #e8f6ee; }
+[data-theme="dark"] .waiting-steps li.done { color: #8fe0ab; background: #123322; }
+
+/* 047: Recently deleted (Sponsors, Finances) */
+.recently-deleted { margin-top: 24px; }
+.recently-deleted > summary { cursor: pointer; font-weight: 600; }
+.recently-deleted > p { margin: 8px 0; }

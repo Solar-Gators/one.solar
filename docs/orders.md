@@ -51,7 +51,7 @@ A person can have **more than one role** (e.g. Treasurer + Admin), and gets ever
 | Edit the form, dropdowns, and team settings | | ✓ | ✓ | ✓ |
 | Start a new season, import spreadsheets | | ✓ | ✓ | ✓ |
 | Customize lists (columns, filters, sorting) and appearance (labels, colors) | | | | ✓ |
-| Give people roles (except Admin), remove people who left | | ✓ | ✓ | ✓ |
+| Give people roles (except Admin), deactivate people who left | | ✓ | ✓ | ✓ |
 | Make someone an Admin; create roles and change what they can do | | | | ✓ |
 | Approval rules, budgets, email / Teams notifications | | | | ✓ |
 | See the Finances tab | | ✓ | ✓ | ✓ |
@@ -196,7 +196,7 @@ On a phone, one menu lists every page, grouped the same way. Each page appears o
 
 **one.solar** (every app)
 - **Users:** tick the roles each person has; someone can hold several. One account works in every app. Only an Admin can give or take the Admin role or change an Admin's roles.
-  - **Remove…** is for someone who left the team. Their login is deleted, so they can't sign in, and their requests, approvals and evals keep their name. You can add why (e.g. "Graduated"); the **Removed people** list at the bottom keeps who was removed, when and by whom.
+  - **Deactivate…** is for someone who left the team. They become a **Former member**: they can't sign in or see anything of the team's, and their requests, approvals and evals keep their name. You can add why (e.g. "Graduated"). **Reactivate** brings them back; the **Former members** filter lists them. Only an Admin can delete an account for good (**Delete permanently…**), and only a former member's or a guest's; the **Removed people** list at the bottom keeps who was deleted, when and by whom.
   - If someone who was removed signs up again with the same email, their new account is flagged on Users (and in a line under the top bar for everyone who manages people) with **Let them back in** or **Remove again**.
 - **Roles & permissions:** add your own roles, rename any role, or delete custom ones, and a checkbox grid of what each role can do in every app (Orders, Finances, Sponsors, Solar Evals, Admin). Only Admins change these ("Edit roles & permissions"); others who manage people see them read-only. Safety rules: at least one person must always keep **Manage people**, the Admin role always keeps **Edit roles & permissions**, and the last Admin can't stop being one, so the team can't lock itself out.
 - **Team & season:** the team name, who can make a one.solar account (allowed email domains), the request ID prefix (Orders' request numbers), and **Start a new season**. The season is shared: Orders numbers and archives by it, and Finances and the Sponsors board open on it. Solar Evals goes by semester instead.
@@ -276,7 +276,7 @@ Once a year, when the new season's orders begin, a Chief Engineer or Treasurer g
 - **Archive:** moves last season's requests there, searchable with their full history.
 - **Unfinished orders:** keeps anything still waiting on approval, ordering, or delivery in the Approvals and Treasurer queues, labeled with its season, until it's done.
 
-Also hand over the roles: give the new Chief Engineer and Treasurer their roles in **Admin → one.solar → Users**, and set graduating leads back to Member.
+Also hand over the roles: give the new Chief Engineer and Treasurer their roles in **Admin → one.solar → Users**, and set graduating leads back to Member (or deactivate those who left).
 
 ---
 

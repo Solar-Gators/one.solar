@@ -16,6 +16,7 @@ const returning = () => {
 function explain(err) {
   const msg = err?.message || '';
   if (/invalid login credentials/i.test(msg)) return new Error('Incorrect email or password.');
+  if (/user is banned/i.test(msg)) return new Error('Your one.solar access has ended. If this is a mistake, ask an Admin to reactivate you.');
   if (/email not confirmed/i.test(msg)) return new Error('Please confirm your email first — check your inbox for the link.');
   if (/database error saving new user/i.test(msg)) return new Error('That email address is not allowed to sign up.');
   if (/rate limit/i.test(msg)) return new Error('Too many emails sent recently. Please wait a few minutes and try again.');

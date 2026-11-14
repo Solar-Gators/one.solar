@@ -1,0 +1,84 @@
+# TEMPLATE: copy to .github/workflows/nightly-backup.yml in a PRIVATE repository (e.g. Solar-Gators/one.solar-ops).
+# Never add it to this public repo: it handles a database password and member data.
+# (GitHub only runs workflows in .github/workflows, so this copy under docs/ never runs.)
+#
+# What it does, every night and on demand:
+#   1. dumps the database (roles, schema, data) with the Supabase CLI;
+#   2. copies the files in the "attachments" bucket (a dump doesn't contain them);
+#   3. encrypts everything with a passphrase and keeps it as a workflow artifact for 7 days.
+# Restoring: docs/RECOVERY.md in the one.solar repo.
+#
+# Secrets to add in the private repo (Settings → Secrets and variables → Actions):
+#   SUPABASE_DB_URL        Supabase → Project Settings → Database → Connection string → "Session pooler" URI,
+#                          with the database password filled in.
+#   SUPABASE_ACCESS_TOKEN  a personal access token (supabase.com → Account → Access Tokens), for step 2.
+#   SUPABASE_PROJECT_REF   the project id (the part before .supabase.co).
+#   BACKUP_PASSPHRASE      a long random passphrase. Store it in the team's password manager too:
+#                          without it the backups can't be opened.
+name: Nightly backup
+
+on:
+  schedule:
+    - cron: '17 7 * * *'   # 07:17 UTC ≈ 2–3 am in Gainesville
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: supabase/setup-cli@v1
+        with:
+          # After the first good run, replace "latest" with the version its log shows, so a CLI update
+          # can't change the backups without anyone noticing (update it on purpose, then re-run the drill).
+          version: latest
+
+      - name: Dump the database
+        env:
+          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          set -euo pipefail
+          mkdir -p backup
+          supabase db dump --db-url "$DB_URL" -f backup/roles.sql --role-only
+          supabase db dump --db-url "$DB_URL" -f backup/schema.sql
+          supabase db dump --db-url "$DB_URL" -f backup/data.sql --use-copy --data-only \
+            -x "storage.buckets_vectors" -x "storage.vector_indexes"
+          # Never print the dump: it holds member names and emails.
+          wc -c backup/*.sql
+
+      - name: Copy the attachment files
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+        run: |
+          set -euo pipefail
+          supabase link --project-ref "$PROJECT_REF" > /dev/null
+          mkdir -p backup/attachments
+          supabase storage cp -r ss:///attachments backup/attachments --experimental > /dev/null
+          echo "files: $(find backup/attachments -type f | wc -l)"
+
+      - name: Encrypt
+        env:
+          PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          name="one.solar-$(date -u +%Y-%m-%dT%H%MZ)"
+          tar -czf "$name.tar.gz" -C backup .
+          gpg --batch --yes --pinentry-mode loopback --passphrase "$PASSPHRASE" \
+              --symmetric --cipher-algo AES256 -o "$name.tar.gz.gpg" "$name.tar.gz"
+          rm -rf backup "$name.tar.gz"
+          echo "NAME=$name" >> "$GITHUB_ENV"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.NAME }}
+          path: ${{ env.NAME }}.tar.gz.gpg
+          retention-days: 7
+          if-no-files-found: error
