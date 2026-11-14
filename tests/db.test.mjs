@@ -2397,7 +2397,7 @@ console.log('Guests: new accounts wait to be accepted (040)');
     await as(lead, () => rejects(rpc('accept_member', [guest]), /does not allow/));
     await as(lead, () => rejects(db.query(`select * from waiting_guests()`), /does not allow/));
     await setRole(lead, 'eboard');
-    const waiting = (await as(lead, () => db.query(`select * from waiting_guests()`))).rows.map((r) => r.email);
+    const waiting = (await as(lead, () => db.query(`select * from waiting_guests()`))).rows.map((r) => r.email).sort(); // same-instant sign-ups can come back in either order
     assert.deepEqual(waiting, ['newbie2@ufl.edu', 'newbie@ufl.edu']);
     await as(lead, () => rpc('accept_member', [guest]));
     assert.equal(await roleOf(guest), 'member');
