@@ -19,7 +19,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = new URL('../', import.meta.url);
-export const PAGES = ['index.html', 'orders/index.html', 'finances/index.html', 'sponsors/index.html', 'admin/index.html', 'inventory/index.html', 'evals/index.html', 'scope-map/index.html'];
+export const PAGES = ['index.html', 'orders/index.html', 'finances/index.html', 'sponsors/index.html', 'admin/index.html', 'inventory/index.html', 'projects/index.html', 'evals/index.html', 'scope-map/index.html'];
 
 export function supabaseUrl() {
   const src = readFileSync(new URL('shared/config.js', ROOT), 'utf8');

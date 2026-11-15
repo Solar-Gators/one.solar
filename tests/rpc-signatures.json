@@ -664,6 +664,256 @@
   "returns": "uuid",
   "anon": false
  },
+ "pm_accept": {
+  "args": "p_id uuid, p_accepted boolean",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "pm_add_ref": {
+  "args": "p_item uuid, p_kind text, p_ref uuid, p_note text",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "pm_add_resource": {
+  "args": "p jsonb",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "pm_apply_config": {
+  "args": "p_project uuid, p jsonb",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "pm_archive_item": {
+  "args": "p_id uuid, p_archived boolean",
+  "returns": "void",
+  "anon": false
+ },
+ "pm_bulk_update": {
+  "args": "p_ids uuid[], p jsonb",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "pm_can_open": {
+  "args": "",
+  "returns": "boolean",
+  "anon": false
+ },
+ "pm_comment": {
+  "args": "p_item uuid, p_body text, p_mentions uuid[]",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "pm_create_item": {
+  "args": "p_op uuid, p jsonb",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "pm_decide_approval": {
+  "args": "p_id uuid, p_approve boolean, p_note text",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "pm_delete_automation": {
+  "args": "p_id uuid",
+  "returns": "void",
+  "anon": false
+ },
+ "pm_delete_baseline": {
+  "args": "p_id uuid",
+  "returns": "void",
+  "anon": false
+ },
+ "pm_delete_role": {
+  "args": "p_id uuid",
+  "returns": "void",
+  "anon": false
+ },
+ "pm_delete_view": {
+  "args": "p_id uuid",
+  "returns": "void",
+  "anon": false
+ },
+ "pm_edit_comment": {
+  "args": "p_id uuid, p_body text",
+  "returns": "void",
+  "anon": false
+ },
+ "pm_export_config": {
+  "args": "p_project uuid, p_items boolean",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "pm_link": {
+  "args": "p jsonb",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "pm_mark_read": {
+  "args": "p_ids bigint[]",
+  "returns": "void",
+  "anon": false
+ },
+ "pm_move_item": {
+  "args": "p_id uuid, p jsonb",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "pm_my_caps": {
+  "args": "",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "pm_remove_ref": {
+  "args": "p_id uuid",
+  "returns": "void",
+  "anon": false
+ },
+ "pm_remove_resource_link": {
+  "args": "p_id uuid",
+  "returns": "void",
+  "anon": false
+ },
+ "pm_reschedule": {
+  "args": "p_project uuid, p_changes jsonb, p_note text, p_scenario uuid",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "pm_rollup": {
+  "args": "",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "pm_run_scheduled": {
+  "args": "",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "pm_save_automation": {
+  "args": "p_project uuid, p_id uuid, p jsonb",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "pm_save_baseline": {
+  "args": "p_project uuid, p_name text",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "pm_save_checklist": {
+  "args": "p_item uuid, p_items jsonb",
+  "returns": "void",
+  "anon": false
+ },
+ "pm_save_event": {
+  "args": "p_project uuid, p_id uuid, p jsonb",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "pm_save_field": {
+  "args": "p_project uuid, p_id uuid, p jsonb",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "pm_save_layout": {
+  "args": "p_project uuid, p jsonb",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "pm_save_prefs": {
+  "args": "p jsonb",
+  "returns": "void",
+  "anon": false
+ },
+ "pm_save_program": {
+  "args": "p_id uuid, p jsonb",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "pm_save_project": {
+  "args": "p_id uuid, p jsonb",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "pm_save_resource": {
+  "args": "p_id uuid, p jsonb",
+  "returns": "void",
+  "anon": false
+ },
+ "pm_save_role": {
+  "args": "p_project uuid, p_id uuid, p jsonb",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "pm_save_scenario": {
+  "args": "p_project uuid, p_id uuid, p jsonb",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "pm_save_sprint": {
+  "args": "p_project uuid, p_id uuid, p jsonb",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "pm_save_template": {
+  "args": "p_id uuid, p jsonb",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "pm_save_type": {
+  "args": "p_project uuid, p_id uuid, p jsonb",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "pm_save_view": {
+  "args": "p_id uuid, p jsonb",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "pm_save_workflow": {
+  "args": "p_project uuid, p_id uuid, p jsonb",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "pm_search": {
+  "args": "p jsonb",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "pm_set_member": {
+  "args": "p_project uuid, p_user uuid, p_role uuid",
+  "returns": "void",
+  "anon": false
+ },
+ "pm_test_automation": {
+  "args": "p_project uuid, p jsonb",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "pm_transition": {
+  "args": "p_id uuid, p_transition uuid, p jsonb",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "pm_unlink": {
+  "args": "p_id uuid",
+  "returns": "void",
+  "anon": false
+ },
+ "pm_update_item": {
+  "args": "p_id uuid, p_version integer, p jsonb",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "pm_visible": {
+  "args": "",
+  "returns": "uuid[]",
+  "anon": false
+ },
+ "pm_watch": {
+  "args": "p_item uuid, p_on boolean",
+  "returns": "void",
+  "anon": false
+ },
  "purge_old_diagnostics": {
   "args": "",
   "returns": "integer",

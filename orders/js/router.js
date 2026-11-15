@@ -41,6 +41,14 @@ import { renderInvSetup, renderAdminOrg } from './views/inventory/setup.js';
 import { renderInvLabels } from './views/inventory/labels.js';
 import { renderInvScan } from './views/inventory/scan.js';
 import { INV_PERMS } from './views/inventory/kit.js';
+import { PM_PERMS } from './views/projects/kit.js';
+import { renderMyWork } from './views/projects/myWork.js';
+import { renderProjects } from './views/projects/projects.js';
+import { renderProject, renderAcross } from './views/projects/project.js';
+import { renderItem } from './views/projects/item.js';
+import { renderDashboards } from './views/projects/dashboards.js';
+import { renderTemplates } from './views/projects/templates.js';
+import { renderInbox } from './views/projects/inbox.js';
 import { errorBox, esc } from './ui.js';
 import { api } from './api.js';
 import { needsText, rolesWith } from './messages.js';
@@ -54,7 +62,7 @@ const LEADS = ['request.review', 'request.order'];
 const tabPerms = (name) => ADMIN_TABS.find(([key]) => key === name)[2];
 
 /** A page your role can't open: say who to ask, and give a way out. */
-const WHO_TO_ASK = { finances: 'the Treasurer or an Admin', sponsors: 'the Business Coordinator or an Admin', admin: 'an Admin', orders: 'a Chief Engineer or an Admin', inventory: 'an inventory manager or an Admin' };
+const WHO_TO_ASK = { finances: 'the Treasurer or an Admin', sponsors: 'the Business Coordinator or an Admin', admin: 'an Admin', orders: 'a Chief Engineer or an Admin', inventory: 'an inventory manager or an Admin', projects: 'an Admin' };
 async function noAccess(perms) {
   const name = APPS[APP].name;
   // U-2: name the permission and the roles that have it (both readable by everyone signed in).
@@ -143,6 +151,18 @@ const ROUTES = [
   { pattern: /^\/inventory\/setup(?:\/(\w+))?$/, nav: 'inv-setup', view: renderInvSetup, perm: [...INV_PERMS, 'settings.edit'] },
   { pattern: /^\/inventory\/labels$/, nav: 'inv-items', view: renderInvLabels, perm: INV_PERMS },
   { pattern: /^\/inventory\/scan$/, nav: 'inv-scan', view: renderInvScan, perm: INV_PERMS },
+  // Projects (051). Anyone who can open Projects gets the pages; what they can do in a project is their role in it.
+  { pattern: /^\/projects$/, nav: 'pm-mine', view: renderMyWork, perm: PM_PERMS },
+  { pattern: /^\/projects\/all$/, nav: 'pm-projects', view: renderProjects, perm: PM_PERMS },
+  { pattern: /^\/projects\/item\/([^/]+)$/, nav: 'pm-projects', view: renderItem, perm: PM_PERMS },
+  { pattern: /^\/projects\/p\/([^/]+)(?:\/([\w-]+))?(?:\/([\w-]+))?(?:\/([\w-]+))?$/, nav: 'pm-projects', view: renderProject, perm: PM_PERMS },
+  { pattern: /^\/projects\/(boards)$/, nav: 'pm-boards', view: renderAcross, perm: PM_PERMS },
+  { pattern: /^\/projects\/(timeline)$/, nav: 'pm-timeline', view: renderAcross, perm: PM_PERMS },
+  { pattern: /^\/projects\/(calendar)$/, nav: 'pm-calendar', view: renderAcross, perm: PM_PERMS },
+  { pattern: /^\/projects\/(list)$/, nav: 'pm-projects', view: renderAcross, perm: PM_PERMS },
+  { pattern: /^\/projects\/dashboards(?:\/([\w-]+))?$/, nav: 'pm-dash', view: renderDashboards, perm: PM_PERMS },
+  { pattern: /^\/projects\/templates$/, nav: 'pm-templates', view: renderTemplates, perm: ['projects.create', 'projects.manage'] },
+  { pattern: /^\/projects\/inbox$/, nav: 'pm-inbox', view: renderInbox, perm: PM_PERMS },
   { pattern: /^\/export$/, nav: 'requests', view: renderExport },
   { pattern: /^\/admin\/users$/, nav: 'admin', view: renderUsers, perm: tabPerms('users') },
   { pattern: /^\/admin\/fields$/, nav: 'admin', view: renderFormFields, perm: tabPerms('fields') },
@@ -204,7 +224,7 @@ export function startRouter(ctx, { onRender } = {}) {
     document.querySelectorAll('[data-nav]').forEach((a) => a.classList.toggle('active', a.dataset.nav === route.nav));
 
     const match = route.pattern ? path.match(route.pattern) : [];
-    const params = { id: match?.[1] ? decodeURIComponent(match[1]) : null, copy: !!route.copy, query: new URLSearchParams(search) };
+    const params = { id: match?.[1] ? decodeURIComponent(match[1]) : null, copy: !!route.copy, query: new URLSearchParams(search), parts: (match || []).slice(1).map((x) => (x ? decodeURIComponent(x) : '')) };
 
     // Render into a detached element so a slow, stale view can't overwrite a newer one.
     const el = document.createElement('div');

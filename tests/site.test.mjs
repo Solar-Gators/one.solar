@@ -42,7 +42,7 @@ test('only the site is published (no tests, migrations, tools, docs or package f
   const bad = files.filter((f) => /^(tests|supabase|tools|docs|node_modules|\.github|evals\/dev)\//.test(f) ||
     /^(package(-lock)?\.json|README\.md|\.gitignore|\.nvmrc|playwright\.config\.mjs)$/.test(f));
   assert.deepEqual(bad, []);
-  for (const must of ['index.html', 'orders/index.html', 'finances/index.html', 'sponsors/index.html', 'admin/index.html', 'inventory/index.html',
+  for (const must of ['index.html', 'orders/index.html', 'finances/index.html', 'sponsors/index.html', 'admin/index.html', 'inventory/index.html', 'projects/index.html',
     'evals/index.html', 'gatorwire/index.html', 'scope-map/index.html', 'shared/config.js', 'hub/home.js']) {
     assert.ok(published.has(must), `${must} is missing from the site`);
   }

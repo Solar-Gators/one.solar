@@ -25,6 +25,7 @@ import { readSponsorRows, toSponsorCard, guessCar } from '../sponsorImport.js';
 import { groupSponsors, sponsorKey, tagLookalikes } from '../sponsorGroups.js';
 import { mountRecentlyDeleted } from '../recentlyDeleted.js';
 import { loadExcelJS } from '../excel.js';
+import { bindKanbanDnd } from '../kanbanDnd.js';
 
 const STAGE_KINDS = [
   ['open', 'Working on it'],
@@ -418,33 +419,8 @@ export async function renderSponsors(el, { config, rerender, reloadConfig }) {
     }
   };
 
-  let dragging = null;
-  el.addEventListener('dragstart', (e) => {
-    const card = e.target.closest?.('.kcard');
-    if (!card) return;
-    dragging = card.dataset.card;
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', dragging);
-    card.classList.add('is-dragging');
-  });
-  el.addEventListener('dragend', () => {
-    dragging = null;
-    el.querySelectorAll('.is-dragging, .is-over').forEach((n) => n.classList.remove('is-dragging', 'is-over'));
-  });
-  el.addEventListener('dragover', (e) => {
-    const zone = e.target.closest?.('[data-drop]');
-    if (!zone || !dragging) return;
-    e.preventDefault();
-    el.querySelectorAll('.is-over').forEach((n) => n !== zone && n.classList.remove('is-over'));
-    zone.classList.add('is-over');
-  });
-  el.addEventListener('drop', (e) => {
-    const zone = e.target.closest?.('[data-drop]');
-    if (!zone || !dragging) return;
-    e.preventDefault();
-    const after = [...zone.querySelectorAll('.kcard:not(.is-dragging)')].find((n) => e.clientY < n.getBoundingClientRect().top + n.offsetHeight / 2);
-    move(dragging, zone.dataset.drop, after?.dataset.card);
-  });
+  // The same drag and drop as Projects boards (kanbanDnd.js).
+  bindKanbanDnd(el, { onDrop: move });
 
   el.addEventListener('change', (e) => {
     if (e.target.dataset.move) return move(e.target.dataset.move, e.target.value);

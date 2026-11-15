@@ -114,8 +114,10 @@ await test('the SVG is black on white and scales; the vendored library is the np
   assert.match(svg, /^<svg class="qr"[^>]*viewBox="0 0 \d+ \d+"/);
   assert.match(svg, /fill="#fff"/);
   assert.match(svg, /<title>A &amp; B<\/title>/);
-  const vendored = readFileSync(new URL('../shared/vendor/qrcode-generator.mjs', import.meta.url), 'utf8').split('\n').slice(2).join('\n');
-  const npm = readFileSync(new URL('../node_modules/qrcode-generator/dist/qrcode.mjs', import.meta.url), 'utf8');
+  // Compared with the same line endings: a Windows checkout may turn the vendored copy's LF into CRLF.
+  const lf = (t) => t.replace(/\r\n/g, '\n');
+  const vendored = lf(readFileSync(new URL('../shared/vendor/qrcode-generator.mjs', import.meta.url), 'utf8')).split('\n').slice(2).join('\n');
+  const npm = lf(readFileSync(new URL('../node_modules/qrcode-generator/dist/qrcode.mjs', import.meta.url), 'utf8'));
   assert.equal(vendored, npm);
 });
 
