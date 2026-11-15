@@ -32,7 +32,7 @@ if (!name) {
   process.exit(1);
 }
 const slug = name.toLowerCase().normalize('NFKD').replace(/[^\w\s-]/g, '').trim().replace(/[\s_]+/g, '-').replace(/-+/g, '-');
-const RESERVED = ['shared', 'hub', 'tools', 'tests', 'docs', 'supabase', 'node_modules', 'orders', 'finances', 'sponsors', 'admin', 'inventory', 'evals', 'gatorwire', 'scope-map'];
+const RESERVED = ['shared', 'hub', 'tools', 'tests', 'docs', 'supabase', 'node_modules', 'orders', 'finances', 'sponsors', 'admin', 'inventory', 'projects', 'evals', 'gatorwire', 'scope-map'];
 if (!slug || RESERVED.includes(slug)) {
   console.error(`"${slug || name}" can't be a folder name here; pick another name.`);
   process.exit(1);

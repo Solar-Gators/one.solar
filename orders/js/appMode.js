@@ -7,6 +7,7 @@
  *   sponsors/  #/sponsors, #/sponsors/<card>
  *   admin/     #/admin/…
  *   inventory/ #/inventory/… (050)
+ *   projects/  #/projects/… (051)
  *
  * My account, Help and Choose a new password work in every app. A link to another app's page
  * (an old email link to orders/#/sponsors/…, or Finances linking to a request) goes to that app.
@@ -19,6 +20,7 @@ export const APPS = {
   sponsors: { name: 'Sponsors', home: '/sponsors' },
   admin: { name: 'Admin', home: '/admin' },
   inventory: { name: 'Inventory', home: '/inventory' },
+  projects: { name: 'Projects', home: '/projects' },
 };
 
 export const APP = APPS[document.body.dataset.app] ? document.body.dataset.app : 'orders';
@@ -32,6 +34,7 @@ export function appOf(path) {
   if (/^\/sponsors(\/|$)/.test(path)) return 'sponsors';
   if (/^\/admin(\/|$)/.test(path)) return 'admin';
   if (/^\/inventory(\/|$)/.test(path)) return 'inventory';
+  if (/^\/projects(\/|$)/.test(path)) return 'projects';
   if (/^\/(account|help|reset-password)$/.test(path)) return null;
   return 'orders';
 }

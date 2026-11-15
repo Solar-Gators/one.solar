@@ -1,0 +1,640 @@
+/**
+ * Projects (051), clicked through like a person would, on the fake backend. The acceptance scenario:
+ *   an Admin makes a project, two work types, a workflow with its own statuses and moves, custom fields and a
+ *   form; a project manager sets up a board with its own column mapping; a member creates and updates an item
+ *   with that form; moves the workflow doesn't allow are refused by the database; dependencies show on the
+ *   timeline, a late item gives a warning and the critical path; the set-up is saved as a template; a second,
+ *   very different project runs next to the first; personal and shared views; a Teams document linked by its
+ *   address; an Orders request linked; a rule runs and is logged; the dashboard counts only what its reader may see.
+ *
+ * Everything is set up through the pages (no code or SQL changes a project's configuration). The accounts exist
+ * only in this browser's fake database.
+ */
+import { test, expect } from '@playwright/test';
+import { watch, open, signUp, sql } from './helpers.mjs';
+
+const TEST_PASS = ['pm', 'fake', 'mode', 'only', '4826'].join('-');
+const ADMIN = { name: 'Ada Admin', email: 'pm-admin@ufl.edu', password: TEST_PASS };
+const MANAGER = { name: 'Pat Manager', email: 'pm-manager@ufl.edu', password: TEST_PASS };
+const MEMBER = { name: 'Mia Member', email: 'pm-member@ufl.edu', password: TEST_PASS };
+const GUEST = { name: 'Gus Guest', email: 'pm-guest@ufl.edu', password: TEST_PASS };
+
+const dialog = (page) => page.locator('dialog[open]');
+const toast = (page) => page.locator('.pm-toast');
+async function signOut(page) {
+  await open(page, '/orders/#/home', '#account-btn');
+  await page.click('#account-btn');
+  await page.click('#menu-sign-out');
+  await expect(page.locator('#auth-form')).toBeVisible();
+}
+async function signIn(page, who) {
+  await signOut(page);
+  await page.fill('#l-email', who.email);
+  await page.fill('#l-pass', who.password);
+  await page.locator('#auth-form [type="submit"]').click();
+  await expect(page.locator('#auth-form')).toHaveCount(0);
+}
+/** Call a database function as the signed-in person, the way any script could: { data, error }. */
+const rpc = (page, fn, args) => page.evaluate(async ([f, a]) => {
+  const { supabase } = await import('/orders/js/supabase.js');
+  const { data, error } = await supabase.rpc(f, a);
+  return { data, error: error ? error.message : null };
+}, [fn, args]);
+const one = async (page, query, params = []) => (await sql(page, query, params))[0];
+const save = (page, name = 'Save') => dialog(page).getByRole('button', { name, exact: true }).click();
+/** PM_SHOTS=1 keeps pictures of the main pages in test-results/pm-shots (for looking at, not compared). */
+const shot = (page, name) => (process.env.PM_SHOTS ? page.screenshot({ path: `test-results/pm-shots/${name}.png`, fullPage: true }) : null);
+const noOverflow = async (page) => expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
+
+test.describe('projects', () => {
+  test.describe.configure({ mode: 'serial' });
+  /** @type {import('@playwright/test').Page} */
+  let page;
+  let problems;
+  let itemKey;
+
+  test.beforeAll(async ({ browser }) => {
+    page = await browser.newPage();
+    problems = await watch(page);
+    // Everyone signs up once (the fake database lives in this page's browser); then people sign in and out.
+    await signUp(page, GUEST, []);
+    await signOut(page);
+    await signUp(page, MEMBER, ['member']);
+    await signOut(page);
+    await signUp(page, MANAGER, ['member']);
+    await signOut(page);
+    await signUp(page, ADMIN, ['admin', 'ce']);
+    // an Orders request to link to later, and a CE division with a subsystem
+    await sql(page, `insert into requests (request_number, title, status) values ('SG27-777', 'Nickel strip for the pack', 'Ordered')`);
+    await sql(page, `with d as (insert into org_divisions (name) values ('Electrical') returning id) insert into org_subsystems (division_id, name) select id, 'Battery' from d`);
+  });
+  test.afterAll(async () => page?.close());
+  test.afterEach(() => {
+    const found = problems.splice(0);
+    expect(found).toEqual([]);
+  });
+
+  test('an Admin creates a project from a template', async () => {
+    await open(page, '/projects/#/projects/all', '#new-project');
+    await expect(page.locator('.empty')).toContainText('No projects yet');
+    await page.click('#new-project');
+    await dialog(page).locator('#np-name').fill('Battery Engineering');
+    await expect(dialog(page).locator('#np-key')).toHaveValue('BE');
+    await dialog(page).locator('#np-key').fill('BAT');
+    await dialog(page).locator('#np-template').selectOption({ label: 'Simple board' });
+    await dialog(page).locator('#np-sub').selectOption({ label: 'Battery' });
+    await save(page, 'Create project');
+    await expect(page.locator('h1')).toContainText('Battery Engineering');
+    await expect(page.locator('.pm-key').first()).toHaveText('BAT');
+    await expect(page.locator('.flash')).toContainText('Project Administrator');
+    await expect(page.locator('.pm-tabs')).toContainText('Settings');
+  });
+
+  test('two custom work-item types', async () => {
+    await open(page, '/projects/#/projects/p/BAT/settings/types', '[data-new-type]');
+    for (const [name, icon] of [['Design Task', '✎'], ['Design Review', '☑']]) {
+      await page.click('[data-new-type]');
+      await dialog(page).locator('#ty-name').fill(name);
+      await dialog(page).locator('#ty-icon').fill(icon);
+      await save(page);
+      await expect(page.locator('.pm-settings table')).toContainText(name);
+    }
+  });
+
+  test('a workflow with its own statuses and moves, drawn, previewed and saved as a new version', async () => {
+    await open(page, '/projects/#/projects/p/BAT/settings/workflows', '[data-wf-save]');
+    await expect(page.locator('.pm-wf-svg .pm-wf-node')).toHaveCount(4);
+    const names = page.locator('[data-wf-statuses] [data-s-name]');
+    for (const [n, name] of [[0, 'Draft'], [1, 'In Design'], [3, 'Released']]) {
+      await names.nth(n).fill(name);
+      await names.nth(n).dispatchEvent('change');
+    }
+    await page.click('[data-s-add]');
+    await names.nth(4).fill('Approved');
+    await names.nth(4).dispatchEvent('change');
+    await page.locator('[data-wf-statuses] tr').nth(4).locator('[data-s-up]').click(); // Approved before Released
+    await expect(names.nth(3)).toHaveValue('Approved');
+    // replace "any status → each" with real moves
+    while (await page.locator('[data-wf-moves] [data-t-del]').count()) await page.locator('[data-wf-moves] [data-t-del]').first().click();
+    const move = async (name, from, to, extra = async () => {}) => {
+      await page.click('[data-t-add]');
+      await dialog(page).locator('#mv-name').fill(name);
+      await dialog(page).locator('#mv-from').selectOption({ label: from });
+      await dialog(page).locator('#mv-to').selectOption({ label: to });
+      await extra(dialog(page));
+      await save(page, 'Done');
+      await expect(page.locator('[data-wf-moves]')).toContainText(name);
+    };
+    await move('Start design', 'Draft', 'In Design');
+    await move('Send for review', 'In Design', 'In Review', (d) => d.locator('[name=req][value=owner]').check());
+    await move('Approve', 'In Review', 'Approved', async (d) => {
+      await d.locator('[name=approval]').check();
+      await d.locator('[name=noself]').check();
+    });
+    await move('Release', 'Approved', 'Released', async (d) => {
+      await d.getByLabel('Project Manager', { exact: true }).check();
+      await d.getByLabel('Project Administrator', { exact: true }).check();
+      await d.locator('[name=comment]').check();
+    });
+    await move('Reopen', 'Any status', 'Draft');
+    await expect(page.locator('.pm-wf-svg .pm-wf-node')).toHaveCount(5);
+    await expect(page.locator('.pm-wf-svg .pm-wf-line.is-gate')).toHaveCount(1); // the approval gate is dashed
+    await shot(page, 'workflow');
+    await expect(page.locator('[data-wf-dirty]')).toHaveText('Unsaved changes');
+    await page.click('[data-wf-save]');
+    await expect(dialog(page)).toContainText('Save this workflow?');
+    await save(page, 'Save as a new version');
+    await expect(toast(page)).toContainText('as version 2');
+    expect((await sql(page, `select s.name from pm_statuses s join pm_projects p on p.id = s.project_id where p.key = 'BAT' order by s.sort`)).map((r) => r.name))
+      .toEqual(['Draft', 'In Design', 'In Review', 'Approved', 'Released']);
+    await expect(page.locator('details', { hasText: 'Earlier versions' })).toContainText('Version 1');
+  });
+
+  test('custom fields, and a form for one work type with a required field', async () => {
+    await open(page, '/projects/#/projects/p/BAT/settings/fields', '[data-new-field]');
+    await page.click('[data-new-field]');
+    await dialog(page).locator('#fd-name').fill('Chemistry');
+    await expect(dialog(page).locator('#fd-key')).toHaveValue('chemistry');
+    await dialog(page).locator('#fd-type').selectOption('select');
+    await dialog(page).locator('#fd-options').fill('NMC\nLFP\nLTO');
+    await save(page);
+    await expect(page.locator('.pm-settings table')).toContainText('Chemistry');
+    await page.click('[data-new-field]');
+    await dialog(page).locator('#fd-name').fill('Cell count');
+    await dialog(page).locator('#fd-type').selectOption('integer');
+    await dialog(page).locator('#fd-min').fill('1');
+    await save(page);
+    await expect(page.locator('.pm-settings table')).toContainText('Cell count');
+    await page.click('[data-new-field]');
+    await dialog(page).locator('#fd-name').fill('Cells per module');
+    await dialog(page).locator('#fd-type').selectOption('formula');
+    await dialog(page).locator('#fd-formula').fill('cell_count / nope');
+    await expect(dialog(page).locator('[data-formula-check]')).toContainText('no field with the key "nope"');
+    await dialog(page).locator('#fd-formula').fill('round(cell_count / 16, 1)');
+    await expect(dialog(page).locator('[data-formula-check]')).toContainText('Reads fine');
+    await save(page);
+
+    await open(page, '/projects/#/projects/p/BAT/settings/forms', '[data-save-form]');
+    await page.locator('[data-form-type]').selectOption({ label: 'Design Task' });
+    await expect(page.locator('.chip-tone', { hasText: 'Using the default' })).toBeVisible();
+    // keep Description and Owner, add the custom fields in their own section, make Chemistry required
+    for (const label of ['Priority', 'Due date', 'Parent']) await page.locator('.pm-form-fields li', { hasText: label }).first().locator('[data-f-del]').click();
+    await page.locator('.pm-form-fields li', { hasText: 'Chemistry' }).locator('[data-req]').check();
+    await page.locator('.pm-form-sec').nth(1).locator('[data-sec-title]').fill('Cells');
+    await expect(page.locator('[data-preview]')).toContainText('Chemistry');
+    await page.click('[data-save-form]');
+    await expect(toast(page)).toContainText('Form saved');
+    await expect(page.locator('.chip-tone', { hasText: 'Has its own form' })).toBeVisible();
+  });
+
+  test('the Admin adds a project manager and a contributor; the manager sets up a board with its own columns', async () => {
+    await open(page, '/projects/#/projects/p/BAT/settings/people', '[data-add]');
+    for (const [who, role] of [[MANAGER, 'Project Manager'], [MEMBER, 'Contributor']]) {
+      await page.locator('[data-add] [name=user]').selectOption({ label: who.name });
+      await page.locator('[data-add] [name=role]').selectOption({ label: role });
+      await page.locator('[data-add] [type=submit]').click();
+      await expect(page.locator('.pm-settings table').first()).toContainText(who.name);
+    }
+    await signIn(page, MANAGER);
+    await open(page, '/projects/#/projects/p/BAT/board', '[data-board-settings]');
+    await expect(page.locator('.kanban-col h2')).toHaveText(['Draft', 'In Design', 'In Review', 'Approved', 'Released']);
+    // the manager can't touch workflows (their role has no "Workflows"), but can share a board
+    await expect(page.locator('.pm-tabs')).toContainText('Settings');
+    await page.click('[data-board-settings]');
+    const cols = dialog(page).locator('.pm-col-edit');
+    await cols.nth(2).locator('[data-remove]').click(); // In Review joins In Design
+    await cols.nth(1).locator('[data-col-name]').fill('Working');
+    await cols.nth(1).getByLabel('In Review', { exact: true }).check();
+    await cols.nth(1).locator('[data-col-wip]').fill('2');
+    await save(page, 'Apply');
+    await expect(page.locator('.kanban-col h2')).toHaveText(['Draft', 'Working', 'Approved', 'Released']);
+    await page.click('[data-view-new]');
+    await dialog(page).locator('#pm-view-name').fill('Design board');
+    await dialog(page).getByLabel('Everyone in this project').check();
+    await dialog(page).locator('[name=is_default]').check();
+    await save(page);
+    await expect(page.locator('[data-view-pick]')).toContainText('Design board');
+    const v = await one(page, `select sharing, config from pm_views where name = 'Design board'`);
+    expect(v.sharing).toBe('project');
+    expect(v.config.columns.map((c) => [c.name, c.status_ids.length, c.wip])).toEqual([['Draft', 1, null], ['Working', 2, 2], ['Approved', 1, null], ['Released', 1, null]]);
+  });
+
+  test('a member creates an item with the configured form, and updates it', async () => {
+    await signIn(page, MEMBER);
+    await open(page, '/projects/#/projects/p/BAT/board', '[data-new-item]');
+    await expect(page.locator('.kanban-col h2')).toHaveText(['Draft', 'Working', 'Approved', 'Released']); // the shared board opens first
+    await expect(page.locator('.pm-tabs')).not.toContainText('Settings');
+    await page.click('[data-new-item]');
+    await dialog(page).locator('#pm-new-type').selectOption({ label: '✎ Design Task' });
+    await dialog(page).locator('#pm-new-title').fill('Pack layout');
+    await expect(dialog(page).locator('[data-field="cf.chemistry"]')).toContainText('*');
+    await expect(dialog(page).locator('[data-field="priority"]')).toHaveCount(0); // taken off this type's form
+    await save(page, 'Create');
+    await expect(dialog(page)).toBeVisible(); // Chemistry is required: the form doesn't go
+    await dialog(page).locator('[name="f:cf.chemistry"]').selectOption('NMC');
+    await dialog(page).locator('[name="f:cf.cell_count"]').fill('416');
+    await save(page, 'Create');
+    await expect(page.locator('.kcard', { hasText: 'Pack layout' })).toBeVisible();
+    itemKey = (await one(page, `select key from pm_items where title = 'Pack layout'`)).key;
+    expect(itemKey).toMatch(/^BAT-\d+$/);
+    // the database insists too, whatever the page shows
+    const type = (await one(page, `select t.id, t.project_id from pm_types t where t.name = 'Design Task'`));
+    const direct = await rpc(page, 'pm_create_item', { p_op: crypto.randomUUID(), p: { project_id: type.project_id, type_id: type.id, title: 'No chemistry' } });
+    expect(direct.error).toMatch(/Fill in: Chemistry/);
+
+    await open(page, `/projects/#/projects/item/${itemKey}`, '[data-edit]');
+    await expect(page.locator('.pm-item-side')).toContainText('NMC');
+    await expect(page.locator('.pm-item-side')).toContainText('26'); // 416 / 16, the calculated field
+    await page.click('[data-edit]');
+    await dialog(page).locator('[name="f:description"]').fill('Lay out **16 modules** of 26 cells.\n- thermal gaps\n- busbar routing');
+    await dialog(page).locator('[name="f:due_date"]').fill('2030-03-01');
+    await dialog(page).locator('[name="f:cf.cell_count"]').fill('0');
+    await save(page);
+    await expect(dialog(page)).toBeVisible(); // the field's own minimum stops it in the browser…
+    const low = await rpc(page, 'pm_update_item', { p_id: (await one(page, 'select id from pm_items where key = $1', [itemKey])).id, p_version: null, p: { custom: { cell_count: 0 } } });
+    expect(low.error).toMatch(/can't be less than 1/); // …and the database refuses it for anyone who skips the page
+    await dialog(page).locator('[name="f:cf.cell_count"]').fill('432');
+    await save(page);
+    await expect(page.locator('.pm-rich strong').first()).toHaveText('16 modules');
+    await expect(page.locator('.pm-item-side')).toContainText('27');
+    await expect(page.locator('.pm-history')).toContainText('Changed');
+    // checklist and a comment that mentions the manager
+    await page.locator('[data-check-add] input').fill('Check clearances');
+    await page.locator('[data-check-add] input').press('Enter');
+    await expect(page.locator('.pm-checklist')).toContainText('Check clearances');
+    await page.locator('[data-comment] textarea').fill(`@${MANAGER.name} can you look at the gaps?`);
+    await page.locator('[data-comment] [type=submit]').click();
+    await expect(page.locator('.pm-comments .pm-mention')).toHaveText(`@${MANAGER.name}`);
+    await shot(page, 'item');
+  });
+
+  test('the workflow is enforced: required fields, the approval gate, and moves limited to some roles', async () => {
+    const id = (await one(page, `select id from pm_items where key = $1`, [itemKey])).id;
+    const tr = Object.fromEntries((await sql(page, `select t.name, t.id from pm_transitions t join pm_projects p on p.id = t.project_id where p.key = 'BAT'`)).map((r) => [r.name, r.id]));
+    // straight to "Release" from Draft: the database says no, whoever asks and however
+    let res = await rpc(page, 'pm_transition', { p_id: id, p_transition: tr.Release, p: { comment: 'ship it' } });
+    expect(res.error).toMatch(/is now "Draft", so "Release" doesn't apply/);
+    await expect(page.locator('[data-do-move]')).toHaveText(['Start design', 'Reopen'].filter((n) => n !== 'Reopen')); // only what the workflow offers from Draft
+    await page.locator('[data-do-move]', { hasText: 'Start design' }).click();
+    await expect(toast(page)).toContainText('is now "In Design"');
+    // "Send for review" needs an owner: the move asks for it
+    await page.locator('[data-do-move]', { hasText: 'Send for review' }).click();
+    await expect(dialog(page).locator('[data-field="owner"]')).toContainText('*');
+    await dialog(page).locator('[name="f:owner"]').selectOption({ label: MEMBER.name });
+    await save(page, 'Send for review');
+    await expect(toast(page)).toContainText('is now "In Review"');
+    // "Approve" needs someone who may approve: the member's move waits
+    await page.locator('[data-do-move]', { hasText: 'Approve' }).click();
+    await expect(toast(page)).toContainText('Asked for approval');
+    await expect(page.locator('.pm-approval')).toContainText('Waiting for approval');
+    expect((await one(page, `select s.name from pm_items i join pm_statuses s on s.id = i.status_id where i.id = $1`, [id])).name).toBe('In Review');
+    const appr = (await one(page, `select id from pm_approvals where item_id = $1 and status = 'pending'`, [id])).id;
+    res = await rpc(page, 'pm_decide_approval', { p_id: appr, p_approve: true, p_note: '' });
+    expect(res.error).toMatch(/needs "Approve"/);
+
+    // the manager approves from My work; the manager was also told about the mention
+    await signIn(page, MANAGER);
+    await open(page, '/projects/#/projects', '[data-approve]');
+    await expect(page.locator('#pm-unread')).toBeVisible();
+    await page.click('[data-approve]');
+    await expect(toast(page)).toContainText('Approved');
+    expect((await one(page, `select s.name from pm_items i join pm_statuses s on s.id = i.status_id where i.id = $1`, [id])).name).toBe('Approved');
+    await open(page, '/projects/#/projects/inbox', '.pm-inbox');
+    await expect(page.locator('.pm-inbox')).toContainText('You were mentioned');
+    await expect(page.locator('.pm-inbox')).toContainText('Needs your approval');
+
+    // "Release" is for managers and administrators: the member is refused by the database, the manager isn't
+    await signIn(page, MEMBER);
+    await open(page, `/projects/#/projects/item/${itemKey}`, '.pm-item');
+    await expect(page.locator('[data-do-move]', { hasText: 'Release' })).toHaveCount(0);
+    res = await rpc(page, 'pm_transition', { p_id: id, p_transition: tr.Release, p: { comment: 'ship it' } });
+    expect(res.error).toMatch(/Only Project .* can make the move "Release"/);
+    res = await rpc(page, 'pm_update_item', { p_id: id, p_version: null, p: { status_id: (await one(page, `select id from pm_statuses where name = 'Released'`)).id } });
+    expect((await one(page, `select s.name from pm_items i join pm_statuses s on s.id = i.status_id where i.id = $1`, [id])).name).toBe('Approved');
+    // and nobody writes the tables directly
+    const direct = await page.evaluate(async (itemId) => {
+      const { supabase } = await import('/orders/js/supabase.js');
+      const r = await supabase.rpc('pmx_set_status', { p_item: itemId });
+      return r.error?.message || 'no error';
+    }, id);
+    expect(direct).not.toBe('no error');
+  });
+
+  test('dependencies show on the timeline; a late item gives a warning and the critical path; a what-if changes nothing', async () => {
+    await signIn(page, MANAGER);
+    await open(page, '/projects/#/projects/p/BAT/list', '[data-new-item]');
+    const day = (n) => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
+    const make = async (title, start, due) => {
+      await page.click('[data-new-item]');
+      await dialog(page).locator('#pm-new-type').selectOption({ label: '☑ Design Review' });
+      await dialog(page).locator('#pm-new-title').fill(title);
+      await dialog(page).locator('[name="f:due_date"]').fill(due);
+      await save(page, 'Create');
+      await expect(page.locator('.pm-table')).toContainText(title);
+      await sql(page, `update pm_items set start_date = $2 where title = $1`, [title, start]);
+    };
+    await make('Cell selection', day(-20), day(-6));   // should have finished a week ago
+    await make('Module design', day(-5), day(5));
+    await make('Pack assembly', day(6), day(12));
+    const key = async (title) => (await one(page, `select key from pm_items where title = $1`, [title])).key;
+    // Module design waits on Cell selection; Pack assembly waits on Module design (through the item page)
+    for (const [item, other] of [['Module design', 'Cell selection'], ['Pack assembly', 'Module design']]) {
+      await open(page, `/projects/#/projects/item/${await key(item)}`, '[data-add-dep]');
+      await expect(page.locator('h1')).toContainText(item); // the page for this item, not the one before it
+      await page.click('[data-add-dep]');
+      await dialog(page).locator('#dep-q').fill(other);
+      await expect(dialog(page).locator('[name=other] option')).toHaveCount(1);
+      await dialog(page).locator('[name=other]').selectOption({ index: 0 });
+      await save(page, 'Add');
+      await expect(page.locator('.pm-item-main')).toContainText(`${await key(other)} · ${other}`);
+    }
+    // a loop is refused
+    await page.click('[data-add-dep]');
+    await dialog(page).locator('#dep-q').fill('Cell selection');
+    await expect(dialog(page).locator('[name=other] option')).toHaveCount(1);
+    await dialog(page).locator('[name=other]').selectOption({ index: 0 });
+    await dialog(page).getByLabel(/The other item waits on/).check(); // Cell selection ← Pack assembly would close the circle
+    await save(page, 'Add');
+    await expect(dialog(page).locator('.alert-error')).toContainText('would make a loop');
+    await dialog(page).locator('[data-cancel]').click();
+
+    await open(page, '/projects/#/projects/p/BAT/timeline', '.pm-gantt');
+    await expect(page.locator('.pm-g-bar')).toHaveCount(4);
+    await expect(page.locator('.pm-g-arrow')).toHaveCount(2);
+    await expect(page.locator('.pm-g-today')).toHaveCount(1);
+    // Cell selection is late, so everything after it is pushed: warnings, and the chain is the critical path
+    const warnings = page.locator('.pm-summary .card', { hasText: 'Schedule warnings' });
+    await expect(warnings).toContainText(`${await key('Cell selection')}`);
+    await expect(warnings).toContainText('after its due date');
+    await expect(warnings).toContainText(`${await key('Cell selection')} finishes too late`);
+    await expect(page.locator('.pm-crit li')).toHaveText([/Cell selection/, /Module design/, /Pack assembly/]);
+    await expect(page.locator('.pm-g-bar.is-critical')).toHaveCount(3);
+    await expect(page.locator('.pm-g-late').first()).toBeVisible();
+    await shot(page, 'timeline');
+    // a what-if: give Module design two more weeks; the plan shows the effect but nothing is saved
+    const before = await one(page, `select due_date::text d from pm_items where title = 'Module design'`);
+    await page.locator('.pm-g-label', { hasText: 'Module design' }).locator('[data-dates]').click();
+    await dialog(page).locator('#gd-due').fill(day(19));
+    await save(page, 'Try these dates');
+    await expect(page.locator('.pm-whatif')).toContainText('Nothing is saved yet');
+    await expect(page.locator('.pm-whatif')).toContainText(await key('Pack assembly'));
+    expect((await one(page, `select due_date::text d from pm_items where title = 'Module design'`)).d).toBe(before.d);
+    // a baseline, then apply the what-if: now it's saved, with history, and the baseline still shows the old plan
+    await page.click('[data-discard]');
+    await page.click('[data-save-baseline]');
+    await dialog(page).locator('#ask-text').fill('Plan of record');
+    await dialog(page).getByRole('button', { name: 'Save' }).click();
+    await expect(toast(page)).toContainText('Baseline saved');
+    await page.locator('.pm-g-label', { hasText: 'Module design' }).locator('[data-dates]').click();
+    await dialog(page).locator('#gd-due').fill(day(19));
+    await save(page, 'Try these dates');
+    await page.click('[data-apply]');
+    await dialog(page).locator('#ask-text').fill('Cells arrived late');
+    await dialog(page).getByRole('button', { name: 'Apply to the plan' }).click();
+    await expect(toast(page)).toContainText('Rescheduled 1 item');
+    expect((await one(page, `select due_date::text d from pm_items where title = 'Module design'`)).d).toBe(day(19));
+    await page.locator('[data-baseline]').selectOption({ index: 1 });
+    await expect(page.locator('.pm-g-baseline')).toHaveCount(4);
+    await noOverflow(page);
+  });
+
+  test('backlog, calendar and the board all show the same items; the board makes real workflow moves', async () => {
+    await open(page, '/projects/#/projects/p/BAT/backlog', '.pm-bl');
+    await expect(page.locator('.pm-bl-row')).toHaveCount(4); // everything that isn't finished: Pack layout (Approved) and the three reviews
+    await open(page, '/projects/#/projects/p/BAT/calendar', '.pm-cal');
+    await shot(page, 'calendar');
+    await page.locator('[data-mode=agenda]').click();
+    await expect(page.locator('.pm-agenda')).toContainText('Pack assembly');
+    await open(page, '/projects/#/projects/p/BAT/board', '.kanban');
+    const card = page.locator('.kcard', { hasText: 'Module design' });
+    await expect(page.locator('.kanban-col').nth(0)).toContainText('Module design');
+    // the "Move" menu (what phones and keyboards use) offers only the workflow's moves from Draft
+    await expect(card.locator('[data-move] option')).toHaveText(['Move…', 'Start design → In Design']);
+    await card.locator('[data-move]').selectOption({ label: 'Start design → In Design' });
+    await expect(toast(page)).toContainText('is now "In Design"');
+    await expect(page.locator('.kanban-col').nth(1)).toContainText('Module design');
+    // dragging to a column the workflow has no move to is refused with the reason
+    await page.locator('.kcard', { hasText: 'Pack assembly' }).dragTo(page.locator('.kanban-col').nth(3).locator('[data-drop]'));
+    await expect(toast(page)).toContainText('the workflow has no move from "Draft" to "Released"');
+    await expect(page.locator('.kanban-col').nth(0)).toContainText('Pack assembly');
+    // dragging along an allowed move works
+    await page.locator('.kcard', { hasText: 'Pack assembly' }).dragTo(page.locator('.kanban-col').nth(1).locator('[data-drop]'));
+    await expect(toast(page)).toContainText('is now "In Design"');
+    await expect(page.locator('.kanban-col').nth(1).locator('.kcard')).toHaveCount(2);
+    await shot(page, 'board');
+    // swimlanes
+    await page.locator('[data-lane]').selectOption('owner');
+    await expect(page.locator('.pm-lane')).not.toHaveCount(0);
+    await page.locator('[data-lane]').selectOption('');
+  });
+
+  test('a document is linked by pasting its Teams address; an Orders request is linked and shows its status', async () => {
+    await open(page, `/projects/#/projects/item/${itemKey}`, '[data-add-doc]');
+    await page.click('[data-add-doc]');
+    const url = 'https://uflorida.sharepoint.com/:x:/r/sites/SolarGators/Shared%20Documents/Battery/Pack_sizing-v3.xlsx?d=wabc&csf=1&web=1';
+    await dialog(page).locator('#doc-url').fill('javascript:alert(1)');
+    await expect(dialog(page).locator('[data-read]')).toContainText('Only https:// links');
+    await dialog(page).locator('#doc-url').fill(url);
+    await expect(dialog(page).locator('[data-read]')).toContainText('SharePoint');
+    await expect(dialog(page).locator('#doc-title')).toHaveValue('Pack sizing v3');
+    await expect(dialog(page).locator('#doc-cat')).toHaveValue('Analysis');
+    await save(page, 'Link it');
+    const link = page.locator('.pm-docs a.pm-doc');
+    await expect(link).toHaveAttribute('href', url);
+    await expect(link).toHaveAttribute('target', '_blank');
+    await expect(link).toHaveAttribute('rel', /noopener/);
+    // the document library
+    await open(page, '/projects/#/projects/p/BAT/docs', '.pm-table');
+    await expect(page.locator('.pm-table')).toContainText('Pack sizing v3');
+    await expect(page.locator('.pm-table')).toContainText(itemKey);
+
+    await open(page, `/projects/#/projects/item/${itemKey}`, '[data-add-ref="order"]');
+    await page.click('[data-add-ref="order"]');
+    await dialog(page).locator('#ref-q').fill('nickel');
+    await expect(dialog(page).locator('[name=ref] option')).toHaveCount(1);
+    await dialog(page).locator('[name=ref]').selectOption({ index: 0 });
+    await save(page, 'Link it');
+    const refs = page.locator('.card', { hasText: 'In other one.solar apps' });
+    await expect(refs).toContainText('SG27-777 · Nickel strip for the pack');
+    await expect(refs.locator('.chip-tone')).toHaveText('Ordered');
+    expect((await one(page, `select status from requests where request_number = 'SG27-777'`)).status).toBe('Ordered'); // Orders is untouched
+  });
+
+  test('a rule runs when its trigger happens, and the run is logged', async () => {
+    await open(page, '/projects/#/projects/p/BAT/settings/rules', '[data-new-rule]');
+    await page.click('[data-new-rule]');
+    await dialog(page).locator('#ru-name').fill('In review → tell the manager');
+    await dialog(page).locator('[name=trigger]').selectOption('status');
+    await dialog(page).locator('[name=to]').selectOption({ label: 'In Review' });
+    await dialog(page).locator('[data-k=to]').selectOption('lead');
+    await dialog(page).locator('[data-k=message]').fill('{key} is ready for review');
+    await dialog(page).locator('[data-add-action]').click();
+    await dialog(page).locator('[data-a="1"][data-k=type]').selectOption('add_label');
+    await dialog(page).locator('[data-a="1"][data-k=label]').fill('in-review');
+    await dialog(page).locator('[data-try]').click();
+    await expect(dialog(page).locator('[data-try-out]')).toContainText('match the conditions right now');
+    await save(page);
+    await expect(page.locator('.pm-settings table').first()).toContainText('In review → tell the manager');
+    expect((await one(page, `select count(*)::int c from pm_automation_runs`)).c).toBe(0);
+
+    const key = (await one(page, `select key from pm_items where title = 'Module design'`)).key;
+    await sql(page, `update pm_items set owner_id = (select id from profiles where email = $1) where key = $2`, [MEMBER.email, key]);
+    await open(page, `/projects/#/projects/item/${key}`, '[data-do-move]');
+    await page.locator('[data-do-move]', { hasText: 'Send for review' }).click();
+    await expect(toast(page)).toContainText('is now "In Review"');
+    await expect(page.locator('.pm-item-side')).toContainText('in-review');
+    await open(page, '/projects/#/projects/p/BAT/settings/rules', '[data-new-rule]');
+    const log = page.locator('.card', { hasText: 'Run log' });
+    await expect(log).toContainText('Ran');
+    await expect(log).toContainText('notified; labelled in-review');
+  });
+
+  test('the set-up is saved as a template; a project made from it works the same; a second, different project runs independently', async () => {
+    await signIn(page, ADMIN);
+    await open(page, '/projects/#/projects/p/BAT/settings/templates', '[data-save-template]');
+    await page.click('[data-save-template]');
+    await dialog(page).locator('#st-name').fill('Battery design process');
+    await save(page, 'Save template');
+    await expect(toast(page)).toContainText('Template saved');
+
+    await open(page, '/projects/#/projects/templates', '.pm-template');
+    await expect(page.locator('.pm-template', { hasText: 'Battery design process' })).toBeVisible();
+    await page.locator('.pm-template', { hasText: 'Battery design process' }).locator('[data-use]').click();
+    await dialog(page).locator('#np-name').fill('Battery v2');
+    await dialog(page).locator('#np-key').fill('BAT2');
+    await save(page, 'Create project');
+    await expect(page.locator('h1')).toContainText('Battery v2');
+    await open(page, '/projects/#/projects/p/BAT2/board', '.kanban-col');
+    await expect(page.locator('.kanban-col h2')).toHaveText(['Draft', 'Working', 'Approved', 'Released']); // the shared board came too, on its own statuses
+    await page.click('[data-new-item]');
+    await dialog(page).locator('#pm-new-type').selectOption({ label: '✎ Design Task' });
+    await expect(dialog(page).locator('[data-field="cf.chemistry"]')).toContainText('*');
+    await dialog(page).locator('[data-cancel]').click();
+
+    // a very different project from another template
+    await open(page, '/projects/#/projects/all', '#new-project');
+    await page.click('#new-project');
+    await dialog(page).locator('#np-name').fill('Aerobody Manufacturing');
+    await dialog(page).locator('#np-key').fill('AERO');
+    await dialog(page).locator('#np-template').selectOption({ label: 'Manufacturing' });
+    await save(page, 'Create project');
+    await expect(page.locator('h1')).toContainText('Aerobody Manufacturing');
+    await open(page, '/projects/#/projects/p/AERO/board', '.kanban-col');
+    await expect(page.locator('.kanban-col h2')).toHaveText(['Planned', 'Material Ready', 'In Manufacturing', 'Inspection', 'Complete']);
+    await page.click('[data-new-item]');
+    await dialog(page).locator('#pm-new-type').selectOption({ label: '⚙ Manufacturing Job' });
+    await dialog(page).locator('#pm-new-title').fill('Top shell mold');
+    await expect(dialog(page).locator('[data-field="cf.process"]')).toBeVisible();
+    await expect(dialog(page).locator('[data-field="cf.chemistry"]')).toHaveCount(0);
+    await save(page, 'Create');
+    const card = page.locator('.kcard', { hasText: 'Top shell mold' });
+    await expect(card.locator('[data-move] option')).toHaveText(['Move…', 'Move to Material Ready → Material Ready']);
+    // neither project changed the other
+    const statuses = async (k) => (await sql(page, `select s.name from pm_statuses s join pm_projects p on p.id = s.project_id where p.key = $1 order by s.sort`, [k])).map((r) => r.name);
+    expect(await statuses('BAT')).toEqual(['Draft', 'In Design', 'In Review', 'Approved', 'Released']);
+    expect(await statuses('BAT2')).toEqual(['Draft', 'In Design', 'In Review', 'Approved', 'Released']);
+    expect((await one(page, `select count(*)::int c from pm_statuses a join pm_statuses b on a.id = b.id join pm_projects p on p.id = a.project_id join pm_projects q on q.id = b.project_id where p.key = 'BAT' and q.key = 'BAT2'`)).c).toBe(0);
+
+    // bring one part of a template into the running Aerobody project, after a preview
+    await open(page, '/projects/#/projects/p/AERO/settings/templates', '[data-apply]');
+    await page.locator('[data-from]').selectOption({ label: 'Battery design process' });
+    await page.click('[data-apply]');
+    for (const part of ['types', 'workflows']) await dialog(page).locator(`[name=part][value=${part}]`).uncheck();
+    await save(page, 'Preview');
+    await expect(dialog(page).locator('[data-preview]')).toContainText('Chemistry');
+    expect((await one(page, `select count(*)::int c from pm_fields f join pm_projects p on p.id = f.project_id where p.key = 'AERO' and f.key = 'chemistry'`)).c).toBe(0);
+    await save(page, 'Apply these changes');
+    await expect(toast(page)).toContainText('Applied');
+    expect((await one(page, `select count(*)::int c from pm_fields f join pm_projects p on p.id = f.project_id where p.key = 'AERO' and f.key in ('chemistry', 'process')`)).c).toBe(2);
+    expect(await statuses('AERO')).toEqual(['Planned', 'Material Ready', 'In Manufacturing', 'Inspection', 'Complete']);
+  });
+
+  test('a personal view stays personal; the shared board is everyone\'s; lists page and filter', async () => {
+    await signIn(page, MEMBER);
+    await open(page, '/projects/#/projects/p/BAT/list', '[data-view-new]');
+    await page.locator('[data-f=priority]').selectOption('medium');
+    await page.locator('[data-f=q]').fill('design');
+    await expect(page.locator('.pm-table tbody tr')).toHaveCount(1);
+    await page.click('[data-more-filters]');
+    await dialog(page).locator('[data-field-pick]').selectOption('cf.chemistry');
+    await save(page, 'Apply');
+    await expect(page.locator('.empty')).toContainText('No items match'); // "Module design" has no chemistry
+    await page.click('[data-clear-filters]');
+    await page.locator('[data-f=owner]').selectOption('me');
+    await page.click('[data-view-new]');
+    await dialog(page).locator('#pm-view-name').fill('Mine in Battery');
+    await expect(dialog(page).getByLabel('Everyone in this project')).toHaveCount(0); // a contributor can't share with the project
+    await save(page);
+    await expect(page.locator('[data-view-pick]')).toContainText('Mine in Battery');
+    expect((await one(page, `select sharing from pm_views where name = 'Mine in Battery'`)).sharing).toBe('private');
+    await signIn(page, MANAGER);
+    await open(page, '/projects/#/projects/p/BAT/list', '[data-view-new]');
+    await expect(page.locator('[data-view-pick]')).not.toContainText('Mine in Battery');
+    await open(page, '/projects/#/projects/p/BAT/board', '[data-view-pick]');
+    await expect(page.locator('[data-view-pick]')).toContainText('Design board');
+    // My work, on a phone
+    await page.setViewportSize({ width: 390, height: 800 });
+    await open(page, '/projects/#/projects', '.pm-head');
+    await noOverflow(page);
+    await shot(page, 'mywork-phone');
+    await open(page, '/projects/#/projects/p/BAT/board', '.kanban');
+    await noOverflow(page);
+    await open(page, `/projects/#/projects/item/${itemKey}`, '.pm-item');
+    await noOverflow(page);
+    await page.setViewportSize({ width: 1280, height: 720 });
+  });
+
+  test('the dashboard counts only what its reader may see; a guest gets nothing', async () => {
+    // the Admin makes a private project with an item in it
+    await signIn(page, ADMIN);
+    await open(page, '/projects/#/projects/all', '#new-project');
+    await page.click('#new-project');
+    await dialog(page).locator('#np-name').fill('Sponsor talks');
+    await dialog(page).locator('#np-key').fill('SEC');
+    await dialog(page).locator('#np-vis').selectOption('private');
+    await save(page, 'Create project');
+    await expect(page.locator('h1')).toContainText('Sponsor talks');
+    await page.click('[data-new-item]');
+    await dialog(page).locator('#pm-new-title').fill('Confidential offer');
+    await save(page, 'Create');
+    await open(page, '/projects/#/projects/dashboards', '.pm-dash');
+    const projects = page.locator('.pm-widget', { hasText: 'Projects: progress' });
+    await expect(projects).toContainText('Sponsor talks');
+    await expect(projects).toContainText('Battery Engineering');
+    await expect(page.locator('.pm-widget', { hasText: 'Progress by CE division' })).toContainText('Battery');
+    await expect(page.locator('.pm-widget', { hasText: 'Schedule slippage' })).toContainText('Battery Engineering');
+    await shot(page, 'dashboard');
+    const adminOpen = Number(await page.locator('.pm-big span').first().locator('strong').textContent());
+    await open(page, '/projects/#/projects/dashboards/review', '.pm-review');
+    await expect(page.locator('.pm-review')).toContainText('Dates that moved');
+    await expect(page.locator('.pm-review .card', { hasText: 'Dates that moved' })).toContainText('Module design');
+    await open(page, '/projects/#/projects/dashboards/workload', '.pm-load');
+    await expect(page.locator('.pm-load')).toContainText(MEMBER.name);
+
+    await signIn(page, MEMBER);
+    await open(page, '/projects/#/projects/dashboards', '.pm-dash');
+    await expect(page.locator('.pm-widget', { hasText: 'Projects: progress' })).toContainText('Battery Engineering');
+    await expect(page.locator('#app')).not.toContainText('Sponsor talks');
+    expect(Number(await page.locator('.pm-big span').first().locator('strong').textContent())).toBe(adminOpen - 1);
+    await open(page, '/projects/#/projects/all', '.pm-project');
+    await expect(page.locator('#app')).not.toContainText('Sponsor talks');
+    await page.goto('/projects/#/projects/p/SEC');
+    await expect(page.locator('.no-access')).toContainText('No project "SEC"');
+    const rows = await page.evaluate(async () => {
+      const { supabase } = await import('/orders/js/supabase.js');
+      const [items, search] = await Promise.all([supabase.from('pm_items').select('title').eq('title', 'Confidential offer'), supabase.rpc('pm_search', { p: { q: 'Confidential' } })]);
+      return [items.data.length, search.data.total];
+    });
+    expect(rows).toEqual([0, 0]);
+
+    await signIn(page, GUEST);
+    await page.goto('/projects/#/projects/all');
+    await expect(page.locator('.no-access')).toContainText('Almost in');
+    const guest = await rpc(page, 'pm_search', { p: {} });
+    expect(guest.error).toMatch(/accepted/);
+    expect(await page.evaluate(async () => {
+      const { supabase } = await import('/orders/js/supabase.js');
+      return (await supabase.from('pm_projects').select('id')).data.length;
+    })).toBe(0);
+  });
+});

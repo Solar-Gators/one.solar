@@ -97,6 +97,18 @@ test('Solar Evals messages link to the Solar Evals page on the same site', () =>
   assert.deepEqual(m.facts, [['Member', 'Kit Member'], ['Semester', 'Spring 2027']]);
 });
 
+test('Projects messages say what happened and link to the item in Projects', () => {
+  const m = render(
+    { event: 'project_update', payload: { what: 'BAT-24: Assigned to you: Bracket calculations', details: 'Pat Manager gave you BAT-24 "Bracket calculations".', actor: 'Pat Manager', app_path: 'projects/#/projects/item/BAT-24', recipient_name: 'Mia Member' } },
+    { ...settings, siteUrl: 'https://solar-gators.github.io/one.solar/orders/' }
+  );
+  assert.equal(m.subject, 'BAT-24: Assigned to you: Bracket calculations');
+  assert.deepEqual(m.lines, ['Hi Mia, Pat Manager gave you BAT-24 "Bracket calculations".']);
+  assert.equal(m.link, 'https://solar-gators.github.io/one.solar/projects/#/projects/item/BAT-24');
+  assert.equal(m.linkLabel, 'Open in Projects');
+  assert.deepEqual(m.facts, []);
+});
+
 test('with the one.solar address (…/one.solar/orders/), Solar Evals links go to evals/ next to it', () => {
   const site = { ...settings, siteUrl: 'https://solar-gators.github.io/one.solar/orders/' };
   const ev = (app_path) => render({ event: 'eval_update', payload: { what: 'x', app_path, recipient_name: 'Kit' } }, site).link;

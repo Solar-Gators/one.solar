@@ -55,6 +55,7 @@ const FALLBACK: Record<string, Template> = {
   request_update: { subject: '{request_number} is now {status}', body: '"{title}" ({requester}) is now {status}. You\'re getting this because you watch it.' },
   sponsor_update: { subject: '{sponsor}: {what}', body: '{actor} updated {sponsor} on the Sponsors board: {what}.' },
   eval_update: { subject: 'Solar Evals: {what}', body: 'Hi {first_name}, {details}' },
+  project_update: { subject: '{what}', body: 'Hi {first_name}, {details}' },
   test: {
     subject: 'Test message from the order form',
     body: 'Hi {first_name}, notifications are working. You will get messages like this when requests need you or change status.',
@@ -133,7 +134,10 @@ export function render(row: Pick<Row, 'event' | 'payload'>, settings: Record<str
   const t: Template = { ...FALLBACK[row.event], ...(settings?.templates?.[row.event] || {}) };
   const sponsor = row.event.startsWith('sponsor_');
   const evals = row.event.startsWith('eval_');
-  const all: [string, string][] = evals
+  const projects = row.event.startsWith('project_');
+  const all: [string, string][] = projects
+    ? []
+    : evals
     ? [['Member', values.member], ['Semester', values.semester]]
     : sponsor
     ? [['Sponsor', values.sponsor], ['Stage', values.stage], ['Type', values.kind], ['Amount', values.amount]]
@@ -150,7 +154,7 @@ export function render(row: Pick<Row, 'event' | 'payload'>, settings: Record<str
     subject: fill(t.subject || '{request_number}', values).split('\n')[0] || 'Order form',
     lines: fill(t.body || '', values).split('\n').filter(Boolean),
     link: values.link,
-    linkLabel: evals ? 'Open Solar Evals' : sponsor ? 'Open on the Sponsors board' : values.request_number ? `Open ${values.request_number}` : 'Open the order form',
+    linkLabel: projects ? 'Open in Projects' : evals ? 'Open Solar Evals' : sponsor ? 'Open on the Sponsors board' : values.request_number ? `Open ${values.request_number}` : 'Open the order form',
     facts: row.event === 'test' ? [] : facts,
     logo: logoUrl(settings?.siteUrl || ''),
   };

@@ -74,6 +74,19 @@ export const APPS = [
     ],
   },
   {
+    id: 'projects',
+    section: 'apps',
+    name: 'Projects',
+    blurb: 'Plan and track the work: your tasks, boards, timelines with dependencies, milestones and documents, set up per project.',
+    href: 'projects/',
+    icon: '📋',
+    access: ['projects.view', 'projects.create', 'projects.manage'],
+    links: [
+      { label: 'My work', href: 'projects/#/projects' },
+      { label: 'Dashboards', href: 'projects/#/projects/dashboards' },
+    ],
+  },
+  {
     id: 'evals',
     section: 'apps',
     name: 'Solar Evals',

@@ -53,6 +53,7 @@ function myEvents(config) {
     { key: 'items_changed', mine: 'The Treasurer changed the items on your request (e.g. something was out of stock)' },
     { key: 'request_update', mine: 'A request you watch changes status' },
     (auth.can('sponsors.view') || auth.can('sponsors.edit')) && { key: 'sponsor_update', mine: 'A sponsor card you watch moves or gets a note' },
+    (auth.can('projects.view') || auth.can('projects.create') || auth.can('projects.manage')) && { key: 'project_update', mine: "Projects: something is assigned to you, you're mentioned, an approval is asked of you, or a deadline is close (more choices in Projects → Inbox)" },
     { key: 'eval_update', mine: 'Solar Evals: someone submits a self-eval to you, you\'re asked for input on an eval, or your own eval / eval meeting is ready' },
   ].filter(Boolean);
 }
