@@ -11,7 +11,7 @@
  * only in this browser's fake database.
  */
 import { test, expect } from '@playwright/test';
-import { watch, open, signUp, sql } from './helpers.mjs';
+import { watch, open, signUp, sql, signOut } from './helpers.mjs';
 
 const TEST_PASS = ['pm', 'fake', 'mode', 'only', '4826'].join('-');
 const ADMIN = { name: 'Ada Admin', email: 'pm-admin@ufl.edu', password: TEST_PASS };
@@ -21,12 +21,6 @@ const GUEST = { name: 'Gus Guest', email: 'pm-guest@ufl.edu', password: TEST_PAS
 
 const dialog = (page) => page.locator('dialog[open]');
 const toast = (page) => page.locator('.pm-toast');
-async function signOut(page) {
-  await open(page, '/orders/#/home', '#account-btn');
-  await page.click('#account-btn');
-  await page.click('#menu-sign-out');
-  await expect(page.locator('#auth-form')).toBeVisible();
-}
 async function signIn(page, who) {
   await signOut(page);
   await page.fill('#l-email', who.email);

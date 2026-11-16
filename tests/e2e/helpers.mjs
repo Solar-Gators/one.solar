@@ -46,5 +46,16 @@ export async function signUp(page, { name, email, password }, roles = []) {
   if (roles.length) await page.reload(); // the page read the roles at sign-in
 }
 
+/** Sign out from the account menu. Retries if the menu closes before the click lands (the page can re-draw just after
+    loading, which closed the menu in CI and left "Sign out" hidden). */
+export async function signOut(page) {
+  await open(page, '/orders/#/home', '#account-btn');
+  await expect(async () => {
+    if (!(await page.locator('#menu-sign-out').isVisible())) await page.click('#account-btn');
+    await page.click('#menu-sign-out', { timeout: 2000 });
+  }).toPass({ timeout: 30000 });
+  await expect(page.locator('#auth-form')).toBeVisible();
+}
+
 /** Run SQL as the database owner (fake mode only). */
 export const sql = (page, query, params = []) => page.evaluate(([q, p]) => window.fakeSql(q, p), [query, params]);

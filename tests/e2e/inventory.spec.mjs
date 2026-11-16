@@ -8,7 +8,7 @@
  * The accounts exist only in this browser's fake database.
  */
 import { test, expect } from '@playwright/test';
-import { watch, open, signUp, sql } from './helpers.mjs';
+import { watch, open, signUp, sql, signOut } from './helpers.mjs';
 
 const TEST_PASS = ['inv', 'fake', 'mode', 'only', '7351'].join('-');
 const LEAD = { name: 'Inv Lead', email: 'inv-lead@ufl.edu', password: TEST_PASS };
@@ -24,12 +24,6 @@ async function stockOf(page) {
   return { total: rows.reduce((s, r) => s + r.qty, 0), byLocation };
 }
 const dialog = (page) => page.locator('dialog[open]');
-async function signOut(page) {
-  await open(page, '/orders/#/home', '#account-btn');
-  await page.click('#account-btn');
-  await page.click('#menu-sign-out');
-  await expect(page.locator('#auth-form')).toBeVisible();
-}
 
 test.describe('inventory', () => {
   test.describe.configure({ mode: 'serial' });
