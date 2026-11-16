@@ -54,7 +54,7 @@ export const ADMIN_TABS = [
 const GROUP_SCOPE = {
   'one.solar': 'Applies to every one.solar app.',
   Orders: 'Only the Orders app: purchase requests.',
-  'Other apps': 'Sponsors, Finances and Solar Evals keep their own settings inside each app.',
+  'Other apps': 'Sponsors, Finances, Solar Evals, Inventory and Projects keep their own settings inside each app.',
 };
 /** Where a hidden page lives. */
 const PARENT = { lists: 'display', page: 'display', exports: 'display' };

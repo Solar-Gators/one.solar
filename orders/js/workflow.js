@@ -26,7 +26,7 @@ export const EVENTS = [
   { key: 'items_changed', label: 'Items changed', who: 'The requester, when the Treasurer changes the items on an approved / ordered request' },
   { key: 'request_update', label: 'Watched request changed', who: 'People watching the request (not the requester)' },
   { key: 'sponsor_update', app: 'Sponsors', label: 'Sponsor card updated', who: 'People watching the card (Sponsors board)' },
-  { key: 'project_update', app: 'Projects', label: 'Project updates', who: "Someone assigned an item, mentioned, asked to approve, reminded of a deadline, or (if they chose it in Projects → Inbox) on an item that changes. Projects' own inbox always works" },
+  { key: 'project_update', app: 'Projects', label: 'Project updates', who: "Whoever is given an item, mentioned, asked to approve or reminded of a deadline, plus (if they chose it in Projects → Inbox) people on an item that changes. Projects' own inbox always works" },
   { key: 'eval_update', app: 'Solar Evals', label: 'Evaluation updates', who: 'The CE when a member submits a self-eval; the member when their meeting is scheduled and when their eval is shared' },
 ];
 export const PLACEHOLDERS = [

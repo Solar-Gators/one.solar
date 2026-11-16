@@ -70,7 +70,7 @@ export async function renderMyWork(el, { config, rerender }) {
   el.innerHTML = `${header('My work', `${open.length} open item${open.length === 1 ? '' : 's'} where you're the owner or a collaborator.`,
     `<a class="btn" href="#/projects/all">All projects</a>`)}
     <div class="pm-filters">
-      <label class="inline-field">Group by <select id="mw-group"><option value="when" ${view.group === 'when' ? 'selected' : ''}>What needs me first</option>
+      <label class="inline-field">Group by <select id="mw-group"><option value="when" ${view.group === 'when' ? 'selected' : ''}>What needs you first</option>
         <option value="project" ${view.group === 'project' ? 'selected' : ''}>Project</option><option value="status" ${view.group === 'status' ? 'selected' : ''}>Status</option></select></label>
       <a class="btn btn-sm" href="#/projects/list">Search all work</a>
       ${done.length ? '<button type="button" class="btn btn-sm" id="mw-summary" title="A plain list of what you finished, to paste into a self-evaluation or a report">Copy what I finished</button>' : ''}
