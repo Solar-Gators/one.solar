@@ -856,6 +856,21 @@ const topOf = id => { const t = track(id); return t?.parent ? t.parent : id; };
 const firstForm = () => (track("master") ? "master" : forms()[0]?.id) || "master";
 const usedBy = id => types.filter(t => t.settings?.form?.track === id || track(t.settings?.form?.track)?.parent === id);
 function vName(v){ if (!v) return ""; const t = track(v.trackId); return `${t ? t.name : "?"} · ${v.label}`; }
+/** Forms this person may look at in the Forms tab: null = all of them (people who write, read or set up evals);
+    otherwise only the forms they're evaluated on (their eval types' form, and the ones their own evals were written on). */
+function formsISee(){
+  if (["evals.write", "evals.view", "evals.templates", "evals.types"].some(p => can(p))) return null;
+  const ids = new Set();
+  for (const t of activeTypes()) if (ruleMatch(t.settings.subjects, me.id) && track(t.settings.form?.track)) ids.add(t.settings.form.track);
+  for (const e of evals) if (e.member_id === me.id || e.subject_id === me.id || e.evaluator_id === me.id) {
+    const name = (e.template_label || "").split(" · ")[0], t = db.tracks.find(x => x.name === name);
+    if (t) ids.add(t.id);
+  }
+  return ids;
+}
+const mayView = id => { const ids = formsISee(); return !ids || ids.has(id); };
+/** The form and version an eval was written on, without repeating the eval type's name ("Member eval · Member eval · v1.1"). */
+const formLabel = e => { const l = e.template_label || "", pre = `${typeName(e)} · `; return l.startsWith(pre) ? l.slice(pre.length) : l; };
 /** The main form's version a variant's version was made from (following "based on"). */
 function masterRoot(v){
   const top = v && topOf(v.trackId), seen = new Set();
@@ -935,6 +950,8 @@ async function route(){
   if (a === "rubrics") {
     section = "rubrics";
     view.trackId = track(b) ? b : firstForm();
+    if (!mayView(view.trackId)) view.trackId = [...formsISee()][0] || "";   // members: only the forms they're evaluated on
+    if (!view.trackId) { section = "evals"; render(); return; }
     view.versionId = c && version(c)?.trackId === view.trackId ? c : null;
     if (view.mode !== "edit" || !draft || draft.trackId !== view.trackId) view.mode = "view";
   } else if (a === "evals" && b) {
@@ -958,6 +975,7 @@ function go(trackId, versionId=null, mode="view"){
 const shownVersion = () => view.versionId ? version(view.versionId) : latest(view.trackId);
 
 function render(){
+  const seen = formsISee(); $('#tabs a[data-tab="rubrics"]').hidden = !!seen && !seen.size;
   $$("#tabs a").forEach(a => a.classList.toggle("active", a.dataset.tab === (["rubrics", "questions", "setup"].includes(section) ? section : "evals")));
   $("#layout").classList.toggle("nosb", section !== "rubrics" && section !== "setup");
   $("#main").classList.remove("editing", "filling");
@@ -983,13 +1001,14 @@ function renderSide(){
       <span class="mt" style="display:block">${meta}</span></span></button>`;
   };
   const cur = topOf(view.trackId);
-  $("#side").innerHTML = forms().map(f => `<div class="sb-h">${esc(f.name)}</div>
-      <div class="sb-list">${item(f, false)}${variantsOf(f.id).map(v => item(v, true)).join("")}</div>`).join("") + `
+  const all = !formsISee();
+  $("#side").innerHTML = forms().filter(f => mayView(f.id) || variantsOf(f.id).some(v => mayView(v.id))).map(f => `<div class="sb-h">${esc(f.name)}</div>
+      <div class="sb-list">${mayView(f.id) ? item(f, false) : ""}${variantsOf(f.id).filter(v => mayView(v.id)).map(v => item(v, true)).join("")}</div>`).join("") + `
     <div class="sb-foot">
       ${can("evals.templates") ? `<button class="linkbtn" data-act="addForm">+ New form</button>
         ${track(cur) ? `<button class="linkbtn" data-act="addTrack">+ Add a variant of ${esc(track(cur).name)}</button>` : ""}` : ""}
-      <button class="linkbtn" data-act="compareAny">Compare any two versions</button>
-      <button class="linkbtn" data-act="export">Download all forms (.json)</button>
+      ${all ? `<button class="linkbtn" data-act="compareAny">Compare any two versions</button>
+      <button class="linkbtn" data-act="export">Download all forms (.json)</button>` : `<p class="mt" style="margin:0">The form${formsISee().size === 1 ? "" : "s"} you're evaluated on.</p>`}
     </div>`;
 }
 
@@ -1469,7 +1488,7 @@ function diffRubrics(A, B){
   return sec;
 }
 function compareHTML(){
-  const opts = sel => db.tracks.filter(t => versionsOf(t.id).length).map(t => `<optgroup label="${esc(t.name)}">${
+  const opts = sel => db.tracks.filter(t => versionsOf(t.id).length && mayView(t.id)).map(t => `<optgroup label="${esc(t.name)}">${
       versionsOf(t.id).slice().reverse().map(v => `<option value="${esc(v.id)}"${v.id === sel ? " selected" : ""}>${esc(t.name)} · ${esc(v.label)}</option>`).join("")}</optgroup>`).join("")
     + (draft ? `<optgroup label="Unsaved"><option value="__draft"${sel === "__draft" ? " selected" : ""}>Your draft (${esc(track(draft.trackId)?.name)})</option></optgroup>` : "");
   const get = id => id === "__draft" ? (draft && {rubric:draft.rubric}) : version(id);
@@ -1821,9 +1840,10 @@ function reviewHTML(ce, self){
   if (!ce || !self) return "";
   const s = S(ce), qs = questionsOf(self);
   if (qs) {
-    const name = esc(self.member_name || `The ${lc(L(s, "subject"))}`);
-    return `<details class="rv" open><summary>${name}'s self-eval answers</summary>
-      <div class="rvsub">Submitted ${fmtDate(self.finalized_at)}.${s.meeting ? " Good things to talk about in the meeting." : ""} <a href="#/evals/${esc(self.id)}">Open the self-eval</a></div>
+    const own = self.evaluator_id === me.id || self.member_id === me.id;   // the person evaluated, reading their shared eval
+    const name = own ? "Your" : `${esc(self.member_name || `The ${lc(L(s, "subject"))}`)}'s`;
+    return `<details class="rv" open><summary>${name} self-eval answers</summary>
+      <div class="rvsub">Submitted ${fmtDate(self.finalized_at)}.${s.meeting && !own ? " Good things to talk about in the meeting." : ""} <a href="#/evals/${esc(self.id)}">Open the self-eval</a></div>
       ${qs.map((q, i) => { const a = (self.answers?.[q.id] || "").trim();
         return `<div class="ans" style="grid-template-columns:1fr;margin-top:10px"><div class="k" style="text-transform:none;letter-spacing:0;font-size:14px;color:var(--navy)">${i + 1}. ${esc(q.text)}</div>
           <div class="v${a ? "" : " none"}">${a ? esc(a) : "No answer"}</div></div>`; }).join("")}</details>`;
@@ -1890,7 +1910,7 @@ function renderEval(){
   const s = S(e), v = s.visibility.eval, live = evalLive(), mine = e.evaluator_id === me.id, self = evalState.other, linked = !!e.self_eval_id;
   const who = esc(e.member_name || `the ${lc(L(s, "subject"))}`), shareable = v.subject === "shared";
   m.classList.toggle("filling", live);
-  const meta = `<div class="meta">${statusBadge(e.status, e.kind, e)} · ${esc(typeName(e))} · ${esc(e.template_label)} · written by <b>${esc(personName(e.evaluator_id) || "a former member")}</b>
+  const meta = `<div class="meta">${statusBadge(e.status, e.kind, e)} · ${esc(typeName(e))} · ${esc(formLabel(e))} · written by <b>${esc(personName(e.evaluator_id) || "a former member")}</b>
      · updated ${fmtDate(e.updated_at)}${e.shared_at ? ` · shared ${fmtDate(e.shared_at)}` : ""} <span class="savest" id="saveState"></span></div>`;
   let acts = `<a class="btn" href="#/evals">All evaluations</a>`;
   if (mine) {
@@ -1949,7 +1969,7 @@ function renderSelf(){
   const m = $("#main"), e = evalState.row, s = S(e), live = evalLive(), mine = e.evaluator_id === me.id, ce = evalState.other;
   const evL = L(s, "evaluator"), ceName = esc(personName(e.ce_id) || `your ${evL}`);
   m.classList.toggle("filling", live);
-  const meta = `<div class="meta">${statusBadge(e.status, "self")} · ${esc(typeName(e))} · ${esc(e.template_label)} · ${mine ? "your self-evaluation" : `by <b>${esc(e.member_name)}</b>`}
+  const meta = `<div class="meta">${statusBadge(e.status, "self")} · ${esc(typeName(e))} · ${esc(formLabel(e))} · ${mine ? "your self-evaluation" : `by <b>${esc(e.member_name)}</b>`}
      · ${esc(evL)} <b>${esc(personName(e.ce_id) || "not picked yet")}</b>${e.finalized_at ? ` · submitted ${fmtDate(e.finalized_at)}` : ""} <span class="savest" id="saveState"></span></div>`;
   let acts = `<a class="btn" href="#/evals">All evaluations</a>`;
   if (mine && e.status === "draft") acts += `<button class="btn danger" data-act="evDelete">Delete draft</button><button class="btn primary" data-act="selfSubmit">Submit to ${e.ce_id ? ceName : `your ${esc(evL)}`}</button>`;
