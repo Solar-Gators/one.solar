@@ -394,7 +394,7 @@ export async function renderTextBanner(el, { config, rerender, reloadConfig }, p
     <form id="text-form" novalidate>
       ${intros ? introsCard : `<section class="card">
         <h2>Announcement banner</h2>
-        <p class="muted small">Shown at the top of the home screen and every app (Orders, Finances, Sponsors, Admin) for signed-in people, e.g. "No orders during finals week".</p>
+        <p class="muted small">Shown at the top of the home screen and every app for signed-in people, e.g. "No orders during finals week".</p>
         <div class="field"><label for="ann-text">Message <span class="muted">(leave empty for no banner)</span></label>
           <textarea id="ann-text" name="annText" rows="2" maxlength="500">${esc(ann.text || '')}</textarea></div>
         <div class="form-grid">

@@ -67,7 +67,7 @@ export async function renderInvItem(el, ctx) {
           <td data-label="Expires">${esc(l.expires_on || '—')}</td><td data-label="Retest">${esc(l.retest_on || '—')}</td>
           <td data-label="Condition">${l.condition === 'good' && !lotProblem(l) ? 'Good' : `<span class="chip chip-tone tone-red">${esc(lotProblem(l) || l.condition)}</span>`}</td>
           <td>${can.setAside() ? `<button type="button" class="btn btn-sm btn-ghost" data-lot-edit="${esc(l.id)}">Edit</button>` : ''}</td></tr>`).join('')}</tbody></table></div>
-        <p class="muted small">Use the lot that expires first. Expired, damaged or suspect lots can't be used or released until their dates or condition are fixed.</p>` : '<p class="empty">No lots yet: each receipt asks for its lot.</p>'}
+        <p class="muted small">Use the lot that expires first. Expired, damaged or suspect lots can't be used or released until their dates or condition are fixed.</p>` : '<p class="empty">No lots yet: you\'re asked for the lot each time stock is received.</p>'}
     </section>` : ''}
 
     <div class="two-col">

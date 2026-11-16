@@ -18,7 +18,7 @@ const NODE = { w: 150, h: 46 };
 /** The rows of an "actions" editor (used for a move's follow-up actions and for automation rules). */
 export function actionsEditor(b, cfg, actions) {
   const model = actions.map((a) => ({ ...a }));
-  const who = (v, extra = []) => [...extra, ['owner', 'The item\'s owner'], ['reporter', 'Whoever created it'], ['lead', 'The project manager'], ['actor', 'Whoever set the rule off'],
+  const who = (v, extra = []) => [...extra, ['owner', 'The item\'s owner'], ['reporter', 'Whoever created it'], ['lead', 'The project manager'], ['actor', 'Whoever triggered the rule'],
     ...b.people.map((p) => [p.id, p.full_name || p.email])].map(([k, l]) => `<option value="${esc(k)}" ${v === k ? 'selected' : ''}>${esc(l)}</option>`).join('');
   const TYPES = [['notify', 'Send a notice'], ['comment', 'Add a comment'], ['set_status', 'Move it to a status'], ['assign', 'Assign it'], ['set_field', 'Set a field'], ['add_label', 'Add a label'],
     ['add_watcher', 'Add a watcher'], ['create_item', 'Create an item']];
@@ -40,7 +40,7 @@ export function actionsEditor(b, cfg, actions) {
             : `<input type="text" ${at('value')} value="${esc(typeof a.value === 'object' ? '' : a.value ?? '')}" placeholder="${a.field === 'blocked' ? 'true or false' : 'Value'}" aria-label="Value">`}`;
       }
       case 'create_item': return `<select ${at('type_id')} aria-label="Kind">${cfg.types.filter((t) => !t.archived_at).map((t) => `<option value="${esc(t.id)}" ${a.type_id === t.id ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select>
-        <input type="text" ${at('title')} value="${esc(a.title || '')}" placeholder="Title. {title} is the item that set it off" aria-label="Title">
+        <input type="text" ${at('title')} value="${esc(a.title || '')}" placeholder="Title. {title} is the title of the item that triggered the rule" aria-label="Title">
         <select ${at('owner')} aria-label="Owner">${who(a.owner || 'none', [['none', 'No owner']])}</select>
         <input type="number" ${at('due_in_days')} value="${esc(a.due_in_days ?? '')}" placeholder="Due in … days" aria-label="Due in days" style="width:120px">`;
       default: return '';
@@ -168,7 +168,7 @@ export async function renderWorkflows(el, scope) {
     <section class="card"><h2>Drawing</h2><p class="hint">Drag a status to arrange the drawing. Arrows are the allowed moves; a dashed arrow needs approval; "any" means from every status.</p>
       <div class="pm-wf-canvas" data-wf-draw></div></section>
     <section class="card"><h2>Statuses</h2><p class="hint">New items start in the first one. The category decides what counts as open, in progress and finished everywhere else.</p>
-      <div class="table-wrap"><table class="pm-table"><thead><tr><th>Name</th><th>Category</th><th>Colour</th><th></th></tr></thead><tbody data-wf-statuses></tbody></table></div>
+      <div class="table-wrap"><table class="pm-table"><thead><tr><th>Name</th><th>Category</th><th>Color</th><th></th></tr></thead><tbody data-wf-statuses></tbody></table></div>
       <p><button type="button" class="btn btn-sm" data-s-add>+ Status</button></p></section>
     <section class="card"><h2>Moves</h2><p class="hint">Only these changes of status are possible, on the board, in lists and on the item page alike. Each can have its own rules.</p>
       <div class="table-wrap"><table class="pm-table"><thead><tr><th>Name</th><th>From → to</th><th>Rules</th><th></th></tr></thead><tbody data-wf-moves></tbody></table></div>
@@ -304,7 +304,7 @@ function moveDialog(b, cfg, m, tr) {
           <label class="pm-check"><input type="checkbox" name="noself" ${tr?.no_self_approval ? 'checked' : ''}> …who isn't the item's owner</label></div>
         <p>Only when: <span data-cond-text class="muted">${esc(filterText(conditions) || 'always')}</span> <button type="button" class="btn btn-sm" data-cond>Set a condition</button></p>
         <p class="hint">More fields can be asked for (not required) on this move's own form: Settings → Forms → "When making a move".</p></fieldset>
-      <fieldset class="pm-section"><legend>Then, straight after the move</legend>${acts.html()}</fieldset>`,
+      <fieldset class="pm-section"><legend>Then, right after the move</legend>${acts.html()}</fieldset>`,
     onOpen(form) {
       acts.bind(form);
       form.querySelector('[data-cond]').onclick = async () => {

@@ -20,7 +20,7 @@ export async function renderInvCounts(el, ctx) {
   const [b, counts] = await Promise.all([loadBase(), inv.counts()]);
   const due = b.items.filter((i) => i.count_due && Number(i.on_hand) > 0 && i.status !== 'archived');
 
-  el.innerHTML = `${takeFlash()}${header('Counts', 'Count a shelf at a time; the system corrects itself from what you find.',
+  el.innerHTML = `${takeFlash()}${header('Counts', 'Count one shelf at a time; stock is corrected to match what you find.',
     can.count() ? '<button type="button" class="btn btn-primary" data-start>Start a count</button>' : '')}
     ${due.length ? `<section class="card"><div class="card-head"><h2>Due for a count (${due.length})</h2>${can.count() ? '<button type="button" class="btn btn-sm" data-start-due>Count these</button>' : ''}</div>
       <p class="muted small">By count class: A every ${esc(b.settings.countDays?.A ?? 30)} days, B every ${esc(b.settings.countDays?.B ?? 90)}, C every ${esc(b.settings.countDays?.C ?? 180)}.</p>

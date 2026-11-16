@@ -64,11 +64,11 @@ The database checks every change and every read: hiding a button is never the pr
 
 ## Setting a project up (no code)
 
-**Work types** (Settings → Work types): name, icon, colour, level (0 is the top, an epic), which types it can go
+**Work types** (Settings → Work types): name, icon, color, level (0 is the top, an epic), which types it can go
 under, its workflow, whether it's a milestone, and what new items of that type start with.
 
 **Workflows** (Settings → Workflows): a drawing of the statuses with arrows for the allowed moves, a table of
-statuses (name, category *To do / In progress / Done*, colour, order) and of moves. Each move can be limited to some
+statuses (name, category *To do / In progress / Done*, color, order) and of moves. Each move can be limited to some
 project roles, require fields, require a comment, need approval (optionally not the owner's own), have a condition,
 and do things straight afterwards. Saving shows a preview first. A status that still has items in it can only be
 removed by saying which status those items become; each moved item gets a line in its history. Every saved version
@@ -103,7 +103,7 @@ see.
 a checked model that the database turns into its own query; no text from a filter is ever run as SQL.
 
 **Rules** (Settings → Rules): *when* (an item is created, changed, changes status, gets a new owner, is commented on,
-everything it waited on is finished, a milestone is reached, is due soon, is overdue, or on a schedule) → *if*
+everything it was waiting on is finished, a milestone is reached, is due soon, is overdue, or on a schedule) → *if*
 (conditions) → *then* (send a notice, comment, move it to a status, assign, set a field, add a label, add a watcher,
 create an item). "Try it" shows which items match without doing anything. Every run is logged with its result. A rule
 that fails is logged and never stops what the person was doing; rules can set each other off at most three deep; a

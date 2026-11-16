@@ -351,7 +351,7 @@ export async function renderNotifications(el, { config, rerender, reloadConfig }
 
   el.innerHTML = `
     ${takeFlash()}
-    ${adminHeader('notifications', 'Email and Microsoft Teams messages from every app (Orders, Sponsors and Solar Evals): what gets sent and how it\'s worded. Each person picks which messages they get on <a href="#/account">My account</a>.')}
+    ${adminHeader('notifications', 'Email and Microsoft Teams messages from every app (Orders, Sponsors, Solar Evals and Projects): what gets sent and how it\'s worded. Each person picks which messages they get on <a href="#/account">My account</a>.')}
     <div id="n-errors"></div>
     <div class="two-col">
       <section class="card">
@@ -363,7 +363,7 @@ export async function renderNotifications(el, { config, rerender, reloadConfig }
         <div class="field"><label for="n-delay">Wait before sending "needs your approval"</label>
           <div class="inline-input"><input type="number" id="n-delay" min="0" max="1440" step="1" value="${esc(state.approvalDelayMinutes)}"> <span class="muted">minutes</span></div>
           <div class="hint">Skipped if the request is handled before then (e.g. a CE approving their own order). 0 = send right away.</div></div>
-        ${about(`<p>Delayed messages go out the next time the sender runs, so it's scheduled every 5–10 minutes in Supabase (Integrations → Cron).</p>
+        ${about(`<p>Delayed messages go out the next time the sender runs, so it should be scheduled to run every 5–10 minutes in Supabase (Integrations → Cron).</p>
           <p>Sending needs a one-time setup in Supabase (email account and/or a Power Automate flow for Teams).
           ${auth.can('users.manage') ? 'The steps are in <code>docs/MAINTAINING.md</code> → "Email &amp; Teams notifications".' : 'Ask whoever maintains the site.'}</p>`, 'Setup notes')}
       </section>

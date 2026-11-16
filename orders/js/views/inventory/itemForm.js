@@ -36,18 +36,18 @@ export async function renderInvItemForm(el, ctx) {
       <div class="inv-dialog-error" data-error aria-live="polite"></div>
       <div class="form-grid">
         ${field('i-name', 'Name', `<input id="i-name" name="name" required maxlength="120" value="${esc(it.name)}" autocomplete="off">`, 'What people call it, e.g. "M3×8 socket head cap screw".', 'span-4')}
-        ${field('i-sku', 'SKU <span class="muted">(optional)</span>', `<input id="i-sku" name="sku" maxlength="32" value="${esc(it.sku || '')}" class="mono" placeholder="made for you">`, 'Leave empty for INV-00001 style.')}
+        ${field('i-sku', 'SKU <span class="muted">(optional)</span>', `<input id="i-sku" name="sku" maxlength="32" value="${esc(it.sku || '')}" class="mono" placeholder="made for you">`, 'Leave empty to get one like INV-00001.')}
         ${field('i-cat', 'Category', `<select id="i-cat" name="category_id"><option value="">None</option>${b.categories.filter((c) => !c.archived_at || c.id === it.category_id).map((c) => `<option value="${esc(c.id)}" ${c.id === it.category_id ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select>`)}
         ${field('i-mfr', 'Manufacturer', `<input id="i-mfr" name="manufacturer" maxlength="120" value="${esc(it.manufacturer)}">`)}
         ${field('i-mpn', 'Manufacturer part number', `<input id="i-mpn" name="mpn" maxlength="80" value="${esc(it.mpn)}" class="mono" autocomplete="off">`)}
         ${field('i-unit', 'Unit', `<select id="i-unit" name="unit">${units.map((u) => `<option value="${esc(u.code)}" ${u.code === it.unit ? 'selected' : ''}>${esc(u.code)} · ${esc(u.name)}</option>`).join('')}</select>`,
-          id ? 'Fixed once it has history.' : 'How you count it: each, metres, grams…')}
+          id ? 'Fixed once it has history.' : 'How you count it: each, meters, grams…')}
         ${field('i-dec', 'Decimal places', `<input id="i-dec" name="decimals" type="number" min="0" max="4" value="${esc(it.decimals)}">`, '0 for things you count whole.')}
         ${field('i-loc', 'Usual place', `<select id="i-loc" name="default_location_id">${locationOptions(b, it.default_location_id || '', { blank: 'None' })}</select>`)}
         ${field('i-status', 'Status', `<select id="i-status" name="status">${[['active', 'Active'], ['discontinued', 'Discontinued (use up, don\'t reorder)'], ['archived', 'Archived (hidden)']].map(([v, l]) => `<option value="${v}" ${v === it.status ? 'selected' : ''}>${l}</option>`).join('')}</select>`)}
-        ${field('i-rp', 'Reorder point', `<input id="i-rp" name="reorder_point" type="number" min="0" step="any" value="${esc(it.reorder_point ?? '')}">`, 'Shows as low at or under this. Empty: never.')}
+        ${field('i-rp', 'Reorder point', `<input id="i-rp" name="reorder_point" type="number" min="0" step="any" value="${esc(it.reorder_point ?? '')}">`, 'Shown as low at or below this. Leave empty to never warn.')}
         ${field('i-rq', 'Reorder quantity', `<input id="i-rq" name="reorder_qty" type="number" min="0" step="any" value="${esc(it.reorder_qty ?? '')}">`)}
-        ${field('i-cost', 'Unit cost (estimate)', `<input id="i-cost" name="unit_cost" type="number" min="0" step="any" value="${esc(it.unit_cost ?? '')}">`, 'Per unit above. Used for usage reports.')}
+        ${field('i-cost', 'Unit cost (estimate)', `<input id="i-cost" name="unit_cost" type="number" min="0" step="any" value="${esc(it.unit_cost ?? '')}">`, 'Per unit (as above). Used in usage reports.')}
         ${field('i-class', 'Count class', `<select id="i-class" name="count_class">${['A', 'B', 'C'].map((c) => `<option ${c === it.count_class ? 'selected' : ''}>${c}</option>`).join('')}</select>`,
           `A every ${esc(b.settings.countDays?.A ?? 30)} days, B ${esc(b.settings.countDays?.B ?? 90)}, C ${esc(b.settings.countDays?.C ?? 180)}.`)}
         ${field('i-desc', 'Description', `<textarea id="i-desc" name="description" rows="2" maxlength="2000">${esc(it.description || '')}</textarea>`, '', 'span-4')}

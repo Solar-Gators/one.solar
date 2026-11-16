@@ -298,7 +298,7 @@ function cardHTML(a, { edit = false, s = settings } = {}) {
   return `<article class="app-card app-${esc(a.id)}" data-card="${esc(a.id)}">
     <a class="app-main" href="${esc(ext ? href : appUrl(href))}"${ext ? ' target="_blank" rel="noopener"' : ''}>${inner}</a>
     <button type="button" class="fav${fav ? ' on' : ''}" data-fav="${esc(a.id)}" aria-pressed="${fav}"
-      aria-label="Favourite ${esc(a.name)}" title="${fav ? 'Remove from your favourites' : 'Add to your favourites (they go to the top)'}">${fav ? '★' : '☆'}</button>
+      aria-label="Favorite ${esc(a.name)}" title="${fav ? 'Remove from your favorites' : 'Add to your favorites (they go to the top)'}">${fav ? '★' : '☆'}</button>
     ${links.length ? `<nav class="app-links" aria-label="${esc(a.name)} shortcuts">${links.map((l) => `<a href="${esc(appUrl(l.href))}">${esc(l.label)}</a>`).join('')}</nav>` : ''}
   </article>`;
 }
@@ -328,7 +328,7 @@ function draw() {
 
   const favCards = shown.filter((c) => favs.includes(c.id) && match(c)).sort((a, b) => favs.indexOf(a.id) - favs.indexOf(b.id));
   const groups = [
-    ...(favCards.length ? [{ id: 'favorites', name: '★ Your favourites', cards: favCards }] : []),
+    ...(favCards.length ? [{ id: 'favorites', name: '★ Your favorites', cards: favCards }] : []),
     ...sectionsOf(settings, cards).map((x) => ({ ...x, cards: shown.filter((c) => c.section === x.id && !favs.includes(c.id) && match(c)) })),
   ].filter((g) => g.cards.length);
   const titled = groups.length > 1;

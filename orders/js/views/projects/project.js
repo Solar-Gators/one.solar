@@ -58,7 +58,7 @@ export async function renderAcross(el, ctx) {
   const shapes = await shapesFor(b, projectIds);
   const scope = { b, project: null, cfg: null, cfgOf: shapes.cfgOf, statuses: shapes.all.statuses, types: shapes.all.types, fields: [], projectIds,
     rerender: ctx.rerender, params: ctx.params, base: `#/projects/${which}` };
-  const titles = { boards: ['Boards', 'Boards across projects: columns hold every status with the same name.'], timeline: ['Timeline', 'Every project on one timeline, with the dependencies between them.'],
+  const titles = { boards: ['Boards', 'Boards across projects: statuses with the same name share a column.'], timeline: ['Timeline', 'Every project on one timeline, with the dependencies between them.'],
     calendar: ['Calendar', 'Deadlines, milestones and project events.'], list: ['All work', 'Search every item you can see.'] };
   el.innerHTML = `${takeFlash()}${header(titles[which][0], titles[which][1])}<div data-body></div>`;
   const body = el.querySelector('[data-body]');

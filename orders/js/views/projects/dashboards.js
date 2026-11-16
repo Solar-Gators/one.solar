@@ -63,7 +63,7 @@ export async function renderDashboards(el, { config, params, rerender }) {
           ${w.rows.filter((r) => r.items).map((r) => `<tr class="${r.id ? '' : 'pm-unassigned'}"><td>${r.id ? `${avatar(b, r.id)} ${esc(personName(b, r.id))}` : '<strong>No owner</strong>'}</td><td><a href="#/projects/list">${r.items}</a>${r.unestimated ? ` <span class="muted small">(${r.unestimated} not estimated)</span>` : ''}</td>
             <td class="${r.late ? 'is-late' : ''}">${r.late ? `${r.late} h` : ''}</td>${w.weeks.map((wk) => cell(r, wk)).join('')}<td>${r.undated ? `${r.undated} h` : ''}</td><td><strong>${Math.round(r.total * 10) / 10} h</strong></td><td>${r.hours ?? '<span class="muted">—</span>'}</td></tr>`).join('')
             || '<tr><td colspan="12" class="muted">No open items in scope.</td></tr>'}</tbody></table></div>
-        <p class="hint">A red week means more estimated hours are due that week than the person says they have (Inbox → "What I'm told about" → hours a week). Items without an estimate count as 0 hours and are listed as "not estimated".</p></section>
+        <p class="hint">A red week means more estimated hours are due that week than the person says they have (Inbox → "What I get notified about" → hours a week). Items without an estimate count as 0 hours and are listed as "not estimated".</p></section>
       <section class="card"><h2>Estimated open work by subsystem</h2>${bySub.size ? `<ul class="pm-hbars">${[...bySub].sort((x, y) => y[1] - x[1]).map(([id, h]) => `<li><span>${esc(b.subsystemById.get(id)?.name || b.divisionById.get(id)?.name || 'No subsystem')}</span>
         <span class="pm-hbar" style="--w:${Math.round((h / most) * 100)}%"></span><span>${Math.round(h)} h</span></li>`).join('')}</ul>` : none('Nothing open.')}</section>`;
     return bindScope();
@@ -92,7 +92,7 @@ export async function renderDashboards(el, { config, params, rerender }) {
       ['Waiting on another subsystem', cross.map((d) => `<li><a href="${itemHref(byId.get(d.to_item).key)}">${esc(byId.get(d.to_item).key)}</a> <span class="muted">(${esc(sub(byId.get(d.to_item)))})</span> waits on
         <a href="${itemHref(byId.get(d.from_item).key)}">${esc(byId.get(d.from_item).key)} · ${esc(byId.get(d.from_item).title)}</a> <span class="muted">(${esc(sub(byId.get(d.from_item)))})</span> ${dueChip(byId.get(d.from_item))}</li>`), 'No open dependencies between subsystems.'],
       ['Decisions needed', [...waiting.map((a) => li(byId.get(a.item_id), `<span class="chip-tone tone-amber">Waiting for approval since ${esc(relDay(a.requested_at))}</span>`)),
-        ...items.filter((i) => (i.labels || []).includes('decision')).map((i) => li(i, '<span class="chip">decision</span>'))], 'Nothing is waiting on an approval, and nothing is labelled "decision".'],
+        ...items.filter((i) => (i.labels || []).includes('decision')).map((i) => li(i, '<span class="chip">decision</span>'))], 'Nothing is waiting on an approval, and nothing is labeled "decision".'],
     ];
     el.innerHTML = `${header('Dashboards', 'A summary to walk through at the weekly program review.', '<button type="button" class="btn" data-copy>Copy as text</button>')}${tabs}${scopeBar}
       <div class="pm-filters"><label class="inline-field">Looking back <select data-days>${[7, 14, 30].map((n) => `<option value="${n}" ${st.days === n ? 'selected' : ''}>${n} days</option>`).join('')}</select></label></div>

@@ -15,7 +15,7 @@ const TABS = [['details', 'Details', 'configure'], ['people', 'People & roles', 
   ['fields', 'Fields', 'configure'], ['forms', 'Forms', 'configure'], ['rules', 'Rules', 'automations'], ['templates', 'Templates', 'configure']];
 const opt = (v, l, on) => `<option value="${esc(v)}" ${on ? 'selected' : ''}>${esc(l)}</option>`;
 const TRIGGERS = [['created', 'An item is created'], ['updated', 'An item is changed'], ['status', 'An item changes status'], ['assigned', 'An item gets a new owner'], ['comment', 'Someone comments'],
-  ['dependency_done', 'Everything it waited on is finished'], ['milestone', 'A milestone is reached'], ['due_soon', 'An item is due soon'], ['overdue', 'An item is overdue'], ['schedule', 'On a schedule']];
+  ['dependency_done', 'Everything it was waiting on is finished'], ['milestone', 'A milestone is reached'], ['due_soon', 'An item is due soon'], ['overdue', 'An item is overdue'], ['schedule', 'On a schedule']];
 
 export async function renderSettings(el, scope) {
   const { b, project } = scope;
@@ -43,13 +43,13 @@ async function details(el, { b, project, cfg, rerender }) {
         <div class="field span-2"><label for="pd-div">Owning CE division</label><select id="pd-div" name="division" data-division>${opt('', '—', !project.division_id)}${b.divisions.filter((d) => !d.archived_at || d.id === project.division_id).map((d) => opt(d.id, d.name, d.id === project.division_id)).join('')}</select></div>
         <div class="field span-2"><label for="pd-sub">Owning subsystem</label><select id="pd-sub" name="subsystem" data-subsystem>${opt('', '—', !project.subsystem_id)}${b.subsystems.filter((s) => !s.archived_at || s.id === project.subsystem_id).map((s) => `<option value="${esc(s.id)}" data-div="${esc(s.division_id)}" ${s.id === project.subsystem_id ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</select></div>
         <div class="field span-2"><label for="pd-vehicle">Vehicle (optional)</label><input id="pd-vehicle" name="vehicle" type="text" maxlength="80" value="${esc(project.vehicle)}"></div></div>
-      <fieldset class="pm-section"><legend>Also taking part</legend><details class="pm-multi"><summary>${project.participants.length || 'No'} other subsystem${project.participants.length === 1 ? '' : 's'}</summary>
+      <fieldset class="pm-section"><legend>Other subsystems involved</legend><details class="pm-multi"><summary>${project.participants.length || 'No'} other subsystem${project.participants.length === 1 ? '' : 's'}</summary>
         <div class="pm-checks">${b.subsystems.filter((s) => !s.archived_at).map((s) => `<label class="pm-check"><input type="checkbox" name="part" value="${esc(s.id)}" data-div="${esc(s.division_id)}" ${project.participants.some((p) => p.subsystem_id === s.id) ? 'checked' : ''}> ${esc(s.name)}</label>`).join('')}</div></details></fieldset>
       <fieldset class="pm-section"><legend>Who can see it</legend>
         <label class="pm-check"><input type="radio" name="visibility" value="team" ${project.visibility === 'team' ? 'checked' : ''} ${mayShare ? '' : 'disabled'}> The whole team</label>
         <label class="pm-check"><input type="radio" name="visibility" value="private" ${project.visibility === 'private' ? 'checked' : ''} ${mayShare ? '' : 'disabled'}> Only the people added to it (a sensitive project)</label>
-        <div class="field" style="max-width:340px;margin-top:8px"><label for="pd-team-role">Everyone on the team, without being added, is a</label>
-          <select id="pd-team-role" name="team_role" ${mayShare ? '' : 'disabled'}>${opt('', 'Nothing more than a reader', !project.team_role_id)}${cfg.roles.map((r) => opt(r.id, r.name, r.id === project.team_role_id)).join('')}</select>
+        <div class="field" style="max-width:340px;margin-top:8px"><label for="pd-team-role">Role for team members who haven't been added</label>
+          <select id="pd-team-role" name="team_role" ${mayShare ? '' : 'disabled'}>${opt('', 'Viewer only (can see, nothing more)', !project.team_role_id)}${cfg.roles.map((r) => opt(r.id, r.name, r.id === project.team_role_id)).join('')}</select>
           <div class="hint">Only for a project the whole team can see. People added to the project get the role you give them.</div></div></fieldset>
       <fieldset class="pm-section"><legend>Working days (for the timeline's forecast)</legend><div class="pm-checks">${['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map((d, n) => `<label class="pm-check"><input type="checkbox" name="wd" value="${n}" ${days.includes(n) ? 'checked' : ''}> ${d}</label>`).join('')}</div>
         <div class="field" style="margin-top:8px"><label for="pd-off">Days off (one date per line, e.g. 2027-03-15)</label><textarea id="pd-off" name="holidays" rows="3" placeholder="2027-03-15">${esc((st.holidays || []).join('\n'))}</textarea></div></fieldset>
@@ -112,7 +112,7 @@ async function people(el, { b, project, cfg, reload }) {
       const r = cfg.roles.find((x) => x.id === t.dataset.rename);
       const res = await formDialog({ title: r ? 'Rename role' : 'New role', submit: 'Save',
         body: `<div class="field"><label for="rl-name">Name</label><input id="rl-name" name="name" type="text" maxlength="60" required value="${esc(r?.name || '')}" placeholder="Test lead"></div>
-          ${r ? '' : '<p class="hint">It starts able to see and comment. Tick what else it can do in the table.</p>'}`,
+          ${r ? '' : '<p class="hint">A new role can see and comment. Tick anything else it should be able to do in the table.</p>'}`,
         onSubmit: (f) => pm.saveRole(project.id, r?.id || null, { name: f.elements.name.value.trim(), caps: r?.caps || ['view', 'comment'] }) });
       if (res) (invalidate(), reload());
     } else if (t.dataset.delRole && confirm('Delete this role?')) (await attempt(() => pm.deleteRole(t.dataset.delRole), 'Deleted.')) && reload();
@@ -141,11 +141,11 @@ async function types(el, { project, cfg, reload }) {
     const res = await formDialog({ title: ty ? `Work type: ${esc(ty.name)}` : 'New work type', submit: 'Save', wide: true,
       body: `<div class="form-grid"><div class="field span-2"><label for="ty-name">Name</label><input id="ty-name" name="name" type="text" maxlength="40" required value="${esc(ty?.name || '')}" placeholder="Design Review"></div>
           <div class="field"><label for="ty-icon">Icon (a symbol or emoji)</label><input id="ty-icon" name="icon" type="text" maxlength="4" value="${esc(ty?.icon || '')}" placeholder="☑"></div>
-          <div class="field"><label for="ty-color">Colour</label><select id="ty-color" name="color">${TONES.map((c) => opt(c, c, (ty?.color || 'blue') === c)).join('')}</select></div>
+          <div class="field"><label for="ty-color">Color</label><select id="ty-color" name="color">${TONES.map((c) => opt(c, c, (ty?.color || 'blue') === c)).join('')}</select></div>
           <div class="field span-4"><label for="ty-desc">What it's for</label><input id="ty-desc" name="description" type="text" maxlength="500" value="${esc(ty?.description || '')}"></div>
           <div class="field"><label for="ty-level">Level</label><select id="ty-level" name="level">${[[0, '0 · top (epic)'], [1, '1 · ordinary work'], [2, '2 · under level 1'], [3, '3'], [4, '4']].map(([n, l]) => opt(n, l, (ty?.level ?? 1) === n)).join('')}</select></div>
           <div class="field span-3"><label for="ty-flow">Workflow</label><select id="ty-flow" name="workflow">${flows.map((w) => opt(w.id, w.name, w.id === ty?.workflow_id)).join('')}</select></div></div>
-        <fieldset class="pm-section"><legend>Can only go under (leave empty for "anything higher up")</legend><div class="pm-checks">${cfg.types.filter((x) => !x.archived_at).map((x) => `<label class="pm-check"><input type="checkbox" name="parent" value="${esc(x.id)}" ${ty?.parent_type_ids.includes(x.id) ? 'checked' : ''}> ${esc(x.name)}</label>`).join('')}</div></fieldset>
+        <fieldset class="pm-section"><legend>Can only go under these types (leave empty for "any higher level")</legend><div class="pm-checks">${cfg.types.filter((x) => !x.archived_at).map((x) => `<label class="pm-check"><input type="checkbox" name="parent" value="${esc(x.id)}" ${ty?.parent_type_ids.includes(x.id) ? 'checked' : ''}> ${esc(x.name)}</label>`).join('')}</div></fieldset>
         <fieldset class="pm-section"><legend>New items of this type start with</legend><div class="form-grid">
           <div class="field"><label for="ty-prio">Priority</label><select id="ty-prio" name="priority">${PRIORITIES.map(([k, l]) => opt(k, l, (ty?.defaults?.priority || 'medium') === k)).join('')}</select></div>
           <div class="field"><label for="ty-est">Estimate (hours)</label><input id="ty-est" name="estimate" type="number" min="0" step="any" value="${esc(ty?.defaults?.estimate_hours ?? '')}"></div>
@@ -355,7 +355,7 @@ async function rules(el, { b, project, cfg, reload }) {
     const changeable = [['', 'Anything'], ...['title', 'description', 'priority', 'owner_id', 'due_date', 'start_date', 'estimate_hours', 'progress', 'blocked', 'labels', 'subsystem_id', 'sprint_id', 'parent_id'].map((k) => [k, fieldLabel(k.replace(/_id$/, ''))]),
       ...cfg.fields.filter((f) => !f.archived_at && f.type !== 'formula').map((f) => [`cf.${f.key}`, f.name])];
     const res = await formDialog({ title: r ? `Rule: ${esc(r.name)}` : 'New rule', submit: 'Save', wide: true,
-      body: `<div class="field"><label for="ru-name">Name</label><input id="ru-name" name="name" type="text" maxlength="80" required value="${esc(r?.name || '')}" placeholder="Review asked → tell the lead"></div>
+      body: `<div class="field"><label for="ru-name">Name</label><input id="ru-name" name="name" type="text" maxlength="80" required value="${esc(r?.name || '')}" placeholder="Review requested → tell the lead"></div>
         <fieldset class="pm-section"><legend>When</legend><div class="pm-cond-row"><select name="trigger" aria-label="When">${TRIGGERS.map(([k, l]) => opt(k, l, (r?.trigger || 'status') === k)).join('')}</select>
           <span data-for="status">from <select name="from" aria-label="From status">${opt('', 'any status', !tc.from)}${cfg.statuses.map((s) => opt(s.id, s.name, tc.from === s.id)).join('')}</select> to <select name="to" aria-label="To status">${opt('', 'any status', !tc.to)}${cfg.statuses.map((s) => opt(s.id, s.name, tc.to === s.id)).join('')}</select></span>
           <span data-for="updated">what changed: <select name="field" aria-label="Field">${changeable.map(([k, l]) => opt(k, l, (tc.field || '') === k)).join('')}</select></span>

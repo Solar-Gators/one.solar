@@ -803,7 +803,7 @@ async function showGuest(){
   const askWho = accepters.length ? "your " + esc(accepters.join(", ").replace(/, ([^,]*)$/, " or $1")) : "your Chief Engineer or anyone on the e-board";
   $("#main").innerHTML = me && me.former
     ? `<div class="empty"><h3>Your one.solar access has ended</h3>
-    <p>You're listed as a former member, so Solar Evals isn't available to you any more. If that's a mistake, ask an Admin to reactivate you.</p>
+    <p>You're listed as a former member, so Solar Evals isn't available to you anymore. If that's a mistake, ask an Admin to reactivate you.</p>
     <div class="row"><a class="btn primary" href="../">one.solar home</a><button class="btn" id="guestCheck">Check again</button></div></div>`
     : `<div class="empty"><h3>You're signed up. Almost in!</h3>
     <p>Someone on the team needs to accept you before you can use Solar Evals. Ask ${askWho} to accept you on the one.solar home screen.</p>

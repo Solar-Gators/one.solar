@@ -262,7 +262,7 @@ export async function stockDialog(kind, b, ctx) {
       body: () => `<div class="field"><label for="a-to">Into</label><select id="a-to" name="to" required>${locationOptions(b, ctx.locationId || item.default_location_id || '')}</select></div>
         ${item.track_lots ? `<div class="field"><label for="a-lot">Lot</label><select id="a-lot" name="lot" required><option value="">Pick the lot</option>${lots.map((l) => `<option value="${esc(l.id)}" ${l.id === ctx.lotId ? 'selected' : ''}>${esc(lotLabel(l))}</option>`).join('')}</select></div>` : ''}
         ${amountField(b, item, { label: 'How many are going back?' })}
-        ${ctx.returnsOp ? '<p class="hint">It\'s counted off what that use was for.</p>' : `<p class="sub-label">What was it taken for?</p>${attributionFields(b, ctx.prefs || {})}`}${note}`,
+        ${ctx.returnsOp ? '<p class="hint">It\'s credited back to whatever it was taken for.</p>' : `<p class="sub-label">What was it taken for?</p>${attributionFields(b, ctx.prefs || {})}`}${note}`,
       open: (f) => !ctx.returnsOp && (readAttr = bindAttribution(f, b, ctx.prefs || {})),
       run: async (f, op) => {
         const att = ctx.returnsOp ? { returns_op: ctx.returnsOp } : readAttr();

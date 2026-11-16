@@ -47,7 +47,7 @@ export async function renderDiagnostics(el, { config, rerender }) {
 
     <section class="card">
       <h2>Errors</h2>
-      ${about('Errors pages hit, the same message and version grouped together. A spike right after a release usually means that release broke something: check <a href="https://github.com/Solar-Gators/one.solar/actions" target="_blank" rel="noopener">Actions</a> and roll back if needed (docs/RELEASING.md).')}
+      ${about('Errors that pages ran into, with the same message and version grouped together. A spike right after a release usually means that release broke something: check <a href="https://github.com/Solar-Gators/one.solar/actions" target="_blank" rel="noopener">Actions</a> and roll back if needed (docs/RELEASING.md).')}
       ${errors.length ? `<div class="table-wrap flat"><table class="table stack-mobile">
         <thead><tr><th>Error</th><th class="num">Times</th><th>People</th><th>Version</th><th>First seen</th><th>Last seen</th></tr></thead>
         <tbody>${errors.map((g) => `<tr>
