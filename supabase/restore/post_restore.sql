@@ -5,9 +5,11 @@
 -- Supabase's own `auth` and `storage` schemas:
 --   * the trigger that makes a profile (a Guest) for every new sign-up (001_initial.sql). Without it,
 --     new accounts can't use any app.
+--   * the trigger that copies a changed sign-in email to the profile (052), so notices follow it.
 --   * the private "attachments" bucket and who may read, upload and delete files in it (017, read rule
 --     from 025). Without them, attachments can't be opened or added.
--- The FILES in the bucket aren't in a dump either: copy them separately (docs/RECOVERY.md, step 5).
+--   * the public "sgaa" bucket (SGAA photos) and who may upload and delete in it (052).
+-- The FILES in the buckets aren't in a dump either: copy them separately (docs/RECOVERY.md, step 5).
 --
 -- Safe to run more than once. It changes nothing in the public schema.
 
@@ -16,6 +18,11 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
+
+-- ---- A changed email reaches the profile -------------------------------------------
+drop trigger if exists sync_profile_email on auth.users;
+create trigger sync_profile_email after update of email on auth.users
+  for each row execute function public.sync_profile_email();
 
 -- ---- The attachments bucket and its rules --------------------------------------
 do $storage$
@@ -66,8 +73,33 @@ begin
 end
 $storage$;
 
+-- ---- The SGAA photos bucket and its rules -------------------------------------
+do $storage$
+begin
+  if to_regclass('storage.buckets') is null then
+    raise notice 'No Supabase Storage here: skipped the sgaa bucket.';
+    return;
+  end if;
+  insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+  values ('sgaa', 'sgaa', true, 8388608, array['image/png', 'image/jpeg', 'image/gif', 'image/webp'])
+  on conflict (id) do nothing;
+  execute 'drop policy if exists "sgaa: upload" on storage.objects';
+  execute 'drop policy if exists "sgaa: delete" on storage.objects';
+  execute $p$
+    create policy "sgaa: upload" on storage.objects for insert to authenticated with check (
+      bucket_id = 'sgaa' and split_part(name, '/', 1) in ('needs', 'updates') and public.sgaa_can('sgaa.edit'))
+  $p$;
+  execute $p$
+    create policy "sgaa: delete" on storage.objects for delete to authenticated using (
+      bucket_id = 'sgaa' and public.sgaa_can('sgaa.edit'))
+  $p$;
+end
+$storage$;
+
 -- ---- Check ---------------------------------------------------------------------------
 select
   exists (select 1 from pg_trigger where tgname = 'on_auth_user_created' and tgrelid = 'auth.users'::regclass) as signup_trigger,
-  (select count(*) from pg_policies where schemaname = 'storage' and policyname like 'attachments:%') as attachment_rules;
--- Expect: signup_trigger = true, attachment_rules = 3.
+  exists (select 1 from pg_trigger where tgname = 'sync_profile_email' and tgrelid = 'auth.users'::regclass) as email_sync_trigger,
+  (select count(*) from pg_policies where schemaname = 'storage' and policyname like 'attachments:%') as attachment_rules,
+  (select count(*) from pg_policies where schemaname = 'storage' and policyname like 'sgaa:%') as sgaa_rules;
+-- Expect: signup_trigger = true, email_sync_trigger = true, attachment_rules = 3, sgaa_rules = 2.
