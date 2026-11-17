@@ -419,6 +419,74 @@ table.rub td.lv.on::after{background:var(--navy);border-color:var(--navy);box-sh
   .page [data-path]:empty{display:none!important}
   .editing .page [data-path]{outline:0!important;background:none!important}
 }
+/* ---- Summary (#/summary): scores and team makeup ---- */
+.sum{max-width:1120px}
+.sum-bar{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;margin:0 0 16px}
+.sum-tabs{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.sum-tabs button{border:0;background:var(--panel);padding:8px 16px;font-weight:800;font-size:14px;cursor:pointer}
+.sum-tabs button.on{background:var(--navy);color:#fff}
+.sum-ctl{display:inline-flex;gap:8px;align-items:center;font-size:13px;font-weight:700;color:var(--muted)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:16px}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px;box-shadow:var(--shadow)}
+.kpi .k{font-size:11.5px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.kpi .v{font-size:32px;font-weight:900;color:var(--ink);line-height:1.15;margin-top:4px}
+.kpi .v.small{font-size:22px}
+.kpi .s{font-size:13px;color:var(--muted);margin-top:2px}
+.sum-card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px;box-shadow:var(--shadow);margin-bottom:16px;min-width:0}
+.sum-card h3{font-size:16px;font-weight:900;color:var(--ink)}
+.sum-card .sub{font-size:13px;color:var(--muted);margin:4px 0 12px}
+.sum-note{font-size:12.5px;color:var(--muted);max-width:760px}
+.muted-s{color:var(--muted);font-weight:600;font-size:12px}
+.hwrap{overflow-x:auto}
+table.heat{border-collapse:separate;border-spacing:4px;width:100%;font-size:13.5px}
+table.heat th{font-size:12px;color:var(--muted);font-weight:800;white-space:nowrap;padding:4px 6px;text-align:center}
+table.heat th.focus{color:var(--ink)}
+table.heat th small{font-weight:600}
+table.heat .g{text-align:left}
+table.heat td.g{font-weight:700;white-space:nowrap;padding:6px 8px;color:var(--ink)}
+table.heat tr.team td.g{font-weight:900}
+table.heat tr.team td.c{box-shadow:inset 0 0 0 2px var(--line)}
+table.heat tr.sub td.g{padding-left:30px;font-weight:500}
+table.heat td.c{text-align:center;border-radius:8px;padding:6px 8px;min-width:78px}
+table.heat td.c b{display:block;font-size:15px;color:var(--ink)}
+table.heat td.c small{font-size:11px;color:var(--muted)}
+table.heat td.c.few{outline:1.5px dashed var(--muted);outline-offset:-3px}
+table.heat td.c.none{color:var(--muted)}
+table.heat td.delta{min-width:70px}
+.dl{font-weight:800;font-size:13px;white-space:nowrap}
+.dl.up{color:var(--ok)}
+.dl.down{color:var(--bad)}
+.tg{border:0;background:none;cursor:pointer;font-weight:inherit;padding:0;display:inline-flex;gap:6px;align-items:baseline;color:inherit}
+.legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.legend button,.legend .lg{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--panel-2);border-radius:999px;padding:4px 10px;font-size:12.5px;font-weight:700}
+.legend button{cursor:pointer}
+.legend button.off{opacity:.4;text-decoration:line-through}
+.legend i{width:10px;height:10px;border-radius:50%;display:inline-block}
+svg.trend{width:100%;min-width:560px;height:auto;display:block}
+svg.trend text{fill:var(--muted);font-size:12px;font-family:inherit}
+svg.trend .grid{stroke:var(--line);stroke-width:1}
+.keyscale{display:flex;gap:6px;align-items:center;font-size:12px;color:var(--ink);flex-wrap:wrap;margin-top:12px}
+.keyscale span{border-radius:6px;padding:3px 9px}
+.mk-stack{display:flex;height:36px;border-radius:10px;overflow:hidden;margin:4px 0 14px;gap:2px}
+.mk-stack span{display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:800;min-width:3px}
+.mk-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
+.mk-div{border:1px solid var(--line);border-top:4px solid var(--c);border-radius:12px;padding:12px 14px;background:var(--panel-2)}
+.mk-div h4{display:flex;justify-content:space-between;gap:8px;font-size:15px;font-weight:900;color:var(--ink);margin-bottom:6px}
+.mk-div h4 small{font-size:12px;color:var(--muted);font-weight:700}
+.mk-row,.mk-pos summary{display:grid;grid-template-columns:minmax(90px,1.1fr) 2fr 30px;gap:10px;align-items:center;font-size:13px;margin-top:7px}
+.mk-row .b,.mk-pos .b{height:10px;border-radius:5px;background:var(--line);overflow:hidden}
+.mk-row .b i{display:block;height:100%;background:var(--c)}
+.mk-pos .b i{display:block;height:100%;background:var(--navy)}
+.mk-row .n,.mk-pos .n{text-align:right;font-weight:800;color:var(--ink)}
+.mk-pos summary{cursor:pointer;list-style:none;font-weight:700;padding:4px 0}
+.mk-pos summary::-webkit-details-marker{display:none}
+.mk-pos .names{font-size:12.5px;color:var(--muted);padding:2px 0 8px}
+.mk-cols{display:flex;gap:14px;align-items:flex-end;overflow-x:auto;padding:6px 2px 2px}
+.mk-col{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:72px;font-size:12px;color:var(--muted)}
+.mk-col b{font-size:14px;color:var(--ink)}
+.mk-bar{width:44px;display:flex;flex-direction:column;border-radius:8px 8px 4px 4px;overflow:hidden;gap:2px}
+.mk-bar i{display:block;min-height:2px}
+@media (max-width:640px){ .kpi .v{font-size:26px} table.heat td.c{min-width:64px} }
 </style>
 </head>
 <body>
@@ -434,6 +502,7 @@ table.rub td.lv.on::after{background:var(--navy);border-color:var(--navy);box-sh
       <a href="#/evals" data-tab="evals">Evaluations</a>
       <a href="#/rubrics" data-tab="rubrics">Forms</a>
       <a href="#/questions" data-tab="questions" id="tabQ" hidden>Questionnaires</a>
+      <a href="#/summary" data-tab="summary" id="tabSum" hidden>Summary</a>
       <a href="#/setup" data-tab="setup" id="tabSetup" hidden>Setup</a>
     </nav>
     <div class="topbar-end" id="acct"></div>
@@ -584,6 +653,7 @@ import { renderAccount } from "../shared/account-menu.js";
 import { startVersionCheck } from "../shared/version-check.js";
 import { startErrorReporter } from "../shared/error-reporter.js";
 import { mountAppSwitcher } from "../shared/app-switcher.js";
+import { summarize, teamMakeup, bySemester, change } from "./summary.js";
 mountAppSwitcher(); // ⊞ next to the logo: jump to any other one.solar app (Ctrl + K)
 const ORDERS_URL = appUrl("orders/");
 // The shared sign-in page (new accounts, password resets) comes back here afterwards.
@@ -743,7 +813,7 @@ const iCanComment = e => S(e).comments !== false && ((e.status === "shared" && e
 function sendQueued(){ try { sb.functions?.invoke("send-notifications", {body:{}}).catch(() => {}); } catch {} }
 
 function showSignIn(msg=""){
-  me = null; people = []; roleRows = []; permRows = []; evals = []; inbox = []; evalState = null; qsets = []; qDraft = null; qDirty = false;   // nothing from the last person stays in memory
+  me = null; people = []; roleRows = []; permRows = []; evals = []; inbox = []; evalState = null; qsets = []; qDraft = null; qDirty = false; sumRows = null;   // nothing from the last person stays in memory
   types = []; groups = []; qnaires = []; setupView = {id:null, draft:null, dirty:false}; groupDrafts = {};
   $("#tabs").hidden = true; drawAccount();
   $("#layout").classList.add("nosb");
@@ -778,6 +848,7 @@ async function boot(session){
       await Promise.all([loadRubrics(), loadEvals(), loadQuestions(), loadSetup()]);
       $("#tabQ").hidden = !(can("evals.write") || can("evals.templates"));
       $("#tabSetup").hidden = !can("evals.types");
+      $("#tabSum").hidden = !can("evals.view");   // Summary: only people who can "See all evals"
       $("#tabs").hidden = false; drawAccount();
       route();
     } catch (e) { showSignIn(e.message || String(e)); }
@@ -959,6 +1030,7 @@ async function route(){
     if (seq !== routeSeq) return;
     section = "eval";
   } else if (a === "questions" && (can("evals.write") || can("evals.templates"))) section = "questions";
+  else if (a === "summary" && can("evals.view")) section = "summary";
   else if (a === "setup" && can("evals.types")) { section = "setup"; openSetup(b || null); }
   else section = "evals";
   render();
@@ -976,7 +1048,7 @@ const shownVersion = () => view.versionId ? version(view.versionId) : latest(vie
 
 function render(){
   const seen = formsISee(); $('#tabs a[data-tab="rubrics"]').hidden = !!seen && !seen.size;
-  $$("#tabs a").forEach(a => a.classList.toggle("active", a.dataset.tab === (["rubrics", "questions", "setup"].includes(section) ? section : "evals")));
+  $$("#tabs a").forEach(a => a.classList.toggle("active", a.dataset.tab === (["rubrics", "questions", "setup", "summary"].includes(section) ? section : "evals")));
   $("#layout").classList.toggle("nosb", section !== "rubrics" && section !== "setup");
   $("#main").classList.remove("editing", "filling");
   if (section === "rubrics") { renderSide(); renderRubric(); }
@@ -986,7 +1058,187 @@ function render(){
   }
   else if (section === "eval") renderEval();
   else if (section === "questions") renderQuestions();
+  else if (section === "summary") renderSummary();
   else renderList();
+}
+
+/* =========================================================
+   SUMMARY (#/summary): only for people whose role can "See all evals" (evals.view).
+   Scores: average ratings of finished evals for the team, each CE division and subsystem, and each rubric
+   category, semester by semester (evals/summary.js does the maths). Team makeup: how many people are in each
+   division and subsystem (from their evals that semester), and who holds which position.
+   The database only lets this page read the evals the person may see, so the numbers never include more.
+   ========================================================= */
+let sumRows = null, sumErr = "";
+const sumView = {type: lsGet("sg-evals-sum-type", "member"), sem: "", tab: lsGet("sg-evals-sum-tab", "scores"), open: new Set(), hide: new Set()};
+const SUM_COLORS = ["#2563eb", "#f26b1d", "#16a34a", "#9333ea", "#0891b2", "#db2777", "#ca8a04", "#64748b"];
+let sumColorMap = new Map();
+/** One colour per CE division, the same on every chart (alphabetical order of all divisions of the eval type). */
+const sumColor = name => name === "No division" ? "#94a3b8" : sumColorMap.get(String(name).trim().toLowerCase()) || "#64748b";
+async function loadSummary(force=false){
+  if (sumRows && !force) return;
+  const cols = "id, kind, status, semester, division, subsystem, member_id, member_name, evaluator_id, rubric, ratings";
+  try { sumRows = await rows(sb.from("evals").select(cols + ", type_id, subject_id")).catch(() => rows(sb.from("evals").select(cols))); sumErr = ""; }
+  catch (e) { sumRows = []; sumErr = e.message || String(e); }
+}
+const sumFmt = v => v == null ? "—" : v.toFixed(2);
+const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
+/** Colour for a 1–5 average: green above "meets expectations" (3), orange below, stronger further away. */
+function sumHeat(v){
+  if (v == null) return "";
+  const t = Math.max(-1, Math.min(1, (v - 3) / 2)), a = (0.08 + 0.5 * Math.abs(t)).toFixed(3);
+  return t >= 0 ? `background:rgba(22,150,90,${a})` : `background:rgba(225,85,45,${a})`;
+}
+function sumScaleLabels(typeId){
+  const f = typeById(typeId)?.settings?.form?.track || "master";
+  return latest(f)?.rubric?.scale || latest(firstForm())?.rubric?.scale || ["Unsatisfactory", "Below expectations", "Meets expectations", "Exceeds expectations", "Exceptional"];
+}
+function sumCell(c, labels, extra=""){
+  if (!c || c.avg == null) return `<td class="c none"${extra}>—</td>`;
+  const few = c.n < 3, lbl = labels[Math.round(c.avg) - 1] || "";
+  const tip = `${sumFmt(c.avg)} (${lbl}) from ${plural(c.n, "eval")}${few ? ". Few evals: one person moves this a lot." : ""}`;
+  return `<td class="c${few ? " few" : ""}" style="${sumHeat(c.avg)}"${extra} title="${esc(tip)}"><b>${sumFmt(c.avg)}</b><small>${plural(c.n, "eval")}</small></td>`;
+}
+function sumDelta(d){
+  if (d == null) return '<span class="dl">—</span>';
+  if (Math.abs(d) < 0.005) return '<span class="dl">±0.00</span>';
+  return `<span class="dl ${d > 0 ? "up" : "down"}">${d > 0 ? "▲" : "▼"} ${Math.abs(d).toFixed(2)}</span>`;
+}
+
+async function renderSummary(){
+  const m = $("#main");
+  if (!sumRows) { m.innerHTML = `<div class="empty"><h3>Loading…</h3></div>`; await loadSummary(); if (section !== "summary") return; }
+  const withData = [...new Set(sumRows.filter(e => e.kind !== "self").map(e => e.type_id || "member"))];
+  const typeOptions = types.filter(t => withData.includes(t.id) || t.id === "member");
+  if (!typeOptions.some(t => t.id === sumView.type)) sumView.type = typeOptions[0]?.id || "member";
+  const s = summarize(sumRows, {typeId: sumView.type});
+  const divNames = [...new Set(sumRows.filter(e => (e.type_id || "member") === sumView.type).map(e => (e.division || "").trim().replace(/\s+/g, " ").toLowerCase()).filter(Boolean))].sort();
+  sumColorMap = new Map(divNames.map((n, k) => [n, SUM_COLORS[k % SUM_COLORS.length]]));
+  const allSems = [...new Set(sumRows.map(e => (e.semester || "").trim()).filter(Boolean))].sort(bySemester);
+  const semList = sumView.tab === "makeup" ? allSems : s.semesters;
+  if (!semList.includes(sumView.sem)) sumView.sem = semList.at(-1) || "";
+  const tabBtn = (k, n) => `<button type="button" class="${sumView.tab === k ? "on" : ""}" data-act="sumTab" data-k="${k}" aria-pressed="${sumView.tab === k}">${n}</button>`;
+  const typeSel = typeOptions.length > 1 ? `<label class="sum-ctl">Eval type <select class="sel" data-act="sumType">${typeOptions.map(t => `<option value="${esc(t.id)}"${t.id === sumView.type ? " selected" : ""}>${esc(t.name)}</option>`).join("")}</select></label>` : "";
+  const semSel = semList.length ? `<label class="sum-ctl">Semester <select class="sel" data-act="sumSem">${semList.slice().reverse().map(x => `<option${x === sumView.sem ? " selected" : ""}>${esc(x)}</option>`).join("")}</select></label>` : "";
+  let h = toolbarHTML("Summary", `<div class="meta">Team-wide numbers, semester by semester. Only people whose role can “See all evals” see this page.</div>`,
+    `<button class="btn" data-act="sumReload">Refresh</button>`, "var(--orange)");
+  h += `<div class="sum"><div class="sum-bar"><div class="sum-tabs" role="group" aria-label="Summary view">${tabBtn("scores", "Scores")}${tabBtn("makeup", "Team makeup")}</div>${typeSel}${semSel}</div>`;
+  if (sumErr) h += `<div class="banner"><span class="bt">Couldn't load the evals: ${esc(sumErr)}</span></div>`;
+  h += sumView.tab === "makeup" ? sumMakeupHTML(allSems) : sumScoresHTML(s);
+  m.innerHTML = h + "</div>";
+}
+
+function sumScoresHTML(s){
+  const labels = sumScaleLabels(sumView.type), sems = s.semesters, sem = sumView.sem;
+  if (!sems.length) return `<div class="empty"><h3>No finished evals yet</h3><p>Averages show up here once evaluations of this type are marked finished.</p></div>`;
+  const i = sems.indexOf(sem), prev = i > 0 ? sems[i - 1] : null, cur = s.team.get(sem);
+  const active = s.divisions.filter(d => d.cells.get(sem)?.n);
+  const ranked = active.filter(d => d.name !== "No division").sort((a, b) => b.cells.get(sem).avg - a.cells.get(sem).avg);
+  const improved = prev ? s.divisions.map(d => ({d, ch: change(d.cells.get(prev), d.cells.get(sem))})).filter(x => x.ch != null).sort((a, b) => b.ch - a.ch)[0] : null;
+  const kpi = (k, v, sub, cls="") => `<div class="kpi"><div class="k">${k}</div><div class="v${cls}">${v}</div><div class="s">${sub}</div></div>`;
+  let h = `<div class="kpis">
+    ${kpi(`Team average · ${esc(sem)}`, sumFmt(cur?.avg), cur?.avg != null ? `${esc(labels[Math.round(cur.avg) - 1] || "")} · out of 5` : "No finished evals this semester")}
+    ${kpi("Change since last semester", prev ? sumDelta(change(s.team.get(prev), cur)) : "—", prev ? `vs ${esc(prev)} (${sumFmt(s.team.get(prev)?.avg)})` : "First semester with data")}
+    ${kpi("Evals counted", cur?.n ?? 0, `${plural(active.length, "CE division")} this semester`)}
+    ${kpi("Highest division", ranked[0] ? esc(ranked[0].name) : "—", ranked[0] ? `${sumFmt(ranked[0].cells.get(sem).avg)}${improved && improved.ch > 0 ? ` · most improved: ${esc(improved.d.name)} ${sumDelta(improved.ch)}` : ""}` : "Not enough data", " small")}
+  </div>`;
+
+  // Trend: the team and each division across semesters.
+  const W = 760, H = 250, L = 40, R = 48, T = 14, B = 34;
+  const PAD = 44, x = k => sems.length === 1 ? (L + W - R) / 2 : L + PAD + (k * (W - L - R - 2 * PAD)) / (sems.length - 1);
+  const y = v => T + ((5 - v) * (H - T - B)) / 4;
+  const line = (cells, color, width, name) => {
+    const pts = sems.map((sm, k) => [k, cells.get(sm)]).filter(([, c]) => c?.avg != null);
+    const path = pts.map(([k, c], j) => `${j ? "L" : "M"}${x(k).toFixed(1)},${y(c.avg).toFixed(1)}`).join("");
+    return (pts.length > 1 ? `<path d="${path}" fill="none" stroke="${color}" stroke-width="${width}" stroke-linejoin="round" stroke-linecap="round"/>` : "")
+      + pts.map(([k, c]) => `<circle cx="${x(k).toFixed(1)}" cy="${y(c.avg).toFixed(1)}" r="${width + 1.5}" fill="${color}"><title>${esc(`${name}, ${sems[k]}: ${sumFmt(c.avg)} (${plural(c.n, "eval")})`)}</title></circle>`).join("");
+  };
+  const divs = s.divisions.filter(d => d.name !== "No division");
+  let svg = `<svg class="trend" viewBox="0 0 ${W} ${H}" role="img" aria-label="Average rating by semester, for the team and each CE division">`;
+  for (let v = 1; v <= 5; v++) svg += `<line class="grid" x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}"${v === 3 ? ' stroke-dasharray="5 4"' : ""}/><text x="${L - 10}" y="${y(v) + 4}" text-anchor="end">${v}</text>`;
+  sems.forEach((sm, k) => { svg += `<text x="${x(k)}" y="${H - 10}" text-anchor="middle">${esc(sm)}</text>`; });
+  divs.forEach(d => { if (!sumView.hide.has(d.name)) svg += line(d.cells, sumColor(d.name), 2, d.name); });
+  if (!sumView.hide.has("__team")) svg += line(s.team, "var(--navy)", 3.5, "Whole team");
+  svg += "</svg>";
+  const chip = (key, name, color) => `<button type="button" class="${sumView.hide.has(key) ? "off" : ""}" data-act="sumHide" data-k="${esc(key)}" aria-pressed="${!sumView.hide.has(key)}"><i style="background:${color}"></i>${esc(name)}</button>`;
+  h += `<section class="sum-card"><h3>Average rating over time</h3><div class="sub">The thick line is the whole team; the dashed line is 3, “${esc(labels[2] || "Meets expectations")}”. Click a name to hide or show its line; hover a dot for its number.</div>
+    <div class="hwrap">${svg}</div><div class="legend">${chip("__team", "Whole team", "var(--navy)")}${divs.map(d => chip(d.name, d.name, sumColor(d.name))).join("")}</div></section>`;
+
+  // Heat map: team, divisions (open one to see its subsystems), semester by semester.
+  const last2 = sems.slice(-2);
+  const rowHTML = (cls, label, cells) => `<tr class="${cls}"><td class="g">${label}</td>${sems.map(sm => sumCell(cells.get(sm), labels)).join("")}<td class="c delta">${last2.length === 2 ? sumDelta(change(cells.get(last2[0]), cells.get(last2[1]))) : "—"}</td></tr>`;
+  let rowsH = rowHTML("team", "Whole team", s.team);
+  for (const d of s.divisions) {
+    const open = sumView.open.has(d.name), subs = d.subsystems.length;
+    const label = subs ? `<button type="button" class="tg" data-act="sumOpen" data-k="${esc(d.name)}" aria-expanded="${open}">${open ? "▾" : "▸"} ${esc(d.name)} <span class="muted-s">${plural(subs, "subsystem")}</span></button>` : esc(d.name);
+    rowsH += rowHTML("div", label, d.cells);
+    if (open) for (const sub of d.subsystems) rowsH += rowHTML("sub", esc(sub.name), sub.cells);
+  }
+  h += `<section class="sum-card"><h3>By CE division and subsystem</h3>
+    <div class="sub">Average rating out of 5, and how many evals it comes from. Open a division to see its subsystems. A dashed box means fewer than 3 evals, so one person moves it a lot.</div>
+    <div class="hwrap"><table class="heat"><thead><tr><th class="g">Group</th>${sems.map(sm => `<th${sm === sem ? ' class="focus"' : ""}>${esc(sm)}</th>`).join("")}<th>Change${last2.length === 2 ? `<br><small>${esc(last2[0])} → ${esc(last2[1])}</small>` : ""}</th></tr></thead><tbody>${rowsH}</tbody></table></div>
+    ${sumKey(labels)}</section>`;
+
+  // Categories in the chosen semester: team and each division.
+  const ct = s.catTeam.get(sem), cd = s.catDivision.get(sem), shown = s.categories.filter(c => ct?.get(c)?.n);
+  if (shown.length) {
+    h += `<section class="sum-card"><h3>By category · ${esc(sem)}</h3>
+      <div class="sub">Each row of the form, averaged across the team and each CE division. Rows the evaluator types in themselves (like a CE's own criteria) count toward the averages above but aren't listed here.</div>
+      <div class="hwrap"><table class="heat cats"><thead><tr><th class="g">Category</th><th>Whole team</th>${active.map(d => `<th>${esc(d.name)}</th>`).join("")}</tr></thead><tbody>
+      ${shown.map(c => `<tr><td class="g">${esc(c)}</td>${sumCell(ct.get(c), labels)}${active.map(d => sumCell(cd.get(d.name)?.get(c), labels)).join("")}</tr>`).join("")}
+      </tbody></table></div></section>`;
+  }
+  h += `<p class="sum-note">How it's worked out: an eval's score is the average of its ratings (N/O doesn't count); a group's average is the average of its people's scores, so everyone counts once. Only finished or shared evals count, not drafts or self-evals.</p>`;
+  return h;
+}
+function sumKey(labels){
+  return `<div class="keyscale" aria-hidden="true">${[1, 2, 3, 4, 5].map(v => `<span style="${sumHeat(v)}">${v} ${esc(labels[v - 1] || "")}</span>`).join("")}</div>`;
+}
+
+function sumMakeupHTML(allSems){
+  const sem = sumView.sem;
+  const mk = sem ? teamMakeup(sumRows, sem, {typeId: sumView.type}) : {total: 0, divisions: []};
+  const pct = n => Math.round((100 * n) / (mk.total || 1));
+  let h = "";
+  if (!mk.total) h += `<div class="empty"><h3>Nobody counted for ${esc(sem || "this semester")} yet</h3><p>People are counted from their ${esc(typeById(sumView.type)?.name || "Member eval")} that semester (their self-eval or their evaluator's eval), with the CE division and subsystem picked there.</p></div>`;
+  else {
+    const subsCount = mk.divisions.reduce((a, d) => a + d.subsystems.length, 0);
+    h += `<div class="kpis">
+      <div class="kpi"><div class="k">People · ${esc(sem)}</div><div class="v">${mk.total}</div><div class="s">with an eval of this type this semester</div></div>
+      <div class="kpi"><div class="k">CE divisions</div><div class="v">${mk.divisions.filter(d => d.name !== "No division").length}</div><div class="s">biggest: ${esc(mk.divisions[0].name)} (${mk.divisions[0].count})</div></div>
+      <div class="kpi"><div class="k">Subsystems</div><div class="v">${subsCount}</div><div class="s">named on evals this semester</div></div>
+    </div>
+    <section class="sum-card"><h3>CE divisions · ${esc(sem)}</h3><div class="sub">Each person once, in the division and subsystem from their eval this semester.</div>
+      <div class="mk-stack" role="img" aria-label="${esc(mk.divisions.map(d => `${d.name} ${d.count}`).join(", "))}">${mk.divisions.map(d => `<span style="flex:${d.count};background:${sumColor(d.name)}" title="${esc(`${d.name}: ${d.count} (${pct(d.count)}%)`)}">${d.count / mk.total >= 0.08 ? d.count : ""}</span>`).join("")}</div>
+      <div class="mk-grid">${mk.divisions.map(d => {
+        const max = Math.max(1, ...d.subsystems.map(x => x.count), d.noSubsystem);
+        const row = (name, n, muted) => `<div class="mk-row"><span${muted ? ' class="muted-s"' : ""}>${esc(name)}</span><span class="b"><i style="width:${(100 * n) / max}%"></i></span><span class="n">${n}</span></div>`;
+        return `<div class="mk-div" style="--c:${sumColor(d.name)}"><h4><span>${esc(d.name)}</span><span>${d.count} <small>${pct(d.count)}%</small></span></h4>
+          ${d.subsystems.map(x => row(x.name, x.count)).join("")}${d.noSubsystem ? row("No subsystem given", d.noSubsystem, true) : ""}</div>`;
+      }).join("")}</div></section>`;
+  }
+
+  // Headcount by division, semester by semester.
+  const series = allSems.map(sm => [sm, teamMakeup(sumRows, sm, {typeId: sumView.type})]).filter(([, x]) => x.total);
+  if (series.length > 1) {
+    const names = [...new Set(series.flatMap(([, x]) => x.divisions.map(d => d.name)))];
+    const top = Math.max(...series.map(([, x]) => x.total));
+    h += `<section class="sum-card"><h3>Headcount over time</h3><div class="sub">People with an eval each semester, by CE division.</div>
+      <div class="mk-cols">${series.map(([sm, x]) => `<div class="mk-col"><div class="mk-bar" style="height:${Math.max(8, (160 * x.total) / top)}px" title="${esc(`${sm}: ${x.total} people`)}">${x.divisions.slice().reverse().map(d => `<i style="flex:${d.count};background:${sumColor(d.name)}" title="${esc(`${d.name}: ${d.count}`)}"></i>`).join("")}</div><b>${x.total}</b><span>${esc(sm)}</span></div>`).join("")}</div>
+      <div class="legend">${names.map(n => `<span class="lg"><i style="background:${sumColor(n)}"></i>${esc(n)}</span>`).join("")}</div></section>`;
+  }
+
+  // Positions (roles), as they are now.
+  const holders = new Map();
+  for (const r of roleRows) if (r.role !== "guest" && people.some(p => p.id === r.user_id)) holders.set(r.role, (holders.get(r.role) || []).concat(r.user_id));
+  const pos = [...holders].sort((a, b) => b[1].length - a[1].length || roleLabel(a[0]).localeCompare(roleLabel(b[0])));
+  if (pos.length) {
+    const max = Math.max(...pos.map(([, ids]) => ids.length));
+    h += `<section class="sum-card"><h3>Positions · now</h3><div class="sub">How many people hold each one.solar position today (positions aren't kept per semester). Open one to see the names.</div>
+      <div class="mk-pos">${pos.map(([role, ids]) => `<details><summary><span>${esc(roleLabel(role))}</span><span class="b"><i style="width:${(100 * ids.length) / max}%"></i></span><span class="n">${ids.length}</span></summary>
+        <div class="names">${ids.map(id => esc(personName(id))).filter(Boolean).sort().join(" · ")}</div></details>`).join("")}</div></section>`;
+  }
+  return h;
 }
 
 /* =========================================================
@@ -1669,6 +1921,8 @@ $("#main").addEventListener("change", e => {
   if (s.id === "fType") { filt.type = s.value; renderList(); }
   if (s.id === "fMine") { filt.mine = s.checked; renderList(); }
   if (s.dataset.act === "pickVersion") { const vs = versionsOf(view.trackId); go(view.trackId, s.value === vs[vs.length - 1].id ? null : s.value); }
+  if (s.dataset.act === "sumType") { sumView.type = s.value; lsSet("sg-evals-sum-type", s.value); sumView.sem = ""; sumView.open.clear(); sumView.hide.clear(); renderSummary(); }
+  if (s.dataset.act === "sumSem") { sumView.sem = s.value; renderSummary(); }
   if (s.dataset.act === "cmpPick") { view.cmpA = $("#cA").value; view.cmpB = $("#cB").value; renderRubric(); }
   if (section === "eval") onEvalInput(e);
   if (section === "setup") setupChange(e);
@@ -2677,6 +2931,10 @@ document.addEventListener("click", e => {
     case "histRemove": removeVersion(d.id); break;
     case "compare": { const v = shownVersion(), vs = versionsOf(view.trackId), i = vs.indexOf(v);
       const a = (v.basedOn && version(v.basedOn.versionId)) || vs[i - 1] || latest(topOf(view.trackId)) || v; openCompare(a.id, v.id); break; }
+    case "sumTab": sumView.tab = d.k; lsSet("sg-evals-sum-tab", d.k); renderSummary(); break;
+    case "sumHide": sumView.hide.has(d.k) ? sumView.hide.delete(d.k) : sumView.hide.add(d.k); renderSummary(); break;
+    case "sumOpen": sumView.open.has(d.k) ? sumView.open.delete(d.k) : sumView.open.add(d.k); renderSummary(); break;
+    case "sumReload": sumRows = null; renderSummary(); break;
     case "compareAny": { const any = latest(firstForm()) || db.versions[0]; if (any) openCompare(any.id, (shownVersion() || any).id); break; }
     case "cmpPair": openCompare(d.a, d.b); break;
     case "cmpSwap": [view.cmpA, view.cmpB] = [view.cmpB, view.cmpA]; renderRubric(); break;
