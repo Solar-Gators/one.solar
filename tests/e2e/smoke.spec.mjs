@@ -19,6 +19,7 @@ test.describe('signed out', () => {
     ['Sponsors', '/sponsors/', '#auth-form'],
     ['Admin', '/admin/', '#auth-form'],
     ['Solar Evals', '/evals/?fake', '#siEmail'],
+    ['SGAA (public)', '/sgaa/?fake', '.hero h1'],
     ['GatorWire', '/gatorwire/', '#root > *'],
     ['CE Scope Map', '/scope-map/', '#pageTitle'],
   ];
@@ -108,6 +109,11 @@ test.describe('signed in as an Admin', () => {
   test('Solar Evals loads', async () => {
     await open(page, '/evals/?fake', '#tabs');
     await expect(page.locator('#siEmail')).toHaveCount(0);
+  });
+
+  test('SGAA loads, with Manage for an Admin', async () => {
+    await open(page, '/sgaa/?fake#/manage', '.tabs a');
+    await expect(page.locator('#nav-manage')).toBeVisible();
   });
 
   test('home screen shows the apps (its own stand-in backend)', async () => {

@@ -289,6 +289,10 @@ const storageApi = {
     async createSignedUrls(paths) {
       return { data: paths.map((path) => ({ path, signedUrl: fakeFiles.get(path) || null, error: fakeFiles.has(path) ? null : 'Not found (fake mode forgets files after a reload)' })), error: null };
     },
+    // Public buckets (SGAA photos): the in-memory file, or nothing after a reload.
+    getPublicUrl(path) {
+      return { data: { publicUrl: fakeFiles.get(path) || '' } };
+    },
     async remove(paths) {
       for (const p of paths) fakeFiles.delete(p);
       return { data: paths.map((name) => ({ name })), error: null };

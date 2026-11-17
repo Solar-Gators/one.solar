@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://xvacijpdfqccsigcoctg.supabase.co wss://xvacijpdfqccsigcoctg.supabase.co; worker-src 'self' blob:; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Solar Gators Alumni · one.solar</title>
+  <meta name="description" content="What the Solar Gators solar car team needs, and how alumni can help.">
+  <link rel="icon" href="../shared/assets/favicon.png">
+  <!-- The one.solar look: Light / Dark first (no flash), then the shared styles. -->
+  <script src="../shared/theme.js"></script>
+  <link rel="stylesheet" href="../shared/onesolar.css">
+  <link rel="stylesheet" href="sgaa.css">
+</head>
+<body>
+  <!-- SGAA: the Solar Gators Alumni Association hub. Public pages work signed out; see app.js. -->
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="../" aria-label="one.solar: all Solar Gators apps">
+        <img class="brand-logo" data-auto-logo src="../shared/assets/solar-gators-logo.png" alt="Solar Gators" width="800" height="237">
+        <span class="brand-divider" aria-hidden="true"></span>
+        <span>one<span class="brand-accent">.solar</span></span>
+        <span class="brand-app" id="brand-app">Alumni</span>
+      </a>
+      <div class="topbar-end" id="account"></div>
+    </div>
+    <nav class="sgaa-nav" id="sgaa-nav" aria-label="Alumni">
+      <a href="#/" data-nav="">Home</a>
+      <a href="#/needs" data-nav="needs">What we need</a>
+      <a href="#/help" data-nav="help">How to help</a>
+      <a href="#/updates" data-nav="updates">Updates</a>
+      <a href="#/events" data-nav="events">Events</a>
+      <a href="#/manage" data-nav="manage" id="nav-manage" hidden>Manage</a>
+    </nav>
+  </header>
+
+  <main class="container" id="main"><div class="empty">Loading…</div></main>
+  <dialog id="dlg" aria-label="RSVP"></dialog>
+
+  <footer class="container footer sgaa-footer">Solar Gators Alumni Association · University of Florida solar car team · <a href="../">one.solar</a></footer>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
