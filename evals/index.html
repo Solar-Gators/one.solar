@@ -679,6 +679,24 @@ const DEFAULT_SETTINGS = {
   notify:{submitted:true, finished:false, meeting:true, shared:true, input:false}
 };
 let types = [], groups = [], qnaires = [], setupReady = true, setupError = "";
+/** The Orders request form's Subsystem list (Admin → Request form → Dropdowns), so evals use the same names
+    (and the Summary tab groups them cleanly). Empty if it can't be read: then subsystems are typed as before. */
+let subsystemList = [];
+async function loadSubsystems(){
+  try {
+    const r = await rows(sb.from("app_settings").select("value").eq("key", "form"));
+    subsystemList = [...new Set((r[0]?.value?.subsystems || []).map(x => String(x).trim()).filter(Boolean))];
+  } catch { subsystemList = []; }
+}
+/** A Subsystem dropdown from that list. A saved value that isn't on the list (older evals) stays as a choice. */
+function subsystemControl(attrs, value, label = "Subsystem", required = false){
+  value = String(value || "").trim();
+  if (!subsystemList.length) return `<input ${attrs} value="${esc(value)}" maxlength="80" aria-label="${esc(label)}"${required ? " required" : ""}>`;
+  const list = value && !subsystemList.includes(value) ? [...subsystemList, value] : subsystemList;
+  return `<select ${attrs} aria-label="${esc(label)}"${required ? " required" : ""}><option value="">Pick a subsystem</option>${
+    list.map(x => `<option${x === value ? " selected" : ""}>${esc(x)}</option>`).join("")}</select>`;
+}
+
 async function loadSetup(){
   try {
     [types, groups, qnaires] = await Promise.all([
@@ -775,7 +793,7 @@ async function boot(session){
       evalState = null;
       await loadMe(session);
       if (me.guest) { showGuest(); return; }
-      await Promise.all([loadRubrics(), loadEvals(), loadQuestions(), loadSetup()]);
+      await Promise.all([loadRubrics(), loadEvals(), loadQuestions(), loadSetup(), loadSubsystems()]);
       $("#tabQ").hidden = !(can("evals.write") || can("evals.templates"));
       $("#tabSetup").hidden = !can("evals.types");
       $("#tabs").hidden = false; drawAccount();
@@ -1128,6 +1146,7 @@ function pagesHTML(r, opts){
     if (!live || b === "evaluator" || b === "input" || (b === "division" && ev.kind !== "self" && track(ev.template_id && version(ev.template_id)?.trackId)?.parent)) return `<span class="ln val">${esc(val)}</span>`;
     if (b === "review_date") return `<span class="ln"><input class="fin" type="date" data-bind="review_date" value="${esc(val)}" aria-label="${esc(f.label)}"></span>`;
     if (b === "member_name" && ev.subject_id) return `<span class="ln val">${esc(val)}</span>`;   // it's someone's account: their name
+    if (b === "subsystem" && subsystemList.length) return `<span class="ln">${subsystemControl('class="fin" data-bind="subsystem"', val, f.label)}</span>`;
     return `<span class="ln"><input class="fin" ${b ? `data-bind="${b}"` : `data-field="${esc(f.label)}"`} value="${esc(val)}" maxlength="120" aria-label="${esc(f.label)}"></span>`;
   };
 
@@ -1760,7 +1779,8 @@ function openNewSelf(){
   const last = lsGet("sg-evals-self-type");
   $("#sfType").innerHTML = typeOpts(list, list.some(t => t.id === last) ? last : list[0].id);
   $("#sfTypeRow").hidden = list.length < 2;
-  $("#sfSem").value = semesterNow(); $("#sfSub").value = "";
+  $("#sfSem").value = semesterNow();
+  $("#sfSub").outerHTML = subsystemControl('class="fi" id="sfSub" autocomplete="off" placeholder="e.g. BMS"', "", "Subsystem");
   fillNewSelf();
   openDlg("#dSelf");
 }
@@ -1777,6 +1797,7 @@ function fillNewSelf(){
   $("#sfTrack").value = kids.some(k => k.id === lastT) ? lastT : (kids[0]?.id || top);
   const sub = formHasBind(top, "subsystem");
   $("#sfSub").hidden = $("#sfSub").previousElementSibling.hidden = !sub;
+  $("#sfSub").required = sub && subsystemList.length > 0;
   const fixed = s.evaluators.rule === "person";
   $("#sfCeL").textContent = `Your ${ev}`; $("#sfCe").hidden = $("#sfCeL").hidden = fixed; $("#sfCe").required = !fixed;
   $("#sfCe").innerHTML = opt(candidates(s.evaluators, [me.id]), "", `Pick your ${ev}`);
@@ -1999,7 +2020,7 @@ function selfFormHTML(e, live, qs){
     ${f(L(s, "subject"), e.member_name, `<div class="hv">${esc(e.member_name)}</div>`)}
     ${f("Semester", e.semester, `<input class="fi" data-sf="semester" value="${esc(e.semester)}" maxlength="40" aria-label="Semester">`)}
     ${s.form.variants && variantsOf(top).length ? f(L(s, "variant"), e.division || "—", `<div class="hv">${esc(e.division || "General")}</div>`) : ""}
-    ${formHasBind(top, "subsystem") ? f("Subsystem", e.subsystem, `<input class="fi" data-sf="subsystem" value="${esc(e.subsystem)}" maxlength="80" aria-label="Subsystem">`) : ""}
+    ${formHasBind(top, "subsystem") ? f("Subsystem", e.subsystem, subsystemControl('class="fi" data-sf="subsystem"', e.subsystem)) : ""}
     ${f(`Your ${L(s, "evaluator")}`, personName(e.ce_id) || "—", s.evaluators.rule === "person" ? `<div class="hv">${esc(personName(e.ce_id) || personName(s.evaluators.value))}</div>`
       : `<select class="fi" data-sf="ce_id" aria-label="Your ${esc(L(s, "evaluator"))}">${opt(evaluatorChoices(e), e.ce_id, "—")}</select>`)}
   </div>`;
