@@ -6,6 +6,7 @@
  * uses them to decide what to SHOW; the database enforces them.
  */
 import { supabase, siteUrl } from './supabase.js';
+import { emailLink } from './emailLink.js';
 
 const state = {
   session: null,
@@ -121,6 +122,9 @@ export const auth = {
         }, 0);
       }
     });
+    // A password-reset link announces itself while the page loads, usually before the listener above exists
+    // (emailLink.js catches it). Either way, open "Choose a new password" instead of Home.
+    if (emailLink.recovery && state.session) state.recovering = true;
   },
 
   async refresh() {

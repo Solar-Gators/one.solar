@@ -2,6 +2,7 @@
 import { isConfigured, supabase } from './supabase.js';
 import { api, setNotificationsOn } from './api.js';
 import { auth } from './auth.js';
+import { clearLinkErrorFromHash } from './emailLink.js';
 import { startRouter } from './router.js';
 import { APP, APPS, homePath } from './appMode.js';
 import { hasHelp } from './views/help.js';
@@ -311,9 +312,11 @@ async function main() {
     app.innerHTML = errorBox(new Error(`Could not connect to the database: ${err.message}`));
     return;
   }
-  if (auth.signedIn && goNext()) return; // already signed in
+  if (auth.signedIn && !auth.recovering && goNext()) return; // already signed in (a reset link sets the password here first)
 
-  // Remove ?code=… / ?error=… left by email links once Supabase has used them.
+  // Remove ?code=… / ?error=… left by email links once Supabase has used them (emailLink.js read them already,
+  // so the sign-in page can still say what went wrong), and an error left in the hash (#error=…).
+  clearLinkErrorFromHash();
   if (location.search) history.replaceState(null, '', location.pathname + location.hash);
 
   bindMenu();

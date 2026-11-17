@@ -4,6 +4,7 @@
  */
 import { auth } from '../auth.js';
 import { esc, errorBox, renderRichText } from '../ui.js';
+import { emailLinkProblem } from '../emailLink.js';
 
 let mode = 'signin'; // 'signin' | 'signup' | 'forgot'
 let notice = '';
@@ -56,8 +57,8 @@ export async function renderLogin(el, { config }) {
     forgot: `<button type="button" class="link-btn" data-mode="signin">← Back to sign in</button>`,
   };
 
-  // Errors from email links (e.g. an expired link) come back in the URL.
-  const urlError = new URLSearchParams(location.search).get('error_description');
+  // Problems with the email link this page was opened from (expired, already used, opened in another browser).
+  const urlError = emailLinkProblem(auth.signedIn);
 
   el.innerHTML = `
     <div class="auth-wrap">
