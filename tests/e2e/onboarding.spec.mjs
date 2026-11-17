@@ -61,3 +61,23 @@ test.describe('onboarding', () => {
     await expect(page.locator('#welcome')).toBeHidden();
   });
 });
+
+// Email links (password reset, confirm your email) that didn't work used to land on a plain sign-in page with no
+// word about why: main.js tidied the address before the page could read it.
+test.describe('email links', () => {
+  const cases = [
+    ['an expired or already-used link (in the address)', '/orders/?error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired', /expired or was already used/],
+    ['an expired link (in the hash)', '/orders/#error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired', /expired or was already used/],
+    ['a link opened in a different browser', '/orders/?code=00000000-0000-4000-8000-000000000000', /same browser you asked for it from/],
+  ];
+  for (const [what, url, message] of cases) {
+    test(`${what} says what went wrong`, async ({ page }) => {
+      const problems = await watch(page);
+      await open(page, url, '#auth-form');
+      await expect(page.locator('.auth-card .alert-error')).toContainText(message);
+      expect(new URL(page.url()).search).toBe('');            // the address is tidied
+      expect(new URL(page.url()).hash).not.toMatch(/error/);  // and the error isn't left as a "page"
+      expect(problems).toEqual([]);
+    });
+  }
+});
