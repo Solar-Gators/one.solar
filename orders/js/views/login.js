@@ -4,7 +4,7 @@
  */
 import { auth } from '../auth.js';
 import { esc, errorBox, renderRichText } from '../ui.js';
-import { emailLinkProblem } from '../emailLink.js';
+import { emailLink, emailLinkProblem } from '../emailLink.js';
 
 let mode = 'signin'; // 'signin' | 'signup' | 'forgot'
 let notice = '';
@@ -25,6 +25,7 @@ function explain(err) {
 }
 
 export async function renderLogin(el, { config }) {
+  if (emailLink.tokenHash && !emailLink.used) return renderEmailLink(el, { config });
   const domains = config.allowedEmailDomains || [];
   const domainHint = domains.length ? `Use your ${domains.map((d) => '@' + d).join(' or ')} email.` : '';
 
@@ -134,6 +135,33 @@ export async function renderLogin(el, { config }) {
     } catch (err) {
       errors.innerHTML = errorBox(explain(err));
       button.disabled = false;
+    }
+  });
+}
+
+/** A password-reset or confirm-your-email link: one button uses it (see emailLink.js for why it isn't automatic). */
+function renderEmailLink(el, { config }) {
+  const reset = emailLink.type === 'recovery';
+  el.innerHTML = `
+    <div class="auth-wrap">
+      <div class="auth-card card">
+        <div class="auth-brand">one.solar · ${esc(config.teamName)}</div>
+        <h1>${reset ? 'Reset your password' : 'Confirm your email'}</h1>
+        <p class="muted small auth-sub">${reset ? 'Press the button to choose a new password.' : 'Press the button to finish setting up your account.'}</p>
+        <div id="auth-errors"></div>
+        <button type="button" class="btn btn-primary btn-block" id="link-go">${reset ? 'Choose a new password' : 'Confirm my email'}</button>
+        <p class="muted small" style="margin-top:12px">This extra step stops email scanners from using up your link before you do.</p>
+      </div>
+    </div>`;
+  el.querySelector('#link-go').addEventListener('click', async (e) => {
+    e.currentTarget.disabled = true;
+    emailLink.used = true;
+    try {
+      await auth.verifyEmailLink(emailLink.tokenHash, emailLink.type);
+      // Signed in: main.js re-renders (a reset link opens "Choose a new password").
+    } catch (err) {
+      emailLink.error = err?.message || 'That email link did not work.';
+      renderLogin(el, { config });
     }
   });
 }

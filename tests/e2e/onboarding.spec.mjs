@@ -81,3 +81,16 @@ test.describe('email links', () => {
     });
   }
 });
+
+// token_hash links (Supabase email templates): opening the page doesn't use the link (UF's Outlook scanner opens
+// every link); pressing the button does. The fake backend has no real links, so the button gets "expired" here.
+test('a reset link in the token_hash form waits for the button, then uses the link', async ({ page }) => {
+  const problems = await watch(page);
+  await open(page, '/orders/?token_hash=pkce_0123456789abcdef&type=recovery', '#link-go');
+  await expect(page.locator('.auth-card h1')).toHaveText('Reset your password');
+  await expect(page.locator('#auth-form')).toHaveCount(0);   // nothing used yet: just the button
+  await page.click('#link-go');
+  await expect(page.locator('.auth-card .alert-error')).toContainText(/expired or was already used/);
+  await expect(page.locator('#auth-form')).toBeVisible();      // back to signing in, to ask for a new link
+  expect(problems).toEqual([]);
+});

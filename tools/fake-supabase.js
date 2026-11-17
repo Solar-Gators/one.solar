@@ -264,6 +264,9 @@ const authApi = {
   async resetPasswordForEmail() {
     return { data: {}, error: { message: 'Password reset emails are not available in fake mode.' } };
   },
+  async verifyOtp() {
+    return { data: {}, error: { message: 'Email link is invalid or has expired' } };
+  },
   async updateUser({ password }) {
     await superuser(`update auth.users set password = $2 where id = $1`, [session.user.id, password]);
     return { data: {}, error: null };
