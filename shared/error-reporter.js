@@ -7,7 +7,7 @@
  * Sends uncaught errors and rejected promises: the message, a short stack (file:line), the app, the build,
  * and the page (path and #route only). Never form contents, storage, cookies or tokens; anything that
  * looks like a token or an email address is blanked before sending (and again by the database).
- * At most 5 different reports per page load. Reporting never throws.
+ * At most 5 different reports per page load. Reporting never throws. Browser noise isn't sent (isNoise).
  *
  * reportProblem(text) sends a "Report a problem" message (the account menu offers it).
  */
@@ -42,6 +42,21 @@ export function shortStack(stack, origin = typeof location === 'undefined' ? '' 
     .join('\n');
 }
 
+/**
+ * Errors that aren't one.solar's, so reporting them only hides real ones on the Diagnostics page:
+ *  - "ResizeObserver loop …": a harmless browser warning when a page re-lays itself out; nothing breaks.
+ *  - "Script error.": a script from another site (usually a browser extension) failed; the browser hides the details.
+ *  - anything from a browser extension (wallets such as MetaMask set window.ethereum; chrome-extension:// …).
+ * Exported for tests.
+ */
+export function isNoise(message, stack = '') {
+  const m = String(message || ''), s = String(stack || '');
+  return /^ResizeObserver loop/i.test(m)
+    || /^Script error\.?$/i.test(m.trim())
+    || /\bwindow\.ethereum\b|\bethereum\.(selectedAddress|request|isMetaMask)/.test(m)
+    || /(chrome|moz|safari|safari-web|edge)-extension:\/\//.test(`${m}\n${s}`);
+}
+
 function send(kind, message, detail) {
   if (!client) return Promise.resolve(false);
   const p = {
@@ -56,7 +71,7 @@ function send(kind, message, detail) {
 
 function capture(kind, message, stack) {
   const key = `${kind}:${message}`;
-  if (!message || seenMessages.has(key) || sent >= MAX_PER_PAGE) return;
+  if (!message || isNoise(message, stack) || seenMessages.has(key) || sent >= MAX_PER_PAGE) return;
   seenMessages.add(key);
   sent++;
   send(kind, message, shortStack(stack));

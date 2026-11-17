@@ -5,7 +5,7 @@
  *   node tests/reporter.test.mjs
  */
 import assert from 'node:assert/strict';
-import { scrub, pagePath, shortStack } from '../shared/error-reporter.js';
+import { scrub, pagePath, shortStack, isNoise } from '../shared/error-reporter.js';
 import { groupErrors } from '../orders/js/errorGroups.js';
 
 let passed = 0;
@@ -21,6 +21,16 @@ function test(name, fn) {
 }
 
 console.log('Error reports');
+
+test('browser noise (errors that are not one.solar ones) is not reported', () => {
+  assert.ok(isNoise('ResizeObserver loop completed with undelivered notifications.'));
+  assert.ok(isNoise('ResizeObserver loop limit exceeded'));
+  assert.ok(isNoise('Script error.'));
+  assert.ok(isNoise("TypeError: undefined is not an object (evaluating 'window.ethereum.selectedAddress = undefined')"));
+  assert.ok(isNoise('TypeError: x is null', 'at y (chrome-extension://abcdef/content.js:1:2)'));
+  assert.ok(!isNoise("TypeError: Cannot read properties of undefined (reading 'id')", 'at load (orders/js/api.js:12)'));
+  assert.ok(!isNoise('Script error in the request form'));
+});
 
 test('tokens and email addresses are blanked; text is cut to length', () => {
   assert.equal(scrub('Bad JWT eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjMifQ.abc_DEF-123 for riley@ufl.edu', 500), 'Bad JWT [token] for [email]');
