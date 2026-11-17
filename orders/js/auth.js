@@ -152,6 +152,12 @@ export const auth = {
     if (error) throw error;
   },
 
+  /** Use a token_hash email link (emailLink.js). A reset link then opens "Choose a new password" (PASSWORD_RECOVERY). */
+  async verifyEmailLink(tokenHash, type) {
+    const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type });
+    if (error) throw error;
+  },
+
   async updatePassword(password) {
     const { error } = await supabase.auth.updateUser({ password });
     if (error) throw error;

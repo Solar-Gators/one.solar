@@ -43,8 +43,12 @@ In Supabase, go to **Authentication**:
   - **Site URL:** the site's address, e.g. `https://one.ufsolargators.org/`
   - **Redirect URLs:** add `https://one.ufsolargators.org/**` and `http://localhost:5173/**` (for local testing). Keep the old `https://solar-gators.github.io/one.solar/**` for a while after a domain change, for emails sent before it.
 - **Emails.** This one matters. Supabase's built-in email service only delivers to members of your Supabase organization, and only a few messages per hour. Pick one:
-  - **Recommended:** set up custom SMTP (**Authentication → Emails → SMTP Settings**) with a free provider such as Resend or Brevo. Confirmation and password-reset emails will then work for everyone.
+  - **Recommended:** set up custom SMTP (**Authentication → Emails → SMTP Settings**) with a free provider such as Resend or Brevo. Confirmation and password-reset emails will then work for everyone. Its **Sender name** is the name these emails come from (e.g. `one.solar`).
   - **Quick start:** turn off **Confirm email** (**Authentication → Sign In / Providers → Email**). People can sign up and use the site immediately. Only @ufl.edu addresses are accepted, and new accounts can't do anything beyond submit requests until a lead gives them a role. Password-reset emails still need SMTP.
+- **Email templates** (**Authentication → Emails → Templates**). UF's Outlook opens every link in an email to scan it, which uses up Supabase's standard one-time links before the person clicks ("That email link has expired or was already used"). Change the link in two templates so it opens the site, and the link is only used when the person presses the button there (scanners don't press buttons; the link then also works on any device):
+  - **Reset Password:** `<a href="{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=recovery">Reset password</a>`
+  - **Confirm signup:** `<a href="{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=email">Confirm your email</a>`
+  - `{{ .RedirectTo }}` is the app page the person asked from (e.g. `https://one.ufsolargators.org/orders/`), so it has to be allowed under Redirect URLs above. The site handles both link styles, so emails sent before the change still work.
 
 ### 3. Connect the website
 Open **Project Settings → API** (or the **Connect** button). Copy the **Project URL** and the **anon / publishable** key into [`shared/config.js`](../shared/config.js). Every app reads them from there.
@@ -239,7 +243,7 @@ Nothing is sent until an Admin turns it on in **Admin → one.solar → Notifica
 3. Supabase → **Edge Functions → Secrets**, add:
    - `SMTP_USER` = the Gmail address
    - `SMTP_PASS` = the 16-letter app password
-   - optional `SMTP_FROM_NAME` = e.g. `Solar Gators Orders`
+   - optional `SMTP_FROM_NAME` = the sender name people see, e.g. `one.solar`. Leave it unset for `one.solar · <team name>`.
 
 Gmail allows about 500 emails a day, far more than the team needs. Other providers work too: also set `SMTP_HOST` and `SMTP_PORT` (use port 465; Supabase blocks 25 and 587).
 

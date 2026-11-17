@@ -10,6 +10,7 @@
  */
 import { auth } from './auth.js';
 import { renderLogin } from './views/login.js';
+import { emailLink } from './emailLink.js';
 import { renderAccount, renderResetPassword } from './views/account.js';
 import { renderUsers, renderRoles, renderDropdowns, renderSeason, renderFormFields, renderImportOrders, ADMIN_TABS } from './views/admin.js';
 import { renderAppearance, renderBrand, renderHistory } from './views/adminSetup.js';
@@ -209,7 +210,9 @@ export function startRouter(ctx, { onRender } = {}) {
     }
     let route = ROUTES.find((r) => r.pattern.test(path));
 
-    if (auth.signedIn && auth.recovering) route = { view: renderResetPassword };
+    // An unused email link (password reset / confirm email) gets its button page, even if someone is signed in here.
+    if (emailLink.tokenHash && !emailLink.used) route = { view: renderLogin, bare: true };
+    else if (auth.signedIn && auth.recovering) route = { view: renderResetPassword };
     else if (!auth.signedIn) route = { view: renderLogin, bare: true };
     else if (!route) {
       location.hash = `#${homePath()}`;

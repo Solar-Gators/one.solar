@@ -7,6 +7,12 @@
  *    instead of "Choose a new password". We listen here, as soon as the client exists, and remember it.
  *  - main.js tidies "?code=… / ?error=…" out of the address before the sign-in page draws, so an expired or
  *    already-used link failed silently. We read them here first.
+ *
+ * Email links in the "token_hash" form (?token_hash=…&type=recovery, set in Supabase's email templates) open our
+ * page without using the link up; it's used when the person presses the button on it (auth.verifyEmailLink).
+ * UF's Outlook opens every link in an email to scan it, which used up the older one-time links before anyone
+ * clicked them ("That email link has expired"). Scanners load pages; they don't press buttons. These links also
+ * work in any browser or device, not only the one that asked for them.
  */
 import { supabase } from './supabase.js';
 
@@ -20,7 +26,17 @@ export const emailLink = {
   errorCode: query.get('error_code') || hash.get('error_code') || '',
   /** Set when Supabase says the link was a password reset. */
   recovery: false,
+  /** A link to use with the button on the sign-in page (see above), and what it's for. */
+  tokenHash: '',
+  type: '',
+  /** Set once the button was pressed, whatever happened. */
+  used: false,
 };
+const LINK_TYPES = ['recovery', 'email', 'signup', 'invite', 'magiclink', 'email_change'];
+if (query.get('token_hash') && LINK_TYPES.includes(query.get('type'))) {
+  emailLink.tokenHash = query.get('token_hash');
+  emailLink.type = query.get('type');
+}
 
 supabase?.auth.onAuthStateChange((event) => {
   if (event === 'PASSWORD_RECOVERY') emailLink.recovery = true;
