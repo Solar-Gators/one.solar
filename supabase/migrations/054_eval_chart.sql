@@ -367,15 +367,40 @@ end;
 $$;
 
 -- ---- the chart from the team's "Evaluation flow" drawing -------------------------------------------
+-- A position may already exist under another key with the same name (e.g. a "Subsystem Lead" someone made
+-- in Admin before 053/054, which then didn't add theirs): use that one.
+create or replace function public.eval_seed_key(p_key text)
+returns text
+language sql stable set search_path = public, pg_temp
+as $$
+  select coalesce(
+    (select key from roles where key = p_key),
+    (select r.key from roles r
+     join (values ('president', 'President'), ('vp', 'Vice President'), ('treasurer', 'Treasurer'), ('secretary', 'Secretary'),
+                  ('coordinator', 'Business Coordinator'), ('ce', 'Chief Engineer'), ('subsystem_lead', 'Subsystem Lead'),
+                  ('integration_pm', 'Integration Project Manager'), ('member', 'Member'), ('eboard', 'E-board')) v(k, label)
+       on v.k = p_key and lower(trim(r.label)) = lower(v.label)
+     where r.key not in ('guest', 'alumni') order by r.sort, r.key limit 1));
+$$;
+
+-- The President's "Assign evaluators" (053), for a President position that already had another key.
+insert into public.role_permissions (role, permission)
+select public.eval_seed_key('president'), 'evals.assign' where public.eval_seed_key('president') is not null
+on conflict do nothing;
+select public.record_permissions_snapshot();
+
 do $$
 declare
   lead text := case when exists (select 1 from eval_types where id = 'eboard') then 'eboard' else 'member' end;
-  f text;
 begin
   if exists (select 1 from eval_chart) then return; end if;
   -- role, sits under, type, evaluated by, feedback from (everyone), feedback picked from, form, note, sort
   insert into eval_chart (role, reports_to, type_id, evaluators, feedback, feedback_pick, form_id, note, sort, updated_by_name)
-  select v.role, v.up, v.ty, v.ev, v.fb, v.fp, (select id from eval_tracks where id = v.form and removed_at is null), v.note, v.sort, 'Solar Gators'
+  select eval_seed_key(v.role), eval_seed_key(v.up), v.ty,
+         array(select k from (select eval_seed_key(x) k from unnest(v.ev) x) z where k is not null),
+         array(select k from (select eval_seed_key(x) k from unnest(v.fb) x) z where k is not null),
+         array(select k from (select eval_seed_key(x) k from unnest(v.fp) x) z where k is not null),
+         (select id from eval_tracks where id = v.form and removed_at is null), v.note, v.sort, 'Solar Gators'
   from (values
     ('president',      null,             lead,     array['vp'],             array['eboard', 'ce'],   array[]::text[],          'lead-president',      'The President is evaluated by the VP, with feedback from the other E-board members and the Chief Engineers.', 1),
     ('ce',             'president',      lead,     array['president'],      array['ce'],             array[]::text[],          'lead-ce',             '', 2),
@@ -387,11 +412,9 @@ begin
     ('integration_pm', 'ce',             lead,     array['ce'],             array['integration_pm'], array[]::text[],          'lead-pm',             '', 8),
     ('member',         'subsystem_lead', 'member', array['ce'],             array[]::text[],         array['subsystem_lead'],  null,                  'Members are evaluated by their CE, with input from their subsystem lead.', 9)
   ) v(role, up, ty, ev, fb, fp, form, note, sort)
-  where exists (select 1 from roles where key = v.role) and exists (select 1 from eval_types where id = v.ty);
-  -- Lists only name positions that exist; a box whose parent is missing goes to the top.
-  update eval_chart c set evaluators = array(select x from unnest(c.evaluators) x where exists (select 1 from roles where key = x)),
-                          feedback = array(select x from unnest(c.feedback) x where exists (select 1 from roles where key = x)),
-                          feedback_pick = array(select x from unnest(c.feedback_pick) x where exists (select 1 from roles where key = x));
+  where eval_seed_key(v.role) is not null and exists (select 1 from eval_types where id = v.ty)
+  on conflict (role) do nothing;
+  -- A box whose parent didn't make it onto the chart goes to the top.
   update eval_chart c set reports_to = null where reports_to is not null and not exists (select 1 from eval_chart p where p.role = c.reports_to);
 end;
 $$;
@@ -455,7 +478,7 @@ end;
 $$;
 
 revoke execute on function public.eval_chart_role_gone(), public.eval_chart_inputs(), public.eval_chart_inputs_notify(),
-  public.eval_chart_fill(jsonb, text), public.eval_holders(text[]), public.eval_chart_boxes(text, uuid)
+  public.eval_chart_fill(jsonb, text), public.eval_holders(text[]), public.eval_chart_boxes(text, uuid), public.eval_seed_key(text)
   from public, anon, authenticated;
 revoke execute on function public.eval_chart_feedback(text, uuid), public.eval_chart_save(text, jsonb), public.eval_chart_remove(text),
   public.eval_chart_use(text, boolean) from public, anon;

@@ -172,4 +172,16 @@ await test('a subsystem lead is on the leadership eval, evaluated by the CEs; th
   assert.equal(await box('integration_pm'), undefined);
 });
 
+await test('positions that already exist under another key, by name, are used (the live database had a "Subsystem Lead")', async () => {
+  const old = await freshDb({ upTo: 54, before: async (d, file) => {
+    if (file.startsWith('054')) await d.exec(`insert into roles (key, label, sort) values ('lead', 'Subsystem Lead', 20), ('pres', 'president', 21)`);
+  } });
+  const rows = (await old.query(`select role, reports_to, evaluators, feedback_pick from eval_chart order by sort`)).rows;
+  assert.deepEqual(rows.find((r) => r.role === 'lead'), { role: 'lead', reports_to: 'ce', evaluators: ['ce'], feedback_pick: [] });
+  assert.equal(rows.find((r) => r.role === 'member').reports_to, 'lead');
+  assert.deepEqual(rows.find((r) => r.role === 'member').feedback_pick, ['lead']);
+  assert.equal((await old.query(`select count(*)::int c from roles where key = 'subsystem_lead'`)).rows[0].c, 0);
+  assert.equal(rows.find((r) => r.role === 'president').reports_to, null);   // 053 made "president"; it's used first
+});
+
 console.log(`\n${passed} passed`);
