@@ -2502,6 +2502,8 @@ function notesHTML(e){
       : `<div class="nb" style="color:var(--muted)">None yet. ${(e.input_ids || []).length ? `They can leave notes here while it's a draft.` : `Add who gives input above.`} Only you see them.</div>`}</div>`;
 }
 
+/** 055: why someone sees an eval that isn't theirs: their role can "See every eval (troubleshooting)". */
+const TROUBLESHOOT_NOTE = "You can read this because your role can <b>See every eval (troubleshooting)</b>. It's read only, and the people involved aren't told.";
 function renderEval(){
   const m = $("#main"), e = evalState?.row;
   if (!e || e.missing) {
@@ -2546,6 +2548,7 @@ function renderEval(){
     tip = `${esc(personName(e.evaluator_id))} asked for your input as ${esc(lc(L(s, "input")))}. ${e.status === "draft" ? "It's still a draft, so it may change." : "It's finished."}`
       + (s.input.notes && e.status === "draft" ? " Leave them notes below." : "");
   } else if (linked && e.meeting_at && e.status !== "shared") tip = `Eval meeting: ${meetingText(e)}.`;
+  if (!tip && !mine && can("evals.all")) tip = TROUBLESHOOT_NOTE;
   if (tip) h += `<div class="banner note"><span class="bt">${tip}</span>${live && !linked && s.subjects.rule === "anyone" && !e.subject_id && v.subject !== "never"
     ? `<label class="inl">${esc(L(s, "subject"))}'s email <input class="fi" id="evEmail" type="email" value="${esc(e.member_email)}" placeholder="so they can read it" maxlength="200"></label>` : ""}</div>`;
   h += inputBarHTML(e, "evaluator") + notesHTML(e);
@@ -2579,6 +2582,7 @@ function renderSelf(){
   if (mine && e.status !== "draft" && !ce) acts += `<button class="btn" data-act="selfBack">Take back</button>`;
   acts += `<button class="btn" data-act="evPrint">Print / PDF</button>`;
   let h = toolbarHTML(mine ? "Your self-evaluation" : `${e.member_name || L(s, "subject")}'s self-evaluation`, meta, acts, "var(--orange)");
+  if (!mine && e.ce_id !== me.id && can("evals.all")) h += `<div class="banner note"><span class="bt">${TROUBLESHOOT_NOTE}</span></div>`;
   const qs = questionsOf(e), v = s.visibility.eval.subject;
   const after = v === "final" ? (s.meeting ? " You'll be told when their eval is finished, and about the meeting." : " You'll be told when their eval is finished, and can read it then.")
     : v === "shared" ? (s.meeting ? " You'll be told when it's finished and when your meeting is; you'll read their eval after the meeting." : " You'll read their eval once they share it.")

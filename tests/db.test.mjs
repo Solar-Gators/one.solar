@@ -529,7 +529,7 @@ const permsOf = async (role) =>
 await test('everyone signed in can read the permission list', async () => {
   // Ties in sort (people.accept and request.review are both 1) are ordered by key, so the list is always the same.
   const { rows } = await as(member, () => db.query(`select key from permissions order by sort, key`));
-  assert.deepEqual(rows.map((r) => r.key), ['people.accept', 'request.review', 'request.order', 'settings.edit', 'site.customize', 'seasons.manage', 'workflow.edit', 'finances.view', 'finances.edit', 'sponsors.view', 'sponsors.edit', 'evals.templates', 'evals.write', 'evals.view', 'evals.assign', 'evals.types', 'users.manage', 'roles.edit',
+  assert.deepEqual(rows.map((r) => r.key), ['people.accept', 'request.review', 'request.order', 'settings.edit', 'site.customize', 'seasons.manage', 'workflow.edit', 'finances.view', 'finances.edit', 'sponsors.view', 'sponsors.edit', 'evals.templates', 'evals.write', 'evals.view', 'evals.all', 'evals.assign', 'evals.types', 'users.manage', 'roles.edit',
     'inventory.view', 'inventory.use', 'inventory.receive', 'inventory.count', 'inventory.manage',
     'projects.view', 'projects.create', 'projects.manage',
     'sgaa.edit', 'sgaa.messages', 'sgaa.alumni']);
@@ -710,7 +710,7 @@ await test('no roles means Member; unknown roles are refused', async () => {
 
 await test('Admin has every permission, including the new ones', async () => {
   const perms = (await db.query(`select string_agg(permission, ',' order by permission) as p from role_permissions where role = 'admin'`)).rows[0].p;
-  assert.equal(perms, 'evals.assign,evals.templates,evals.types,evals.view,evals.write,finances.edit,finances.view,inventory.count,inventory.manage,inventory.receive,inventory.use,inventory.view,people.accept,projects.create,projects.manage,projects.view,request.order,request.review,roles.edit,seasons.manage,settings.edit,sgaa.alumni,sgaa.edit,sgaa.messages,site.customize,sponsors.edit,sponsors.view,users.manage,workflow.edit');
+  assert.equal(perms, 'evals.all,evals.assign,evals.templates,evals.types,evals.view,evals.write,finances.edit,finances.view,inventory.count,inventory.manage,inventory.receive,inventory.use,inventory.view,people.accept,projects.create,projects.manage,projects.view,request.order,request.review,roles.edit,seasons.manage,settings.edit,sgaa.alumni,sgaa.edit,sgaa.messages,site.customize,sponsors.edit,sponsors.view,users.manage,workflow.edit');
 });
 
 await test('custom roles: create, rename, grant, and delete', async () => {

@@ -2,7 +2,7 @@
 
 **https://one.ufsolargators.org/evals/** · [`evals/index.html`](../evals/index.html)
 
-Semester reviews, filled out online instead of on paper. Sign in with your **[one.solar](https://one.ufsolargators.org/)** account; everything is kept in the one.solar (Orders) database (migrations `028`, `031`, `032`, `036_eval_types.sql`, `037_eval_form_names.sql`, `038_eval_communication.sql`, `039_eval_more_forms.sql`, `053_eval_assignments.sql` and `054_eval_chart.sql`).
+Semester reviews, filled out online instead of on paper. Sign in with your **[one.solar](https://one.ufsolargators.org/)** account; everything is kept in the one.solar (Orders) database (migrations `028`, `031`, `032`, `036_eval_types.sql`, `037_eval_form_names.sql`, `038_eval_communication.sql`, `039_eval_more_forms.sql`, `053_eval_assignments.sql`, `054_eval_chart.sql` and `055_eval_see_every.sql`).
 
 Everything below is set up on the page, not in code: the forms, the questionnaires, and the whole flow for each kind of eval.
 
@@ -49,6 +49,10 @@ Click a box to change it: where it **sits**, its **eval type**, who it's **evalu
 - **Exceptions for one person** (below the chart): "Kim, evaluated by Cy". A person's own rows replace what the chart says for them.
 - **Someone the chart doesn't place** (or whose evaluator position is empty right now) picks from the list as before. **Everyone who gets … evals** shows who evaluates each person, whose feedback goes in, and who isn't on the chart.
 - **Assigned** (053, in Setup) is the older switch for a type that keeps its own rules but uses the exceptions.
+
+## Troubleshooting: see every eval (055)
+
+**See every eval (troubleshooting)** (`evals.all`, Admin only by default) reads every evaluation, drafts included, and every submitted self-eval, whatever each type's "Who sees what" says. It's read only: it doesn't let anyone change, finish, share or delete an eval, and nobody is told. The eval shows a note saying why you can read it. Self-eval drafts stay private, and so do input notes. Untick it in Admin → Roles & permissions once you're done troubleshooting.
 
 ## Forms
 
