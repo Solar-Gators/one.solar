@@ -714,10 +714,10 @@ await test('Admin has every permission, including the new ones', async () => {
 });
 
 await test('custom roles: create, rename, grant, and delete', async () => {
-  await as(member, () => rejects(rpc('create_role', ['Subsystem Lead']), /does not allow/));
-  const key = (await as(grid, () => rpc('create_role', ['Subsystem Lead']))).rows[0].result;
-  assert.equal(key, 'subsystem_lead');
-  await as(grid, () => rejects(rpc('create_role', ['subsystem lead']), /already a role/));
+  await as(member, () => rejects(rpc('create_role', ['Aero Lead']), /does not allow/));
+  const key = (await as(grid, () => rpc('create_role', ['Aero Lead']))).rows[0].result;
+  assert.equal(key, 'aero_lead');
+  await as(grid, () => rejects(rpc('create_role', ['aero lead']), /already a role/));
   await as(grid, () => rpc('rename_role', [key, 'Team Lead']));
   await as(grid, () => rpc('set_permission_matrix', [{ [key]: ['request.review'] }]));
   await as(ce, () => rpc('set_user_roles', [other, [key]]));

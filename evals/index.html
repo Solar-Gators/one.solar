@@ -366,6 +366,49 @@ table.rub td.lv.on::after{background:var(--navy);border-color:var(--navy);box-sh
 .srow{display:grid;grid-template-columns:minmax(140px,230px) minmax(0,1fr);gap:4px 16px;align-items:start;padding:10px 0;border-top:1px solid var(--line)}
 .srow > .sl{font-weight:700;font-size:13.5px;color:var(--ink);padding-top:8px}
 .srow .fh{margin-top:4px}
+/* Evaluation chart (054): an org chart drawn with nested lists */
+.ch-wrap{overflow-x:auto;padding:6px 0 14px}
+.ch,.ch ul{display:flex;justify-content:center;margin:0;padding:18px 0 0;position:relative}
+.ch{padding-top:0;width:max-content;min-width:100%}
+.setup.ch-page{max-width:none}
+.ch li{list-style:none;position:relative;padding:18px 6px 0;display:flex;flex-direction:column;align-items:center}
+.ch > li{padding-top:0}
+.ch li::before,.ch li::after{content:"";position:absolute;top:0;right:50%;width:50%;height:18px;border-top:2px solid var(--orange)}
+.ch li::after{right:auto;left:50%;border-left:2px solid var(--orange)}
+.ch li:only-child::before,.ch li:only-child::after{display:none}
+.ch li:only-child{padding-top:18px}
+.ch li:only-child::after{display:block;border-top:0;width:0;left:50%}
+.ch > li:only-child{padding-top:0}
+.ch > li:only-child::after{display:none}
+.ch li:first-child::before,.ch li:last-child::after{border:0}
+.ch li:last-child::before{border-right:2px solid var(--orange);border-radius:0 6px 0 0}
+.ch li:first-child::after{border-radius:6px 0 0 0}
+.ch ul::before{content:"";position:absolute;top:0;left:50%;height:18px;border-left:2px solid var(--orange)}
+.ch-box{display:flex;flex-direction:column;gap:3px;min-width:150px;max-width:210px;padding:9px 11px;border:1.5px solid var(--navy);border-radius:10px;background:var(--panel);
+  text-align:center;font:inherit;color:var(--ink);cursor:pointer;box-shadow:var(--shadow)}
+.ch-box:hover,.ch-box:focus-visible{border-color:var(--orange)}
+.ch-box.on{border-color:var(--orange);outline:2px solid var(--orange);outline-offset:1px}
+.ch > li > .ch-box{background:#dbe7ff;border-color:#9db8ef}
+.ch-t{font-weight:900;color:var(--navy);font-size:14.5px}
+.ch-p{font-size:12px;color:var(--muted)}
+.ch-l{font-size:12px}
+.ch-f{font-size:11.5px;background:#fff3e6;border:1px solid #f3c99b;border-radius:6px;padding:2px 6px;color:#7a4510}
+.ch-ty{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.ch-n{font-size:11.5px;color:var(--muted);font-style:italic}
+.ch-checks{display:flex;flex-wrap:wrap;gap:4px 14px;padding-top:6px}
+.ch-chk{font-size:13.5px;display:inline-flex;gap:5px;align-items:center}
+.ch-acts{display:flex;gap:8px;padding:12px 0 6px;flex-wrap:wrap}
+.ch-edit{box-shadow:none;border-color:var(--orange);margin-top:10px}
+.ch-h{font-size:15px;font-weight:900;color:var(--navy);margin:22px 0 10px}
+/* Phones: an indented outline instead of a wide tree */
+@media (max-width: 700px){
+  .ch,.ch ul{display:block;width:auto;min-width:0;padding:0}
+  .ch ul{padding-left:14px;margin-left:12px;border-left:2px solid var(--orange)}
+  .ch li,.ch li:only-child{display:block;padding:8px 0 0}
+  .ch li::before,.ch li::after,.ch ul::before{display:none}
+  .ch-box{max-width:none;width:100%;text-align:left}
+}
+@media (prefers-color-scheme: dark){ .ch > li > .ch-box{background:var(--panel-2);border-color:var(--navy)} .ch-f{background:transparent;color:inherit} }
 /* Assignments (053) */
 .asg-m{color:var(--muted)} .asg-s{font-size:12.5px}
 .asg-warn{color:var(--bad);font-weight:600;font-size:12.5px;margin-top:2px}
@@ -513,7 +556,7 @@ svg.trend .grid{stroke:var(--line);stroke-width:1}
       <a href="#/rubrics" data-tab="rubrics">Forms</a>
       <a href="#/questions" data-tab="questions" id="tabQ" hidden>Questionnaires</a>
       <a href="#/summary" data-tab="summary" id="tabSum" hidden>Summary</a>
-      <a href="#/assign" data-tab="assign" id="tabAssign" hidden>Assignments</a>
+      <a href="#/assign" data-tab="assign" id="tabAssign" hidden>Chart</a>
       <a href="#/setup" data-tab="setup" id="tabSetup" hidden>Setup</a>
     </nav>
     <div class="topbar-end" id="acct"></div>
@@ -787,6 +830,7 @@ async function loadSetup(){
       rows(sb.from("eval_questionnaires").select("*").order("name"))]);
     setupReady = true; setupError = "";
     assignments = await rows(sb.from("eval_assignments").select("*").order("created_at")).catch(() => []);   // [] before 053
+    chart = await rows(sb.from("eval_chart").select("*").order("sort")).catch(() => []);                     // [] before 054
   } catch (e) {   // the database doesn't have 036 yet: everything works as the Member eval
     console.error(e); setupError = e.message || String(e);
     types = [{id:"member", name:"Member eval", description:"", active:true, settings:DEFAULT_SETTINGS}]; groups = []; qnaires = []; setupReady = false;
@@ -809,6 +853,13 @@ function ruleMatch(rule, uid){
     case "role": return roleRows.some(r => r.user_id === uid && r.role === rule.value);
     case "group": return !!groups.find(g => g.id === rule.value)?.members?.includes(uid);
     case "person": return rule.value === uid;
+    case "chart": {   // 054: whoever the evaluation chart (and 053's person rows) places in this type
+      const ty = rule.value || setupView?.id || "", rs = assignments.filter(a => a.type_id === ty);
+      if (rule.side === "subject") return chart.some(c => c.type_id === ty && roleRows.some(r => r.user_id === uid && r.role === c.role))
+        || rs.some(a => a.subject_kind === "person" && a.subject_value === uid);
+      return chart.some(c => c.type_id === ty && (c.evaluators || []).some(k => roleRows.some(r => r.user_id === uid && r.role === k)))
+        || rs.some(a => a.evaluator_kind === "person" ? a.evaluator_value === uid : roleRows.some(r => r.user_id === uid && r.role === a.evaluator_value));
+    }
     default: return false;
   }
 }
@@ -816,7 +867,7 @@ const candidates = (rule, except = []) => people.filter(p => ruleMatch(rule, p.i
 /* 053: who evaluates whom, when an eval type uses assignments ("Assigned by Admin / the President" in Setup).
    The same as eval_assigned_evaluators(): a person's own rows if they have any, otherwise their positions'
    rows; positions are whoever holds them now. [] = not assigned: they pick from "Who evaluates". */
-const typeAssigned = typeId => !!typeById(typeId || "member")?.settings?.assigned;
+const typeAssigned = typeId => !!typeById(typeId || "member")?.settings?.assigned || typeById(typeId || "member")?.settings?.evaluators?.rule === "chart";
 const holders = key => roleRows.filter(r => r.role === key).map(r => r.user_id);
 const onTeam = uid => roleRows.some(r => r.user_id === uid && r.role !== "guest" && r.role !== "alumni");
 function assignedTo(typeId, uid){
@@ -824,6 +875,7 @@ function assignedTo(typeId, uid){
   const own = rs.filter(a => a.subject_kind === "person" && a.subject_value === uid);
   const mine = own.length ? own : rs.filter(a => a.subject_kind === "role" && roleRows.some(r => r.user_id === uid && r.role === a.subject_value));
   const ids = new Set(mine.flatMap(a => a.evaluator_kind === "person" ? [a.evaluator_value] : holders(a.evaluator_value)));
+  if (!mine.length) for (const c of chartBoxes(typeId, uid)) for (const k of c.evaluators || []) holders(k).forEach(id => ids.add(id));   // 054
   ids.delete(uid);
   return [...ids].filter(id => people.some(p => p.id === id) && onTeam(id));
 }
@@ -844,6 +896,7 @@ function ruleText(rule){
     case "role": return `people in the ${roleLabel(rule.value)} position`;
     case "group": return `the “${groups.find(g => g.id === rule.value)?.name || "?"}” group`;
     case "person": return personName(rule.value) || "one person";
+    case "chart": return "whoever the evaluation chart says";
     default: return "nobody else";
   }
 }
@@ -1131,21 +1184,155 @@ function asgOptions(val, none){
     + `<optgroup label="Positions">${asgPositions().map(r => `<option value="role:${esc(r.key)}"${"role:" + r.key === val ? " selected" : ""}>${esc(r.label)}</option>`).join("")}</optgroup>`
     + `<optgroup label="People">${asgTeam().map(p => `<option value="person:${esc(p.id)}"${"person:" + p.id === val ? " selected" : ""}>${esc(p.full_name || p.email)}</option>`).join("")}</optgroup>`;
 }
+/* ---------- the evaluation chart (054): one org chart for the whole team ----------
+   Each box is a position: where it sits, the eval type its holders get, who evaluates it, whose feedback is
+   added, who input is picked from, and its form. Admin or the President edit it ("Assign evaluators"). */
+let chart = [];   // [{role, reports_to, type_id, evaluators[], feedback[], feedback_pick[], form_id, note, sort}]
+let chartEdit = null;   // {role, isNew, d:{...}} while a box is open
+const usesChart = typeId => typeById(typeId || "member")?.settings?.evaluators?.rule === "chart";
+/** The boxes that place this person in this eval type (only for types that use the chart). */
+const chartBoxes = (typeId, uid) => !usesChart(typeId) ? [] : chart.filter(c => c.type_id === (typeId || "member") && roleRows.some(r => r.user_id === uid && r.role === c.role));
+const chartBoxOf = role => chart.find(c => c.role === role);
+/** "the other CEs", "Treasurer", for a box's lists. */
+const chartRoleList = (keys, self) => listText((keys || []).map(k => k === self ? `the other ${roleLabel(k)}s` : roleLabel(k))) || "—";
+/** Who can be picked to give input on an eval of `subject`: the chart's "picked from" positions, if any. */
+function inputChoices(typeId, s, subject, except){
+  const all = candidates(s.input, except);
+  const pickFrom = [...new Set(chartBoxes(typeId, subject).flatMap(c => c.feedback_pick || []))];
+  if (!pickFrom.length) return all;
+  const ok = all.filter(p => pickFrom.some(k => holders(k).includes(p.id)));
+  return ok.length ? ok : all;
+}
+/** The form a box picks for this person, if their position has one. */
+const chartForm = (typeId, uid) => chartBoxes(typeId, uid).map(c => c.form_id).find(Boolean) || "";
+
+function chartTreeHTML(){
+  const kids = up => chart.filter(c => (c.reports_to || null) === up && (up !== null || true))
+    .sort((a, b) => (a.sort - b.sort) || roleLabel(a.role).localeCompare(roleLabel(b.role)));
+  const tops = chart.filter(c => !c.reports_to || !chartBoxOf(c.reports_to));
+  const boxHTML = c => {
+    const who = holders(c.role).filter(onTeam).map(personName).filter(Boolean);
+    const ty = typeById(c.type_id);
+    const by = (c.evaluators || []).length ? `Evaluated by <b>${esc(chartRoleList(c.evaluators, c.role))}</b>` : `<span class="asg-warn">Nobody evaluates this</span>`;
+    return `<button type="button" class="ch-box${chartEdit?.role === c.role ? " on" : ""}" data-act="chEdit" data-role="${esc(c.role)}">
+      <span class="ch-t">${esc(roleLabel(c.role))}</span>
+      <span class="ch-p">${who.length ? esc(who.length > 3 ? `${who.slice(0, 3).join(", ")} +${who.length - 3}` : who.join(", ")) : "Nobody yet"}</span>
+      <span class="ch-l">${by}</span>
+      ${(c.feedback || []).length ? `<span class="ch-f">Feedback from ${esc(chartRoleList(c.feedback, c.role))}</span>` : ""}
+      ${(c.feedback_pick || []).length ? `<span class="ch-f">Input picked from ${esc(chartRoleList(c.feedback_pick, c.role))}</span>` : ""}
+      <span class="ch-ty">${esc(ty?.name || c.type_id)}${c.form_id && track(c.form_id) ? ` · ${esc(track(c.form_id).name)}` : ""}</span>
+      ${c.note ? `<span class="ch-n">${esc(c.note)}</span>` : ""}</button>`;
+  };
+  const branch = (c, seen) => {
+    if (seen.has(c.role)) return "";
+    seen.add(c.role);
+    const ks = kids(c.role).filter(k => !seen.has(k.role));
+    return `<li>${boxHTML(c)}${ks.length ? `<ul>${ks.map(k => branch(k, seen)).join("")}</ul>` : ""}</li>`;
+  };
+  const seen = new Set();
+  return chart.length ? `<div class="ch-wrap"><ul class="ch">${tops.sort((a, b) => a.sort - b.sort).map(c => branch(c, seen)).join("")}</ul></div>`
+    : `<p class="asg-m">The chart is empty. Add the top position (e.g. the President) first.</p>`;
+}
+
+function chartEditorHTML(){
+  if (!chartEdit) return can("evals.assign") ? `<p><button class="btn" data-act="chNew">+ Add a position to the chart</button></p>` : "";
+  const d = chartEdit.d, role = chartEdit.role, positions = asgPositions();
+  const below = new Set();   // boxes under this one can't be where it sits
+  const walk = k => chart.filter(c => c.reports_to === k).forEach(c => { if (!below.has(c.role)) { below.add(c.role); walk(c.role); } });
+  if (role) walk(role);
+  const checks = (key, list, hint) => `<div class="ch-checks" role="group" aria-label="${esc(hint)}">${positions.map(p =>
+    `<label class="ch-chk"><input type="checkbox" data-ch-list="${key}" value="${esc(p.key)}"${list.includes(p.key) ? " checked" : ""}> ${esc(p.label)}</label>`).join("")}</div>`;
+  const forms = db.tracks.filter(t => !t.removed).slice().sort((a, b) => (a.parent ? 1 : 0) - (b.parent ? 1 : 0) || a.name.localeCompare(b.name));
+  const free = positions.filter(p => !chartBoxOf(p.key));
+  return `<div class="scard ch-edit" id="chEditor"><h3>${chartEdit.isNew ? "Add a position" : `Edit: ${esc(roleLabel(role))}`}</h3>
+    ${chartEdit.isNew ? srow("Position", `<select class="fi" data-ch="role"><option value="">Pick a position…</option>${free.map(p => `<option value="${esc(p.key)}"${p.key === role ? " selected" : ""}>${esc(p.label)}</option>`).join("")}</select>`,
+      `Not there? Add it in Admin → Roles & permissions → New position.`) : ""}
+    ${srow("Sits under", `<select class="fi" data-ch="reports_to"><option value="">The top of the chart</option>${chart.filter(c => c.role !== role && !below.has(c.role)).map(c =>
+      `<option value="${esc(c.role)}"${c.role === d.reports_to ? " selected" : ""}>${esc(roleLabel(c.role))}</option>`).join("")}</select>`, "Where the box is drawn. Usually the position that evaluates it.")}
+    ${srow("Eval type", `<select class="fi" data-ch="type_id">${types.map(t => `<option value="${esc(t.id)}"${t.id === d.type_id ? " selected" : ""}>${esc(t.name)}</option>`).join("")}</select>`, "The kind of eval people in this position get.")}
+    ${srow("Evaluated by", checks("evaluators", d.evaluators, "Evaluated by"), "Whoever holds these positions. Several people: they pick one (or whoever starts it).")}
+    ${srow("Feedback from", checks("feedback", d.feedback, "Feedback from"), "Everyone in these positions is added as input when the eval starts (never the person themselves or their evaluator). Ticking its own position means “the others in it”.")}
+    ${srow("Input picked from", checks("feedback_pick", d.feedback_pick, "Input picked from"), "Instead of adding everyone, the person or their evaluator picks from these (e.g. their own subsystem lead).")}
+    ${srow("Form", `<select class="fi" data-ch="form_id"><option value="">They pick (or the type's form)</option>${forms.map(t =>
+      `<option value="${esc(t.id)}"${t.id === d.form_id ? " selected" : ""}>${esc(t.parent ? `${track(t.parent)?.name || ""} · ${t.name}` : t.name)}</option>`).join("")}</select>`, "Picked for them when their eval or self-eval starts.")}
+    ${srow("Note", `<textarea class="fi" data-ch="note" rows="2" maxlength="400" placeholder="Shown on the box, e.g. how the President is evaluated.">${esc(d.note || "")}</textarea>`)}
+    <div class="ch-acts">${chartEdit.isNew ? "" : `<button class="btn danger" data-act="chRemove">Take off the chart</button>`}<span style="flex:1"></span>
+      <button class="btn" data-act="chCancel">Cancel</button><button class="btn primary" data-act="chSave"${role ? "" : " disabled"}>Save</button></div></div>`;
+}
+
+function chartUseHTML(){
+  const mayUse = can("evals.assign") || can("evals.types");
+  return `<div class="scard"><h3>Which evals use the chart</h3><p class="sd">On: who evaluates whom (and, unless anyone can be evaluated, who gets this eval) comes from the chart. Off: the rules in Setup, as before. Turning it off puts back the rules it had.</p>
+    ${types.filter(t => t.active || usesChart(t.id)).map(t => srow(esc(t.name), `<label class="sw2"><input type="checkbox" data-ch-use="${esc(t.id)}"${usesChart(t.id) ? " checked" : ""}${mayUse ? "" : " disabled"}> Use the chart</label>`,
+      usesChart(t.id) ? `${chart.filter(c => c.type_id === t.id).length} position${chart.filter(c => c.type_id === t.id).length === 1 ? "" : "s"} on the chart get this eval.` : "")).join("")}</div>`;
+}
+
+function chartOpen(role){
+  const c = chartBoxOf(role);
+  chartEdit = c ? {role, isNew:false, d:{reports_to:c.reports_to || "", type_id:c.type_id, evaluators:[...(c.evaluators || [])], feedback:[...(c.feedback || [])],
+    feedback_pick:[...(c.feedback_pick || [])], form_id:c.form_id || "", note:c.note || ""}} : null;
+  renderAssign();
+  $("#chEditor")?.scrollIntoView({block:"nearest"});
+}
+function chartNew(){
+  chartEdit = {role:"", isNew:true, d:{reports_to:chart.find(c => !c.reports_to)?.role || "", type_id:typeById("eboard") ? "eboard" : "member", evaluators:[], feedback:[], feedback_pick:[], form_id:"", note:""}};
+  renderAssign();
+  $("#chEditor")?.scrollIntoView({block:"nearest"});
+}
+function chartChange(t){
+  if (!chartEdit) return false;
+  if (t.dataset.chList) {
+    const k = t.dataset.chList, set = new Set(chartEdit.d[k]);
+    if (t.checked) set.add(t.value); else set.delete(t.value);
+    chartEdit.d[k] = [...set]; return true;
+  }
+  if (t.dataset.ch === "role") { chartEdit.role = t.value; const b = $('[data-act="chSave"]'); if (b) b.disabled = !t.value; return true; }
+  if (t.dataset.ch) { chartEdit.d[t.dataset.ch] = t.value; return true; }
+  return false;
+}
+async function chartReload(){ chart = await rows(sb.from("eval_chart").select("*").order("sort")).catch(() => chart); }
+async function chartSave(){
+  if (!chartEdit?.role) return;
+  const d = chartEdit.d;
+  try {
+    await call("eval_chart_save", {p_role:chartEdit.role, p:{reports_to:d.reports_to || null, type_id:d.type_id, evaluators:d.evaluators, feedback:d.feedback,
+      feedback_pick:d.feedback_pick, form_id:d.form_id || null, note:d.note}});
+    await chartReload(); chartEdit = null; toast("Saved.");
+  } catch (e) { fail("Couldn't save that", e); }
+  renderAssign();
+}
+async function chartRemove(){
+  if (!chartEdit?.role || !confirm(`Take ${roleLabel(chartEdit.role)} off the chart? The positions under it move up to its place.`)) return;
+  try { await call("eval_chart_remove", {p_role:chartEdit.role}); await chartReload(); chartEdit = null; toast("Taken off the chart."); }
+  catch (e) { fail("Couldn't take it off", e); }
+  renderAssign();
+}
+async function chartUse(t){
+  const id = t.dataset.chUse, on = t.checked;
+  if (!confirm(on ? `Use the chart for ${typeById(id)?.name}? Who evaluates whom then comes from the chart (evals already started keep their settings).`
+                  : `Stop using the chart for ${typeById(id)?.name}? Its earlier rules come back.`)) { t.checked = !on; return; }
+  try { await call("eval_chart_use", {p_type:id, p_on:on}); await loadSetup(); toast(on ? "Uses the chart now." : "Back to its own rules."); }
+  catch (e) { fail("Couldn't change that", e); t.checked = !on; }
+  renderAssign();
+}
+
 function renderAssign(){
   const m = $("#main");
   if (!typeById(asgView.type)) asgView.type = (types.find(t => t.settings?.assigned) || typeById("eboard") || types[0])?.id || "member";
   const ty = typeById(asgView.type), s = ty.settings, ev = lc(L(s, "evaluator")), subj = lc(L(s, "subject"));
   const rs = assignments.filter(a => a.type_id === ty.id);
-  let h = toolbarHTML("Assignments", `<div class="meta">Who evaluates whom. Only people whose role can “Assign evaluators” change this; everyone sees the result when they start a self-eval.</div>`, "", "var(--orange)");
-  h += `<div class="setup">`;
+  let h = toolbarHTML("Evaluation chart", `<div class="meta">Who evaluates whom, and whose feedback goes in. Only people whose role can “Assign evaluators” change it; everyone sees the result when they start an eval.</div>`, "", "var(--orange)");
+  h += `<div class="setup ch-page">`;
+  h += `<div class="scard"><h3>The chart</h3><p class="sd">Click a box to change it. Boxes are one.solar positions: give people their positions in Admin → Users.</p>${chartTreeHTML()}${chartEditorHTML()}</div>`;
+  h += chartUseHTML();
+  h += `<h3 class="ch-h">Exceptions, and who's covered</h3>`;
   h += `<div class="sum-bar" style="margin-bottom:12px"><label class="sum-ctl">Eval type <select class="sel" data-act="asgType">${types.map(t =>
-    `<option value="${esc(t.id)}"${t.id === ty.id ? " selected" : ""}>${esc(t.name)}${t.settings?.assigned ? "" : " (not using assignments)"}</option>`).join("")}</select></label></div>`;
+    `<option value="${esc(t.id)}"${t.id === ty.id ? " selected" : ""}>${esc(t.name)}${typeAssigned(t.id) ? "" : " (not using the chart)"}</option>`).join("")}</select></label></div>`;
   if (s.evaluators.rule === "person") {
     h += `<div class="banner note"><span class="bt">${esc(ty.name)} evals always go to ${esc(personName(s.evaluators.value) || "one person")}, so there's nothing to assign.</span></div></div>`;
     m.innerHTML = h; return;
   }
-  if (!s.assigned) h += `<div class="banner"><span class="bt"><b>${esc(ty.name)} doesn't use these yet:</b> people still pick their own ${esc(ev)}. ${can("evals.types")
-    ? `Turn on <b>Assigned</b> in <a href="#/setup/${esc(ty.id)}">Setup → ${esc(ty.name)}</a>.` : "Ask someone who can “Set up Solar Evals” to turn on <b>Assigned</b> for it in Setup."} You can set them up first.</span></div>`;
+  if (!typeAssigned(ty.id)) h += `<div class="banner"><span class="bt"><b>${esc(ty.name)} doesn't use the chart yet:</b> people still pick their own ${esc(ev)}. Turn on “Use the chart” above. You can set things up first.</span></div>`;
 
   // The rows, grouped by who is evaluated.
   const keyOf = a => a.subject_kind + ":" + a.subject_value;
@@ -1153,13 +1340,13 @@ function renderAssign(){
   for (const a of rs) bySubject.set(keyOf(a), (bySubject.get(keyOf(a)) || []).concat(a));
   const order = [...bySubject.keys()].sort((x, y) => (x[0] === y[0] ? 0 : x.startsWith("role") ? -1 : 1)
     || (x.startsWith("role") ? roleLabel(x.slice(5)) : personName(x.slice(7))).localeCompare(y.startsWith("role") ? roleLabel(y.slice(5)) : personName(y.slice(7))));
-  h += `<div class="scard"><h3>Who evaluates whom</h3><p class="sd">By position keeps working when people change: “Vice President, evaluated by President”.
-    A person's own row replaces their positions' rows. Several evaluators for one ${esc(subj)}: they pick one of them.</p>`;
+  h += `<div class="scard"><h3>Exceptions for one person</h3><p class="sd">For someone the chart gets wrong: “Kim, evaluated by Cy”. Their own rows replace what the chart says for them.
+    Several evaluators for one ${esc(subj)}: they pick one of them.</p>`;
   h += order.length ? `<div class="tablewrap"><table class="list asg-t"><thead><tr><th>Who is evaluated</th><th>Evaluated by</th></tr></thead><tbody>${order.map(k => {
     const list = bySubject.get(k), a0 = list[0];
     return `<tr><td><b>${asgWho(a0.subject_kind, a0.subject_value)}</b></td><td>${list.map(a =>
       `<span class="asg-chip">${asgWho(a.evaluator_kind, a.evaluator_value)}<button type="button" class="asg-x" data-act="asgDel" data-id="${esc(a.id)}" aria-label="Remove" title="Remove">×</button></span>`).join("")}</td></tr>`;
-  }).join("")}</tbody></table></div>` : `<p class="asg-m">Nothing assigned for ${esc(ty.name)} yet.</p>`;
+  }).join("")}</tbody></table></div>` : `<p class="asg-m">No exceptions for ${esc(ty.name)}.</p>`;
   h += `<div class="asg-add" id="asgAdd"><select class="fi" data-asg-kind="subj" aria-label="Who is evaluated">${asgOptions(asgView.subj, `Who is evaluated…`)}</select>
     <span class="asg-m">evaluated by</span>
     <select class="fi" data-asg-kind="eval" aria-label="Evaluated by">${asgOptions(asgView.eval, `Evaluated by…`)}</select>
@@ -1173,7 +1360,9 @@ function renderAssign(){
     if (!a.length) missing++;
     const pos = roleRows.filter(r => r.user_id === p.id && r.role !== "member").map(r => roleLabel(r.role)).join(", ");
     return `<tr><td><b>${esc(p.full_name || p.email)}</b>${pos ? `<div class="asg-m asg-s">${esc(pos)}</div>` : ""}</td>
-      <td>${a.length ? esc(listText(fits.map(personName))) || "—" : `<span class="asg-m">Not assigned: picks from everyone who fits “Who evaluates”</span>`}
+      <td>${a.length ? esc(listText(fits.map(personName))) || "—" : `<span class="asg-m">Not on the chart: picks from everyone who fits “Who evaluates”</span>`}
+        ${(() => { const fb = (typeAssigned(ty.id) ? chartBoxes(ty.id, p.id) : []).flatMap(c => (c.feedback || []).flatMap(holders)).filter((x, i, arr) => x !== p.id && arr.indexOf(x) === i && !a.includes(x));
+          return fb.length ? `<div class="asg-m asg-s">Feedback from ${esc(listText(fb.map(personName).filter(Boolean)))}</div>` : ""; })()}
         ${off.length ? `<div class="asg-warn">${esc(listText(off.map(personName)))} ${off.length === 1 ? "isn't" : "aren't"} on the “Who evaluates” list for ${esc(ty.name)}, so can't be picked.</div>` : ""}</td>
       <td><button class="btn sm" data-act="asgPerson" data-id="${esc(p.id)}">Assign…</button></td></tr>`;
   }).join("");
@@ -2071,6 +2260,8 @@ $("#main").addEventListener("change", e => {
   if (s.dataset.act === "sumSem") { sumView.sem = s.value; renderSummary(); }
   if (s.dataset.act === "asgType") { asgView.type = s.value; history.replaceState(null, "", "#/assign/" + s.value); renderAssign(); }
   if (s.dataset.asgKind) { asgView[s.dataset.asgKind] = s.value; renderAssign(); }
+  if (section === "assign" && s.dataset.chUse) chartUse(s);
+  if (section === "assign") chartChange(s);
   if (s.dataset.act === "cmpPick") { view.cmpA = $("#cA").value; view.cmpB = $("#cB").value; renderRubric(); }
   if (section === "eval") onEvalInput(e);
   if (section === "setup") setupChange(e);
@@ -2139,7 +2330,11 @@ function toggleTyped(){
   $("#nTyped").hidden = !typed; $("#nName").required = typed;
 }
 $("#nType").addEventListener("change", fillNewEval);
-$("#nSubject").addEventListener("change", toggleTyped);
+$("#nSubject").addEventListener("change", () => {
+  toggleTyped();
+  const f = chartForm($("#nType").value, $("#nSubject").value), v = f && latest(f);   // 054: their position's form
+  if (v && [...$("#nRubric").options].some(o => o.value === v.id)) $("#nRubric").value = v.id;
+});
 $("#dNew").addEventListener("close", async () => {
   if ($("#dNew").returnValue !== "ok") return;
   const ty = typeById($("#nType").value), v = version($("#nRubric").value);
@@ -2178,7 +2373,8 @@ function fillNewSelf(){
   $("#sfTrack").innerHTML = kids.map(t => `<option value="${esc(t.id)}" data-v="${esc(choice(t))}">${esc(variantName(t))}</option>`).join("")
     + `<option value="${esc(top)}" data-v="${esc(choice(track(top) || {id:top}))}">Not sure / other (the main form)</option>`;
   const lastT = lsGet("sg-evals-self-track");
-  $("#sfTrack").value = kids.some(k => k.id === lastT) ? lastT : (kids[0]?.id || top);
+  const chartT = chartForm($("#sfType").value, me.id);
+  $("#sfTrack").value = kids.some(k => k.id === chartT) ? chartT : kids.some(k => k.id === lastT) ? lastT : (kids[0]?.id || top);
   const sub = formHasBind(top, "subsystem");
   $("#sfSub").hidden = $("#sfSub").previousElementSibling.hidden = !sub;
   $("#sfSub").required = sub && subsystemList.length > 0;
@@ -2192,7 +2388,7 @@ function fillNewSelf(){
   const canPick = s.input.on && s.input.pickedBy !== "evaluator";
   $("#sfLeadRow").hidden = !canPick;
   $("#sfLeadL").textContent = `Your ${lc(inp)} (optional)`;
-  $("#sfLead").innerHTML = opt(candidates(s.input, [me.id]), "", "—");
+  $("#sfLead").innerHTML = opt(inputChoices(tyId, s, me.id, [me.id]), "", "—");
 }
 $("#sfType").addEventListener("change", fillNewSelf);
 $("#dSelf").addEventListener("close", async () => {
@@ -2283,7 +2479,7 @@ function inputBarHTML(e, by){
   const ids = e.input_ids || [], label = L(s, "input");
   const mayPick = evalLive() && (s.input.pickedBy === "either" || s.input.pickedBy === by);
   if (!mayPick) return ids.length ? `<div class="chips" style="margin:0 0 12px"><span class="who">${esc(label)}</span>${ids.map(id => `<span class="chip" style="padding-right:10px">${esc(personName(id) || "A former member")}</span>`).join("")}</div>` : "";
-  const left = candidates(s.input, [me.id, e.subject_id, ...ids].filter(Boolean)), full = ids.length >= (s.input.max || 1);
+  const left = inputChoices(e.type_id, s, e.subject_id || e.member_id, [me.id, e.subject_id, ...ids].filter(Boolean)), full = ids.length >= (s.input.max || 1);
   return `<div class="chips" style="margin:0 0 12px"><span class="who">${esc(label)}${(s.input.max || 1) > 1 ? ` (up to ${s.input.max})` : ""}</span>
     ${ids.map(id => `<span class="chip">${esc(personName(id) || "A former member")}<button type="button" data-act="inDel" data-id="${esc(id)}" title="Remove" aria-label="Remove ${esc(personName(id))}">×</button></span>`).join("")}
     ${full ? "" : `<select class="sel" id="inAdd" aria-label="Add ${esc(label)}"><option value="">+ Add ${esc(lc(label))}</option>${opt(left, "")}</select>`}
@@ -2606,7 +2802,7 @@ const trackLabel = id => { const t = track(id); return t ? (t.parent ? `${track(
 
 /** A "who" picker: kind of rule, then the permission / position / group / person. */
 function ruleHTML(path, rule, opts = {}){
-  const kinds = RULES.filter(([k]) => !opts.no?.includes(k)).concat(opts.none ? [["none", opts.none]] : []);
+  const kinds = RULES.filter(([k]) => !opts.no?.includes(k)).concat(opts.chart ? [["chart", "From the evaluation chart"]] : [], opts.none ? [["none", opts.none]] : []);
   const r = rule || {rule:"anyone"};
   const sel = (list, val, ph) => `<select class="fi" data-sp="${path}.value" aria-label="${esc(ph)}"><option value="">${esc(ph)}</option>${list.map(([v, l]) => `<option value="${esc(v)}"${v === val ? " selected" : ""}>${esc(l)}</option>`).join("")}</select>`;
   let second = "";
@@ -2698,9 +2894,9 @@ function renderSetup(){
       ${srow("Someone giving input", `<input class="fi" data-sp="settings.labels.input" value="${L2("input")}" maxlength="40">`)}
       ${srow("A variant of the form", `<input class="fi" data-sp="settings.labels.variant" value="${L2("variant")}" maxlength="40">`, "e.g. Division, or Position.")}</div>
     <div class="scard"><h3>Who evaluates whom</h3><p class="sd">Use a permission, a one.solar position, a group (Setup → Groups), or one person. Nobody needs a new position just for evals.</p>
-      ${srow(`Who is evaluated (${L2("subject")})`, ruleHTML("settings.subjects", s.subjects))}
-      ${srow(`Who evaluates (${L2("evaluator")})`, ruleHTML("settings.evaluators", s.evaluators), s.evaluators.rule === "person" ? "Self-evals go straight to them." : "People pick theirs on their self-eval; evaluators can also start an eval themselves.")}
-      ${s.evaluators.rule === "person" ? "" : srow("Assigned", chk("settings.assigned", !!s.assigned, "An Admin or the President says who evaluates whom"),
+      ${srow(`Who is evaluated (${L2("subject")})`, ruleHTML("settings.subjects", s.subjects, {chart:true}))}
+      ${srow(`Who evaluates (${L2("evaluator")})`, ruleHTML("settings.evaluators", s.evaluators, {chart:true}), s.evaluators.rule === "chart" ? `Set it on the <a href="#/assign">Evaluation chart</a> tab.` : s.evaluators.rule === "person" ? "Self-evals go straight to them." : "People pick theirs on their self-eval; evaluators can also start an eval themselves.")}
+      ${s.evaluators.rule === "person" || s.evaluators.rule === "chart" ? "" : srow("Assigned", chk("settings.assigned", !!s.assigned, "An Admin or the President says who evaluates whom"),
         s.assigned ? `Set it on the <a href="#/assign/${esc(setupView.id || "")}">Assignments</a> tab (anyone whose role can “Assign evaluators”). Someone with no assignment picks from the list above; assigned people still need to be on it.`
                    : "Off: people pick their own from the list above.")}
       ${srow(`Input from (${L2("input")})`, `${chk("settings.input.on", s.input.on, "Someone else gives input")}
@@ -2766,6 +2962,7 @@ function setupChange(e){
   if (path.endsWith(".rule")) {   // a new kind of rule starts with a sensible value
     const base = path.slice(0, -5), v0 = {permission:"evals.write", role:roleList[0]?.key, group:groups[0]?.id, person:""}[val];
     const r = getPath(setupView.draft, base); r.rule = val; if (v0 === undefined) delete r.value; else r.value = v0 || "";
+    if (val === "chart") { r.value = setupView.id || ""; r.side = base.endsWith("subjects") ? "subject" : "evaluator"; } else delete r.side;
     setupView.dirty = true; renderSetup(); renderSetupSide(); return;
   }
   if (path === "settings.questionnaire.id" && !val) val = null;
@@ -3092,6 +3289,11 @@ document.addEventListener("click", e => {
     case "sumOpen": sumView.open.has(d.k) ? sumView.open.delete(d.k) : sumView.open.add(d.k); renderSummary(); break;
     case "sumReload": sumRows = null; renderSummary(); break;
     case "asgAdd": asgAdd(); break;
+    case "chEdit": if (can("evals.assign")) chartOpen(d.role); break;
+    case "chNew": chartNew(); break;
+    case "chCancel": chartEdit = null; renderAssign(); break;
+    case "chSave": chartSave(); break;
+    case "chRemove": chartRemove(); break;
     case "asgDel": asgDel(d.id); break;
     case "asgPerson": asgAddFor(d.id); break;
     case "compareAny": { const any = latest(firstForm()) || db.versions[0]; if (any) openCompare(any.id, (shownVersion() || any).id); break; }
