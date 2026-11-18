@@ -145,6 +145,18 @@ hr { border: 0; border-top: 1px solid var(--border); margin: 14px 0; }
   .gallery.g3 { grid-template-columns: 1fr 1fr; }
 }
 
+/* Alumni accounts: the "switch to a personal email" banner, join requests. */
+.email-banner { display: flex; justify-content: space-between; align-items: center; gap: 10px 16px; flex-wrap: wrap; }
+.email-banner > div { flex: 1 1 320px; }
+.join-summary { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 0; }
+.join-summary dt { color: var(--muted); font-weight: 600; }
+.join-summary dd { margin: 0; }
+.alum-req { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px 20px; flex-wrap: wrap; }
+.alum-req-body { flex: 1 1 320px; min-width: 0; }
+.alum-req-body > * + * { margin-top: 4px; }
+.alum-note { margin: 6px 0 0; font-style: italic; }
+.alum-req-actions { display: flex; gap: 8px; }
+
 /* In the narrow side column, a contact's button goes under their name. */
 .two-col aside .contact { grid-template-columns: 40px minmax(0, 1fr); }
 .two-col aside .contact > .btn { grid-column: 2; justify-self: start; }

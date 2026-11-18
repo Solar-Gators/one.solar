@@ -84,6 +84,31 @@ async function noAccess(perms) {
 /** 040: a Guest (signed up, not accepted yet) sees this instead of the team's pages. */
 async function waitingPage() {
   const name = auth.displayName;
+  // 052: alumni (and people who signed up to join as one) belong on SGAA, the alumni hub.
+  const alum = await api.myAlumStatus(auth.user?.id);
+  const sgaa = esc(appUrl('sgaa/'));
+  if (alum === 'alum') {
+    return `<section class="card no-access">
+    <h1>Welcome back${name ? `, ${esc(name.split(' ')[0])}` : ''}!</h1>
+    <p>As a Solar Gators alum, your part of one.solar is the alumni hub: what the team needs, how to help, updates,
+      events, and other alumni.</p>
+    <div class="form-actions">
+      <a class="btn btn-primary" href="${sgaa}">Go to the alumni hub</a>
+      <a class="btn" href="#/account">My account</a>
+    </div>
+  </section>`;
+  }
+  if (alum === 'pending') {
+    // Signed up on "Join as an alum" (052): approved in SGAA, not here. The join page asks for anything missing.
+    return `<section class="card no-access">
+    <h1>Your alumni account is waiting for approval</h1>
+    <p>Someone on the team will check it soon. If you haven't yet, tell them when you graduated and what you did on the
+      team on the alumni hub. Until then you can look around there.</p>
+    <div class="form-actions">
+      <a class="btn btn-primary" href="${sgaa}#/join">Go to the alumni hub</a>
+    </div>
+  </section>`;
+  }
   if (auth.isFormer) {
     return `<section class="card no-access">
     <h1>Your one.solar access has ended</h1>
@@ -234,7 +259,7 @@ export function startRouter(ctx, { onRender } = {}) {
     try {
       if (guest) {
         el.innerHTML = await waitingPage();
-        el.querySelector('#guest-check').addEventListener('click', async () => {
+        el.querySelector('#guest-check')?.addEventListener('click', async () => {
           await auth.refresh();
           if (auth.isGuest) el.querySelector('.muted').textContent = auth.isFormer ? 'Still a former member. Ask an Admin to reactivate you.' : 'Not yet. Ask someone on the team to accept you, then check again.';
           else render();

@@ -785,6 +785,28 @@ export const api = {
     unwrap(await supabase.rpc('update_my_profile', { p_full_name: fullName }));
   },
 
+  // ---- 052: alumni (SGAA) ----------------------------------------------------
+  /** My alumni status: 'alum', 'pending', 'declined' or null (also null before 052). */
+  async myAlumStatus(userId) {
+    if (!userId) return null;
+    const { data, error } = await supabase.from('sgaa_alumni').select('status').eq('user_id', userId).maybeSingle();
+    return error ? null : data?.status || null;
+  },
+  /** Everyone's alumni status, for Admin → Users ({ userId: status }; empty before 052). */
+  async listAlumStatuses() {
+    const { data, error } = await supabase.from('sgaa_alumni').select('user_id, status').in('status', ['alum', 'pending', 'declined']);
+    if (error) return {};
+    return Object.fromEntries(data.map((r) => [r.user_id, r.status]));
+  },
+  /** Someone graduated: they become a former member who keeps the alumni hub (and may sign in to it). */
+  async graduatePerson(userId, note) {
+    unwrap(await supabase.rpc('graduate_person', { p_user: userId, p_note: note || '' }));
+  },
+  /** A former member is (or isn't) an alum. */
+  async setAlum(userId, on) {
+    unwrap(await supabase.rpc('sgaa_set_alum', { p_user: userId, p_on: on }));
+  },
+
   // ---- Notifications ---------------------------------------------------------
 
   async updateMyNotificationPrefs(email, teams) {

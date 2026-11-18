@@ -7,12 +7,12 @@
  * Local testing: http://localhost:5190/sgaa/?fake runs every migration in an in-browser Postgres.
  */
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import { SUPABASE_URL, SUPABASE_ANON_KEY, signInUrl } from '../shared/onesolar.js';
+import { SUPABASE_URL, SUPABASE_ANON_KEY, signInUrl, appUrl } from '../shared/onesolar.js';
 import { renderAccount } from '../shared/account-menu.js';
 import { mountAppSwitcher } from '../shared/app-switcher.js';
 import { startErrorReporter } from '../shared/error-reporter.js';
 import { startVersionCheck } from '../shared/version-check.js';
-import { esc, formatText, money, when, ago, toLocalInput, fromLocalInput, splitEvents, spotsLeft, KINDS, URGENCY, fileSlug } from './lib.js';
+import { esc, formatText, money, when, ago, toLocalInput, fromLocalInput, splitEvents, spotsLeft, KINDS, URGENCY, fileSlug, isSchoolEmail, joinProblems } from './lib.js';
 
 const FAKE = ['localhost', '127.0.0.1'].includes(location.hostname) && new URLSearchParams(location.search).has('fake');
 const sb = FAKE ? (await import('../tools/fake-supabase.js')).supabase : createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -48,6 +48,12 @@ const photoUrl = (path) => {
   return r?.data?.publicUrl || '';
 };
 const settings = () => hub?.settings || {};
+/** Manage: editors (needs, updates, …) and alumni approvers (Alumni). */
+const canManage = () => !!(hub?.canEdit || hub?.canAlumni);
+/** Someone who could join as an alum: signed out, or signed in but not on the team and not an alum yet. */
+const couldJoin = () => !hub || ['anon', 'guest'].includes(hub.viewer);
+/** Where Orders keeps "My account" (name, password, email). */
+const accountUrl = () => appUrl('orders/#/account');
 
 async function loadHub() {
   hub = await rpc('sgaa_hub');
@@ -59,14 +65,14 @@ async function renderTop() {
   if (user) {
     const { data: p } = await sb.from('profiles').select('full_name').eq('id', user.id).maybeSingle();
     name = p?.full_name || user.email;
-    role = { team: 'Team', alum: 'Alum', pending: 'Alum (waiting for approval)', former: 'Former member', guest: 'Guest' }[hub?.viewer] || '';
+    role = { team: 'Team', alum: 'Alum', pending: 'Alum (pending)', former: 'Former member', guest: 'Guest' }[hub?.viewer] || '';
   }
   renderAccount($('#account'), {
     user, name, role,
-    links: hub?.canEdit ? [{ label: 'Manage SGAA', href: '#/manage' }] : [],
+    links: canManage() ? [{ label: 'Manage SGAA', href: '#/manage' }] : [],
     onSignOut: async () => { await sb.auth.signOut(); location.hash = '#/'; location.reload(); },
   });
-  $('#nav-manage').hidden = !hub?.canEdit;
+  $('#nav-manage').hidden = !canManage();
   const title = settings().title || 'Solar Gators Alumni';
   $('#brand-app').textContent = 'Alumni';
   document.title = `${title} · one.solar`;
@@ -85,6 +91,7 @@ const ROUTES = {
   updates: renderUpdates,
   events: renderEvents,
   contact: renderContact,
+  join: renderJoin,
   manage: renderManage,
 };
 
@@ -95,7 +102,7 @@ async function route() {
   setActiveNav(section === 'need' ? 'needs' : section);
   try {
     const html = await page(rest, params);
-    if (html !== undefined) main.innerHTML = flashHTML() + html;
+    if (html !== undefined) main.innerHTML = flashHTML() + emailBanner() + html;
   } catch (err) {
     main.innerHTML = `<div class="alert alert-error">${esc(err.message)}</div>`;
   }
@@ -208,9 +215,21 @@ function contactButton(href, label = 'Contact') {
 
 function viewerNote() {
   if (!hub) return '';
-  if (hub.viewer === 'pending') return '<div class="alert alert-info">Your alumni account is waiting for approval. Once someone on the team approves it, you can contact the team, RSVP to events and see the alumni directory.</div>';
+  if (hub.viewer === 'pending') return '<div class="alert alert-info">Your alumni account is waiting for approval (<a href="#/join">your request</a>). Once someone on the team approves it, you can contact the team, RSVP to events and see the alumni directory.</div>';
   if (hub.viewer === 'former') return '<div class="alert alert-info">Your one.solar access has ended. If you graduated, ask someone on the team to mark you as an alum so you can use this page.</div>';
+  if (hub.viewer === 'guest') return '<div class="alert alert-info">Are you a Solar Gators alum? <a href="#/join">Join as an alum</a> to contact the team, RSVP to events and see the alumni directory.</div>';
   return '';
+}
+
+/**
+ * Alumni (and people asking to join as one) who still use a UF address: UF turns it off soon after graduation,
+ * and then they couldn't sign in, reset their password, or get replies. Shown at the top of every page.
+ */
+function emailBanner() {
+  if (!user || !['alum', 'pending'].includes(hub?.viewer) || !isSchoolEmail(user.email)) return '';
+  return `<div class="alert alert-warning email-banner"><div><strong>Switch to a personal email.</strong>
+    UF turns off ${esc(user.email)} soon after graduation. After that you couldn't sign in or reset your password, and
+    replies from the team wouldn't reach you.</div><a class="btn btn-sm btn-primary" href="${esc(accountUrl())}">Change my email</a></div>`;
 }
 
 function giveButton(cls = 'btn-primary') {
@@ -232,6 +251,7 @@ async function renderHome() {
       <div class="hero-actions">
         <a class="btn btn-primary" href="#/needs">See what we need</a>
         <a class="btn" href="#/help">How to help</a>
+        ${couldJoin() ? '<a class="btn" href="#/join">Join as an alum</a>' : ''}
         ${giveButton('')}
       </div>
     </div>
@@ -389,6 +409,148 @@ async function sendContact(form) {
   location.hash = f.get('need') ? `#/need/${f.get('need')}` : '#/help';
 }
 
+// ---- joining as an alum --------------------------------------------------------------------------
+// Alumni who were never on one.solar (or whose account is gone) sign up here, with any email address (052's
+// handle_new_user lets a sign-up marked { sgaa: 'alum' } through). They're a Guest until someone with
+// "Approve alumni" approves them (Manage → Alumni). Members who graduate don't come here: a lead marks them
+// Graduated in Admin → Users.
+const JOIN_KEY = 'sgaa-join';   // what they typed, kept while they confirm their email (same browser)
+const savedJoin = () => {
+  try { return JSON.parse(localStorage.getItem(JOIN_KEY)) || null; } catch { return null; }
+};
+const keepJoin = (v) => {
+  try { v ? localStorage.setItem(JOIN_KEY, JSON.stringify(v)) : localStorage.removeItem(JOIN_KEY); } catch { /* private mode */ }
+};
+const alumOf = (f) => ({ gradYear: String(f.gradYear ?? '').trim(), major: f.major || '', teamRoles: f.teamRoles || '', note: f.note || '' });
+
+function alumFields(v = {}) {
+  return `<div class="form-grid">
+    <div class="field"><label for="j-year">Graduation year <span class="req">*</span></label>
+      <input id="j-year" name="gradYear" inputmode="numeric" maxlength="4" required value="${esc(v.gradYear ?? '')}" placeholder="2024"></div>
+    <div class="field"><label for="j-major">Major</label><input id="j-major" name="major" maxlength="80" value="${esc(v.major)}" placeholder="Electrical Engineering"></div>
+    <div class="field span-2"><label for="j-roles">What you did on the team</label>
+      <input id="j-roles" name="teamRoles" maxlength="200" value="${esc(v.teamRoles)}" placeholder="Battery lead 2021–22, driver at FSGP"></div>
+    <div class="field span-4"><label for="j-note">Anything that helps the team recognize you</label>
+      <textarea id="j-note" name="note" rows="3" maxlength="1000" placeholder="Who you worked with, which car, …">${esc(v.note)}</textarea></div>
+  </div>`;
+}
+
+async function renderJoin() {
+  const v = hub.viewer;
+  const back = '<a class="back-link" href="#/">← Alumni hub</a>';
+  if (v === 'alum') {
+    location.hash = '#/';
+    return undefined;
+  }
+  if (v === 'team') {
+    return `${back}<div class="narrow"><div class="card stack"><h1>You're on the team</h1>
+      <p>You don't need to join: when you graduate, a lead marks you as <strong>Graduated</strong> and you keep this hub as an alum.</p>
+      ${isSchoolEmail(user?.email) ? `<p>Before UF turns off ${esc(user.email)}, <a href="${esc(accountUrl())}">switch your one.solar account to a personal email</a>.</p>` : ''}
+    </div></div>`;
+  }
+  if (v === 'former') return `${back}${viewerNote()}`;
+  const me = ['guest', 'pending'].includes(v) ? await rpc('sgaa_my_profile') : {};
+  // Signing up here starts the request; the details follow once they're signed in (pending, no year yet).
+  if (v === 'pending' && me.gradYear != null) {
+    return `${back}<div class="narrow"><div class="card stack">
+      <h1>Thanks! You're on the list</h1>
+      <p>Someone on the team will check your request soon. Once you're approved you can contact the team, RSVP to events and
+        see the alumni directory. Until then, have a look around.</p>
+      <dl class="join-summary"><dt>Class of</dt><dd>${esc(me.gradYear ?? '')}</dd>${me.teamRoles ? `<dt>On the team</dt><dd>${esc(me.teamRoles)}</dd>` : ''}</dl>
+      <div class="form-actions"><a class="btn btn-primary" href="#/needs">See what the team needs</a></div>
+    </div></div>`;
+  }
+  if (v === 'guest' || v === 'pending') {
+    const stored = savedJoin();
+    let problem = '';
+    // Signed up here, confirmed their email, and came back: send what they typed before.
+    if (stored && me.status !== 'declined') {
+      try {
+        await requestAlum(stored);
+        return undefined;
+      } catch (err) {
+        problem = err.message;
+      }
+    }
+    return `${back}<div class="narrow"><form class="card stack" data-form="join-request">
+      <h1>${v === 'pending' ? 'Finish joining as an alum' : 'Join as an alum'}</h1>
+      ${me.status === 'declined' ? `<div class="alert alert-warning">The team couldn't confirm your last request${me.reviewNote ? `: “${esc(me.reviewNote)}”` : '.'}
+        If that's a mistake, add more detail and ask again.</div>` : ''}
+      <p class="muted">Tell the team who you are, so they can approve you. You're signed in as ${esc(user.email)}.</p>
+      ${alumFields(stored || me)}
+      <div class="alert alert-error form-error" ${problem ? '' : 'hidden'}>${esc(problem)}</div>
+      <div class="form-actions"><button class="btn btn-primary" type="submit">Ask to join</button></div>
+    </form></div>`;
+  }
+  // Signed out: make an account here (any email address), or sign in with the one they already have.
+  const stored = savedJoin() || {};
+  return `${back}<div class="narrow"><form class="card stack" data-form="join-signup" novalidate>
+    <h1>Join as an alum</h1>
+    <p class="muted">For Solar Gators alumni: see what the team needs, contact the people who can tell you more, RSVP to
+      events and find other alumni. Someone on the team approves each account.</p>
+    <p class="small">Already have a one.solar account? <a href="${esc(signInUrl(location.pathname + '#/join'))}">Sign in</a> and come back here.</p>
+    <div class="form-grid">
+      <div class="field span-2"><label for="j-name">Full name <span class="req">*</span></label><input id="j-name" name="fullName" autocomplete="name" required maxlength="120"></div>
+      <div class="field span-2"><label for="j-email">Email <span class="req">*</span></label><input id="j-email" name="email" type="email" autocomplete="email" required>
+        <div class="hint">A personal address: UF turns off yours soon after graduation.</div></div>
+      <div class="field span-2"><label for="j-pass">Password <span class="req">*</span></label><input id="j-pass" name="password" type="password" autocomplete="new-password" minlength="8" required>
+        <div class="hint">At least 8 characters.</div></div>
+    </div>
+    ${alumFields(stored)}
+    <div class="alert alert-error form-error" hidden></div>
+    <div class="form-actions"><button class="btn btn-primary" type="submit">Create my account</button></div>
+  </form></div>`;
+}
+
+/** Ask to join as an alum (signed in), then show where they stand. */
+async function requestAlum(f) {
+  const problems = joinProblems(f);
+  if (problems.length) throw new Error(problems.join(' '));
+  await rpc('sgaa_request_alum', { p: alumOf(f) });
+  keepJoin(null);
+  await loadHub();
+  await renderTop();
+  if (location.hash === '#/join') await route();   // "Thanks! You're on the list"
+  else location.hash = '#/join';
+}
+
+/** Supabase's sign-up errors, in words. */
+function signUpError(m = '') {
+  if (/already (been )?registered/i.test(m)) return 'There\'s already a one.solar account with that email address. Sign in instead (or reset your password there).';
+  if (/database error saving new user/i.test(m)) return 'Alumni sign-ups are turned off right now. Ask someone on the team.';
+  if (/rate limit/i.test(m)) return 'Too many emails were sent recently. Wait a few minutes and try again.';
+  return m || 'That didn\'t work. Try again.';
+}
+
+async function signUpAsAlum(form) {
+  const f = Object.fromEntries(new FormData(form));
+  const problems = joinProblems(f, { signUp: true });
+  if (problems.length) throw new Error(problems.join(' '));
+  const email = f.email.trim().toLowerCase();
+  keepJoin(alumOf(f));
+  const { data, error } = await sb.auth.signUp({
+    email,
+    password: f.password,
+    // The confirmation link opens Orders (it handles email links); from there they come back here.
+    options: { data: { full_name: f.fullName.trim(), sgaa: 'alum' }, emailRedirectTo: appUrl('orders/') },
+  });
+  if (error) throw new Error(signUpError(error.message));
+  if (data?.session) {
+    user = data.session.user;
+    await loadHub();
+    return requestAlum(alumOf(f));
+  }
+  main.innerHTML = `<div class="narrow"><div class="card stack">
+    <h1>Check your email</h1>
+    <p>We sent a link to <strong>${esc(email)}</strong>. Click it to confirm your address, then sign in. Your request goes to the team
+      when you come back to this page.</p>
+    <p class="muted small">No email after a few minutes? Check your spam folder. If you already had a one.solar account with that
+      address, no email is sent: <a href="${esc(signInUrl(location.pathname + '#/join'))}">sign in</a> instead.</p>
+  </div></div>`;
+  window.scrollTo(0, 0);
+  return undefined;
+}
+
 // ---- RSVPs ------------------------------------------------------------------------------------------
 function openRsvp(id) {
   const e = hub.events.find((x) => x.id === id);
@@ -409,15 +571,44 @@ function openRsvp(id) {
 }
 
 // ---- Manage (editors) ------------------------------------------------------------------------------------
+// [key, label, who sees it: 'edit' = "Edit the alumni hub", 'alumni' = "Approve alumni"]
 const MANAGE_TABS = [
-  ['needs', 'Needs'], ['updates', 'Updates'], ['events', 'Events'], ['contacts', 'Contacts'], ['pages', 'Pages'],
+  ['needs', 'Needs', 'edit'], ['updates', 'Updates', 'edit'], ['events', 'Events', 'edit'], ['contacts', 'Contacts', 'edit'],
+  ['pages', 'Pages', 'edit'], ['alumni', 'Alumni', 'alumni'],
 ];
+const mayTab = (who) => (who === 'edit' ? hub.canEdit : hub.canAlumni);
 
-async function renderManage([tab = 'needs', id]) {
-  if (!hub.canEdit) return '<div class="empty">Managing SGAA needs "Edit the alumni hub" (Admin → Roles &amp; permissions).</div>';
-  const tabs = `<div class="tabs">${MANAGE_TABS.map(([k, l]) => `<a href="#/manage/${k}" class="${k === tab ? 'active' : ''}">${l}</a>`).join('')}</div>`;
-  const body = await ({ needs: manageNeeds, updates: manageUpdates, events: manageEvents, contacts: manageContacts, pages: managePages }[tab] || (() => ''))(id);
-  return `<div class="page-head"><div><h1>Manage SGAA</h1><p class="muted">Everything here is public once it's published, except contacts' names (alumni and the team only) and their emails (never shown).</p></div></div>${tabs}${body}`;
+async function renderManage([tab, id]) {
+  if (!canManage()) return '<div class="empty">Managing SGAA needs "Edit the alumni hub" or "Approve alumni" (Admin → Roles &amp; permissions).</div>';
+  const mine = MANAGE_TABS.filter(([, , who]) => mayTab(who));
+  if (!mine.some(([k]) => k === tab)) tab = mine[0][0];
+  const tabs = `<div class="tabs">${mine.map(([k, l]) => `<a href="#/manage/${k}" class="${k === tab ? 'active' : ''}">${l}</a>`).join('')}</div>`;
+  const body = await ({ needs: manageNeeds, updates: manageUpdates, events: manageEvents, contacts: manageContacts, pages: managePages, alumni: manageAlumni }[tab])(id);
+  return `<div class="page-head"><div><h1>Manage SGAA</h1><p class="muted">${tab === 'alumni'
+    ? 'Alumni who signed up here wait for someone to recognize them.'
+    : 'Everything here is public once it\'s published, except contacts\' names (alumni and the team only) and their emails (never shown).'}</p></div></div>${tabs}${body}`;
+}
+
+async function manageAlumni() {
+  const queue = await rows(sb.rpc('sgaa_alumni_queue'));
+  return `<p class="muted">People who signed up on this hub to join as an alum. Approve the ones you recognize: they can then contact the
+    team, RSVP to events and see the alumni directory (never the team's apps). Graduating members don't show up here: mark them
+    <strong>Graduated</strong> in <a href="${esc(appUrl('admin/#/admin/users'))}">Admin → Users</a>.</p>
+  <div class="alert alert-error form-error" hidden></div>
+  ${queue.length ? `<div class="stack">${queue.map((q) => `<div class="card alum-req">
+    <div class="alum-req-body">
+      <b>${esc(q.full_name || q.email)}</b> <span class="muted small">${esc(q.email)}</span>
+      ${q.confirmed ? '' : ' <span class="tag tag-high" title="They need to click the link we emailed them">Email not confirmed yet</span>'}
+      <div class="small">${q.grad_year != null ? `Class of ${esc(q.grad_year)}` : '<span class="muted">Hasn\'t said when they graduated yet</span>'}${q.team_roles ? ` · ${esc(q.team_roles)}` : ''}</div>
+      ${q.note ? `<p class="small alum-note">“${esc(q.note)}”</p>` : ''}
+      <div class="muted small">Asked ${esc(ago(q.requested_at))}</div>
+    </div>
+    <div class="alum-req-actions">
+      <button type="button" class="btn btn-sm btn-ghost" data-act="alum-decline" data-id="${q.user_id}" data-name="${esc(q.full_name || q.email)}">Decline…</button>
+      <button type="button" class="btn btn-sm btn-primary" data-act="alum-approve" data-id="${q.user_id}" data-name="${esc(q.full_name || q.email)}"
+        ${q.confirmed ? '' : 'disabled title="They need to confirm their email address first"'}>Approve</button>
+    </div>
+  </div>`).join('')}</div>` : '<div class="empty">Nobody is waiting.</div>'}`;
 }
 
 const STATUS = { draft: 'Draft', open: 'Public', met: 'Met', archived: 'Archived' };
@@ -658,6 +849,12 @@ async function onSubmit(form) {
       case 'contact':
         await sendContact(form);   // goes to another page
         return;
+      case 'join-signup':
+        await signUpAsAlum(form);
+        return;
+      case 'join-request':
+        await requestAlum(Object.fromEntries(f));
+        return;
       case 'rsvp':
         await rpc('sgaa_rsvp', { p_event: id, p_going: true, p_guests: Number(f.get('guests') || 0), p_note: f.get('note') || '' });
         $('#dlg').close();
@@ -754,6 +951,18 @@ async function onAct(el) {
         await loadHub();
         location.hash = '#/manage/contacts';
         return;
+      case 'alum-approve':
+        el.disabled = true;
+        await rpc('sgaa_review_alum', { p_user: id, p_approve: true, p_note: '' });
+        say('success', `${el.dataset.name} is now an alum.`);
+        return route();
+      case 'alum-decline': {
+        const note = prompt(`Decline ${el.dataset.name}? They'll see this note if they try again (optional):`, '');
+        if (note === null) return;
+        await rpc('sgaa_review_alum', { p_user: id, p_approve: false, p_note: note });
+        say('info', `Declined ${el.dataset.name}.`);
+        return route();
+      }
       case 'photo-clear': {
         const pick = el.closest('[data-photo-pick]');
         pick.querySelector('input[name=photo]').value = '';

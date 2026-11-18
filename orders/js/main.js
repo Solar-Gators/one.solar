@@ -10,7 +10,7 @@ import { setLedgerSettings } from './ledger.js';
 import { mountAppSwitcher } from '../../shared/app-switcher.js';
 import { startVersionCheck } from '../../shared/version-check.js';
 import { startErrorReporter, openReportDialog } from '../../shared/error-reporter.js';
-import { rememberBrand, appUrl } from '../../shared/onesolar.js';
+import { rememberBrand, appUrl, isSafeNext } from '../../shared/onesolar.js';
 import { rejoinedFlag } from './views/admin.js';
 import { STATUS, STATUSES, EDITABLE_STATUSES, esc, errorBox, setCurrentSeason, setAppearance, renderRichText, fitTables } from './ui.js';
 
@@ -286,7 +286,7 @@ async function main() {
 
   // one.solar's home screen sends people here to sign in (?next=/one.solar/): go back there afterwards.
   const next = new URLSearchParams(location.search).get('next');
-  if (next && /^\/(?!\/)[\w.~\/-]*$/.test(next)) {
+  if (next && isSafeNext(next)) {
     try { sessionStorage.setItem('sg-next', next); } catch {}
   }
   const goNext = () => {

@@ -80,6 +80,10 @@ export const auth = {
   get isFormer() {
     return (state.profile?.roles || []).includes('alumni');
   },
+  /** 052: signed up on SGAA (the alumni hub) to join as an alum, with any email address. */
+  get signedUpAsAlum() {
+    return state.session?.user?.user_metadata?.sgaa === 'alum';
+  },
   /** Does the signed-in person have this role? */
   hasRole(key) {
     return (state.profile?.roles || []).includes(key);
@@ -162,6 +166,19 @@ export const auth = {
     const { error } = await supabase.auth.updateUser({ password });
     if (error) throw error;
     state.recovering = false;
+  },
+
+  /**
+   * A new email address (052: alumni lose their UF address after graduating). Supabase emails a link to the new
+   * address (and, with "Secure email change" on, to the old one too); the address changes once it's used.
+   * Returns true when it changed right away (no confirmation needed).
+   */
+  async changeEmail(email) {
+    const { data, error } = await supabase.auth.updateUser({ email }, { emailRedirectTo: siteUrl() });
+    if (error) throw error;
+    const changed = (data?.user?.email || '').toLowerCase() === email.toLowerCase();
+    if (changed) await loadProfile();
+    return changed;
   },
 
   async signOut() {

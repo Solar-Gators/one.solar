@@ -48,7 +48,9 @@ In Supabase, go to **Authentication**:
 - **Email templates** (**Authentication → Emails → Templates**). UF's Outlook opens every link in an email to scan it, which uses up Supabase's standard one-time links before the person clicks ("That email link has expired or was already used"). Change the link in two templates so it opens the site, and the link is only used when the person presses the button there (scanners don't press buttons; the link then also works on any device):
   - **Reset Password:** `<a href="{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=recovery">Reset password</a>`
   - **Confirm signup:** `<a href="{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=email">Confirm your email</a>`
+  - **Change Email Address:** `<a href="{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=email_change">Confirm your new email</a>` (My account → Email address; alumni switch off their UF address, migration 052)
   - `{{ .RedirectTo }}` is the app page the person asked from (e.g. `https://one.ufsolargators.org/orders/`), so it has to be allowed under Redirect URLs above. The site handles both link styles, so emails sent before the change still work.
+- **Secure email change** (**Authentication → Sign In / Providers → Email**): turn it **off**. When it's on, changing an email needs a link clicked in the old inbox too, and a graduate whose UF address is already turned off could never finish switching. Off, only the new address has to confirm.
 
 ### 3. Connect the website
 Open **Project Settings → API** (or the **Connect** button). Copy the **Project URL** and the **anon / publishable** key into [`shared/config.js`](../shared/config.js). Every app reads them from there.

@@ -241,7 +241,7 @@ const authApi = {
     return { data: { subscription: { unsubscribe: () => listeners.delete(cb) } } };
   },
   async signInWithPassword({ email, password }) {
-    const [user] = await superuser(`select id, email, email_confirmed_at, banned_until > now() as banned from auth.users where lower(email) = lower($1) and password = $2`, [email, password]);
+    const [user] = await superuser(`select id, email, email_confirmed_at, raw_user_meta_data as user_metadata, banned_until > now() as banned from auth.users where lower(email) = lower($1) and password = $2`, [email, password]);
     if (!user) return { data: {}, error: { message: 'Invalid login credentials' } };
     if (user.banned) return { data: {}, error: { message: 'User is banned' } };
     delete user.banned;
@@ -251,7 +251,7 @@ const authApi = {
   async signUp({ email, password, options }) {
     try {
       const [user] = await superuser(
-        `insert into auth.users (email, password, raw_user_meta_data) values ($1, $2, $3) returning id, email, email_confirmed_at`,
+        `insert into auth.users (email, password, raw_user_meta_data) values ($1, $2, $3) returning id, email, email_confirmed_at, raw_user_meta_data as user_metadata`,
         [email, password, options?.data || {}]
       );
       setSession({ user }, 'SIGNED_IN');
@@ -267,9 +267,18 @@ const authApi = {
   async verifyOtp() {
     return { data: {}, error: { message: 'Email link is invalid or has expired' } };
   },
-  async updateUser({ password }) {
-    await superuser(`update auth.users set password = $2 where id = $1`, [session.user.id, password]);
-    return { data: {}, error: null };
+  /** A new password, or a new email address (no confirmation email here: it changes right away). */
+  async updateUser({ password, email }) {
+    if (password) await superuser(`update auth.users set password = $2 where id = $1`, [session.user.id, password]);
+    if (email) {
+      try {
+        await superuser(`update auth.users set email = $2 where id = $1`, [session.user.id, email]);
+      } catch (e) {
+        return { data: {}, error: { message: /duplicate key/.test(e.message) ? 'A user with this email address has already been registered' : e.message } };
+      }
+      setSession({ ...session, user: { ...session.user, email } }, 'USER_UPDATED');
+    }
+    return { data: { user: session.user }, error: null };
   },
   async signOut() {
     setSession(null, 'SIGNED_OUT');

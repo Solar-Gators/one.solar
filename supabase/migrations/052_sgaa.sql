@@ -912,8 +912,10 @@ create trigger sgaa_alum_rejoined after insert on public.profile_roles
 -- ---- signing up with a personal email; changing your email ------------------------------------------
 -- Alumni rarely have a UF address anymore. A sign-up that starts on SGAA (it sends { sgaa: "alum" } with the
 -- sign-up) may use any email address while "alumniCanSignUp" is on (Admin → Team & season; on by default).
--- They arrive as a Guest like everyone else and see nothing until approved as an alum. Other sign-ups still
--- follow "allowedEmailDomains".
+-- They arrive as a Guest like everyone else and see nothing until approved as an alum. Their request starts
+-- right away (status 'pending', details added once they've confirmed their email and come back to the join
+-- page), so they wait in SGAA's Manage → Alumni, not in the team's "waiting to join" list. Other sign-ups
+-- still follow "allowedEmailDomains".
 update public.app_settings set value = value || '{"alumniCanSignUp": true}'
 where key = 'general' and not value ? 'alumniCanSignUp';
 
@@ -941,7 +943,29 @@ begin
   insert into profiles (id, email, full_name)
   values (new.id, new.email, coalesce(trim(new.raw_user_meta_data ->> 'full_name'), ''));
   insert into profile_roles (user_id, role) values (new.id, 'guest');
+  if coalesce(new.raw_user_meta_data ->> 'sgaa', '') = 'alum' then
+    insert into sgaa_alumni (user_id, status, requested_at) values (new.id, 'pending', now())
+    on conflict (user_id) do nothing;
+  end if;
   return new;
+end;
+$$;
+
+-- The team's "waiting to join" list (home screen, 043/044) leaves out people asking to join as an alum (or
+-- who are one): they're approved in SGAA instead. If their alum request is declined, they show up here again,
+-- so a lead can still accept them onto the team (or remove them).
+create or replace function public.waiting_people()
+returns table (id uuid, full_name text, email text, created_at timestamptz, email_confirmed boolean)
+language plpgsql stable security definer set search_path = public, pg_temp
+as $$
+begin
+  perform require_permission('people.accept');
+  return query
+    select p.id, p.full_name, p.email, p.created_at, u.email_confirmed_at is not null
+    from profiles p join auth.users u on u.id = p.id
+    where exists (select 1 from profile_roles r where r.user_id = p.id and r.role = 'guest') and not is_member(p.id)
+      and not exists (select 1 from sgaa_alumni a where a.user_id = p.id and a.status in ('pending', 'alum'))
+    order by p.created_at desc;
 end;
 $$;
 

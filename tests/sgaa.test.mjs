@@ -68,6 +68,7 @@ const leaver = await person('sg-leaver@ufl.edu', 'Lee Leaver');
 const oldAlum = await person('old.alum@gmail.com', 'Olivia Oldtimer', []); // signed up as a Guest
 const unconfirmed = await person('new.alum@gmail.com', 'Nate New', [], false);
 const stranger = await person('someone@gmail.com', 'Stan Stranger', []);
+const student = await person('new.student@ufl.edu', 'Nia Newstudent', []); // an ordinary sign-up: a Guest waiting for the team
 
 const hub = (uid) => by(uid, 'sgaa_hub');
 /** Change some settings, as an Admin does on the site (update_settings saves the whole object). */
@@ -93,7 +94,20 @@ await test('the hub works signed out, says who is looking, and offers editing on
   assert.equal((await hub(member)).viewer, 'team');
   assert.equal((await hub(member)).canEdit, false);
   assert.equal((await hub(coord)).canEdit, true);
-  assert.equal((await hub(stranger)).viewer, 'guest');
+  assert.equal((await hub(student)).viewer, 'guest');
+  assert.equal((await hub(stranger)).viewer, 'pending', 'signing up on "Join as an alum" starts a request');
+});
+
+await test('alumni sign-ups wait in SGAA, not in the team\'s "waiting to join" list (until declined as an alum)', async () => {
+  const waiting = async () => (await rowsAs(ce, `select full_name from waiting_people() order by full_name`)).map((r) => r.full_name);
+  assert.deepEqual(await waiting(), ['Nia Newstudent']);
+  const queue = (await rowsAs(ce, `select full_name, grad_year from sgaa_alumni_queue() order by full_name`)).map((r) => [r.full_name, r.grad_year]);
+  assert.deepEqual(queue, [['Nate New', null], ['Olivia Oldtimer', null], ['Stan Stranger', null]], 'details come later, from the join page');
+  const guestNow = randomUUID();
+  await db.query(`insert into auth.users (id, email, raw_user_meta_data) values ($1, 'decline.me@gmail.com', '{"full_name": "Dee Clined", "sgaa": "alum"}')`, [guestNow]);
+  await by(ce, 'sgaa_review_alum', guestNow, false, 'Not on our rosters');
+  assert.deepEqual(await waiting(), ['Dee Clined', 'Nia Newstudent'], 'declined as an alum: back in the team\'s list');
+  await db.query(`delete from auth.users where id = $1`, [guestNow]);
 });
 
 await test('nobody can write the SGAA tables directly, signed in or not', async () => {
@@ -181,7 +195,7 @@ await test('events: publish, RSVP with guests up to capacity, and no deleting on
   await as(coord, () => rejects(call('sgaa_save_event', null, { title: 'No date' }), /When does it start/));
   await as(coord, () => rejects(call('sgaa_save_event', meetup, { endsAt: new Date(Date.now()).toISOString() }), /can't end before it starts/));
   await as(null, () => rejects(call('sgaa_rsvp', meetup, true, 0, ''), /permission denied|Sign in/));
-  await as(stranger, () => rejects(call('sgaa_rsvp', meetup, true, 0, ''), /for Solar Gators alumni and the team/));
+  await as(student, () => rejects(call('sgaa_rsvp', meetup, true, 0, ''), /for Solar Gators alumni and the team/));
   assert.equal(await by(member, 'sgaa_rsvp', meetup, true, 2, 'Bringing family'), 3);
   await as(ce, () => rejects(call('sgaa_rsvp', meetup, true, 1, ''), /it's full \(3 of 4/));
   assert.equal(await by(ce, 'sgaa_rsvp', meetup, true, 0, ''), 4);
@@ -258,8 +272,8 @@ await test('an alum who never had an account asks; an approver says yes; they be
   await as(oldAlum, () => rejects(call('sgaa_directory'), /waiting to be approved/));
   await as(member, () => rejects(call('sgaa_request_alum', { gradYear: '2026' }), /on the team already/));
 
-  const queue = await rowsAs(coord, `select * from sgaa_alumni_queue()`);
-  assert.deepEqual(queue.map((q) => [q.full_name, q.grad_year, q.note]), [['Olivia Oldtimer', 2013, 'Battery lead 2012']]);
+  const queue = await rowsAs(coord, `select * from sgaa_alumni_queue() order by full_name`);
+  assert.deepEqual(queue.map((q) => [q.full_name, q.grad_year, q.note]), [['Nate New', null, ''], ['Olivia Oldtimer', 2013, 'Battery lead 2012'], ['Stan Stranger', null, '']]);
   await as(member, () => rejects(call('sgaa_alumni_queue'), /Approve alumni/));
   assert.equal((await rowsAs(member, `select * from sgaa_alumni`)).length, 0);
 

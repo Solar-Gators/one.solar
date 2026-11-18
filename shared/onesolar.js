@@ -22,6 +22,9 @@ export const isLocal = ['localhost', '127.0.0.1', '[::1]'].includes(location.hos
  */
 export const signInUrl = (back = location.pathname) => `${appUrl('orders/')}?next=${encodeURIComponent(back)}`;
 
+/** Is ?next= (where to go after signing in) a page on this site? See safe-next.js. */
+export { isSafeNext } from './safe-next.js';
+
 /** Light / dark: 'auto' follows the device. Same setting in every app (localStorage "theme"). */
 export function getTheme() {
   try {

@@ -4,7 +4,8 @@
  *   node tests/sgaaLib.test.mjs
  */
 import assert from 'node:assert/strict';
-import { esc, formatText, money, ago, splitEvents, spotsLeft, fileSlug, toLocalInput, fromLocalInput } from '../sgaa/lib.js';
+import { esc, formatText, money, ago, splitEvents, spotsLeft, fileSlug, toLocalInput, fromLocalInput, isSchoolEmail, joinProblems } from '../sgaa/lib.js';
+import { isSafeNext } from '../shared/safe-next.js';
 
 let passed = 0;
 function test(name, fn) {
@@ -94,6 +95,31 @@ test('datetime-local round trip', () => {
   assert.equal(fromLocalInput('2026-11-27T18:30'), iso);
   assert.equal(toLocalInput(null), '');
   assert.equal(fromLocalInput(''), '');
+});
+
+test('UF addresses (which UF turns off after graduation) are spotted, others aren\'t', () => {
+  for (const e of ['gator@ufl.edu', 'A.B@UFL.EDU', 'x@eng.ufl.edu', ' x@ufl.edu ']) assert.ok(isSchoolEmail(e), e);
+  for (const e of ['x@gmail.com', 'x@ufl.edu.evil.com', 'x@notufl.edu', '', null]) assert.ok(!isSchoolEmail(e), String(e));
+});
+
+test('the join form asks for a graduation year (and, signing up, a name, an email and a password)', () => {
+  const now = new Date(2026, 10, 17);
+  assert.deepEqual(joinProblems({ gradYear: '2019' }, { now }), []);
+  assert.deepEqual(joinProblems({ gradYear: '' }, { now }), ['What year did you graduate (or leave the team)?']);
+  assert.deepEqual(joinProblems({ gradYear: '19' }, { now }), ['Graduation year has to be a year, like 2024.']);
+  assert.deepEqual(joinProblems({ gradYear: '2028' }, { now }), ['Graduation year has to be a year, like 2024.']);
+  assert.deepEqual(joinProblems({ gradYear: '2027' }, { now }), []); // graduating this coming year
+  assert.equal(joinProblems({ gradYear: '2019' }, { signUp: true, now }).length, 3);
+  assert.deepEqual(joinProblems({ fullName: 'A', email: 'a@gmail.com', password: '12345678', gradYear: '2019' }, { signUp: true, now }), []);
+  // A UF address is allowed (they're asked to switch later), not refused.
+  assert.deepEqual(joinProblems({ fullName: 'A', email: 'a@ufl.edu', password: '12345678', gradYear: '2019' }, { signUp: true, now }), []);
+});
+
+test('after signing in, only pages on this site (with an app page after #) are gone back to', () => {
+  for (const ok of ['/', '/sgaa/', '/one.solar/sgaa/', '/sgaa/#/join', '/sgaa/#/contact?to=1f2e&need=9a', '/sgaa/#/events']) assert.ok(isSafeNext(ok), ok);
+  for (const bad of ['//evil.example', 'https://evil.example/', '/\\evil.example', 'javascript:alert(1)', '/sgaa/#/x"onload', '/a b', '', null, '/sgaa/?x=1']) {
+    assert.ok(!isSafeNext(bad), String(bad));
+  }
 });
 
 console.log(`\n${passed} passed`);

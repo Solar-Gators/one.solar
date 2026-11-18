@@ -103,6 +103,26 @@ export const spotsLeft = (e) => (e.capacity ? Math.max(0, e.capacity - (e.going 
 export const KINDS = { parts: 'Parts & materials', money: 'Funding', expertise: 'Expertise', other: 'Other' };
 export const URGENCY = { high: 'Urgent', normal: '', low: 'Nice to have' };
 
+/** A UF address (also @something.ufl.edu), which UF turns off soon after graduation. */
+export const isSchoolEmail = (email) => /@([\w-]+\.)*ufl\.edu$/i.test(String(email || '').trim());
+
+/**
+ * What's wrong with the "Join as an alum" form, in words ([] when it's fine). With `signUp`, the account fields
+ * (name, email, password) are checked too; otherwise only the alumni ones.
+ */
+export function joinProblems(f, { signUp = false, now = new Date() } = {}) {
+  const out = [];
+  if (signUp) {
+    if (!String(f.fullName || '').trim()) out.push('Enter your full name.');
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(f.email || '').trim())) out.push('Enter a valid email address.');
+    if (String(f.password || '').length < 8) out.push('Your password needs at least 8 characters.');
+  }
+  const year = Number(f.gradYear);
+  if (!String(f.gradYear ?? '').trim()) out.push('What year did you graduate (or leave the team)?');
+  else if (!Number.isInteger(year) || year < 1990 || year > now.getFullYear() + 1) out.push('Graduation year has to be a year, like 2024.');
+  return out;
+}
+
 /** A safe file name for Storage: "My Photo (1).JPG" → "my-photo-1.jpg". */
 export function fileSlug(name) {
   const m = String(name || '').toLowerCase().match(/^(.*?)(\.[a-z0-9]{1,5})?$/);

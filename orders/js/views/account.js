@@ -34,6 +34,9 @@ function bindPasswordForm(el, onDone) {
   });
 }
 
+/** A UF address (also @something.ufl.edu): turned off soon after graduation. */
+export const SCHOOL_EMAIL = /@([\w-]+\.)*ufl\.edu$/i;
+
 /** The messages this person can get, worded for them. */
 function myEvents(config) {
   const me = auth.user.id;
@@ -61,6 +64,9 @@ function myEvents(config) {
 export async function renderAccount(el, { config, rerender }) {
   const user = auth.user;
   const notify = config.notifications || {};
+  // 052: a UF address stops working soon after graduation, so alumni (and former members) are asked to switch.
+  const schoolEmail = SCHOOL_EMAIL.test(user.email || '');
+  const leaving = schoolEmail && (auth.isFormer || auth.signedUpAsAlum || ['alum', 'pending'].includes(await api.myAlumStatus(user.id)));
   el.innerHTML = `
     ${takeFlash()}
     <div class="page-header"><div><h1>My account</h1></div>
@@ -80,6 +86,21 @@ export async function renderAccount(el, { config, rerender }) {
           <button type="submit" class="btn btn-primary">Save profile</button>
         </form>
       </section>
+      <section class="card" id="email">
+        <h2>Email address</h2>
+        ${schoolEmail && leaving ? `<div class="alert alert-warning"><strong>Switch to a personal email.</strong> UF turns off
+          ${esc(user.email)} soon after you graduate. After that you couldn't sign in or reset your password, and
+          messages from the team wouldn't reach you.</div>` : ''}
+        <form id="email-form" novalidate>
+          <div class="field"><label for="a-email">New email address</label>
+            <input id="a-email" name="email" type="email" autocomplete="email" placeholder="you@example.com">
+            <div class="hint">${schoolEmail && !leaving
+              ? 'Graduating soon? Switch to a personal address before your UF one is turned off, so you keep your account as an alum.'
+              : 'We send a link to the new address. Your email changes once you click it.'}</div></div>
+          <div id="email-errors"></div>
+          <button type="submit" class="btn${schoolEmail && leaving ? ' btn-primary' : ''}">Change email</button>
+        </form>
+      </section>
       <section class="card">
         <h2>Notifications</h2>
         <p class="muted small">${notify.enabled
@@ -94,6 +115,27 @@ export async function renderAccount(el, { config, rerender }) {
         ${passwordForm('Update password')}
       </section>
     </div>`;
+
+  el.querySelector('#email-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = e.target.email.value.trim().toLowerCase();
+    const errors = el.querySelector('#email-errors');
+    errors.innerHTML = '';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return (errors.innerHTML = errorBox(new Error('Enter a valid email address.')));
+    if (email === (user.email || '').toLowerCase()) return (errors.innerHTML = errorBox(new Error('That\'s already your email address.')));
+    const button = e.target.querySelector('button');
+    button.disabled = true;
+    try {
+      const changed = await auth.changeEmail(email);
+      setFlash(changed ? `Your email is now ${email}.`
+        : `Almost done: we sent a link to ${email}. Click it to finish the change. (If you also get one at your old address, click that one too.)`);
+      await rerender();
+    } catch (err) {
+      errors.innerHTML = errorBox(/already been registered|already registered/i.test(err.message)
+        ? new Error('Another one.solar account already uses that email address.') : err);
+      button.disabled = false;
+    }
+  });
 
   el.querySelector('#profile-form').addEventListener('submit', async (e) => {
     e.preventDefault();
