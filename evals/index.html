@@ -366,6 +366,16 @@ table.rub td.lv.on::after{background:var(--navy);border-color:var(--navy);box-sh
 .srow{display:grid;grid-template-columns:minmax(140px,230px) minmax(0,1fr);gap:4px 16px;align-items:start;padding:10px 0;border-top:1px solid var(--line)}
 .srow > .sl{font-weight:700;font-size:13.5px;color:var(--ink);padding-top:8px}
 .srow .fh{margin-top:4px}
+/* Assignments (053) */
+.asg-m{color:var(--muted)} .asg-s{font-size:12.5px}
+.asg-warn{color:var(--bad);font-weight:600;font-size:12.5px;margin-top:2px}
+table.list.asg-t{min-width:0}
+.asg-chip{display:inline-flex;align-items:center;gap:2px;background:var(--panel-2);border:1px solid var(--line);border-radius:999px;padding:2px 2px 2px 10px;margin:2px 6px 2px 0;font-size:13.5px}
+.asg-chip .asg-m{margin-left:4px}
+.asg-x{border:0;background:none;cursor:pointer;color:var(--muted);font-size:16px;line-height:1;padding:2px 7px;border-radius:999px}
+.asg-x:hover,.asg-x:focus-visible{color:var(--bad);background:var(--panel)}
+.asg-add{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:12px 0}
+.asg-add .fi{flex:1 1 220px;width:auto;min-width:0}
 .rule{display:flex;flex-wrap:wrap;gap:6px}
 .rule select{flex:1 1 200px;width:auto}
 .sw2{display:inline-flex;gap:8px;align-items:center;font-size:14px;cursor:pointer;padding:7px 0 0}
@@ -503,6 +513,7 @@ svg.trend .grid{stroke:var(--line);stroke-width:1}
       <a href="#/rubrics" data-tab="rubrics">Forms</a>
       <a href="#/questions" data-tab="questions" id="tabQ" hidden>Questionnaires</a>
       <a href="#/summary" data-tab="summary" id="tabSum" hidden>Summary</a>
+      <a href="#/assign" data-tab="assign" id="tabAssign" hidden>Assignments</a>
       <a href="#/setup" data-tab="setup" id="tabSetup" hidden>Setup</a>
     </nav>
     <div class="topbar-end" id="acct"></div>
@@ -743,12 +754,13 @@ const DEFAULT_SETTINGS = {
   input:{on:true, rule:"anyone", max:1, pickedBy:"either", notes:false},
   form:{track:"master", variants:true, also:[]},
   questionnaire:{on:true, source:"evaluator", id:null},
-  meeting:true, comments:true,
+  meeting:true, comments:true, assigned:false,
   visibility:{answers:{evaluator:"final", input:"final", viewers:"final", extra:"never"},
               eval:{subject:"shared", input:"final", viewers:"final", extra:"never"}, extraWho:{rule:"none"}},
   notify:{submitted:true, finished:false, meeting:true, shared:true, input:false}
 };
 let types = [], groups = [], qnaires = [], setupReady = true, setupError = "";
+let assignments = [];   // 053: who evaluates whom, [{id, type_id, subject_kind, subject_value, evaluator_kind, evaluator_value}]
 /** The Orders request form's Subsystem list (Admin → Request form → Dropdowns), so evals use the same names
     (and the Summary tab groups them cleanly). Empty if it can't be read: then subsystems are typed as before. */
 let subsystemList = [];
@@ -774,6 +786,7 @@ async function loadSetup(){
       rows(sb.from("eval_groups").select("*").order("name")),
       rows(sb.from("eval_questionnaires").select("*").order("name"))]);
     setupReady = true; setupError = "";
+    assignments = await rows(sb.from("eval_assignments").select("*").order("created_at")).catch(() => []);   // [] before 053
   } catch (e) {   // the database doesn't have 036 yet: everything works as the Member eval
     console.error(e); setupError = e.message || String(e);
     types = [{id:"member", name:"Member eval", description:"", active:true, settings:DEFAULT_SETTINGS}]; groups = []; qnaires = []; setupReady = false;
@@ -800,6 +813,27 @@ function ruleMatch(rule, uid){
   }
 }
 const candidates = (rule, except = []) => people.filter(p => ruleMatch(rule, p.id) && !except.includes(p.id));
+/* 053: who evaluates whom, when an eval type uses assignments ("Assigned by Admin / the President" in Setup).
+   The same as eval_assigned_evaluators(): a person's own rows if they have any, otherwise their positions'
+   rows; positions are whoever holds them now. [] = not assigned: they pick from "Who evaluates". */
+const typeAssigned = typeId => !!typeById(typeId || "member")?.settings?.assigned;
+const holders = key => roleRows.filter(r => r.role === key).map(r => r.user_id);
+const onTeam = uid => roleRows.some(r => r.user_id === uid && r.role !== "guest" && r.role !== "alumni");
+function assignedTo(typeId, uid){
+  const rs = assignments.filter(a => a.type_id === (typeId || "member"));
+  const own = rs.filter(a => a.subject_kind === "person" && a.subject_value === uid);
+  const mine = own.length ? own : rs.filter(a => a.subject_kind === "role" && roleRows.some(r => r.user_id === uid && r.role === a.subject_value));
+  const ids = new Set(mine.flatMap(a => a.evaluator_kind === "person" ? [a.evaluator_value] : holders(a.evaluator_value)));
+  ids.delete(uid);
+  return [...ids].filter(id => people.some(p => p.id === id) && onTeam(id));
+}
+/** Who `subject` can pick (or be evaluated by) in this type: their assigned evaluators, or everyone who fits. */
+function evaluatorsFor(typeId, s, subject){
+  const all = candidates(s.evaluators, [subject]);
+  if (!typeAssigned(typeId)) return all;
+  const a = assignedTo(typeId, subject);
+  return a.length ? all.filter(p => a.includes(p.id)) : all;
+}
 const permLabel = k => permList.find(p => p.key === k)?.label || k;
 const roleLabel = k => roleList.find(r => r.key === k)?.label || k;
 /** "people whose role can “Fill out evals”", "Chief Engineers", "the Leads group", "Pres Ident". */
@@ -866,6 +900,7 @@ async function boot(session){
       await Promise.all([loadRubrics(), loadEvals(), loadQuestions(), loadSetup(), loadSubsystems()]);
       $("#tabQ").hidden = !(can("evals.write") || can("evals.templates"));
       $("#tabSetup").hidden = !can("evals.types");
+      $("#tabAssign").hidden = !can("evals.assign") || !setupReady;
       $("#tabSum").hidden = !can("evals.view");   // Summary: only people who can "See all evals"
       $("#tabs").hidden = false; drawAccount();
       route();
@@ -1049,6 +1084,7 @@ async function route(){
     section = "eval";
   } else if (a === "questions" && (can("evals.write") || can("evals.templates"))) section = "questions";
   else if (a === "summary" && can("evals.view")) section = "summary";
+  else if (a === "assign" && can("evals.assign")) { section = "assign"; if (typeById(b)) asgView.type = b; }
   else if (a === "setup" && can("evals.types")) { section = "setup"; openSetup(b || null); }
   else section = "evals";
   render();
@@ -1066,7 +1102,7 @@ const shownVersion = () => view.versionId ? version(view.versionId) : latest(vie
 
 function render(){
   const seen = formsISee(); $('#tabs a[data-tab="rubrics"]').hidden = !!seen && !seen.size;
-  $$("#tabs a").forEach(a => a.classList.toggle("active", a.dataset.tab === (["rubrics", "questions", "setup", "summary"].includes(section) ? section : "evals")));
+  $$("#tabs a").forEach(a => a.classList.toggle("active", a.dataset.tab === (["rubrics", "questions", "setup", "summary", "assign"].includes(section) ? section : "evals")));
   $("#layout").classList.toggle("nosb", section !== "rubrics" && section !== "setup");
   $("#main").classList.remove("editing", "filling");
   if (section === "rubrics") { renderSide(); renderRubric(); }
@@ -1077,7 +1113,98 @@ function render(){
   else if (section === "eval") renderEval();
   else if (section === "questions") renderQuestions();
   else if (section === "summary") renderSummary();
+  else if (section === "assign") renderAssign();
   else renderList();
+}
+
+/* =========================================================
+   ASSIGNMENTS (#/assign/<type>, 053): who evaluates whom, set by anyone whose role can "Assign evaluators"
+   (Admin and the President by default). By position ("the President evaluates the Vice President"), which keeps
+   working when people change, or for one person, which replaces their positions' rows.
+   ========================================================= */
+let asgView = {type:lsGet("sg-evals-asg-type") || "", subj:"", eval:""};
+const asgPositions = () => roleList.filter(r => r.key !== "guest" && r.key !== "alumni").slice().sort((a, b) => a.label.localeCompare(b.label));
+const asgTeam = () => people.filter(p => onTeam(p.id));
+const asgWho = (kind, value) => kind === "role" ? `${roleLabel(value)} <span class="asg-m">(position)</span>` : esc(personName(value) || "Someone who left");
+function asgOptions(val, none){
+  return `<option value="">${esc(none)}</option>`
+    + `<optgroup label="Positions">${asgPositions().map(r => `<option value="role:${esc(r.key)}"${"role:" + r.key === val ? " selected" : ""}>${esc(r.label)}</option>`).join("")}</optgroup>`
+    + `<optgroup label="People">${asgTeam().map(p => `<option value="person:${esc(p.id)}"${"person:" + p.id === val ? " selected" : ""}>${esc(p.full_name || p.email)}</option>`).join("")}</optgroup>`;
+}
+function renderAssign(){
+  const m = $("#main");
+  if (!typeById(asgView.type)) asgView.type = (types.find(t => t.settings?.assigned) || typeById("eboard") || types[0])?.id || "member";
+  const ty = typeById(asgView.type), s = ty.settings, ev = lc(L(s, "evaluator")), subj = lc(L(s, "subject"));
+  const rs = assignments.filter(a => a.type_id === ty.id);
+  let h = toolbarHTML("Assignments", `<div class="meta">Who evaluates whom. Only people whose role can “Assign evaluators” change this; everyone sees the result when they start a self-eval.</div>`, "", "var(--orange)");
+  h += `<div class="setup">`;
+  h += `<div class="sum-bar" style="margin-bottom:12px"><label class="sum-ctl">Eval type <select class="sel" data-act="asgType">${types.map(t =>
+    `<option value="${esc(t.id)}"${t.id === ty.id ? " selected" : ""}>${esc(t.name)}${t.settings?.assigned ? "" : " (not using assignments)"}</option>`).join("")}</select></label></div>`;
+  if (s.evaluators.rule === "person") {
+    h += `<div class="banner note"><span class="bt">${esc(ty.name)} evals always go to ${esc(personName(s.evaluators.value) || "one person")}, so there's nothing to assign.</span></div></div>`;
+    m.innerHTML = h; return;
+  }
+  if (!s.assigned) h += `<div class="banner"><span class="bt"><b>${esc(ty.name)} doesn't use these yet:</b> people still pick their own ${esc(ev)}. ${can("evals.types")
+    ? `Turn on <b>Assigned</b> in <a href="#/setup/${esc(ty.id)}">Setup → ${esc(ty.name)}</a>.` : "Ask someone who can “Set up Solar Evals” to turn on <b>Assigned</b> for it in Setup."} You can set them up first.</span></div>`;
+
+  // The rows, grouped by who is evaluated.
+  const keyOf = a => a.subject_kind + ":" + a.subject_value;
+  const bySubject = new Map();
+  for (const a of rs) bySubject.set(keyOf(a), (bySubject.get(keyOf(a)) || []).concat(a));
+  const order = [...bySubject.keys()].sort((x, y) => (x[0] === y[0] ? 0 : x.startsWith("role") ? -1 : 1)
+    || (x.startsWith("role") ? roleLabel(x.slice(5)) : personName(x.slice(7))).localeCompare(y.startsWith("role") ? roleLabel(y.slice(5)) : personName(y.slice(7))));
+  h += `<div class="scard"><h3>Who evaluates whom</h3><p class="sd">By position keeps working when people change: “Vice President, evaluated by President”.
+    A person's own row replaces their positions' rows. Several evaluators for one ${esc(subj)}: they pick one of them.</p>`;
+  h += order.length ? `<div class="tablewrap"><table class="list asg-t"><thead><tr><th>Who is evaluated</th><th>Evaluated by</th></tr></thead><tbody>${order.map(k => {
+    const list = bySubject.get(k), a0 = list[0];
+    return `<tr><td><b>${asgWho(a0.subject_kind, a0.subject_value)}</b></td><td>${list.map(a =>
+      `<span class="asg-chip">${asgWho(a.evaluator_kind, a.evaluator_value)}<button type="button" class="asg-x" data-act="asgDel" data-id="${esc(a.id)}" aria-label="Remove" title="Remove">×</button></span>`).join("")}</td></tr>`;
+  }).join("")}</tbody></table></div>` : `<p class="asg-m">Nothing assigned for ${esc(ty.name)} yet.</p>`;
+  h += `<div class="asg-add" id="asgAdd"><select class="fi" data-asg-kind="subj" aria-label="Who is evaluated">${asgOptions(asgView.subj, `Who is evaluated…`)}</select>
+    <span class="asg-m">evaluated by</span>
+    <select class="fi" data-asg-kind="eval" aria-label="Evaluated by">${asgOptions(asgView.eval, `Evaluated by…`)}</select>
+    <button class="btn primary" data-act="asgAdd"${asgView.subj && asgView.eval ? "" : " disabled"}>Add</button></div></div>`;
+
+  // Everyone this type evaluates: who they get, or that they pick.
+  const subjects = candidates(s.subjects).filter(p => onTeam(p.id));
+  let missing = 0;
+  const body = subjects.map(p => {
+    const a = assignedTo(ty.id, p.id), fits = a.filter(id => ruleMatch(s.evaluators, id)), off = a.filter(id => !fits.includes(id));
+    if (!a.length) missing++;
+    const pos = roleRows.filter(r => r.user_id === p.id && r.role !== "member").map(r => roleLabel(r.role)).join(", ");
+    return `<tr><td><b>${esc(p.full_name || p.email)}</b>${pos ? `<div class="asg-m asg-s">${esc(pos)}</div>` : ""}</td>
+      <td>${a.length ? esc(listText(fits.map(personName))) || "—" : `<span class="asg-m">Not assigned: picks from everyone who fits “Who evaluates”</span>`}
+        ${off.length ? `<div class="asg-warn">${esc(listText(off.map(personName)))} ${off.length === 1 ? "isn't" : "aren't"} on the “Who evaluates” list for ${esc(ty.name)}, so can't be picked.</div>` : ""}</td>
+      <td><button class="btn sm" data-act="asgPerson" data-id="${esc(p.id)}">Assign…</button></td></tr>`;
+  }).join("");
+  h += `<div class="scard"><h3>Everyone who gets ${esc(ty.name.replace(/\s*evals?$/i, "") || ty.name)} evals</h3><p class="sd">${subjects.length} ${subjects.length === 1 ? "person" : "people"}${missing ? `; ${missing} not assigned yet` : ", all assigned"}.</p>
+    ${subjects.length ? `<div class="tablewrap"><table class="list asg-t"><thead><tr><th>${esc(L(s, "subject"))}</th><th>Evaluated by</th><th></th></tr></thead><tbody>${body}</tbody></table></div>` : `<p class="asg-m">Nobody fits “Who is evaluated” right now.</p>`}</div>`;
+  m.innerHTML = h + `</div>`;
+}
+async function asgAdd(){
+  const [sk, ...sv] = asgView.subj.split(":"), [ek, ...evv] = asgView.eval.split(":");
+  if (!sk || !ek) return;
+  try {
+    await call("eval_assign", {p:{type_id:asgView.type, subject_kind:sk, subject_value:sv.join(":"), evaluator_kind:ek, evaluator_value:evv.join(":")}});
+    lsSet("sg-evals-asg-type", asgView.type);
+    asgView.eval = "";
+    assignments = await rows(sb.from("eval_assignments").select("*").order("created_at"));
+    toast("Assigned.");
+  } catch (e) { fail("Couldn't assign that", e); }
+  renderAssign();
+}
+async function asgDel(id){
+  try {
+    await call("eval_unassign", {p_id:id});
+    assignments = assignments.filter(a => a.id !== id);
+    toast("Removed.");
+  } catch (e) { fail("Couldn't remove that", e); }
+  renderAssign();
+}
+function asgAddFor(uid){
+  asgView.subj = "person:" + uid; asgView.eval = "";
+  renderAssign();
+  const box = $("#asgAdd"); box?.scrollIntoView({block:"center"}); box?.querySelector('[data-asg-kind="eval"]')?.focus();
 }
 
 /* =========================================================
@@ -1942,6 +2069,8 @@ $("#main").addEventListener("change", e => {
   if (s.dataset.act === "pickVersion") { const vs = versionsOf(view.trackId); go(view.trackId, s.value === vs[vs.length - 1].id ? null : s.value); }
   if (s.dataset.act === "sumType") { sumView.type = s.value; lsSet("sg-evals-sum-type", s.value); sumView.sem = ""; sumView.open.clear(); sumView.hide.clear(); renderSummary(); }
   if (s.dataset.act === "sumSem") { sumView.sem = s.value; renderSummary(); }
+  if (s.dataset.act === "asgType") { asgView.type = s.value; history.replaceState(null, "", "#/assign/" + s.value); renderAssign(); }
+  if (s.dataset.asgKind) { asgView[s.dataset.asgKind] = s.value; renderAssign(); }
   if (s.dataset.act === "cmpPick") { view.cmpA = $("#cA").value; view.cmpB = $("#cB").value; renderRubric(); }
   if (section === "eval") onEvalInput(e);
   if (section === "setup") setupChange(e);
@@ -1996,7 +2125,8 @@ function fillNewEval(){
     || `<option value="">This kind of eval's form has no saved version yet</option>`;
   const pick = groups.find(g => g.t.id === lastTrack) || groups.find(g => g.t.parent) || groups[0];
   if (pick) $("#nRubric").value = pick.vs[0].id;
-  const anyone = s.subjects.rule === "anyone", who = candidates(s.subjects, [me.id]);
+  const anyone = s.subjects.rule === "anyone", who = candidates(s.subjects, [me.id])
+    .filter(p => !typeAssigned(ty.id) || !assignedTo(ty.id, p.id).length || assignedTo(ty.id, p.id).includes(me.id));
   $("#nSubjectL").textContent = `Who it's for (${lc(subj)})`;
   $("#nSubject").innerHTML = (anyone ? `<option value="">Type their name instead</option>` : `<option value="">Pick the ${esc(lc(subj))}</option>`) + opt(who, "");
   $("#nPick").hidden = !who.length && anyone;
@@ -2054,9 +2184,11 @@ function fillNewSelf(){
   $("#sfSub").required = sub && subsystemList.length > 0;
   const fixed = s.evaluators.rule === "person";
   $("#sfCeL").textContent = `Your ${ev}`; $("#sfCe").hidden = $("#sfCeL").hidden = fixed; $("#sfCe").required = !fixed;
-  $("#sfCe").innerHTML = opt(candidates(s.evaluators, [me.id]), "", `Pick your ${ev}`);
+  const tyId = $("#sfType").value, mine = evaluatorsFor(tyId, s, me.id), assigned = typeAssigned(tyId) && assignedTo(tyId, me.id).length > 0;
+  $("#sfCe").innerHTML = opt(mine, mine.length === 1 && assigned ? mine[0].id : "", `Pick your ${ev}`);
   $("#sfCeH").textContent = fixed ? `${personName(s.evaluators.value) || "Your evaluator"} evaluates you. They're told when you submit.`
-    : `You answer ${s.questionnaire.source === "evaluator" ? "their" : "the"} questions. They're told when you submit, and write their own eval of you.`;
+    : (assigned ? `Assigned by an Admin or the President${mine.length > 1 ? `: pick one of them` : ""}. ` : "")
+      + `You answer ${s.questionnaire.source === "evaluator" ? "their" : "the"} questions. They're told when you submit, and write their own eval of you.`;
   const canPick = s.input.on && s.input.pickedBy !== "evaluator";
   $("#sfLeadRow").hidden = !canPick;
   $("#sfLeadL").textContent = `Your ${lc(inp)} (optional)`;
@@ -2107,7 +2239,7 @@ const evalLive = () => {
   if (!r || r.missing || r.evaluator_id !== me.id) return false;
   return r.kind === "self" ? r.status === "draft" : r.status !== "shared";
 };
-const evaluatorChoices = e => candidates(S(e).evaluators, [me.id]);
+const evaluatorChoices = e => evaluatorsFor(e.type_id, S(e), me.id);
 
 /* The person's answers (or, for a 031 self-eval, ratings) next to the evaluator's eval, once they may be seen. */
 const questionsOf = e => Array.isArray(e?.rubric?.questions) ? e.rubric.questions : null;
@@ -2568,6 +2700,9 @@ function renderSetup(){
     <div class="scard"><h3>Who evaluates whom</h3><p class="sd">Use a permission, a one.solar position, a group (Setup → Groups), or one person. Nobody needs a new position just for evals.</p>
       ${srow(`Who is evaluated (${L2("subject")})`, ruleHTML("settings.subjects", s.subjects))}
       ${srow(`Who evaluates (${L2("evaluator")})`, ruleHTML("settings.evaluators", s.evaluators), s.evaluators.rule === "person" ? "Self-evals go straight to them." : "People pick theirs on their self-eval; evaluators can also start an eval themselves.")}
+      ${s.evaluators.rule === "person" ? "" : srow("Assigned", chk("settings.assigned", !!s.assigned, "An Admin or the President says who evaluates whom"),
+        s.assigned ? `Set it on the <a href="#/assign/${esc(setupView.id || "")}">Assignments</a> tab (anyone whose role can “Assign evaluators”). Someone with no assignment picks from the list above; assigned people still need to be on it.`
+                   : "Off: people pick their own from the list above.")}
       ${srow(`Input from (${L2("input")})`, `${chk("settings.input.on", s.input.on, "Someone else gives input")}
         ${s.input.on ? `<div style="margin-top:8px">${ruleHTML("settings.input", s.input)}</div>
         <div class="rule" style="margin-top:8px"><label class="sw2" style="padding:0">Up to <input class="fi" type="number" min="1" max="10" data-sp="settings.input.max" value="${s.input.max}" style="width:70px"> people,</label>
@@ -2956,6 +3091,9 @@ document.addEventListener("click", e => {
     case "sumHide": sumView.hide.has(d.k) ? sumView.hide.delete(d.k) : sumView.hide.add(d.k); renderSummary(); break;
     case "sumOpen": sumView.open.has(d.k) ? sumView.open.delete(d.k) : sumView.open.add(d.k); renderSummary(); break;
     case "sumReload": sumRows = null; renderSummary(); break;
+    case "asgAdd": asgAdd(); break;
+    case "asgDel": asgDel(d.id); break;
+    case "asgPerson": asgAddFor(d.id); break;
     case "compareAny": { const any = latest(firstForm()) || db.versions[0]; if (any) openCompare(any.id, (shownVersion() || any).id); break; }
     case "cmpPair": openCompare(d.a, d.b); break;
     case "cmpSwap": [view.cmpA, view.cmpB] = [view.cmpB, view.cmpA]; renderRubric(); break;

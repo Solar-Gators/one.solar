@@ -139,6 +139,16 @@
   "returns": "boolean",
   "anon": false
  },
+ "eval_assign": {
+  "args": "p jsonb",
+  "returns": "uuid",
+  "anon": false
+ },
+ "eval_assigned_evaluators": {
+  "args": "p_type text, p_subject uuid",
+  "returns": "uuid[]",
+  "anon": false
+ },
  "eval_check_inputs": {
   "args": "s jsonb, p_new uuid[], p_old uuid[], p_by text, p_writer uuid",
   "returns": "void",
@@ -344,6 +354,11 @@
   "returns": "integer",
   "anon": false
  },
+ "eval_type_assigned": {
+  "args": "p_type text",
+  "returns": "boolean",
+  "anon": false
+ },
  "eval_type_delete": {
   "args": "p_id text",
   "returns": "void",
@@ -362,6 +377,11 @@
  "eval_type_save": {
   "args": "p_id text, p_name text, p_description text, p_active boolean, p_settings jsonb, p_note text",
   "returns": "text",
+  "anon": false
+ },
+ "eval_unassign": {
+  "args": "p_id uuid",
+  "returns": "void",
   "anon": false
  },
  "eval_visible_to_me": {

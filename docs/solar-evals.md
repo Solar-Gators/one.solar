@@ -2,7 +2,7 @@
 
 **https://one.ufsolargators.org/evals/** · [`evals/index.html`](../evals/index.html)
 
-Semester reviews, filled out online instead of on paper. Sign in with your **[one.solar](https://one.ufsolargators.org/)** account; everything is kept in the one.solar (Orders) database (migrations `028`, `031`, `032`, `036_eval_types.sql`, `037_eval_form_names.sql`, `038_eval_communication.sql` and `039_eval_more_forms.sql`).
+Semester reviews, filled out online instead of on paper. Sign in with your **[one.solar](https://one.ufsolargators.org/)** account; everything is kept in the one.solar (Orders) database (migrations `028`, `031`, `032`, `036_eval_types.sql`, `037_eval_form_names.sql`, `038_eval_communication.sql`, `039_eval_more_forms.sql` and `053_eval_assignments.sql`).
 
 Everything below is set up on the page, not in code: the forms, the questionnaires, and the whole flow for each kind of eval.
 
@@ -12,6 +12,7 @@ People with **Set up Solar Evals** (`evals.types`, Admin and E-board by default)
 
 - **What to call people:** e.g. Officer / President / Lead / Position. Buttons, messages and emails use these words.
 - **Who evaluates whom:** who is evaluated, who evaluates, and who gives input. Each one is anyone, a permission ("Fill out evals"), a one.solar position, a **group**, or one person. Groups (Setup → Groups) are named lists of people, so nobody needs a new position just for evals.
+- **Assigned:** on or off. On, an Admin or the President says exactly who evaluates whom on the **Assignments** tab (below), instead of people picking from the whole "Who evaluates" list.
 - **Input from:** on or off; up to how many people; whether the person evaluated, the evaluator or either picks them; and whether they can leave **private notes** for the evaluator while it's a draft. The person evaluated never sees the notes.
 - **The form:** which form it uses, and whether people pick a variant of it (a division or a position). **Other forms they can pick** lists more forms: whoever starts an eval then picks any of them (or their variants) instead.
 - **Self-eval questionnaire:** on or off. The questions come from each evaluator's own list, or from a shared questionnaire.
@@ -30,6 +31,23 @@ Every eval keeps a copy of its type's settings from when it started, so changing
 Example, **the President evaluates the CEs with feedback from their leads**:
 1. Make a "Leads" group with the leads in it.
 2. Make a type: the person evaluated is the Chief Engineer position, the evaluator is one person (the President), and input comes from the Leads group, picked by the evaluator, with notes. The form is Leadership eval with variants (the position). Turn the questionnaire off. The CE sees the eval once it's finished, the leads see it while it's being written, and the E-board sees it once it's finished.
+
+## Assignments: who evaluates whom (053)
+
+People with **Assign evaluators** (`evals.assign`, Admin and the **President** position by default) see **Assignments**. Pick an eval type, then add rows:
+
+- **By position**, e.g. "Vice President, evaluated by President". It keeps working when new people take the positions, so set it up once.
+- **For one person**, e.g. "Kim, evaluated by Cy". A person's own rows replace their positions' rows.
+- Several evaluators for the same person (e.g. the Treasurer, evaluated by the President and the Vice President): they pick one of them on their self-eval, and either can start the eval.
+
+It only takes effect for eval types with **Assigned** turned on in Setup. Then:
+
+- A self-eval's evaluator list shows only their assigned evaluators (picked for them when there's just one). The database refuses anyone else, also when they submit, so a reassignment after they picked asks them to pick again.
+- An evaluator starting an eval only sees, and may write about, the people they're assigned to plus anyone with no assignment.
+- Someone with **no assignment** (or whose assigned position is empty right now) picks from the "Who evaluates" list as before. The page's second list, **Everyone who gets … evals**, shows who's assigned to whom and who isn't yet.
+- Assignments narrow "Who evaluates", never widen it: an assigned person still has to fit it (the page warns when they don't).
+
+**Positions for the E-board titles.** 053 adds **President**, **Vice President** and **Secretary** positions (**Treasurer** and **Business Coordinator** already exist). Give each E-board member their title in Admin → Users *as well as* E-board: E-board stays what decides what they can do, and the titles carry no permissions except the President's "Assign evaluators". Add more titles (e.g. Integration Project Manager) in Admin → Roles & permissions → New position.
 
 ## Forms
 
