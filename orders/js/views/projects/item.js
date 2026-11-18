@@ -12,6 +12,7 @@ import { appUrl } from '../../../../shared/onesolar.js';
 import { needsDatabase, loadBase, loadConfig, can, header, itemHref, projectHref, personName, avatar, statusChip, typeBadge, priorityChip, dueChip, rich, formDialog, attempt, toast,
   formSections, readFields, bindOrgPickers, loadParents, runMove, createItemDialog } from './kit.js';
 import { addDocDialog, docLink } from './docs.js';
+import { alumniShareCard, bindAlumniShare } from './alumni.js';
 
 export async function renderItem(el, { config, params, rerender }) {
   const missing = needsDatabase(config);
@@ -101,6 +102,7 @@ export async function renderItem(el, { config, params, rerender }) {
       ${lines ? `<ul class="pm-changes">${lines}</ul>` : ''}${e.kind === 'status' && e.data?.comment ? `<blockquote>${esc(e.data.comment)}</blockquote>` : ''}${e.data?.note ? `<blockquote>${esc(e.data.note)}</blockquote>` : ''}</li>`;
   };
   const checkDone = x.checklist.filter((c) => c.done).length;
+  const alumniCard = item.archived_at ? '' : await alumniShareCard({ projectId: project.id, itemId: item.id, mayEdit: may('edit'), what: 'this item' });
 
   el.innerHTML = `${takeFlash()}<a class="back-link" href="${projectHref(project.key, 'list')}">← ${esc(project.name)}</a>
     ${header(`${typeBadge(type)} ${esc(item.title)}`, `<span class="pm-key">${esc(item.key)}</span> · ${esc(type?.name || '')} · ${statusChip(status)} ${priorityChip(item.priority)}
@@ -172,8 +174,9 @@ export async function renderItem(el, { config, params, rerender }) {
       <aside class="pm-item-side"><section class="card">${details}
         <h3>People</h3><dl class="pm-dl"><div><dt>Reporter</dt><dd>${esc(personName(b, item.reporter_id) || '—')}</dd></div>
           <div><dt>Watching</dt><dd>${watchers.map((id) => esc(personName(b, id))).join(', ') || '—'}</dd></div></dl>
-        <p class="muted small">Created ${esc(fmtDate(item.created_at))}. Last changed ${esc(fmtDateTime(item.updated_at))}.</p></section></aside>
+        <p class="muted small">Created ${esc(fmtDate(item.created_at))}. Last changed ${esc(fmtDateTime(item.updated_at))}.</p></section>${alumniCard}</aside>
     </div>`;
+  bindAlumniShare(el, { projectId: project.id, itemId: item.id, done: () => rerender() });
 
   const again = () => rerender();
   const fresh = async (fn, done) => (await attempt(fn, done)) && again();

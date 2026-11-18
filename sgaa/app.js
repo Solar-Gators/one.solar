@@ -4,10 +4,11 @@
  * people with "Edit the alumni hub". The database (052_sgaa.sql) decides who may do what; this page only
  * hides what someone can't use.
  *
- * Local testing: http://localhost:5190/sgaa/?fake runs every migration in an in-browser Postgres.
+ * Local testing: http://localhost:5190/sgaa/?fake runs every migration in an in-browser Postgres. Under
+ * `npm run dev:fake` it's fake without ?fake too: the client is Orders' (orders/js/supabase.js), which that
+ * server swaps for the fake one, so links from the other apps stay on the same fake database.
  */
-import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import { SUPABASE_URL, SUPABASE_ANON_KEY, signInUrl, appUrl } from '../shared/onesolar.js';
+import { signInUrl, appUrl } from '../shared/onesolar.js';
 import { renderAccount } from '../shared/account-menu.js';
 import { mountAppSwitcher } from '../shared/app-switcher.js';
 import { startErrorReporter } from '../shared/error-reporter.js';
@@ -16,7 +17,7 @@ import { esc, formatText, money, when, ago, toLocalInput, fromLocalInput, splitE
   VISIBILITY, PROFILE_FIELDS, linkedinHref, initials, directoryMatch } from './lib.js';
 
 const FAKE = ['localhost', '127.0.0.1'].includes(location.hostname) && new URLSearchParams(location.search).has('fake');
-const sb = FAKE ? (await import('../tools/fake-supabase.js')).supabase : createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const sb = (await import(FAKE ? '../tools/fake-supabase.js' : '../orders/js/supabase.js')).supabase;
 startVersionCheck(sb);
 startErrorReporter(sb, 'sgaa');
 mountAppSwitcher();
@@ -799,7 +800,8 @@ async function manageNeeds(id) {
   if (id) {
     // Suggest the same subsystem names as the Orders request form (Admin → Request form → Dropdowns).
     const form = await rows(sb.from('app_settings').select('value').eq('key', 'form')).catch(() => []);
-    return needForm(id === 'new' ? null : all.find((n) => n.id === id), form[0]?.value?.subsystems || []);
+    const need = id === 'new' ? null : all.find((n) => n.id === id);
+    return needForm(need, form[0]?.value?.subsystems || [], await projectsLink(need));
   }
   const list = all.filter((n) => n.status !== 'archived');
   return `<div class="toolbar"><a class="btn btn-primary" href="#/manage/needs/new">+ New need</a>
@@ -813,12 +815,25 @@ async function manageNeeds(id) {
     <ul>${all.filter((n) => n.status === 'archived').map((n) => `<li><a href="#/manage/needs/${n.id}">${esc(n.title)}</a></li>`).join('')}</ul></details>` : ''}`;
 }
 
-function needForm(n, subsystems = []) {
+/** A need shared from Projects: where it lives there (a link, for people who can see that project). */
+async function projectsLink(n) {
+  if (!n?.pm_project_id) return '';
+  const [item] = n.pm_item_id ? await rows(sb.from('pm_items').select('key, title').eq('id', n.pm_item_id)).catch(() => []) : [];
+  const [project] = await rows(sb.from('pm_projects').select('key, name').eq('id', n.pm_project_id)).catch(() => []);
+  const href = item ? appUrl(`projects/#/projects/item/${encodeURIComponent(item.key)}`)
+    : project ? appUrl(`projects/#/projects/p/${encodeURIComponent(project.key)}`) : '';
+  const label = item ? `${item.key} · ${item.title}` : project?.name || '';
+  return `<div class="alert alert-info">Shared from Projects${href ? `: <a href="${esc(href)}">${esc(label)}</a>` : ' (from a project you can\'t see)'}.
+    ${n.pm_item_id ? 'When that work item is finished, this need is marked met.' : ''}</div>`;
+}
+
+function needForm(n, subsystems = [], fromProjects = '') {
   const v = n || { status: 'draft', kind: 'parts', urgency: 'normal' };
   const contacts = hub.contacts;
   return `<a class="back-link" href="#/manage/needs">← Needs</a>
   <form class="card stack" data-form="need" data-id="${n?.id || ''}">
     <h2>${n ? 'Edit need' : 'New need'}</h2>
+    ${fromProjects}
     <div class="form-grid">
       <div class="field span-2"><label for="n-title">Title <span class="req">*</span></label><input id="n-title" name="title" maxlength="120" required value="${esc(v.title)}" placeholder="Battery cells for the new pack"></div>
       <div class="field"><label for="n-kind">Kind</label><select id="n-kind" name="kind">${Object.entries(KINDS).map(([k, l]) => `<option value="${k}"${v.kind === k ? ' selected' : ''}>${l}</option>`).join('')}</select></div>

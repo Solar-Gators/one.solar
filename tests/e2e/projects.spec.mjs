@@ -631,4 +631,42 @@ test.describe('projects', () => {
       return (await supabase.from('pm_projects').select('id')).data.length;
     })).toBe(0);
   });
+
+  test('share with alumni (052): a project manager shares a draft; the hub\'s editor sees where it came from; a project is shared and unshared', async () => {
+    // The project manager can edit the item but not the alumni hub: it goes to the hub as a draft.
+    await signIn(page, MANAGER);
+    await open(page, `/projects/#/projects/item/${itemKey}`, '[data-alumni-card]');
+    await page.click('[data-alumni-share="1"]');
+    await expect(toast(page)).toContainText('Shared with alumni');
+    await expect(page.locator('[data-alumni-card]')).toContainText('a draft (not public yet)');
+    await expect(page.locator('[data-alumni-card] a')).toHaveCount(0);   // drafts aren't on the hub for them
+    // Someone who can only see the project gets no card: the team's view-only role on AERO.
+    await signIn(page, MEMBER);
+    const aeroItem = (await one(page, `select key from pm_items where title = 'Top shell mold'`)).key;
+    const aeroId = (await one(page, `select id from pm_projects where key = 'AERO'`)).id;
+    expect((await rpc(page, 'pm_my_caps', {})).data[aeroId]).not.toContain('edit');
+    await open(page, `/projects/#/projects/item/${aeroItem}`, '.pm-item-side');
+    await expect(page.locator('[data-alumni-card]')).toHaveCount(0);
+    expect((await rpc(page, 'sgaa_share_from_projects', { p_project: null, p_item: (await one(page, `select id from pm_items where key = $1`, [aeroItem])).id, p_on: true })).error).toMatch(/can't share this/);
+
+    // An Admin ("Edit the alumni hub") goes from the item to the need, which links back.
+    await signIn(page, ADMIN);
+    await open(page, `/projects/#/projects/item/${itemKey}`, '[data-alumni-card]');
+    await page.click('[data-alumni-card] a:has-text("Edit it on the alumni hub")');
+    await expect(page.locator('form[data-form="need"] .alert-info')).toContainText(`Shared from Projects: ${itemKey} · Pack layout`);
+    await expect(page.locator('form[data-form="need"] .alert-info a')).toHaveAttribute('href', new RegExp(`projects/#/projects/item/${itemKey}$`));
+    await open(page, '/sgaa/#/manage/needs', 'table');
+    await expect(page.locator('tr', { hasText: 'Pack layout' })).toContainText('From Projects');
+
+    // Shared by an editor, a whole project goes up as public; stopping takes it off again (archived once public).
+    const aero = `select n.status from sgaa_needs n join pm_projects p on p.id = n.pm_project_id where p.key = 'AERO' and n.pm_item_id is null`;
+    await open(page, '/projects/#/projects/p/AERO', '[data-alumni-card]');
+    await page.click('[data-alumni-share="1"]');
+    await expect(page.locator('[data-alumni-card]')).toContainText('public');
+    expect(await one(page, aero)).toEqual({ status: 'open' });
+    page.once('dialog', (d) => d.accept());
+    await page.click('[data-alumni-share="0"]');
+    await expect(page.locator('[data-alumni-share="1"]')).toBeVisible();
+    expect(await one(page, aero)).toEqual({ status: 'archived' });
+  });
 });
