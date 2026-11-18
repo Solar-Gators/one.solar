@@ -157,6 +157,11 @@ hr { border: 0; border-top: 1px solid var(--border); margin: 14px 0; }
 .alum-note { margin: 6px 0 0; font-style: italic; }
 .alum-req-actions { display: flex; gap: 8px; }
 
+/* Messages */
+.message h3 { margin: 10px 0 6px; }
+.message-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px 16px; flex-wrap: wrap; }
+.message-body { overflow-wrap: anywhere; }
+
 /* In the narrow side column, a contact's button goes under their name. */
 .two-col aside .contact { grid-template-columns: 40px minmax(0, 1fr); }
 .two-col aside .contact > .btn { grid-column: 2; justify-self: start; }

@@ -268,6 +268,9 @@ const SAMPLE = {
   where: 'In our office', received_by: 'Cara Lopez',
   status: 'Approved', rule: 'Battery orders', link: '…/#/requests/SG26-014',
 };
+/** Sample values for the alumni hub's message (052). */
+const SGAA_SAMPLE = { ...SAMPLE, from_name: 'Alex Alum', from_kind: 'an alum', need: 'Carbon fiber prepreg', what: 'Carbon fiber prepreg',
+  details: 'Happy to help with layups.' };
 
 const STATUS_TONE = { sent: 'tone-green', pending: 'tone-amber', sending: 'tone-blue', failed: 'tone-red', cancelled: 'tone-gray' };
 
@@ -292,16 +295,20 @@ export async function renderNotifications(el, { config, rerender, reloadConfig }
 
   // One heading row per app: Orders' request events, then Sponsors, then Solar Evals.
   const appOfEvent = (ev) => ev.app || 'Orders';
+  // Events from a later database update (e.g. SGAA, 052) appear once it's run.
+  const events = EVENTS.filter((ev) => !ev.schema || Number(config.schemaVersion) >= ev.schema);
   const eventRows = () =>
-    EVENTS.map((ev, i) => {
-      const on = state.events[ev.key] || {};
-      const heading = i === 0 || appOfEvent(EVENTS[i - 1]) !== appOfEvent(ev)
+    events.map((ev, i) => {
+      // An email-only event (SGAA messages) is on unless turned off, like the database treats it.
+      const on = ev.emailOnly ? { email: state.events[ev.key]?.email !== false } : state.events[ev.key] || {};
+      const heading = i === 0 || appOfEvent(events[i - 1]) !== appOfEvent(ev)
         ? `<tr class="group-row"><th colspan="4" scope="colgroup">${esc(appOfEvent(ev))}</th></tr>` : '';
       const t = state.templates[ev.key] || {};
       return `${heading}<tr data-ev="${ev.key}">
         <td class="cell-primary" data-label=""><strong>${esc(ev.label)}</strong><div class="muted small">${esc(ev.who)}</div></td>
         <td class="center" data-label="Email"><input type="checkbox" data-ch="email" aria-label="Email for ${esc(ev.label)}" ${on.email ? 'checked' : ''}></td>
-        <td class="center" data-label="Teams"><input type="checkbox" data-ch="teams" aria-label="Teams for ${esc(ev.label)}" ${on.teams ? 'checked' : ''}></td>
+        <td class="center" data-label="Teams">${ev.emailOnly ? '<span class="muted small" title="Email only: replies go to the alum">—</span>'
+          : `<input type="checkbox" data-ch="teams" aria-label="Teams for ${esc(ev.label)}" ${on.teams ? 'checked' : ''}>`}</td>
         <td data-label=""><button type="button" class="btn btn-sm" data-edit>${editing === ev.key ? 'Done' : 'Edit message'}</button></td>
       </tr>
       ${
@@ -319,9 +326,11 @@ export async function renderNotifications(el, { config, rerender, reloadConfig }
     }).join('');
 
   function preview(t) {
-    return `<strong>${esc(fill(t.subject, SAMPLE).split('\n')[0] || '(no subject)')}</strong>
-      ${fill(t.body, SAMPLE).split('\n').filter(Boolean).map((l) => `<p>${esc(l)}</p>`).join('')}
-      <span class="btn btn-sm btn-primary" aria-hidden="true">Open SG26-014</span>`;
+    const sgaa = editing === 'sgaa_message';
+    const sample = sgaa ? SGAA_SAMPLE : SAMPLE;
+    return `<strong>${esc(fill(t.subject, sample).split('\n')[0] || '(no subject)')}</strong>
+      ${fill(t.body, sample).split('\n').filter(Boolean).map((l) => `<p>${esc(l)}</p>`).join('')}
+      <span class="btn btn-sm btn-primary" aria-hidden="true">${sgaa ? 'See your alumni messages' : 'Open SG26-014'}</span>`;
   }
 
   const logTable = () => {

@@ -28,6 +28,8 @@ export const EVENTS = [
   { key: 'sponsor_update', app: 'Sponsors', label: 'Sponsor card updated', who: 'People watching the card (Sponsors board)' },
   { key: 'project_update', app: 'Projects', label: 'Project updates', who: "Whoever is given an item, mentioned, asked to approve or reminded of a deadline, plus (if they chose it in Projects → Inbox) people on an item that changes. Projects' own inbox always works" },
   { key: 'eval_update', app: 'Solar Evals', label: 'Evaluation updates', who: 'The CE when a member submits a self-eval; the member when their meeting is scheduled and when their eval is shared' },
+  { key: 'sgaa_message', app: 'Alumni hub (SGAA)', label: 'Message from an alum', emailOnly: true, schema: 52,
+    who: 'The contact an alum (or teammate) writes to on the alumni hub. Replying answers the alum directly. Every message is also kept on the hub (Messages)' },
 ];
 export const PLACEHOLDERS = [
   ['request_number', 'e.g. SG26-014'],
@@ -53,6 +55,9 @@ export const PLACEHOLDERS = [
   ['details', 'Solar Evals: the full sentence, e.g. "Elle CE scheduled your eval meeting for …"'],
   ['member', 'Solar Evals: the member being evaluated'],
   ['semester', 'Solar Evals: the semester'],
+  ['from_name', 'Alumni hub: who wrote the message'],
+  ['from_kind', 'Alumni hub: "an alum" or "the team"'],
+  ['need', 'Alumni hub: the need it\'s about (if any)'],
 ];
 
 export const workflowSettings = (config) => ({

@@ -236,6 +236,7 @@ Nothing is sent until an Admin turns it on in **Admin → one.solar → Notifica
 4. **Turn "Verify JWT" off** for this function (its details page). The function checks callers itself (S-7): only someone signed in who is on the team, or the scheduled job with `CRON_SECRET`, can make it send; everything else gets 401. With "Verify JWT" on, the scheduled job can't call it. Deploy the new code **before** turning it off.
 5. To update it later, open the function → **Code**, paste the new file, and deploy again.
    **After migration 015 (Sponsors board), redeploy it once.** Older versions send "Sponsor card updated" messages with blanks like {sponsor} in them.
+   **After migration 052 (alumni hub), redeploy it once.** Older versions send alumni messages without the Reply-To, so a contact's reply would go to the team's sending address instead of the alum.
 
 (With the Supabase CLI instead: `supabase functions deploy send-notifications`.)
 
@@ -263,6 +264,7 @@ The flow runs under the UF account of whoever builds it, so build it with a lead
    - To: `triggerBody()?['recipient']` · Subject: `triggerBody()?['subject']`
    - Body: switch the editor to code view (`</>`) and use `triggerBody()?['html']`
    - The emails then come from the flow owner's UF mailbox. If the team has a shared mailbox, use **Send an email from a shared mailbox** instead.
+   - Under **Show advanced options**, set **Reply To** to `triggerBody()?['replyTo']`. It's empty for everything except alumni hub messages, where it's the alum's address, so a contact's reply goes to them.
 6. **Save**, open the trigger again, and copy its URL.
 7. Supabase → **Edge Functions → Secrets**, add `FLOW_URL` = that URL. Treat it like a password: anyone with it can make the bot post.
 
@@ -274,7 +276,7 @@ If UF's tenant doesn't offer the trigger, or says it needs a premium license, po
 1. **Admin → one.solar → Notifications**: tick **Send notifications**, check the website address, choose email / Teams per event, and **Save**.
 2. Click **Send me a test email** and **Send me a test Teams message**. Setup problems (missing secret, wrong password, flow error) show right there and in **Recent messages**.
 
-3. **Schedule the sender (recommended):** "Needs your approval" messages wait (30 minutes by default, Admin → one.solar → Notifications) so a CE approving their own order doesn't notify the others; the schedule is what sends the ones still waiting, and it retries failed messages.
+3. **Schedule the sender (recommended; needed for the alumni hub):** "Needs your approval" messages wait (30 minutes by default, Admin → one.solar → Notifications) so a CE approving their own order doesn't notify the others; the schedule is what sends the ones still waiting, and it retries failed messages. Alumni can't start the sender themselves (only team members can), so their messages to contacts go out on this schedule, within 5 minutes.
    1. Supabase → **Integrations**: turn on **pg_cron** and **pg_net**.
    2. Make a long random secret (`openssl rand -hex 32`) and add it as **CRON_SECRET** in Edge Functions → Secrets.
    3. Open [`supabase/ops/cron_send_notifications.sql`](../supabase/ops/cron_send_notifications.sql), put the same secret where it says, run it in the SQL Editor, and clear it from the editor. The secret is stored in Supabase Vault, not in the schedule or the repo.

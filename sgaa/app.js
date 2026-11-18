@@ -73,6 +73,7 @@ async function renderTop() {
     onSignOut: async () => { await sb.auth.signOut(); location.hash = '#/'; location.reload(); },
   });
   $('#nav-manage').hidden = !canManage();
+  $('#nav-messages').hidden = !insider();
   const title = settings().title || 'Solar Gators Alumni';
   $('#brand-app').textContent = 'Alumni';
   document.title = `${title} · one.solar`;
@@ -92,6 +93,7 @@ const ROUTES = {
   events: renderEvents,
   contact: renderContact,
   join: renderJoin,
+  messages: renderMessages,
   manage: renderManage,
 };
 
@@ -392,7 +394,7 @@ async function renderContact(_, params) {
           <select id="c-to" name="to" required>${hub.contacts.map((c) => `<option value="${c.id}"${c.id === to ? ' selected' : ''}>${esc(c.title)}${c.name ? ` (${esc(c.name)})` : ''}</option>`).join('')}</select></div>
         ${need ? `<div class="field"><label>About</label><div class="readonly">${esc(need.title)}</div></div>` : ''}
         <div class="field"><label for="c-subject">Subject</label>
-          <input id="c-subject" name="subject" maxlength="150" value="${esc(need ? `About: ${need.title}` : '')}" placeholder="What it's about"></div>
+          <input id="c-subject" name="subject" maxlength="150" value="${esc(need ? need.title : '')}" placeholder="What it's about"></div>
         <div class="field"><label for="c-body">Message <span class="req">*</span></label>
           <textarea id="c-body" name="body" rows="7" maxlength="5000" required placeholder="How you'd like to help, or what you'd like to know"></textarea></div>
         <div class="alert alert-error form-error" hidden></div>
@@ -405,8 +407,54 @@ async function renderContact(_, params) {
 async function sendContact(form) {
   const f = new FormData(form);
   await rpc('sgaa_send_message', { p_contact: f.get('to') || null, p_need: f.get('need') || null, p_subject: f.get('subject') || '', p_body: f.get('body') || '' });
-  say('success', 'Sent. They\'ll reply to your email.');
+  // The scheduled job emails it within a few minutes. Someone on the team may also start the sender right away
+  // (send-notifications only answers team members and the schedule).
+  if (hub.viewer === 'team' && !FAKE) sb.functions?.invoke('send-notifications', { body: {} }).catch(() => {});
+  say('success', 'Sent. It reaches their inbox within a few minutes, and they\'ll reply to your email. It\'s also under Messages.');
   location.hash = f.get('need') ? `#/need/${f.get('need')}` : '#/help';
+}
+
+// ---- messages ----------------------------------------------------------------------------------------
+// Everything sent through the contact form is kept: you see what you sent and what was sent to you; people
+// with "Read alumni messages" (sgaa.messages) see all of them, so nothing gets lost when a contact moves on.
+async function renderMessages(_, params) {
+  if (!user) {
+    location.href = signInUrl(location.pathname + '#/messages');
+    return '';
+  }
+  if (!insider()) return viewerNote() || '<div class="empty">Messages are for alumni and the team.</div>';
+  const show = params.get('show') || 'mine';
+  const all = await rows(sb.from('sgaa_messages').select('*').order('created_at', { ascending: false }).limit(500));
+  const mine = (m) => m.from_id === user.id || m.to_id === user.id;
+  const list = all.filter((m) => (show === 'all' && hub.canMessages ? true : show === 'to' ? m.to_id === user.id : show === 'sent' ? m.from_id === user.id : mine(m)));
+  const count = (fn) => all.filter(fn).length;
+  const chip = (key, label, n) => `<a class="chip${show === key ? ' on' : ''}" href="#/messages${key === 'mine' ? '' : `?show=${key}`}">${esc(label)}${n != null ? ` (${n})` : ''}</a>`;
+  return `<div class="page-head"><div><h1>Messages</h1>
+    <p class="muted">What was sent through the alumni hub's contact form. Replies happen by email, straight between the two of you.</p></div>
+    ${hub.contacts.length ? '<a class="btn btn-primary" href="#/contact">New message</a>' : ''}</div>
+  <div class="filter-chips" role="group" aria-label="Show">
+    ${chip('mine', 'Mine', count(mine))}${chip('to', 'To me', count((m) => m.to_id === user.id))}${chip('sent', 'Sent', count((m) => m.from_id === user.id))}
+    ${hub.canMessages ? chip('all', 'Everyone\'s', all.length) : ''}
+  </div>
+  ${list.length ? `<div class="stack">${list.map(messageCard).join('')}</div>`
+    : `<div class="empty">${show === 'to' ? 'Nobody has written to you yet.' : 'No messages here yet.'}</div>`}`;
+}
+
+function messageCard(m) {
+  const toMe = m.to_id === user.id;
+  const fromMe = m.from_id === user.id;
+  const reply = `mailto:${encodeURIComponent(m.from_email)}?subject=${encodeURIComponent(`Re: ${m.subject}`)}`;
+  return `<article class="card message">
+    <div class="message-head">
+      <div><b>${esc(fromMe ? 'You' : m.from_name)}</b> <span class="muted">→</span> <b>${esc(toMe ? 'you' : m.to_name)}</b>
+        <div class="muted small">${esc(new Date(m.created_at).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }))}${m.need_title
+          ? ` · About ${m.need_id ? `<a href="#/need/${m.need_id}">${esc(m.need_title)}</a>` : esc(m.need_title)}` : ''}</div></div>
+      ${m.emailed ? '' : '<span class="tag" title="Email was off when it was sent, so it\'s only here">Not emailed</span>'}
+    </div>
+    <h3>${esc(m.subject)}</h3>
+    <div class="prose message-body">${esc(m.body).replace(/\n/g, '<br>')}</div>
+    ${!fromMe && m.from_email ? `<div class="form-actions"><a class="btn btn-sm" href="${esc(reply)}">Reply by email</a></div>` : ''}
+  </article>`;
 }
 
 // ---- joining as an alum --------------------------------------------------------------------------

@@ -47,9 +47,16 @@ select public.record_permissions_snapshot();
 
 -- Emails to contacts use the existing outbox as the event "sgaa_message". On by default once email is set up:
 -- an alum who writes expects it to arrive. (The message is in SGAA → Messages either way.)
+-- Its wording is editable in Admin → Notifications like the others; replies go to the alum (Reply-To).
 update public.app_settings
 set value = jsonb_set(value, '{events,sgaa_message}', '{"email": true, "teams": false}'::jsonb, true)
 where key = 'notifications' and jsonb_typeof(value -> 'events') = 'object' and not (value -> 'events') ? 'sgaa_message';
+update public.app_settings
+set value = jsonb_set(value, '{templates,sgaa_message}', jsonb_build_object(
+  'subject', 'Alumni hub: {what}',
+  'body', 'Hi {first_name}, {from_name} ({from_kind}) sent you a message on the alumni hub.' || chr(10) || 'About: {need}' || chr(10)
+          || '{details}' || chr(10) || 'Reply to this email to answer {from_name} directly.'), true)
+where key = 'notifications' and jsonb_typeof(value -> 'templates') = 'object' and not (value -> 'templates') ? 'sgaa_message';
 
 -- The hub's own words (Manage → Pages). Read through sgaa_hub(); written with sgaa_save_settings().
 insert into public.app_settings (key, value) values ('sgaa', jsonb_build_object(
@@ -625,7 +632,7 @@ begin
   insert into sgaa_messages (from_id, from_name, from_email, contact_id, to_id, to_name, need_id, need_title, subject, body)
   values (v_me.id, coalesce(nullif(v_me.full_name, ''), v_me.email), v_me.email, v_contact.id, v_to.id, v_to.full_name,
           v_need.id, coalesce(v_need.title, ''),
-          coalesce(nullif(sgaa_text(p_subject, 150), ''), coalesce('About: ' || v_need.title, 'A message from an alum')),
+          coalesce(nullif(sgaa_text(p_subject, 150), ''), nullif(v_need.title, ''), 'A message from an alum'),
           trim(p_body))
   returning id into v_id;
 

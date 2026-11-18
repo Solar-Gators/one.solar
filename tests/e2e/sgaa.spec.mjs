@@ -75,6 +75,16 @@ test('the alumni hub: publish, see it signed out, RSVP and contact', async ({ pa
   const sent = await page.evaluate(() => window.fakeSql(`select to_name, body from sgaa_messages`));
   expect(sent).toEqual([{ to_name: EDITOR.name, body: 'Happy to help with layups.' }]);
 
+  // Messages: the sender sees what they sent; the contact sees it with "Reply by email" to the sender.
+  await open(page, '/sgaa/?fake#/messages', '.message');
+  await expect(page.locator('.message')).toContainText(`You → ${EDITOR.name}`);
+  await expect(page.locator('.message')).toContainText('Happy to help with layups.');
+  await expect(page.locator('.message a', { hasText: 'Reply by email' })).toHaveCount(0);
+  await signIn(page, EDITOR);
+  await open(page, '/sgaa/?fake#/messages', '.message');
+  await expect(page.locator('.message')).toContainText(`${MEMBER.name} → you`);
+  await expect(page.locator('.message a', { hasText: 'Reply by email' })).toHaveAttribute('href', /^mailto:sgaa-member%40ufl\.edu\?subject=Re%3A/);
+
   expect(problems).toEqual([]);
 });
 

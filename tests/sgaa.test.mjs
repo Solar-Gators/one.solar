@@ -337,12 +337,17 @@ await test('an alum messages a contact: logged, emailed with reply-to the alum, 
   await as(senior, () => rejects(call('sgaa_send_message', contact, null, 'Hi', '   '), /Write a message/));
   const id = await by(senior, 'sgaa_send_message', null, cells, '', 'I can get cells at cost.');
   const msg = await one(`select * from sgaa_messages where id = $1`, [id]);
-  assert.deepEqual([msg.to_id, msg.need_title, msg.subject, msg.emailed], [coord, 'Battery cells', 'About: Battery cells', true],
+  assert.deepEqual([msg.to_id, msg.need_title, msg.subject, msg.emailed], [coord, 'Battery cells', 'Battery cells', true],
     'with no contact chosen, it goes to the need\'s contact');
   const out = await one(`select * from notification_outbox where event = 'sgaa_message' order by id desc limit 1`);
   assert.equal(out.email, 'sg-coord@ufl.edu');
   assert.equal(out.payload.reply_to, 'sam.senior@gmail.com');
   assert.equal(out.payload.from_kind, 'an alum');
+  // Admin → Notifications lists it with an editable message, like the other events.
+  const notif = (await one(`select value from app_settings where key = 'notifications'`)).value;
+  assert.deepEqual(notif.events.sgaa_message, { email: true, teams: false });
+  assert.equal(notif.templates.sgaa_message.subject, 'Alumni hub: {what}');
+  assert.match(notif.templates.sgaa_message.body, /\{details\}\nReply to this email/);
 
   assert.equal((await rowsAs(senior, `select * from sgaa_messages`)).length, 1, 'the sender');
   assert.equal((await rowsAs(coord, `select * from sgaa_messages`)).length, 1, 'the recipient');
