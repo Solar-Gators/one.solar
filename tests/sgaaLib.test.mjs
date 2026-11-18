@@ -4,7 +4,7 @@
  *   node tests/sgaaLib.test.mjs
  */
 import assert from 'node:assert/strict';
-import { esc, formatText, money, ago, splitEvents, spotsLeft, fileSlug, toLocalInput, fromLocalInput, isSchoolEmail, joinProblems } from '../sgaa/lib.js';
+import { esc, formatText, money, ago, splitEvents, spotsLeft, fileSlug, toLocalInput, fromLocalInput, isSchoolEmail, joinProblems, linkedinHref, initials, directoryMatch, PROFILE_FIELDS, VISIBILITY } from '../sgaa/lib.js';
 import { isSafeNext } from '../shared/safe-next.js';
 
 let passed = 0;
@@ -120,6 +120,30 @@ test('after signing in, only pages on this site (with an app page after #) are g
   for (const bad of ['//evil.example', 'https://evil.example/', '/\\evil.example', 'javascript:alert(1)', '/sgaa/#/x"onload', '/a b', '', null, '/sgaa/?x=1']) {
     assert.ok(!isSafeNext(bad), String(bad));
   }
+});
+
+test('directory search: every word has to match somewhere on the card', () => {
+  const p = { full_name: 'Sam Senior', grad_year: 2019, employer: 'Tesla', city: 'Austin, TX', team_roles: 'Battery lead', major: '', bio: '' };
+  assert.ok(directoryMatch(p, ''));
+  assert.ok(directoryMatch(p, 'tesla austin'));
+  assert.ok(directoryMatch(p, '2019 BATTERY'));
+  assert.ok(directoryMatch(p, 'sam'));
+  assert.ok(!directoryMatch(p, 'tesla denver'));
+  assert.ok(!directoryMatch({ full_name: 'A', grad_year: null }, 'null'));
+});
+
+test('directory: initials, safe LinkedIn links, and every card field has a privacy setting', () => {
+  assert.equal(initials('Jane Q. Doe'), 'JD');
+  assert.equal(initials('cher'), 'C');
+  assert.equal(initials(''), '?');
+  assert.equal(linkedinHref('https://www.linkedin.com/in/sam'), 'https://www.linkedin.com/in/sam');
+  assert.equal(linkedinHref('https://linkedin.com/in/sam'), 'https://linkedin.com/in/sam');
+  for (const bad of ['javascript:alert(1)', 'http://linkedin.com/in/x', 'https://linkedin.com.evil.example/', 'https://evil.example/linkedin.com/', '']) {
+    assert.equal(linkedinHref(bad), '', bad);
+  }
+  const keys = PROFILE_FIELDS.map((f) => f.key);
+  assert.deepEqual([...keys, 'email'].sort(), ['bio', 'city', 'email', 'employer', 'job_title', 'linkedin', 'major', 'mentor_topics', 'team_roles']);
+  assert.deepEqual(Object.keys(VISIBILITY), ['all', 'team', 'hidden']);
 });
 
 console.log(`\n${passed} passed`);

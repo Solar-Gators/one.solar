@@ -166,3 +166,23 @@ hr { border: 0; border-top: 1px solid var(--border); margin: 14px 0; }
 .two-col aside .contact { grid-template-columns: 40px minmax(0, 1fr); }
 .two-col aside .contact > .btn { grid-column: 2; justify-self: start; }
 .help-side > .block:first-child { margin-top: 0; }
+
+/* The alumni directory */
+.directory-tools { display: flex; align-items: center; gap: 10px 16px; flex-wrap: wrap; margin-bottom: 16px; }
+.directory-tools input[type=search] { flex: 1 1 280px; max-width: 460px; }
+.directory-tools label.check { margin: 0; font-weight: 600; }
+.people-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; align-items: start; }
+.person p { margin: 6px 0 0; overflow-wrap: anywhere; }
+.person-head { display: flex; gap: 12px; align-items: center; }
+.person-head h3 { margin: 0; }
+.avatar { flex: none; width: 42px; height: 42px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  background: var(--navy); color: var(--surface); font-weight: 800; font-size: 15px; }
+.person-job { font-weight: 600; }
+.person-bio { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; white-space: pre-line; }
+.person-links { display: flex; gap: 14px; margin-top: 10px; font-weight: 600; font-size: 14px; }
+.profile-row { display: grid; grid-template-columns: minmax(0, 1fr) 200px; gap: 8px 14px; align-items: start; }
+.profile-row .field { margin: 0; }
+@media (max-width: 640px) {
+  .profile-row { grid-template-columns: 1fr; }
+  .profile-row + .profile-row { border-top: 1px solid var(--border); padding-top: 12px; }
+}

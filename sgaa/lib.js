@@ -129,3 +129,41 @@ export function fileSlug(name) {
   const base = (m?.[1] || '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'photo';
   return base + (m?.[2] || '.jpg');
 }
+
+// ---- the alumni directory --------------------------------------------------------------------------
+/** Who sees a directory field (sgaa_alumni.visibility). Name and class year always show to alumni and the team. */
+export const VISIBILITY = { all: 'Alumni and the team', team: 'Only the current team', hidden: 'Only me' };
+
+/** The fields on a directory card: form name, database / visibility key, label. */
+export const PROFILE_FIELDS = [
+  { name: 'jobTitle', key: 'job_title', label: 'Job title', max: 120, placeholder: 'Powertrain engineer' },
+  { name: 'employer', key: 'employer', label: 'Employer', max: 120, placeholder: 'Tesla' },
+  { name: 'city', key: 'city', label: 'City', max: 80, placeholder: 'Austin, TX' },
+  { name: 'major', key: 'major', label: 'Major', max: 80, placeholder: 'Electrical Engineering' },
+  { name: 'teamRoles', key: 'team_roles', label: 'What you did on the team', max: 200, placeholder: 'Battery lead 2021–22, driver at FSGP' },
+  { name: 'mentorTopics', key: 'mentor_topics', label: 'Happy to talk about', max: 300, placeholder: 'Battery design, interviewing at automotive companies' },
+  { name: 'linkedin', key: 'linkedin', label: 'LinkedIn', max: 200, placeholder: 'https://www.linkedin.com/in/…', type: 'url' },
+  { name: 'bio', key: 'bio', label: 'About you', max: 1000, textarea: true },
+];
+
+/** A LinkedIn link that's safe to put in an href ('' otherwise). */
+export const linkedinHref = (url) => (/^https:\/\/([a-z]+\.)?linkedin\.com\/\S*$/i.test(String(url || '').trim()) ? String(url).trim() : '');
+
+/** "Jane Q. Doe" → "JD". */
+export function initials(name) {
+  const words = String(name || '').trim().split(/\s+/).filter(Boolean);
+  if (!words.length) return '?';
+  return ((words[0][0] || '') + (words.length > 1 ? words[words.length - 1][0] : '')).toUpperCase();
+}
+
+/** Everything searchable on a directory row (sgaa_directory()), lowercased. */
+export const directoryText = (p) => [p.full_name, p.grad_year, p.major, p.employer, p.job_title, p.city, p.team_roles, p.mentor_topics, p.bio]
+  .filter((v) => v != null && v !== '').join(' ').toLowerCase();
+
+/** Does a directory row match a search? Every word has to appear somewhere ("tesla austin", "2019 battery"). */
+export function directoryMatch(p, query) {
+  const words = String(query || '').toLowerCase().split(/\s+/).filter(Boolean);
+  if (!words.length) return true;
+  const text = directoryText(p);
+  return words.every((w) => text.includes(w));
+}

@@ -160,5 +160,45 @@ test('alumni accounts: join with any email, approval, Graduated, switching email
   await open(page, '/orders/', '#app h1');
   await expect(page.locator('#app h1')).toHaveText('Welcome back, Alex!');
 
+  // The directory: Alex fills in their card, with the city for the current team only.
+  await open(page, '/sgaa/?fake#/directory', '.people-grid');
+  await expect(page.locator('main .alert-info')).toContainText('Your card only shows your name and class');
+  await page.click('text=Edit my card');
+  await page.fill('#p-jobTitle', 'Strategy consultant');
+  await page.fill('#p-employer', 'Acme Motors');
+  await page.fill('#p-city', 'Denver, CO');
+  await page.selectOption('#v-city', 'team');
+  await page.fill('#p-mentorTopics', 'Race strategy');
+  await page.fill('#p-linkedin', 'http://example.com/me');
+  await page.click('form[data-form="profile"] [type=submit]');
+  await expect(page.locator('.form-error')).toContainText('linkedin.com');
+  await page.fill('#p-linkedin', 'https://www.linkedin.com/in/alex-alum');
+  await page.click('form[data-form="profile"] [type=submit]');
+  await expect(page.locator('.alert-success')).toContainText('Your card is saved');
+  const alex = page.locator('.person', { hasText: ALUM.name });
+  await expect(alex).toContainText('Strategy consultant at Acme Motors');
+  await expect(alex).toContainText('Denver, CO');   // your own card shows everything
+  await expect(alex.locator('a', { hasText: 'LinkedIn' })).toHaveAttribute('href', 'https://www.linkedin.com/in/alex-alum');
+  await expect(alex).toContainText('Others see only what you chose');
+
+  // Another alum doesn't see the team-only city; the team does. Search and "Happy to talk" narrow the list.
+  await signIn(page, { ...GRAD, email: 'gina.grad@gmail.com' });
+  await open(page, '/sgaa/?fake#/directory', '.people-grid');
+  await expect(page.locator('.person')).toHaveCount(2);
+  await expect(page.locator('.person', { hasText: ALUM.name })).not.toContainText('Denver');
+  await expect(page.locator('.person', { hasText: ALUM.name }).locator('a', { hasText: 'Email' })).toHaveCount(0);   // email is "Only me" unless they choose
+  await page.check('#d-mentors');
+  await expect(page.locator('.person:visible')).toHaveCount(1);
+  await expect(page.locator('#d-count')).toHaveText('1 of 2');
+  await page.uncheck('#d-mentors');
+  await page.fill('#d-q', 'acme 2019');
+  await expect(page.locator('.person:visible')).toHaveText([/Alex Alum/]);
+  await page.fill('#d-q', 'nobody-like-this');
+  await expect(page.locator('#d-none')).toBeVisible();
+  await signIn(page, CHIEF);
+  await open(page, '/sgaa/?fake#/directory', '.people-grid');
+  await expect(page.locator('.person', { hasText: ALUM.name })).toContainText('Denver, CO');
+  await expect(page.locator('main .alert-info')).toContainText('once you graduate');
+
   expect(problems).toEqual([]);
 });

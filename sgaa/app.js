@@ -12,7 +12,8 @@ import { renderAccount } from '../shared/account-menu.js';
 import { mountAppSwitcher } from '../shared/app-switcher.js';
 import { startErrorReporter } from '../shared/error-reporter.js';
 import { startVersionCheck } from '../shared/version-check.js';
-import { esc, formatText, money, when, ago, toLocalInput, fromLocalInput, splitEvents, spotsLeft, KINDS, URGENCY, fileSlug, isSchoolEmail, joinProblems } from './lib.js';
+import { esc, formatText, money, when, ago, toLocalInput, fromLocalInput, splitEvents, spotsLeft, KINDS, URGENCY, fileSlug, isSchoolEmail, joinProblems,
+  VISIBILITY, PROFILE_FIELDS, linkedinHref, initials, directoryMatch } from './lib.js';
 
 const FAKE = ['localhost', '127.0.0.1'].includes(location.hostname) && new URLSearchParams(location.search).has('fake');
 const sb = FAKE ? (await import('../tools/fake-supabase.js')).supabase : createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -69,11 +70,12 @@ async function renderTop() {
   }
   renderAccount($('#account'), {
     user, name, role,
-    links: canManage() ? [{ label: 'Manage SGAA', href: '#/manage' }] : [],
+    links: [...(mayHaveCard() ? [{ label: 'My directory card', href: '#/profile' }] : []), ...(canManage() ? [{ label: 'Manage SGAA', href: '#/manage' }] : [])],
     onSignOut: async () => { await sb.auth.signOut(); location.hash = '#/'; location.reload(); },
   });
   $('#nav-manage').hidden = !canManage();
   $('#nav-messages').hidden = !insider();
+  $('#nav-directory').hidden = !insider();
   const title = settings().title || 'Solar Gators Alumni';
   $('#brand-app').textContent = 'Alumni';
   document.title = `${title} · one.solar`;
@@ -94,6 +96,8 @@ const ROUTES = {
   contact: renderContact,
   join: renderJoin,
   messages: renderMessages,
+  directory: renderDirectory,
+  profile: renderProfile,
   manage: renderManage,
 };
 
@@ -101,10 +105,12 @@ async function route() {
   const [section = '', ...rest] = location.hash.replace(/^#\/?/, '').split('?')[0].split('/').filter(Boolean);
   const params = new URLSearchParams(location.hash.split('?')[1] || '');
   const page = ROUTES[section] || renderNotFound;
-  setActiveNav(section === 'need' ? 'needs' : section);
+  setActiveNav(section === 'need' ? 'needs' : section === 'profile' ? 'directory' : section);
+  directoryRows = [];
   try {
     const html = await page(rest, params);
     if (html !== undefined) main.innerHTML = flashHTML() + emailBanner() + html;
+    if (section === 'directory') filterDirectory();
   } catch (err) {
     main.innerHTML = `<div class="alert alert-error">${esc(err.message)}</div>`;
   }
@@ -455,6 +461,133 @@ function messageCard(m) {
     <div class="prose message-body">${esc(m.body).replace(/\n/g, '<br>')}</div>
     ${!fromMe && m.from_email ? `<div class="form-actions"><a class="btn btn-sm" href="${esc(reply)}">Reply by email</a></div>` : ''}
   </article>`;
+}
+
+// ---- the alumni directory ------------------------------------------------------------------------
+// Alumni and the team see listed alums (sgaa_directory() blanks each field its owner keeps from them). Anyone
+// in the hub can fill in their own card: team members' cards wait until they graduate; people waiting for
+// approval can fill theirs in early.
+const mayHaveCard = () => insider() || hub?.viewer === 'pending';
+let directoryRows = [];   // the rows behind the cards on the directory page, for search
+
+async function renderDirectory(_, params) {
+  if (!user) {
+    location.href = signInUrl(location.pathname + '#/directory');
+    return '';
+  }
+  if (!insider()) return viewerNote() || '<div class="empty">The directory is for alumni and the team.</div>';
+  const [people, me] = await Promise.all([rpc('sgaa_directory'), rpc('sgaa_my_profile')]);
+  const q = params.get('q') || '';
+  const mentors = params.has('mentors');
+  let note = '';
+  if (hub.viewer === 'team') note = '<div class="alert alert-info">Your own card shows up here once you graduate. You can <a href="#/profile">fill it in now</a>.</div>';
+  else if (!me.listed) note = '<div class="alert alert-info">You\'re hidden from the directory. <a href="#/profile">Edit my card</a> to show up.</div>';
+  else if (!me.employer && !me.jobTitle && !me.city && !me.mentorTopics && !me.bio) {
+    note = '<div class="alert alert-info">Your card only shows your name and class. <a href="#/profile">Add where you work, where you live and what you\'re happy to talk about</a> so other alumni and the team can find you.</div>';
+  }
+  return `<div class="page-head"><div><h1>Alumni directory</h1>
+      <p class="muted">Solar Gators alumni, for alumni and the team. Everyone chooses what's on their card and who sees it.</p></div>
+    <a class="btn" href="#/profile">Edit my card</a></div>
+  ${note}
+  ${people.length ? `<div class="directory-tools">
+    <input id="d-q" type="search" placeholder="Search names, employers, cities, years…" aria-label="Search the directory" value="${esc(q)}" autocomplete="off">
+    <label class="check"><input type="checkbox" id="d-mentors"${mentors ? ' checked' : ''}> Happy to talk</label>
+    <span class="muted small" id="d-count"></span>
+  </div>
+  <div class="people-grid" id="d-list">${people.map(personCard).join('')}</div>
+  <div class="empty" id="d-none" hidden>Nobody matches that search.</div>`
+    : '<div class="empty">No alumni are listed yet.</div>'}`;
+}
+
+function personCard(p) {
+  directoryRows.push(p);
+  const job = [p.job_title, p.employer].filter(Boolean).join(' at ');
+  const sub = [p.grad_year ? `Class of ${p.grad_year}` : '', p.major].filter(Boolean).join(' · ');
+  const li = linkedinHref(p.linkedin);
+  const links = [li ? `<a href="${esc(li)}" target="_blank" rel="noopener noreferrer">LinkedIn</a>` : '',
+    p.email ? `<a href="mailto:${esc(p.email)}">Email</a>` : ''].filter(Boolean).join('');
+  return `<article class="card person" data-i="${directoryRows.length - 1}">
+    <div class="person-head"><div class="avatar" aria-hidden="true">${esc(initials(p.full_name))}</div>
+      <div><h3>${esc(p.full_name)}${p.me ? ' <span class="tag">You</span>' : ''}</h3>${sub ? `<div class="muted small">${esc(sub)}</div>` : ''}</div></div>
+    ${job || p.city ? `<p class="person-job">${esc(job)}${job && p.city ? ' · ' : ''}${p.city ? `<span class="muted">${esc(p.city)}</span>` : ''}</p>` : ''}
+    ${p.team_roles ? `<p class="small"><span class="muted">On the team:</span> ${esc(p.team_roles)}</p>` : ''}
+    ${p.mentor_topics ? `<p class="small"><span class="muted">Happy to talk about:</span> ${esc(p.mentor_topics)}</p>` : ''}
+    ${p.bio ? `<p class="small person-bio">${esc(p.bio)}</p>` : ''}
+    ${links ? `<div class="person-links">${links}</div>` : ''}
+    ${p.me ? '<p class="hint">You see everything on your card. Others see only what you chose to show them.</p>' : ''}
+  </article>`;
+}
+
+/** Search as you type: hide the cards that don't match, and keep the search in the address (Back keeps it). */
+function filterDirectory() {
+  const list = $('#d-list');
+  const box = $('#d-q');
+  if (!list || !box) return;
+  const q = box.value;
+  const mentors = $('#d-mentors').checked;
+  let shown = 0;
+  for (const el of list.children) {
+    const p = directoryRows[el.dataset.i];
+    const ok = directoryMatch(p, q) && (!mentors || !!p.mentor_topics);
+    el.hidden = !ok;
+    if (ok) shown++;
+  }
+  $('#d-none').hidden = shown > 0;
+  $('#d-count').textContent = shown === list.children.length ? `${shown} alumni` : `${shown} of ${list.children.length}`;
+  const parts = [];
+  if (q.trim()) parts.push(`q=${encodeURIComponent(q.trim())}`);
+  if (mentors) parts.push('mentors');
+  const hash = `#/directory${parts.length ? `?${parts.join('&')}` : ''}`;
+  if (location.hash !== hash) history.replaceState(null, '', hash);
+}
+
+async function renderProfile() {
+  if (!user) {
+    location.href = signInUrl(location.pathname + '#/profile');
+    return '';
+  }
+  if (!mayHaveCard()) return viewerNote() || '<div class="empty">Directory cards are for alumni and the team.</div>';
+  const me = await rpc('sgaa_my_profile');
+  const vis = me.visibility || {};
+  const pick = (key, dflt = 'all') => `<select id="v-${key}" name="vis_${key}">${Object.entries(VISIBILITY)
+    .map(([k, label]) => `<option value="${k}"${(vis[key] || dflt) === k ? ' selected' : ''}>${esc(label)}</option>`).join('')}</select>`;
+  const row = (f) => `<div class="profile-row">
+      <div class="field"><label for="p-${f.name}">${esc(f.label)}</label>
+        ${f.textarea ? `<textarea id="p-${f.name}" name="${f.name}" rows="4" maxlength="${f.max}">${esc(me[f.name] || '')}</textarea>`
+          : `<input id="p-${f.name}" name="${f.name}" type="${f.type || 'text'}" maxlength="${f.max}" value="${esc(me[f.name] || '')}" placeholder="${esc(f.placeholder || '')}">`}</div>
+      <div class="field profile-vis"><label for="v-${f.key}">Who sees it</label>${pick(f.key)}</div>
+    </div>`;
+  const where = hub.viewer === 'team' ? '<div class="alert alert-info">Your card goes in the directory once you graduate. Until then, only you see it.</div>'
+    : hub.viewer === 'pending' ? '<div class="alert alert-info">Your card goes in the directory once your alumni account is approved.</div>' : '';
+  return `<a class="back-link" href="#/${hub.viewer === 'pending' ? '' : 'directory'}">← ${hub.viewer === 'pending' ? 'Alumni hub' : 'Alumni directory'}</a>
+  <div class="narrow"><form class="card stack" data-form="profile">
+    <h1>My directory card</h1>
+    <p class="muted">Your name and class year are on your card for alumni and the team. Everything else is up to you: leave a
+      field blank, or pick who sees it.</p>
+    ${where}
+    <div class="profile-row">
+      <div class="field"><label for="p-year">Graduation year</label>
+        <input id="p-year" name="gradYear" inputmode="numeric" maxlength="4" value="${esc(me.gradYear ?? '')}" placeholder="2024"></div>
+    </div>
+    ${PROFILE_FIELDS.map(row).join('')}
+    <div class="profile-row">
+      <div class="field"><label>Email</label><div class="readonly">${esc(user.email)}</div>
+        <div class="hint">Change it in <a href="${esc(accountUrl())}">My account</a>.</div></div>
+      <div class="field profile-vis"><label for="v-email">Who sees it</label>${pick('email', 'hidden')}</div>
+    </div>
+    <label class="check"><input type="checkbox" name="listed"${me.listed ? ' checked' : ''}> Show me in the alumni directory</label>
+    <div class="alert alert-error form-error" hidden></div>
+    <div class="form-actions"><button class="btn btn-primary" type="submit">Save my card</button></div>
+  </form></div>`;
+}
+
+async function saveProfile(f) {
+  const p = { gradYear: String(f.get('gradYear') || '').trim(), listed: f.get('listed') === 'on', visibility: {} };
+  if (p.gradYear && !/^\d{4}$/.test(p.gradYear)) throw new Error('Graduation year has to be a year, like 2024.');
+  for (const fld of PROFILE_FIELDS) p[fld.name] = String(f.get(fld.name) || '').trim();
+  if (p.linkedin && !linkedinHref(p.linkedin)) throw new Error('The LinkedIn link has to be a linkedin.com address, starting with https://');
+  for (const key of [...PROFILE_FIELDS.map((x) => x.key), 'email']) p.visibility[key] = f.get(`vis_${key}`) || 'all';
+  await rpc('sgaa_save_profile', { p });
 }
 
 // ---- joining as an alum --------------------------------------------------------------------------
@@ -900,6 +1033,11 @@ async function onSubmit(form) {
       case 'join-signup':
         await signUpAsAlum(form);
         return;
+      case 'profile':
+        await saveProfile(f);
+        say('success', 'Your card is saved.');
+        location.hash = hub.viewer === 'pending' ? '#/' : '#/directory';
+        return;
       case 'join-request':
         await requestAlum(Object.fromEntries(f));
         return;
@@ -1064,7 +1202,11 @@ document.addEventListener('click', (e) => {
     onAct(el);
   }
 });
+document.addEventListener('input', (e) => {
+  if (e.target.id === 'd-q') filterDirectory();
+});
 document.addEventListener('change', (e) => {
+  if (e.target.id === 'd-mentors') filterDirectory();
   if (e.target.matches('input[type=file][data-upload]')) onFile(e.target);
 });
 window.addEventListener('hashchange', route);
