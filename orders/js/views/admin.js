@@ -11,6 +11,8 @@ import { api } from '../api.js';
 import { auth } from '../auth.js';
 import { esc, fmtDate, errorBox, setFlash, takeFlash, askText } from '../ui.js';
 import { guardLeaving } from '../leaveGuard.js';
+import { SCHOOL_EMAIL } from './account.js';
+import { appUrl } from '../../../shared/onesolar.js';
 import { renderImport } from './importPage.js';
 import {
   FIELD_TYPES, LOCKED, LIST_FIELDS, CONDITION_OPS, requestFields, itemFields, typeLabel, makeKey, fieldOptions, describeCondition,
@@ -131,6 +133,8 @@ export function describeRoleChange(c, roles) {
   if (c.via === 'sign-up') return 'Signed up (Guest)';
   if (c.via === 'accept_member') return 'Accepted as Member';
   if (c.via === 'remove_person') return `Removed from the site${c.note ? `: ${c.note}` : ''}`;
+  if (c.via === 'sgaa_review_alum') return 'Approved as an alum (alumni hub)';
+  if (c.via === 'sgaa_set_alum') return 'Marked as an alum';
   const one = c.via === 'database' && /^(added|removed) (.+)$/.exec(c.note || ''); // one role row, changed outside the site
   if (one) return `${one[1] === 'added' ? 'Added' : 'Removed'} ${label(one[2])}`;
   const added = after.filter((k) => !before.includes(k) && k !== 'member' && k !== 'guest').map(label);
@@ -144,11 +148,13 @@ export function describeRoleChange(c, roles) {
 async function renderPeople(el, { rerender, config }, part) {
   const roles = auth.roles;
   const showChanges = part === 'users' && Number(config?.schemaVersion) >= 42 && auth.can('users.manage');
-  const [people, removed, problems, changes] = await Promise.all([
+  const v52 = Number(config?.schemaVersion) >= 52;
+  const [people, removed, problems, changes, alums] = await Promise.all([
     api.listProfiles(),
     part === 'users' ? api.listRemovedPeople().catch(() => []) : [],
     showChanges && !auth.hasRole('admin') ? api.roleChangeProblems(roles.filter((r) => !['member', 'guest', 'alumni'].includes(r.key)).map((r) => r.key)).catch(() => ({})) : {},
     showChanges ? api.listRoleChanges().catch(() => []) : [],
+    part === 'users' && v52 ? api.listAlumStatuses().catch(() => ({})) : {},
   ]);
   const me = auth.user.id;
   // 035: only Admins give or take the Admin role (or change an Admin), and only "Edit roles &
@@ -172,24 +178,31 @@ async function renderPeople(el, { rerender, config }, part) {
   const BUILT_IN = new Set(['member', 'ce', 'treasurer', 'admin', 'guest', 'alumni']);
   const isFormer = (p) => (p.roles || []).includes('alumni');
   const formers = people.filter(isFormer);
+  // 052: an alum is a former member who graduated: they may sign in, to the alumni hub (SGAA) only.
+  const isAlum = (p) => isFormer(p) && alums[p.id] === 'alum';
+  const askedAsAlum = (p) => alums[p.id] === 'pending';
   /** The buttons at the end of a row. */
   const actionsFor = (p) => {
     if (p.id === me || lockedRow(p) || flagOf(p)) return '';
     if (!v44) return `<button type="button" class="btn btn-sm btn-ghost danger-link" data-remove="${esc(p.id)}" title="For someone who left the team">Remove…</button>`;
     if (isFormer(p)) {
-      return `<button type="button" class="btn btn-sm" data-reactivate="${esc(p.id)}">Reactivate</button>${iAmAdmin
+      const alumButton = !v52 ? '' : isAlum(p)
+        ? `<button type="button" class="btn btn-sm btn-ghost" data-alum-off="${esc(p.id)}" title="They can't use the alumni hub any more">Not an alum</button> `
+        : `<button type="button" class="btn btn-sm" data-alum-on="${esc(p.id)}" title="They graduated: they can sign in to the alumni hub">Mark as alum</button> `;
+      return `${alumButton}<button type="button" class="btn btn-sm" data-reactivate="${esc(p.id)}">Reactivate</button>${iAmAdmin
         ? ` <button type="button" class="btn btn-sm btn-ghost danger-link" data-remove="${esc(p.id)}" data-permanent>Delete permanently…</button>` : ''}`;
     }
     if (isGuest(p)) return iAmAdmin ? `<button type="button" class="btn btn-sm btn-ghost danger-link" data-remove="${esc(p.id)}">Delete…</button>` : '';
     // Deactivating takes their roles away, so the same rule as unticking them applies (042).
     const why = (p.roles || []).map((r) => problems[r]).find(Boolean);
-    if (why) return `<button type="button" class="btn btn-sm btn-ghost" disabled title="${esc(why)}">Deactivate…</button>`;
-    return `<button type="button" class="btn btn-sm btn-ghost danger-link" data-deactivate="${esc(p.id)}" title="For someone who left the team">Deactivate…</button>`;
+    const graduate = (attrs) => (v52 ? `<button type="button" class="btn btn-sm" ${attrs}>Graduated…</button> ` : '');
+    if (why) return `${graduate(`disabled title="${esc(why)}"`)}<button type="button" class="btn btn-sm btn-ghost" disabled title="${esc(why)}">Deactivate…</button>`;
+    return `${graduate(`data-graduate="${esc(p.id)}" title="They graduated: they leave the team and become an alum"`)}<button type="button" class="btn btn-sm btn-ghost danger-link" data-deactivate="${esc(p.id)}" title="For someone who left the team">Deactivate…</button>`;
   };
   const holds = (p, key) => (p.roles || []).includes(key);
   const isGuest = (p) => (p.roles || []).length > 0 && p.roles.every((r) => r === 'guest');
   const canAccept = auth.can('people.accept');
-  const guests = people.filter(isGuest);
+  const guests = people.filter((p) => isGuest(p) && !askedAsAlum(p)); // alumni sign-ups are approved on SGAA (052)
   const count = (key) => people.filter((p) => (key === 'member' ? !p.roles.some((r) => r !== 'member') : holds(p, key))).length;
 
   const summary = `${people.length} account${people.length === 1 ? '' : 's'} · ${roles.map((r) => `${count(r.key)} ${esc(r.label)}`).join(' · ')}`;
@@ -206,7 +219,11 @@ async function renderPeople(el, { rerender, config }, part) {
       At least one person must always be able to manage people, so the site won't let the last one lose that ability.
       ${v44 ? `<br><br><strong>Deactivate</strong> is for someone who left the team: they become a <strong>Former member</strong>, lose access to
       everything (evals included) and can't sign in, and everything they did stays, with their name. <strong>Reactivate</strong> brings them back.
-      Only an Admin can delete an account for good, and only a former member's or a guest's.`
+      Only an Admin can delete an account for good, and only a former member's or a guest's.
+      ${v52 ? `<br><br><strong>Graduated</strong> is Deactivate for someone who graduated: they also become an <strong>alum</strong>, so they can
+      still sign in, to the alumni hub (SGAA) only, and are asked to switch to a personal email before UF turns theirs off.
+      <strong>Mark as alum</strong> does the same for someone already deactivated. Alumni who were never on one.solar join from the
+      hub and are approved there (Manage → Alumni).` : ''}`
       : v35 ? `<br><br><strong>Remove</strong> is for someone who left the team: their login is deleted so they can't sign in, and
       their requests, approvals and evals keep their name. If the same email signs up again, they're flagged here.` : ''}`)}
     ${flagged.length ? `<div class="alert alert-warning" role="status"><strong>${flagged.length === 1 ? '1 person who was removed has' : `${flagged.length} people who were removed have`} signed up again:</strong>
@@ -238,9 +255,12 @@ async function renderPeople(el, { rerender, config }, part) {
                     ${!v44 || iAmAdmin ? `<button type="button" class="btn btn-sm btn-danger" data-remove="${esc(p.id)}">Remove again</button>` : ''}</span></div>` : ''}</td>
                 <td data-label="Email">${esc(p.email)}</td>
                 <td class="nowrap" data-label="Joined">${fmtDate(p.created_at)}</td>
-                <td data-label="Roles">${isGuest(p) ? `<div class="guest-row"><span class="field-tag">Waiting to join</span>
-                  ${canAccept ? `<button type="button" class="btn btn-sm btn-primary" data-accept="${esc(p.id)}">Accept as Member</button>` : ''}</div>` : ''}${isFormer(p)
-                  ? '<span class="field-tag" title="Deactivated: no access, history kept">Former member</span>' : ''}<div class="role-chips" ${isFormer(p) ? 'hidden' : ''}>
+                <td data-label="Roles">${isGuest(p) && !askedAsAlum(p) ? `<div class="guest-row"><span class="field-tag">Waiting to join</span>
+                  ${canAccept ? `<button type="button" class="btn btn-sm btn-primary" data-accept="${esc(p.id)}">Accept as Member</button>` : ''}</div>` : ''}${isFormer(p) ? (isAlum(p)
+                  ? '<span class="field-tag" title="Graduated: can sign in to the alumni hub only; history kept">Alum</span>'
+                  : '<span class="field-tag" title="Deactivated: no access, history kept">Former member</span>') : ''}${askedAsAlum(p)
+                  ? `<div class="guest-row"><span class="field-tag">Asked to join as an alum</span>
+                    <a class="btn btn-sm" href="${esc(appUrl('sgaa/#/manage/alumni'))}" title="Alumni are approved on the alumni hub, not here">Review on the alumni hub</a></div>` : ''}<div class="role-chips" ${isFormer(p) ? 'hidden' : ''}>
                   ${assignable
                     .map(
                       (r) => {
@@ -463,6 +483,52 @@ async function renderPeople(el, { rerender, config }, part) {
       try {
         await api.deactivatePerson(person.id, note);
         setFlash(`${name} is now a former member.`);
+        await rerender();
+      } catch (err) {
+        userErrors.innerHTML = errorBox(err);
+        button.disabled = false;
+      }
+    })
+  );
+  // 052: graduated (former member + alum), and alum on / off for a former member.
+  el.querySelectorAll('[data-graduate]').forEach((button) =>
+    button.addEventListener('click', async () => {
+      const person = people.find((p) => p.id === button.dataset.graduate);
+      const name = person.full_name || person.email;
+      const note = await askText({
+        title: `${name} graduated?`,
+        label: 'Note (optional, kept for the record)',
+        placeholder: 'e.g. Graduated Spring 2027',
+        hint: `They leave the team like Deactivate (no team apps, history kept) and become an alum: they can still sign in, to the alumni hub only.
+          ${SCHOOL_EMAIL.test(person.email || '') ? 'They\'ll be asked to switch to a personal email, since UF turns theirs off soon.' : ''}`,
+        ok: 'Graduated',
+        multiline: true,
+        required: false,
+      });
+      if (note === null) return;
+      userErrors.innerHTML = '';
+      button.disabled = true;
+      try {
+        await api.graduatePerson(person.id, note);
+        setFlash(`${name} is now an alum.`);
+        await rerender();
+      } catch (err) {
+        userErrors.innerHTML = errorBox(err);
+        button.disabled = false;
+      }
+    })
+  );
+  el.querySelectorAll('[data-alum-on], [data-alum-off]').forEach((button) =>
+    button.addEventListener('click', async () => {
+      const on = 'alumOn' in button.dataset;
+      const person = people.find((p) => p.id === (button.dataset.alumOn || button.dataset.alumOff));
+      const name = person.full_name || person.email;
+      if (!on && !confirm(`${name} won't be an alum any more: no alumni hub${config?.formerMembersCanSignIn ? '' : ', and they can\'t sign in'}.`)) return;
+      userErrors.innerHTML = '';
+      button.disabled = true;
+      try {
+        await api.setAlum(person.id, on);
+        setFlash(on ? `${name} is now an alum: they can sign in to the alumni hub.` : `${name} is no longer an alum.`);
         await rerender();
       } catch (err) {
         userErrors.innerHTML = errorBox(err);
@@ -741,7 +807,13 @@ async function renderSettings(el, { rerender, reloadConfig }, part) {
       ${Number(general.schemaVersion) >= 44 ? `<div class="field"><label class="rule-toggle"><input type="checkbox" name="formerMembersCanSignIn"
           ${general.formerMembersCanSignIn ? 'checked' : ''} ${domainsLocked ? 'disabled' : ''}> Former members can still sign in</label>
         <div class="hint">Off (recommended): deactivating someone also blocks their sign-in. On: they can sign in, but only see a page saying
-          their access has ended. Either way they see none of the team's data.${domainsLocked ? ' Only an Admin can change this.' : ''}</div></div>` : ''}
+          their access has ended. Either way they see none of the team's data.${domainsLocked ? ' Only an Admin can change this.' : ''}
+          ${Number(general.schemaVersion) >= 52 ? ' Alumni (Users → Graduated, or approved on the alumni hub) can always sign in, to the alumni hub only.' : ''}</div></div>` : ''}
+      ${Number(general.schemaVersion) >= 52 ? `<div class="field"><label class="rule-toggle"><input type="checkbox" name="alumniCanSignUp"
+          ${general.alumniCanSignUp !== false ? 'checked' : ''} ${domainsLocked ? 'disabled' : ''}> Alumni can sign up with any email address</label>
+        <div class="hint">For the alumni hub (SGAA): graduates rarely have a UF address any more. They sign up from the hub's
+          <strong>Join as an alum</strong> page and see nothing until someone with "Approve alumni" approves them.
+          Other sign-ups still need an address from the list above.${domainsLocked ? ' Only an Admin can change this.' : ''}</div></div>` : ''}
       <div class="form-actions"><button type="submit" class="btn btn-primary">Save team settings</button></div>
     </form>`;
 
@@ -813,6 +885,7 @@ async function renderSettings(el, { rerender, reloadConfig }, part) {
         requestIdPrefix: data.requestIdPrefix.trim().toUpperCase() || 'SG',
         allowedEmailDomains: lines(data.allowedEmailDomains.toLowerCase()).map((d) => d.replace(/^@/, '')),
         ...(Number(general.schemaVersion) >= 44 && auth.hasRole('admin') ? { formerMembersCanSignIn: data.formerMembersCanSignIn === 'on' } : {}),
+        ...(Number(general.schemaVersion) >= 52 && auth.hasRole('admin') ? { alumniCanSignUp: data.alumniCanSignUp === 'on' } : {}),
       };
       button.disabled = true;
       try {

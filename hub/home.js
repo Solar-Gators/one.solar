@@ -104,6 +104,12 @@ async function loadMe() {
   if (!me.roles.length) me.roles = ['guest'];
   me.guest = me.roles.every((r) => r === 'guest' || r === 'alumni'); // not on the team: not accepted yet (040) or deactivated (044)
   me.former = me.roles.includes('alumni');
+  // 052: an alum (a former member who graduated) or someone waiting to be approved as one: their place is SGAA.
+  me.alum = null;
+  if (me.guest) {
+    const { data: a } = await sb.from('sgaa_alumni').select('status').eq('user_id', me.user.id).maybeSingle();
+    me.alum = a?.status || null;   // 'alum', 'pending' (signed up on "Join as an alum") or 'declined'
+  }
   const [{ data: perms }, { data: labels }] = await Promise.all([
     sb.from('role_permissions').select('permission').in('role', me.roles),
     sb.from('roles').select('key, label').in('key', me.roles),
@@ -307,13 +313,17 @@ function draw() {
   drawAnnouncement();
   renderAccount($('#account'), { user: me.user, name: me.name, role: me.roleLabel, onSignOut: signOut });
   $('#hello').innerHTML = greeting();
-  $('#lede').textContent = me.former
+  $('#lede').innerHTML = me.alum === 'alum' && me.former
+    ? `Welcome back! As a Solar Gators alum, your place is the <a href="${esc(appUrl('sgaa/'))}">alumni hub</a>: what the team needs, how to help, updates and events.`
+    : me.alum === 'pending'
+    ? `Your alumni account is waiting for approval. Until then, look around the <a href="${esc(appUrl('sgaa/#/join'))}">alumni hub</a>.`
+    : esc(me.former
     ? "Your one.solar access has ended: you're listed as a former member. If that's a mistake, ask an Admin. The public tools are below."
     : me.guest
     ? "You're signed up! Someone on the team needs to accept you before you can use the team's apps. Ask your Chief Engineer or anyone on the e-board. Until then, here are the public tools."
     : me.user
     ? 'Everything Solar Gators, in one place. Pick an app.'
-    : 'Solar Gators\' team apps, in one place. Sign in with your one.solar account to see everything you have access to.';
+    : 'Solar Gators\' team apps, in one place. Sign in with your one.solar account to see everything you have access to.');
   $('#edit-open').hidden = !canCustomize() || editing;
   document.body.classList.toggle('editing-home', editing);
   drawWaiting();

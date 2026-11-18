@@ -5,6 +5,7 @@
 import { auth } from '../auth.js';
 import { esc, errorBox, renderRichText } from '../ui.js';
 import { emailLink, emailLinkProblem } from '../emailLink.js';
+import { appUrl } from '../../../shared/onesolar.js';
 
 let mode = 'signin'; // 'signin' | 'signup' | 'forgot'
 let notice = '';
@@ -17,7 +18,7 @@ const returning = () => {
 function explain(err) {
   const msg = err?.message || '';
   if (/invalid login credentials/i.test(msg)) return new Error('Incorrect email or password.');
-  if (/user is banned/i.test(msg)) return new Error('Your one.solar access has ended. If this is a mistake, ask an Admin to reactivate you.');
+  if (/user is banned/i.test(msg)) return new Error('Your one.solar access has ended. If you graduated, ask someone on the team to mark you as an alum; if this is a mistake, ask an Admin to reactivate you.');
   if (/email not confirmed/i.test(msg)) return new Error('Please confirm your email first — check your inbox for the link.');
   if (/database error saving new user/i.test(msg)) return new Error('That email address is not allowed to sign up.');
   if (/rate limit/i.test(msg)) return new Error('Too many emails sent recently. Please wait a few minutes and try again.');
@@ -54,7 +55,8 @@ export async function renderLogin(el, { config }) {
   const links = {
     signin: `<button type="button" class="link-btn" data-mode="forgot">Forgot password?</button>
              <span>First time using one.solar? <button type="button" class="link-btn" data-mode="signup">Create an account</button></span>`,
-    signup: `<span>Already have an account? <button type="button" class="link-btn" data-mode="signin">Sign in</button></span>`,
+    signup: `<span>Already have an account? <button type="button" class="link-btn" data-mode="signin">Sign in</button></span>
+             ${config.alumniCanSignUp !== false ? `<span>A Solar Gators alum without a UF email? <a href="${esc(appUrl('sgaa/#/join'))}">Join as an alum</a></span>` : ''}`,
     forgot: `<button type="button" class="link-btn" data-mode="signin">← Back to sign in</button>`,
   };
 

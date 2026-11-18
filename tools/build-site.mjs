@@ -26,6 +26,7 @@ export const SITE_PATHS = [
   'evals/',
   'gatorwire/',
   'scope-map/',
+  'sgaa/',
   'shared/',
 ];
 

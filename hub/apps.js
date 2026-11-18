@@ -136,4 +136,13 @@ export const APPS = [
     icon: '🌐',
     access: 'public',
   },
+  {
+    id: 'sgaa',
+    section: 'apps',
+    name: 'Alumni (SGAA)',
+    blurb: 'For Solar Gators alumni: what the team needs, how to help, updates and events.',
+    href: 'sgaa/',
+    icon: '🎓',
+    access: 'public',
+  },
 ];

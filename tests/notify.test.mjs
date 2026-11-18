@@ -3,7 +3,7 @@
  * Node runs the TypeScript file directly (type stripping, Node 22.18+).
  */
 import assert from 'node:assert/strict';
-import { fill, render, emailHtml, emailText, flowPayload, placeholders, caller } from '../supabase/functions/send-notifications/index.ts';
+import { fill, render, emailHtml, emailText, flowPayload, placeholders, caller, plainEmail } from '../supabase/functions/send-notifications/index.ts';
 
 let passed = 0;
 function test(name, fn) {
@@ -118,6 +118,32 @@ test('with the one.solar address (…/one.solar/orders/), Solar Evals links go t
   assert.equal(r.link, 'https://solar-gators.github.io/one.solar/orders/#/requests/SG-001');
   const sp = render({ event: 'sponsor_update', payload: { sponsor: 'Acme', path: '/sponsors/abc', recipient_name: 'Kit' } }, site);
   assert.equal(sp.link, 'https://solar-gators.github.io/one.solar/sponsors/#/sponsors/abc');
+});
+
+test('alumni hub messages: replies go to the alum, the sender name says who, the link opens Messages', () => {
+  const row = { event: 'sgaa_message', payload: { recipient_name: 'Cory Coordinator', from_name: 'Alex Alum', from_kind: 'an alum',
+    reply_to: 'alex.alum@gmail.com', what: 'Carbon fiber prepreg', need: 'Carbon fiber prepreg', details: 'I can help.\nCall me.', app_path: 'sgaa/#/messages' } };
+  const m = render(row, { siteUrl: 'https://one.ufsolargators.org/orders/' });
+  assert.equal(m.subject, 'Alumni hub: Carbon fiber prepreg');
+  assert.deepEqual(m.lines, ['Hi Cory, Alex Alum (an alum) sent you a message on the alumni hub.', 'About: Carbon fiber prepreg', 'I can help.', 'Call me.',
+    'Reply to this email to answer Alex Alum directly.']);
+  assert.equal(m.link, 'https://one.ufsolargators.org/sgaa/#/messages');
+  assert.equal(m.replyTo, 'alex.alum@gmail.com');
+  assert.equal(m.fromName, 'Alex Alum via one.solar');
+  assert.match(emailHtml(m), /contact on the Solar Gators alumni hub/);
+  assert.equal(flowPayload({ email: 'x@ufl.edu', channel: 'email' }, m).replyTo, 'alex.alum@gmail.com');
+  // No need: the "About" line drops out. Other events get no Reply-To.
+  const general = render({ event: 'sgaa_message', payload: { ...row.payload, need: '' } }, {});
+  assert.ok(!general.lines.some((l) => l.startsWith('About')));
+  assert.equal(render({ event: 'approved', payload }, settings).replyTo, undefined);
+});
+
+test('a Reply-To is only ever one plain address (no header injection, no names)', () => {
+  assert.equal(plainEmail('alex@gmail.com'), 'alex@gmail.com');
+  for (const bad of ['alex@gmail.com\r\nBcc: x@y.z', 'Alex <alex@gmail.com>', 'a@b', '', null, 'a,b@c.d']) assert.equal(plainEmail(bad), '', String(bad));
+  const m = render({ event: 'sgaa_message', payload: { from_name: 'Evil "Name" <x>\r\n', reply_to: 'x@y.z\nBcc: z@z.z' } }, {});
+  assert.equal(m.replyTo, undefined);
+  assert.equal(m.fromName, 'Evil Name x via one.solar');
 });
 
 test('the team logo sits under the email and the Teams card (when the website address is set)', () => {

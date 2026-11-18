@@ -3,7 +3,8 @@
  *
  * The database queues a message whenever a request moves through the workflow
  * (see migration 010), when a watched Sponsors card moves or gets a note (015), and at the
- * Solar Evals steps (031: self-eval submitted, meeting scheduled, eval shared). The website calls this function right after each action,
+ * Solar Evals steps (031: self-eval submitted, meeting scheduled, eval shared), and when an alum writes to a contact on the
+ * alumni hub (052: emailed with Reply-To the alum, so replies go straight to them). The website calls this function right after each action,
  * and Admin → Notifications has a "Send now" button; each run sends everything
  * that's waiting and retries earlier failures (up to 5 tries).
  *
@@ -36,7 +37,17 @@ type Row = {
   payload: Record<string, unknown>;
 };
 type Template = { subject: string; body: string };
-export type Message = { subject: string; lines: string[]; link: string; linkLabel: string; facts: [string, string][]; logo?: string };
+export type Message = {
+  subject: string; lines: string[]; link: string; linkLabel: string; facts: [string, string][]; logo?: string;
+  /** SGAA (052): replies go to the alum who wrote, and the email says who it's from. */
+  replyTo?: string; fromName?: string; footer?: string;
+};
+
+/** A plain email address (no name, no line breaks): safe for a Reply-To header. */
+export const plainEmail = (s: unknown) => {
+  const v = String(s ?? '').trim();
+  return /^[^\s@<>",;:]+@[^\s@<>",;:]+\.[^\s@<>",;:]+$/.test(v) && v.length <= 254 ? v : '';
+};
 
 /** The team logo under every message: the copy the website itself serves (needs Website address in Admin). */
 export const logoUrl = (siteUrl: string) => (siteUrl ? `${siteUrl.replace(/#.*$/, '').replace(/\/?$/, '/')}assets/solar-gators-logo.png` : '');
@@ -56,6 +67,10 @@ const FALLBACK: Record<string, Template> = {
   sponsor_update: { subject: '{sponsor}: {what}', body: '{actor} updated {sponsor} on the Sponsors board: {what}.' },
   eval_update: { subject: 'Solar Evals: {what}', body: 'Hi {first_name}, {details}' },
   project_update: { subject: '{what}', body: 'Hi {first_name}, {details}' },
+  sgaa_message: {
+    subject: 'Alumni hub: {what}',
+    body: 'Hi {first_name}, {from_name} ({from_kind}) sent you a message on the alumni hub.\nAbout: {need}\n{details}\nReply to this email to answer {from_name} directly.',
+  },
   test: {
     subject: 'Test message from the order form',
     body: 'Hi {first_name}, notifications are working. You will get messages like this when requests need you or change status.',
@@ -109,6 +124,11 @@ export function placeholders(payload: Record<string, unknown>, siteUrl: string):
     details: s('details'),
     member: s('member'),
     semester: s('semester'),
+    // SGAA messages (052)
+    from_name: s('from_name'),
+    from_kind: s('from_kind'),
+    need: s('need'),
+    reply_to: plainEmail(payload.reply_to),
     link: appLink ? appLink : pathLink ? pathLink : base && s('path') ? `${base}#${s('path')}` : base && s('request_number') ? `${base}#/requests/${encodeURIComponent(s('request_number'))}` : base,
   };
 }
@@ -135,7 +155,10 @@ export function render(row: Pick<Row, 'event' | 'payload'>, settings: Record<str
   const sponsor = row.event.startsWith('sponsor_');
   const evals = row.event.startsWith('eval_');
   const projects = row.event.startsWith('project_');
-  const all: [string, string][] = projects
+  const sgaa = row.event.startsWith('sgaa_');
+  const all: [string, string][] = sgaa
+    ? [['From', values.from_name], ['Reply to', values.reply_to]]
+    : projects
     ? []
     : evals
     ? [['Member', values.member], ['Semester', values.semester]]
@@ -154,9 +177,15 @@ export function render(row: Pick<Row, 'event' | 'payload'>, settings: Record<str
     subject: fill(t.subject || '{request_number}', values).split('\n')[0] || 'Order form',
     lines: fill(t.body || '', values).split('\n').filter(Boolean),
     link: values.link,
-    linkLabel: projects ? 'Open in Projects' : evals ? 'Open Solar Evals' : sponsor ? 'Open on the Sponsors board' : values.request_number ? `Open ${values.request_number}` : 'Open the order form',
+    linkLabel: sgaa ? 'See your alumni messages' : projects ? 'Open in Projects' : evals ? 'Open Solar Evals' : sponsor ? 'Open on the Sponsors board' : values.request_number ? `Open ${values.request_number}` : 'Open the order form',
     facts: row.event === 'test' ? [] : facts,
     logo: logoUrl(settings?.siteUrl || ''),
+    ...(sgaa ? {
+      replyTo: values.reply_to || undefined,
+      // "Alex Alum via one.solar": recognizable in the inbox; the address is still the team's sender.
+      fromName: values.from_name ? `${values.from_name.replace(/["<>\r\n]/g, '').slice(0, 60)} via one.solar` : undefined,
+      footer: 'You get these because you\'re a contact on the Solar Gators alumni hub. Your email address isn\'t shown there; it\'s only revealed if you reply.',
+    } : {}),
   };
 }
 
@@ -172,7 +201,7 @@ ${m.lines.map((l) => `<p style="margin:0 0 10px">${escapeHtml(l)}</p>`).join('\n
 ${facts ? `<table style="border-collapse:collapse;margin:12px 0;font-size:14px">${facts}</table>` : ''}
 ${m.link ? `<p style="margin:18px 0"><a href="${escapeHtml(m.link)}" style="background:#f26b1d;color:#fff;padding:10px 18px;border-radius:6px;text-decoration:none;font-weight:600">${escapeHtml(m.linkLabel)}</a></p>` : ''}
 ${m.logo ? `<img src="${escapeHtml(m.logo)}" alt="${escapeHtml(teamName)}" width="140" style="display:block;width:140px;height:auto;border:0;margin:28px 0 0">` : ''}
-<p style="margin:${m.logo ? '10px' : '24px'} 0 0;font-size:12px;color:#9ca3af">${escapeHtml(teamName)} order form. You can turn these messages off on your Account page.</p>
+<p style="margin:${m.logo ? '10px' : '24px'} 0 0;font-size:12px;color:#9ca3af">${escapeHtml(m.footer || `${teamName} order form. You can turn these messages off on your Account page.`)}</p>
 </div>`;
 }
 
@@ -214,6 +243,8 @@ export function flowPayload(row: Pick<Row, 'email' | 'channel'>, m: Message, tea
     html: emailHtml(m, teamName),
     link: m.link,
     card: JSON.stringify(card),
+    // SGAA messages: the flow's "Send an email" step can put this in Reply To ('' otherwise).
+    replyTo: m.replyTo || '',
   };
 }
 
@@ -237,7 +268,8 @@ async function sendViaSmtp(env: (k: string) => string | undefined, to: string, m
     });
   }
   await transport.sendMail({
-    from: { name: env('SMTP_FROM_NAME') || `one.solar · ${teamName}`, address: env('SMTP_USER')! },
+    from: { name: m.fromName || env('SMTP_FROM_NAME') || `one.solar · ${teamName}`, address: env('SMTP_USER')! },
+    ...(m.replyTo ? { replyTo: m.replyTo } : {}),
     to,
     subject: m.subject,
     text: emailText(m),

@@ -22,7 +22,7 @@ export const siteUrl = () => `${location.origin}${location.pathname}`;
 
 const DB_NAME = 'idb://sg-orders-fake';
 // Keep in sync with the files in supabase/migrations/.
-const MIGRATIONS = ['001_initial.sql', '002_form_fields.sql', '003_archive_and_import.sql', '004_cost_adjustments.sql', '005_editable_permissions.sql', '006_seasons.sql', '007_one_vendor_per_request.sql', '008_roles_admin_history.sql', '009_form_rules_layout_exports.sql', '010_workflow_budgets_notifications.sql', '011_notification_choices.sql', '012_link_imported_requests.sql', '013_history_drafts_ticket.sql', '014_finances.sql', '015_sponsors.sql', '016_request_watchers.sql', '017_attachments.sql', '018_treasurer_ledger.sql', '019_fix_wording_pickup.sql', '020_ledger_category.sql', '021_budget_categories.sql', '022_paid_status.sql', '023_rename_category_fix.sql', '024_cancel_approved.sql', '025_treasurer_tools.sql', '026_sponsor_history.sql', '027_sponsor_outreach.sql', '028_solar_evals.sql', '029_onesolar.sql', '030_onesolar_wording.sql', '031_eval_self_reviews.sql', '032_eval_questions.sql', '033_undo_received.sql', '034_edit_approved_items.sql', '035_people_admin_only.sql', '036_eval_types.sql', '037_eval_form_names.sql', '038_eval_communication.sql', '039_eval_more_forms.sql', '040_guests.sql', '041_migration_ledger.sql', '042_role_guard.sql', '043_accept_guard.sql', '044_deactivate.sql', '045_conflicts.sql', '046_diagnostics.sql', '047_soft_delete.sql', '048_imports_links.sql', '049_steps_in_orders.sql', '050_inventory.sql', '051_projects.sql'];
+const MIGRATIONS = ['001_initial.sql', '002_form_fields.sql', '003_archive_and_import.sql', '004_cost_adjustments.sql', '005_editable_permissions.sql', '006_seasons.sql', '007_one_vendor_per_request.sql', '008_roles_admin_history.sql', '009_form_rules_layout_exports.sql', '010_workflow_budgets_notifications.sql', '011_notification_choices.sql', '012_link_imported_requests.sql', '013_history_drafts_ticket.sql', '014_finances.sql', '015_sponsors.sql', '016_request_watchers.sql', '017_attachments.sql', '018_treasurer_ledger.sql', '019_fix_wording_pickup.sql', '020_ledger_category.sql', '021_budget_categories.sql', '022_paid_status.sql', '023_rename_category_fix.sql', '024_cancel_approved.sql', '025_treasurer_tools.sql', '026_sponsor_history.sql', '027_sponsor_outreach.sql', '028_solar_evals.sql', '029_onesolar.sql', '030_onesolar_wording.sql', '031_eval_self_reviews.sql', '032_eval_questions.sql', '033_undo_received.sql', '034_edit_approved_items.sql', '035_people_admin_only.sql', '036_eval_types.sql', '037_eval_form_names.sql', '038_eval_communication.sql', '039_eval_more_forms.sql', '040_guests.sql', '041_migration_ledger.sql', '042_role_guard.sql', '043_accept_guard.sql', '044_deactivate.sql', '045_conflicts.sql', '046_diagnostics.sql', '047_soft_delete.sql', '048_imports_links.sql', '049_steps_in_orders.sql', '050_inventory.sql', '051_projects.sql', '052_sgaa.sql'];
 const SESSION_KEY = 'sg-orders-fake-session';
 
 const STUB = `
@@ -241,7 +241,7 @@ const authApi = {
     return { data: { subscription: { unsubscribe: () => listeners.delete(cb) } } };
   },
   async signInWithPassword({ email, password }) {
-    const [user] = await superuser(`select id, email, email_confirmed_at, banned_until > now() as banned from auth.users where lower(email) = lower($1) and password = $2`, [email, password]);
+    const [user] = await superuser(`select id, email, email_confirmed_at, raw_user_meta_data as user_metadata, banned_until > now() as banned from auth.users where lower(email) = lower($1) and password = $2`, [email, password]);
     if (!user) return { data: {}, error: { message: 'Invalid login credentials' } };
     if (user.banned) return { data: {}, error: { message: 'User is banned' } };
     delete user.banned;
@@ -251,7 +251,7 @@ const authApi = {
   async signUp({ email, password, options }) {
     try {
       const [user] = await superuser(
-        `insert into auth.users (email, password, raw_user_meta_data) values ($1, $2, $3) returning id, email, email_confirmed_at`,
+        `insert into auth.users (email, password, raw_user_meta_data) values ($1, $2, $3) returning id, email, email_confirmed_at, raw_user_meta_data as user_metadata`,
         [email, password, options?.data || {}]
       );
       setSession({ user }, 'SIGNED_IN');
@@ -267,9 +267,18 @@ const authApi = {
   async verifyOtp() {
     return { data: {}, error: { message: 'Email link is invalid or has expired' } };
   },
-  async updateUser({ password }) {
-    await superuser(`update auth.users set password = $2 where id = $1`, [session.user.id, password]);
-    return { data: {}, error: null };
+  /** A new password, or a new email address (no confirmation email here: it changes right away). */
+  async updateUser({ password, email }) {
+    if (password) await superuser(`update auth.users set password = $2 where id = $1`, [session.user.id, password]);
+    if (email) {
+      try {
+        await superuser(`update auth.users set email = $2 where id = $1`, [session.user.id, email]);
+      } catch (e) {
+        return { data: {}, error: { message: /duplicate key/.test(e.message) ? 'A user with this email address has already been registered' : e.message } };
+      }
+      setSession({ ...session, user: { ...session.user, email } }, 'USER_UPDATED');
+    }
+    return { data: { user: session.user }, error: null };
   },
   async signOut() {
     setSession(null, 'SIGNED_OUT');
@@ -288,6 +297,10 @@ const storageApi = {
     },
     async createSignedUrls(paths) {
       return { data: paths.map((path) => ({ path, signedUrl: fakeFiles.get(path) || null, error: fakeFiles.has(path) ? null : 'Not found (fake mode forgets files after a reload)' })), error: null };
+    },
+    // Public buckets (SGAA photos): the in-memory file, or nothing after a reload.
+    getPublicUrl(path) {
+      return { data: { publicUrl: fakeFiles.get(path) || '' } };
     },
     async remove(paths) {
       for (const p of paths) fakeFiles.delete(p);

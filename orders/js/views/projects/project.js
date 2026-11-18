@@ -10,6 +10,7 @@ import { progressOf, attention } from '../../projects/core.js';
 import { needsDatabase, loadBase, loadConfig, shapesFor, header, projectTop, projectHref, itemHref, personName, avatar, can, rich, createItemDialog, statusChip, dueChip } from './kit.js';
 import { progressBar } from './projects.js';
 import { renderList } from './list.js';
+import { alumniShareCard, bindAlumniShare } from './alumni.js';
 import { renderBoard } from './board.js';
 
 const lazy = {
@@ -69,10 +70,11 @@ export async function renderAcross(el, ctx) {
 }
 
 /** A project's front page: how it's doing (three ways, each explained), what's coming, who's in it, what just happened. */
-async function summary(el, { b, project, cfg }) {
-  const [rollup, upcoming, events, docs] = await Promise.all([
+async function summary(el, { b, project, cfg, rerender }) {
+  const [rollup, upcoming, events, docs, alumniCard] = await Promise.all([
     pm.rollup(), pm.search({ project: project.id, filter: { all: [{ f: 'category', op: 'ne', v: 'done' }, { any: [{ f: 'milestone' }, { f: 'due', op: 'within', v: 14 }, { f: 'overdue' }] }] }, sort: 'due', limit: 12 }),
     pm.events({ projectIds: [project.id], limit: 15 }), pm.resources(project.id).catch(() => []),
+    project.archived_at ? '' : alumniShareCard({ projectId: project.id, mayEdit: can(b, project.id, 'edit'), what: 'this project', heading: 'h2' }),
   ]);
   const keyOf = new Map((await pm.itemsByIds([...new Set(events.map((e) => e.item_id).filter(Boolean))])).map((i) => [i.id, i.key]));
   const groups = rollup.groups.filter((g) => g.project_id === project.id);
@@ -108,7 +110,9 @@ async function summary(el, { b, project, cfg }) {
     </section>
     <section class="card"><h2>Documents</h2>
       <p>${docs.length ? `${docs.length} linked document${docs.length === 1 ? '' : 's'}.` : 'No documents linked yet.'} <a href="${projectHref(project.key, 'docs')}">Open the document library</a></p></section>
+    ${alumniCard}
     <section class="card pm-wide"><h2>Latest</h2>
       ${events.length ? `<ul class="pm-activity">${events.map((e) => `<li><span class="muted small">${esc(fmtDateTime(e.created_at))}</span> <strong>${esc(e.actor_name || 'one.solar')}</strong> ${esc(e.summary)}${keyOf.get(e.item_id) && !e.summary.includes(keyOf.get(e.item_id)) ? ` <a href="${itemHref(keyOf.get(e.item_id))}">${esc(keyOf.get(e.item_id))}</a>` : ''}</li>`).join('')}</ul>` : '<p class="muted">Nothing has happened yet.</p>'}
     </section></div>`;
+  bindAlumniShare(el, { projectId: project.id, done: () => rerender() });
 }

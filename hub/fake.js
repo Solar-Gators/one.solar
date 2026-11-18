@@ -7,6 +7,7 @@
  *   ?fake=coordinator  Business Coordinator (Sponsors, Finances)
  *   ?fake=guest        a Guest: signed up, not accepted into the team yet (040)
  *   ?fake=alumni       a former member (deactivated, 044)
+ *   ?fake=alum         an alum (a former member who graduated, 052: their place is SGAA)
  *   ?fake=out          signed out
  * Only loaded on localhost; it never talks to the real database.
  */
@@ -26,7 +27,7 @@ let waiting = [
 ];
 
 export function createFakeClient(kind) {
-  let role = kind && PERMS[kind] ? kind : 'member';
+  let role = kind && PERMS[kind] ? kind : kind === 'alum' ? 'alumni' : 'member';
   let signedIn = kind !== 'out';
   const user = { id: 'fake-user', email: 'riley@ufl.edu' };
   const KEY = 'fake-onesolar-settings';
@@ -41,6 +42,7 @@ export function createFakeClient(kind) {
   const rows = {
     profiles: () => [{ full_name: 'Riley Tester', email: user.email, created_at: new Date(Date.now() - 2 * 864e5).toISOString() }],
     profile_roles: () => [{ role }],
+    sgaa_alumni: () => (kind === 'alum' ? [{ status: 'alum' }] : []),
     role_permissions: () => PERMS[role].map((permission) => ({ permission })),
     roles: () => [
       { key: 'guest', label: 'Guest' }, { key: 'member', label: 'Member' }, { key: 'ce', label: 'Chief Engineer' }, { key: 'treasurer', label: 'Treasurer' },

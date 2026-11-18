@@ -168,11 +168,14 @@ const POST_RESTORE = read('supabase/restore/post_restore.sql');
 await test('it brings back the sign-up trigger, and running it twice is fine', async () => {
   const db = await freshDb();
   await db.exec(`drop trigger on_auth_user_created on auth.users`); // as after restoring a dump of public only
+  await db.exec(`drop trigger sync_profile_email on auth.users`);
   await db.exec(POST_RESTORE);
   await db.exec(POST_RESTORE);
   await db.query(`insert into auth.users (id, email, raw_user_meta_data) values ('00000000-0000-0000-0000-0000000000aa', 'restored@ufl.edu', '{"full_name": "Rae Stored"}')`);
   const p = (await db.query(`select full_name from profiles where email = 'restored@ufl.edu'`)).rows[0];
   assert.deepEqual(p, { full_name: 'Rae Stored' });
+  await db.query(`update auth.users set email = 'rae@gmail.com' where id = '00000000-0000-0000-0000-0000000000aa'`);
+  assert.equal((await db.query(`select email from profiles where full_name = 'Rae Stored'`)).rows[0].email, 'rae@gmail.com', 'email changes reach the profile');
   await db.close();
 });
 
@@ -187,6 +190,11 @@ await test('its attachment rules are the latest ones in the migrations', () => {
   grab(POST_RESTORE, restore);
   assert.deepEqual(Object.keys(restore).sort(), ['delete', 'read', 'upload']);
   assert.deepEqual(restore, latest, 'a migration changed a storage rule: copy it into supabase/restore/post_restore.sql');
+  // SGAA's bucket too (052).
+  const sg = (sql) => Object.fromEntries([...sql.matchAll(/create policy "sgaa: (\w+)"([\s\S]*?)\$p\$/g)].map((m) => [m[1], squash(m[2])]));
+  const sgLatest = Object.assign({}, ...files.map((f) => sg(sqlOf(f))));
+  assert.deepEqual(sg(POST_RESTORE), sgLatest, 'copy the sgaa storage rules into post_restore.sql');
+  assert.deepEqual(Object.keys(sgLatest).sort(), ['delete', 'upload']);
 });
 
 await test('the joined 041+ file (tools/bundle-migrations.mjs) takes a database at 040 to the latest, all or nothing', async () => {

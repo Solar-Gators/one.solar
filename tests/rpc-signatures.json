@@ -384,6 +384,11 @@
   "returns": "text",
   "anon": false
  },
+ "graduate_person": {
+  "args": "p_user uuid, p_note text",
+  "returns": "void",
+  "anon": false
+ },
  "has_permission": {
   "args": "p_permission text",
   "returns": "boolean",
@@ -1117,6 +1122,131 @@
  "set_user_roles": {
   "args": "p_user_id uuid, p_roles text[]",
   "returns": "void",
+  "anon": false
+ },
+ "sgaa_alumni_queue": {
+  "args": "",
+  "returns": "TABLE(user_id uuid, full_name text, email text, grad_year integer, team_roles text, note text, requested_at timestamp with time zone, confirmed boolean)",
+  "anon": false
+ },
+ "sgaa_can": {
+  "args": "p_perm text",
+  "returns": "boolean",
+  "anon": false
+ },
+ "sgaa_delete_contact": {
+  "args": "p_id uuid",
+  "returns": "void",
+  "anon": false
+ },
+ "sgaa_delete_event": {
+  "args": "p_id uuid",
+  "returns": "void",
+  "anon": false
+ },
+ "sgaa_delete_need": {
+  "args": "p_id uuid",
+  "returns": "void",
+  "anon": false
+ },
+ "sgaa_delete_update": {
+  "args": "p_id uuid",
+  "returns": "void",
+  "anon": false
+ },
+ "sgaa_directory": {
+  "args": "",
+  "returns": "TABLE(user_id uuid, full_name text, grad_year integer, major text, employer text, job_title text, city text, linkedin text, mentor_topics text, bio text, team_roles text, email text, me boolean)",
+  "anon": false
+ },
+ "sgaa_event_rsvps": {
+  "args": "p_event uuid",
+  "returns": "TABLE(user_id uuid, full_name text, email text, guests integer, note text, alum boolean, created_at timestamp with time zone)",
+  "anon": false
+ },
+ "sgaa_hub": {
+  "args": "",
+  "returns": "jsonb",
+  "anon": true
+ },
+ "sgaa_insider": {
+  "args": "",
+  "returns": "boolean",
+  "anon": false
+ },
+ "sgaa_is_alum": {
+  "args": "p_user uuid",
+  "returns": "boolean",
+  "anon": false
+ },
+ "sgaa_my_profile": {
+  "args": "",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "sgaa_request_alum": {
+  "args": "p jsonb",
+  "returns": "void",
+  "anon": false
+ },
+ "sgaa_review_alum": {
+  "args": "p_user uuid, p_approve boolean, p_note text",
+  "returns": "void",
+  "anon": false
+ },
+ "sgaa_rsvp": {
+  "args": "p_event uuid, p_going boolean, p_guests integer, p_note text",
+  "returns": "integer",
+  "anon": false
+ },
+ "sgaa_save_contact": {
+  "args": "p_id uuid, p jsonb",
+  "returns": "uuid",
+  "anon": false
+ },
+ "sgaa_save_event": {
+  "args": "p_id uuid, p jsonb",
+  "returns": "uuid",
+  "anon": false
+ },
+ "sgaa_save_need": {
+  "args": "p_id uuid, p jsonb",
+  "returns": "uuid",
+  "anon": false
+ },
+ "sgaa_save_profile": {
+  "args": "p jsonb",
+  "returns": "void",
+  "anon": false
+ },
+ "sgaa_save_settings": {
+  "args": "p jsonb",
+  "returns": "void",
+  "anon": false
+ },
+ "sgaa_save_update": {
+  "args": "p_id uuid, p jsonb",
+  "returns": "uuid",
+  "anon": false
+ },
+ "sgaa_send_message": {
+  "args": "p_contact uuid, p_need uuid, p_subject text, p_body text",
+  "returns": "uuid",
+  "anon": false
+ },
+ "sgaa_set_alum": {
+  "args": "p_user uuid, p_on boolean",
+  "returns": "void",
+  "anon": false
+ },
+ "sgaa_share_from_projects": {
+  "args": "p_project uuid, p_item uuid, p_on boolean",
+  "returns": "uuid",
+  "anon": false
+ },
+ "sgaa_shared_from_projects": {
+  "args": "p_project uuid, p_item uuid",
+  "returns": "jsonb",
   "anon": false
  },
  "start_new_season": {

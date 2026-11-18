@@ -9,7 +9,7 @@ Copilot, Codex…) can be pointed at it. The human guide is the "Handing over on
 - One Supabase project (Postgres + Auth + Storage + one Edge Function). Reads go through Row Level Security;
   every write is a `security definer` function (RPC) that checks permissions itself.
 - Apps: Orders, Finances, Sponsors and Admin share `orders/js/` (each app's `index.html` sets `data-app`);
-  Solar Evals is `evals/`; the home screen is `index.html` + `hub/`. Docs are in `docs/`.
+  Solar Evals is `evals/`; the alumni hub (SGAA) is `sgaa/`; the home screen is `index.html` + `hub/`. Docs are in `docs/`.
 
 ## How changes ship
 - Work on a branch, open a pull request, turn on auto-merge (`gh pr merge --auto --squash`). It merges itself

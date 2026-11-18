@@ -190,4 +190,9 @@ export const pm = {
   deleteView: (id) => call('pm_delete_view', { p_id: id }),
   markRead: (ids = null) => call('pm_mark_read', { p_ids: ids }),
   savePrefs: (p) => call('pm_save_prefs', { p }),
+
+  // ---- the alumni hub (SGAA, migration 052) ----
+  /** { id, status } of the need this project / item is shared as, or null. */
+  sharedWithAlumni: (projectId, itemId = null) => call('sgaa_shared_from_projects', { p_project: projectId, p_item: itemId }),
+  shareWithAlumni: (projectId, itemId, on) => call('sgaa_share_from_projects', { p_project: projectId, p_item: itemId, p_on: on }),
 };
