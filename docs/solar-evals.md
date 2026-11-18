@@ -2,7 +2,7 @@
 
 **https://one.ufsolargators.org/evals/** · [`evals/index.html`](../evals/index.html)
 
-Semester reviews, filled out online instead of on paper. Sign in with your **[one.solar](https://one.ufsolargators.org/)** account; everything is kept in the one.solar (Orders) database (migrations `028`, `031`, `032`, `036_eval_types.sql`, `037_eval_form_names.sql`, `038_eval_communication.sql`, `039_eval_more_forms.sql` and `053_eval_assignments.sql`).
+Semester reviews, filled out online instead of on paper. Sign in with your **[one.solar](https://one.ufsolargators.org/)** account; everything is kept in the one.solar (Orders) database (migrations `028`, `031`, `032`, `036_eval_types.sql`, `037_eval_form_names.sql`, `038_eval_communication.sql`, `039_eval_more_forms.sql`, `053_eval_assignments.sql` and `054_eval_chart.sql`).
 
 Everything below is set up on the page, not in code: the forms, the questionnaires, and the whole flow for each kind of eval.
 
@@ -12,7 +12,7 @@ People with **Set up Solar Evals** (`evals.types`, Admin and E-board by default)
 
 - **What to call people:** e.g. Officer / President / Lead / Position. Buttons, messages and emails use these words.
 - **Who evaluates whom:** who is evaluated, who evaluates, and who gives input. Each one is anyone, a permission ("Fill out evals"), a one.solar position, a **group**, or one person. Groups (Setup → Groups) are named lists of people, so nobody needs a new position just for evals.
-- **Assigned:** on or off. On, an Admin or the President says exactly who evaluates whom on the **Assignments** tab (below), instead of people picking from the whole "Who evaluates" list.
+- **From the evaluation chart** (a choice for who is evaluated and who evaluates): the **Chart** tab (below) decides. **Assigned** (on or off) keeps the type's own rules but uses the chart page's exceptions.
 - **Input from:** on or off; up to how many people; whether the person evaluated, the evaluator or either picks them; and whether they can leave **private notes** for the evaluator while it's a draft. The person evaluated never sees the notes.
 - **The form:** which form it uses, and whether people pick a variant of it (a division or a position). **Other forms they can pick** lists more forms: whoever starts an eval then picks any of them (or their variants) instead.
 - **Self-eval questionnaire:** on or off. The questions come from each evaluator's own list, or from a shared questionnaire.
@@ -32,22 +32,23 @@ Example, **the President evaluates the CEs with feedback from their leads**:
 1. Make a "Leads" group with the leads in it.
 2. Make a type: the person evaluated is the Chief Engineer position, the evaluator is one person (the President), and input comes from the Leads group, picked by the evaluator, with notes. The form is Leadership eval with variants (the position). Turn the questionnaire off. The CE sees the eval once it's finished, the leads see it while it's being written, and the E-board sees it once it's finished.
 
-## Assignments: who evaluates whom (053)
+## The evaluation chart: who evaluates whom (053, 054)
 
-People with **Assign evaluators** (`evals.assign`, Admin and the **President** position by default) see **Assignments**. Pick an eval type, then add rows:
+People with **Assign evaluators** (`evals.assign`, Admin and the **President** position by default) see the **Chart** tab: one org chart for the whole team, drawn from the chart's settings (on a phone, as an indented outline). It starts as the team's "Evaluation Flow" drawing:
 
-- **By position**, e.g. "Vice President, evaluated by President". It keeps working when new people take the positions, so set it up once.
-- **For one person**, e.g. "Kim, evaluated by Cy". A person's own rows replace their positions' rows.
-- Several evaluators for the same person (e.g. the Treasurer, evaluated by the President and the Vice President): they pick one of them on their self-eval, and either can start the eval.
+- **President** at the top, evaluated by the **VP**, with feedback from the rest of the E-board and the Chief Engineers.
+- Under the President: **Chief Engineer** (feedback from the other CEs), **Vice President**, **Treasurer** (feedback from the CEs), **Secretary**, **Business Coordinator**, each evaluated by the President.
+- Under the CE: **Subsystem Lead** and **Integration Project Manager** (feedback from the other PMs), evaluated by the CEs.
+- **Members**, evaluated by their CE on the Member eval, with input they pick from the **Subsystem Leads**.
 
-It only takes effect for eval types with **Assigned** turned on in Setup. Then:
+Click a box to change it: where it **sits**, its **eval type**, who it's **evaluated by**, **feedback from** (everyone in those positions is added as input when the eval starts, never the person or their evaluator; ticking its own position means "the others in it"; the input limit doesn't count them), **input picked from** (instead of everyone: the person or evaluator picks, e.g. their own subsystem lead), its **form** (picked for them, e.g. the Treasurer's), and a **note** shown on the box. **+ Add a position** puts another one.solar position on the chart; **Take off the chart** moves the boxes under it up.
 
-- A self-eval's evaluator list shows only their assigned evaluators (picked for them when there's just one). The database refuses anyone else, also when they submit, so a reassignment after they picked asks them to pick again.
-- An evaluator starting an eval only sees, and may write about, the people they're assigned to plus anyone with no assignment.
-- Someone with **no assignment** (or whose assigned position is empty right now) picks from the "Who evaluates" list as before. The page's second list, **Everyone who gets … evals**, shows who's assigned to whom and who isn't yet.
-- Assignments narrow "Who evaluates", never widen it: an assigned person still has to fit it (the page warns when they don't).
+**Which evals use the chart:** a switch per eval type (Admin, the President, or anyone who can "Set up Solar Evals"). On, "Who evaluates" (and "Who is evaluated", unless anyone can be) become **From the evaluation chart**: nobody else can be picked or start the eval, and the database enforces it, also on submit. Off puts back the rules the type had. Nothing switches by itself: after 054 the Member eval and the E-board eval work as before until someone turns the chart on. Setup offers "From the evaluation chart" in the same two places.
 
-**Positions for the E-board titles.** 053 adds **President**, **Vice President** and **Secretary** positions (**Treasurer** and **Business Coordinator** already exist). Give each E-board member their title in Admin → Users *as well as* E-board: E-board stays what decides what they can do, and the titles carry no permissions except the President's "Assign evaluators". Add more titles (e.g. Integration Project Manager) in Admin → Roles & permissions → New position.
+- **Boxes are positions.** Give people their positions in Admin → Users. E-board members keep **E-board** (it decides what they can do) and add their title; the titles carry no permissions except the President's "Assign evaluators". 053 added **President**, **Vice President** and **Secretary**; 054 added **Subsystem Lead** and **Integration Project Manager**. Add more in Admin → Roles & permissions → New position.
+- **Exceptions for one person** (below the chart): "Kim, evaluated by Cy". A person's own rows replace what the chart says for them.
+- **Someone the chart doesn't place** (or whose evaluator position is empty right now) picks from the list as before. **Everyone who gets … evals** shows who evaluates each person, whose feedback goes in, and who isn't on the chart.
+- **Assigned** (053, in Setup) is the older switch for a type that keeps its own rules but uses the exceptions.
 
 ## Forms
 

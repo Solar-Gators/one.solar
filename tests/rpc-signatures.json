@@ -149,6 +149,26 @@
   "returns": "uuid[]",
   "anon": false
  },
+ "eval_chart_feedback": {
+  "args": "p_type text, p_subject uuid",
+  "returns": "uuid[]",
+  "anon": false
+ },
+ "eval_chart_remove": {
+  "args": "p_role text",
+  "returns": "void",
+  "anon": false
+ },
+ "eval_chart_save": {
+  "args": "p_role text, p jsonb",
+  "returns": "void",
+  "anon": false
+ },
+ "eval_chart_use": {
+  "args": "p_type text, p_on boolean",
+  "returns": "void",
+  "anon": false
+ },
  "eval_check_inputs": {
   "args": "s jsonb, p_new uuid[], p_old uuid[], p_by text, p_writer uuid",
   "returns": "void",
