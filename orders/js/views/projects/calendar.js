@@ -33,10 +33,11 @@ export async function renderCalendar(el, scope) {
   const [fromISO, toISO_] = [toISO(from), toISO(to)];
   const user = filterOf(st.f);
   const inRange = (f) => ({ all: [{ f, op: 'gte', v: fromISO }, { f, op: 'lte', v: toISO_ }] });
-  const [{ items }, events] = await Promise.all([
+  const [{ items }, events, keyDates] = await Promise.all([
     pm.searchAll({ project: project?.id, q: st.f.q, sort: 'due',
       filter: { all: [...(user ? [user] : []), { any: [inRange('due'), inRange('start'), ...(st.work ? [{ all: [{ f: 'start', op: 'lte', v: toISO_ }, { f: 'due', op: 'gte', v: fromISO }] }] : [])] }] } }, 2000),
     pm.calendarEvents(scope.projectIds),
+    pm.keyDates().catch(() => []),   // 061: the team's dates
   ]);
   const byId = new Map(items.map((i) => [i.id, i]));
   const isMs = (i) => !!scope.cfgOf(i)?.typeById.get(i.type_id)?.is_milestone;
@@ -57,8 +58,12 @@ export async function renderCalendar(el, scope) {
       for (let d = Math.max(from, toDay(o.start)); d <= Math.min(to, toDay(o.end)); d++) put(toISO(d), { kind: 'event', event: ev });
     }
   }
-  const order = { ms: 0, event: 1, due: 2, start: 3, work: 4 };
+  for (const k of keyDates) {
+    for (let d = Math.max(from, toDay(k.day)); d <= Math.min(to, toDay(k.end_day || k.day)); d++) put(toISO(d), { kind: 'team', key: k });
+  }
+  const order = { team: -1, ms: 0, event: 1, due: 2, start: 3, work: 4 };
   const chip = (e) => {
+    if (e.kind === 'team') return `<span class="pm-cal-chip is-team is-${esc(e.key.kind)}" title="${esc(`Team date: ${e.key.name}${e.key.note ? ` · ${e.key.note}` : ''}`)}">★ ${esc(e.key.name)}</span>`;
     if (e.kind === 'event') return `<button type="button" class="pm-cal-chip is-event" data-event="${esc(e.event.id)}" title="${esc(e.event.notes || e.event.title)}">📅 ${esc(e.event.title)}</button>`;
     const i = e.item;
     const late = e.kind !== 'start' && e.kind !== 'work' && i.category !== 'done' && i.due_date < today;
@@ -77,7 +82,8 @@ export async function renderCalendar(el, scope) {
   if (st.mode === 'agenda') {
     const dates = [...days.keys()].sort();
     body = dates.length ? `<div class="pm-agenda">${dates.map((iso) => `<section><h3 class="${iso === today ? 'is-today' : ''}">${esc(new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'UTC' }))}</h3>
-      <ul class="pm-mini">${days.get(iso).sort((x, y) => order[x.kind] - order[y.kind]).filter((e) => e.kind !== 'work').map((e) => (e.kind === 'event'
+      <ul class="pm-mini">${days.get(iso).sort((x, y) => order[x.kind] - order[y.kind]).filter((e) => e.kind !== 'work').map((e) => (e.kind === 'team' ? `<li>★ <strong>${esc(e.key.name)}</strong> <span class="muted">Team date${e.key.note ? ` · ${esc(e.key.note)}` : ''}</span></li>`
+        : e.kind === 'event'
         ? `<li>📅 <strong>${esc(e.event.title)}</strong> <span class="muted">${esc(b.projectById.get(e.event.project_id)?.name || '')}${e.event.notes ? ` · ${esc(e.event.notes)}` : ''}</span></li>`
         : `<li>${typeBadge(scope.cfgOf(e.item)?.typeById.get(e.item.type_id))} <a href="${itemHref(e.item.key)}">${esc(e.item.key)} · ${esc(e.item.title)}</a>
             <span class="chip">${e.kind === 'start' ? 'Starts' : e.kind === 'ms' ? 'Milestone' : 'Due'}</span> ${statusChip(scope.cfgOf(e.item)?.statusById.get(e.item.status_id))} ${avatar(b, e.item.owner_id)}

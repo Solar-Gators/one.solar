@@ -1577,3 +1577,8 @@ a.step-link:hover { text-decoration: underline; }
 .org-err { flex-basis: 100%; }
 .org-toolbar { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; margin: 12px 0; }
 .org-toolbar label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 600; }
+
+/* 058: budget categories inside categories */
+.budget-alloc { margin-top: 2px; }
+.budget-alloc.is-over { color: var(--red); }
+.budget-tools { margin-bottom: 10px; }

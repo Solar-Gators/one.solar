@@ -50,6 +50,14 @@ Click a box to change it: where it **sits**, its **eval type**, who it's **evalu
 - **Someone the chart doesn't place** (or whose evaluator position is empty right now) picks from the list as before. **Everyone who gets … evals** shows who evaluates each person, whose feedback goes in, and who isn't on the chart.
 - **Assigned** (053, in Setup) is the older switch for a type that keeps its own rules but uses the exceptions.
 
+## Changing the evaluator (059)
+
+Picked the wrong CE? Whoever can **Assign evaluators** (Admin and the President) sees **Change…** next to the evaluator on Evaluations. On a self-eval it changes who it goes to, and an evaluation already started from it moves along while it's still a draft (the new evaluator carries on with what's written); on an evaluation it changes who writes it. It works even when the assignments or the chart say someone else. A finished or shared evaluation has to go back to a draft first. Each change is kept with who, when and why, and the new evaluator is told about a submitted self-eval.
+
+## Deleting a wrong eval (059)
+
+Someone made an eval by mistake (the wrong type, the wrong person, a duplicate)? Whoever can **Assign evaluators** sees **Delete…** on each row of Evaluations, at any stage (the writer can still delete their own drafts as before). When an evaluation has a self-eval with it, a box also deletes the self-eval. A copy is kept: **Deleted evals**, at the bottom of Evaluations, lists who, when and why, and **Put back** restores it as it was, with its input notes (a self-eval is linked to its evaluation again).
+
 ## Troubleshooting: see every eval (055)
 
 **See every eval (troubleshooting)** (`evals.all`, Admin only by default) reads every evaluation, drafts included, and every submitted self-eval, whatever each type's "Who sees what" says. It's read only: it doesn't let anyone change, finish, share or delete an eval, and nobody is told. The eval shows a note saying why you can read it. Self-eval drafts stay private, and so do input notes. Untick it in Admin → Roles & permissions once you're done troubleshooting.

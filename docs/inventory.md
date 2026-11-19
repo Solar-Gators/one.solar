@@ -48,6 +48,10 @@ and safety procedures; it doesn't replace them.
 A new role, **Inventory manager**, has all five. Change any of this in Admin → Roles & permissions. The database
 checks every change (the buttons only hide what you can't do).
 
+### Reserved for projects (061)
+
+When a Projects item links a part and says how many it needs, that many are **reserved** while the item is open (not done, not archived). The part's page shows **Reserved for projects**: the total, what's free after it (or how much more than available), and which items, with links (items in private projects show only as "a private project"). Nothing is taken out of stock: someone still uses the parts as usual.
+
 ## How it's built
 
 - **Pages:** [`inventory/index.html`](../inventory/index.html) (`<body data-app="inventory">`) loads the shared

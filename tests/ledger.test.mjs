@@ -142,4 +142,23 @@ test('Self-approved: the person who made the request also approved it (not a rej
   assert.equal(selfApprovedTag(undefined), '');
 });
 
+test('budget tree (058): sub-categories roll up, allocations compare with the parent, totals count once', () => {
+  const own = (id, category, amount, dept_status = 'ordered') => ({ id, season: 'S', description: id, amount: String(amount), category, dept_status });
+  const lines = ledgerLines({ purchases: [own('a', 'Cells', 100), own('b', 'bms', 50, 'sent'), own('c', 'Electrical', 10), own('d', 'Aero', 7)], season: 'S' });
+  const { rows, total } = budgetTable(lines, { Electrical: '1000', BMS: '600', Cells: '300', Wiring: '500', Aero: '40' }, ['Aero', 'Electrical'],
+    { BMS: 'Electrical', Cells: 'BMS', Wiring: 'Electrical', Harness: 'Wiring' });
+  assert.deepEqual(rows.map((r) => `${'-'.repeat(r.depth)}${r.category}`), ['Aero', 'Electrical', '-BMS', '--Cells', '-Wiring', '--Harness']);
+  const by = Object.fromEntries(rows.map((r) => [r.category, r]));
+  assert.deepEqual([by.Electrical.spent, by.Electrical.pipeline, by.Electrical.left], [110, 50, 840]);   // its own 10 + Cells 100 + BMS 50 (pipeline)
+  assert.deepEqual([by.Electrical.ownSpent, by.BMS.spent, by.BMS.left, by.Cells.left], [10, 100, 450, 200]);
+  assert.deepEqual([by.Electrical.allocated, by.Electrical.unallocated], [1100, -100]);                 // 600 + 500 is more than 1000
+  assert.deepEqual([by.BMS.allocated, by.BMS.unallocated, by.Cells.allocated], [300, 300, null]);
+  assert.deepEqual([by.Harness.budget, by.Harness.parent, by.Wiring.children], [null, 'Wiring', 1]);
+  assert.deepEqual(total, { budget: 1040, spent: 117, pipeline: 50, left: 873 });                     // Electrical's 1000 + Aero's 40
+  // with no parents it's the flat table it always was
+  assert.deepEqual(budgetTable(lines, { Aero: '40' }).rows.map((r) => [r.category, r.depth]), [['Aero', 0], ['Cells', 0], ['bms', 0], ['Electrical', 0]]);
+  // a loop is cut instead of looping
+  assert.equal(budgetTable([], {}, [], { A: 'B', B: 'A' }).rows.length, 2);
+});
+
 console.log(`\n${passed} passed${process.exitCode ? ', some FAILED' : ''}`);

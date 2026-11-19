@@ -119,14 +119,17 @@ export function budgetSummary(config, requests, purchases = []) {
   if (!field) return [];
   const spent = [STATUS.APPROVED, STATUS.ORDERED, STATUS.RECEIVED];
   const inSeason = requests.filter((r) => !r.season || !config.season || r.season === config.season);
+  const tree = budgetParents(config);
   return Object.entries(amounts || {})
     .filter(([, amount]) => amount !== '' && Number.isFinite(Number(amount)))
     .map(([value, amount]) => {
-      const mine = inSeason.filter((r) => answer(r, field).toLowerCase() === value.toLowerCase());
+      // 058: a category's use includes every category under it
+      const names = new Set([value.trim().toLowerCase(), ...below(tree, value)]);
+      const mine = inSeason.filter((r) => names.has(answer(r, field).trim().toLowerCase()));
       const sum = (rows) => rows.reduce((s, r) => s + (r.total || 0), 0);
       const own = (purchases || []).filter(
         (p) => !p.request_id && p.dept_status !== 'cancelled' && (!config.season || p.season === config.season)
-          && String(p.category || '').trim().toLowerCase() === value.toLowerCase()
+          && names.has(String(p.category || '').trim().toLowerCase())
       );
       const used = sum(mine.filter((r) => spent.includes(r.status))) + own.reduce((s, p) => s + (Number(p.amount) || 0), 0);
       const pending = sum(mine.filter((r) => r.status === STATUS.SUBMITTED));
@@ -140,10 +143,34 @@ export const hasBudgets = (config) => {
   return !!field && Object.values(amounts || {}).some((a) => a !== '' && Number.isFinite(Number(a)));
 };
 
-/** The budget row this request counts against, or null. */
+/** 058: budgets.parents as lower-cased { child: parent } (empty before 058). */
+const budgetParents = (config) => (Number(config?.schemaVersion) >= 58
+  ? Object.fromEntries(Object.entries(workflowSettings(config).budgets.parents || {}).map(([c, p]) => [c.trim().toLowerCase(), String(p).trim().toLowerCase()]))
+  : {});
+/** Every category under `name` (lower-cased). */
+function below(tree, name) {
+  const out = new Set();
+  const todo = [String(name).trim().toLowerCase()];
+  while (todo.length && out.size < 500) {
+    const p = todo.pop();
+    for (const [c, q] of Object.entries(tree)) if (q === p && !out.has(c)) (out.add(c), todo.push(c));
+  }
+  out.delete(String(name).trim().toLowerCase());
+  return [...out];
+}
+
+/**
+ * The budget row this request counts against, or null: its own category's, else the nearest one above it
+ * with a budget (058). If a budget further up is the one it would go over, that one is returned instead
+ * (`over` set), so approvers see the budget that matters.
+ */
 export function budgetFor(config, request, summary) {
   const { field } = workflowSettings(config).budgets;
   if (!field) return null;
-  const v = answer(request, field).toLowerCase();
-  return summary.find((b) => b.value.toLowerCase() === v) || null;
+  const tree = budgetParents(config);
+  const chain = [];
+  for (let v = answer(request, field).trim().toLowerCase(), n = 0; v && n < 50 && !chain.includes(v); v = tree[v], n++) chain.push(v);
+  const rows = chain.map((v) => summary.find((b) => b.value.trim().toLowerCase() === v)).filter(Boolean);
+  const extra = (b) => b.used + (request.status === STATUS.SUBMITTED ? request.total || 0 : 0) > b.amount;
+  return rows.find(extra) || rows[0] || null;
 }

@@ -69,6 +69,8 @@ aside.side{border-right:1px solid var(--line);background:var(--panel);padding:16
 .sb-foot{margin-top:18px;padding:12px 8px 0;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:7px}
 .linkbtn{background:none;border:0;padding:4px 0;color:var(--muted);font-size:13px;cursor:pointer;text-align:left}
 .linkbtn:hover{color:var(--ink);text-decoration:underline}
+details.deleted{margin-top:18px}
+details.deleted summary{cursor:pointer;color:var(--muted);font-size:14px}
 
 main{padding:20px 24px 60px;min-width:0}
 .tb{display:flex;flex-wrap:wrap;gap:14px 18px;align-items:flex-end;justify-content:space-between;margin-bottom:14px}
@@ -598,6 +600,28 @@ svg.trend .grid{stroke:var(--line);stroke-width:1}
   <label class="fl" for="tColor">Colour</label>
   <input class="fi" id="tColor" type="color" value="#5d6d7e" style="height:42px;padding:4px">
   <div class="dlg-a"><button class="btn" value="cancel" formnovalidate>Cancel</button><button class="btn primary" value="ok">Save</button></div>
+</form></dialog>
+
+<!-- 059: change who an eval's evaluator is (Assign evaluators) -->
+<dialog id="dEvaluator"><form class="dlg" method="dialog">
+  <h3>Change the evaluator</h3>
+  <p class="lead" id="evWho"></p>
+  <label class="fl" for="evTo">New evaluator</label>
+  <select class="fi" id="evTo" required></select>
+  <label class="fl" for="evNote">Why (kept with the change)</label>
+  <input class="fi" id="evNote" maxlength="500" placeholder="e.g. Picked the wrong CE">
+  <p class="fh" id="evHint"></p>
+  <div class="dlg-a"><button class="btn" value="cancel" formnovalidate>Cancel</button><button class="btn primary" value="ok">Change it</button></div>
+</form></dialog>
+
+<dialog id="dRemove"><form class="dlg" method="dialog">
+  <h3>Delete this eval</h3>
+  <p class="lead" id="rmWho"></p>
+  <label class="chk2" id="rmSelfRow"><input type="checkbox" id="rmSelf"> Also delete their self-eval</label>
+  <label class="fl" for="rmNote">Why (kept with it)</label>
+  <input class="fi" id="rmNote" maxlength="500" placeholder="e.g. Made with the wrong type, a duplicate">
+  <p class="fh">It's gone for everyone, at any stage. A copy is kept under "Deleted evals" at the bottom of Evaluations, where it can be put back.</p>
+  <div class="dlg-a"><button class="btn" value="cancel" formnovalidate>Cancel</button><button class="btn danger" value="ok">Delete it</button></div>
 </form></dialog>
 
 <!-- Start a rubric version from another one -->
@@ -2204,6 +2228,86 @@ async function loadEvals(){
   ]);
   evals = list.map(e => ({...e, input_ids:e.input_ids || (e.lead_id ? [e.lead_id] : [])})); inbox = Array.isArray(box) ? box : [];
 }
+/**
+ * 059: Admin / President ("Assign evaluators") change who the evaluator is: on a self-eval, who it goes to (and
+ * the evaluation started from it, while it's a draft); on an evaluation, who writes it. The database keeps a
+ * record and tells the new evaluator about a submitted self-eval.
+ */
+async function changeEvaluator(id){
+  const e = evals.find(x => x.id === id) || inbox.find(x => x.id === id);
+  if (!e) return;
+  const subject = e.kind === "self" ? e.evaluator_id : (e.subject_id || e.member_id);
+  const team = new Set(roleRows.filter(r => r.role !== "guest" && r.role !== "alumni").map(r => r.user_id));
+  const now = writerOf(e);
+  const choices = people.filter(p => team.has(p.id) && p.id !== subject).sort((a, b) => (a.full_name || a.email).localeCompare(b.full_name || b.email));
+  $("#evWho").textContent = `${e.kind === "self" ? "Self-eval" : "Evaluation"} of ${e.member_name || personName(subject) || "someone"}${e.semester ? `, ${e.semester}` : ""}. Now: ${personName(now) || "nobody"}.`;
+  $("#evTo").innerHTML = choices.map(p => `<option value="${esc(p.id)}"${p.id === now ? " selected" : ""}>${esc(p.full_name || p.email)}</option>`).join("");
+  $("#evNote").value = "";
+  $("#evHint").textContent = e.kind === "self"
+    ? "It goes to the new evaluator; an evaluation already started from it moves too while it's still a draft. This works even when the assignments or the chart say someone else."
+    : "The new evaluator carries on with what's written. A finished or shared evaluation has to go back to a draft first.";
+  const d = $("#dEvaluator");
+  d.returnValue = "";
+  d.showModal();
+  d.addEventListener("close", async () => {
+    if (d.returnValue !== "ok" || $("#evTo").value === now) return;
+    try {
+      await call("eval_change_evaluator", {p_eval:e.id, p_to:$("#evTo").value, p_note:$("#evNote").value.trim()});
+      toast(`${personName($("#evTo").value)} is the evaluator now.`);
+      await loadEvals();
+      render();
+    } catch (err) { fail("Couldn't change the evaluator", err); }
+  }, {once:true});
+}
+/**
+ * 059: Admin / President delete an eval made by mistake (wrong type, wrong person, a duplicate) at any stage.
+ * The database keeps a copy (eval_deletions), listed under "Deleted evals", where it can be put back.
+ */
+async function removeEval(id){
+  const e = evals.find(x => x.id === id);
+  if (!e) return;
+  const self = e.kind !== "self" && e.self_eval_id ? evals.find(x => x.id === e.self_eval_id) : null;
+  $("#rmWho").textContent = `${e.kind === "self" ? "Self-eval" : "Evaluation"} of ${e.member_name || "someone"}${e.semester ? `, ${e.semester}` : ""} (${typeName(e)}), by ${personName(writerOf(e)) || "nobody"}. ${e.kind === "self" ? SELF_STATUS[e.status] || e.status : STATUS[e.status] || e.status}.`;
+  $("#rmSelfRow").hidden = !self;
+  $("#rmSelf").checked = false;
+  $("#rmNote").value = "";
+  const d = $("#dRemove");
+  d.returnValue = "";
+  d.showModal();
+  d.addEventListener("close", async () => {
+    if (d.returnValue !== "ok") return;
+    const note = $("#rmNote").value.trim();
+    try {
+      await call("eval_remove", {p_eval:e.id, p_note:note});
+      if (self && $("#rmSelf").checked) await call("eval_remove", {p_eval:self.id, p_note:note});
+      toast(self && $("#rmSelf").checked ? "Deleted, with the self-eval." : "Deleted.");
+      if (location.hash.includes(e.id)) location.hash = "#/evals";
+      await loadEvals();
+      render();
+    } catch (err) { fail("Couldn't delete it", err); }
+  }, {once:true});
+}
+async function loadDeleted(){
+  const box = $("#delBody");
+  if (!box) return;
+  try {
+    const list = await rows(sb.from("eval_deletions").select("id, kind, status, type_id, semester, subject_name, evaluator_name, note, deleted_by_name, deleted_at, restored_at, restored_by_name").order("deleted_at", {ascending:false}).limit(100));
+    box.innerHTML = list.length ? `<div class="tablewrap"><table class="list"><thead><tr><th>Who</th><th>Kind</th><th>Semester</th><th>Evaluator</th><th>Deleted</th><th>Why</th><th></th></tr></thead><tbody>
+      ${list.map(r => `<tr><td><b>${esc(r.subject_name || "Unnamed")}</b> <span class="savest">${r.kind === "self" ? "self-eval" : "evaluation"}</span></td><td>${esc(typeById(r.type_id)?.name || r.type_id || "")}</td><td>${esc(r.semester || "")}</td>
+        <td>${esc(r.evaluator_name)}</td><td>${fmtDate(r.deleted_at)} · ${esc(r.deleted_by_name)}</td><td>${esc(r.note)}</td>
+        <td>${r.restored_at ? `<span class="savest">Put back ${fmtDate(r.restored_at)}${r.restored_by_name ? ` · ${esc(r.restored_by_name)}` : ""}</span>` : `<button class="btn" data-act="evRestore" data-id="${esc(r.id)}">Put back</button>`}</td></tr>`).join("")}
+      </tbody></table></div>` : '<p class="savest">Nothing deleted.</p>';
+  } catch (err) { box.textContent = "Couldn't load them: " + (err.message || err); }
+}
+async function restoreEval(id){
+  try {
+    const evalId = await call("eval_restore", {p_deletion:id});
+    toast("Put back.");
+    await loadEvals();
+    render();
+    if (evalId) location.hash = "#/evals/" + evalId;
+  } catch (err) { fail("Couldn't put it back", err); }
+}
 const STATUS = {draft:"Draft", final:"Finished", shared:"Shared"};
 const SELF_STATUS = {draft:"Self-eval draft", final:"Self-eval submitted"};
 const statusBadge = (s, kind, e) => kind === "self" ? `<span class="st ${s === "draft" ? "draft" : "self"}">${SELF_STATUS[s] || s}</span>`
@@ -2251,7 +2355,7 @@ function renderList(){
       : subject ? `<div class="empty"><h3>Start with your self-evaluation</h3><p>Answer a few questions about your semester and submit them. Your evaluator writes their eval of you next, and you'll be told when it's ready.</p>
         <div class="row"><button class="btn primary" data-act="newSelf">Fill out my self-eval</button></div></div>`
       : `<div class="empty"><h3>Nothing here yet</h3><p>Evals you're allowed to see, or asked to give input on, will show up here.</p></div>`;
-    m.innerHTML = h; return;
+    m.innerHTML = h + deletedHTML(); bindDeleted(); return;
   }
   h += `<div class="filters">
       <input class="fi" type="search" id="fQ" placeholder="Search name, subsystem, evaluator…" value="${esc(filt.q)}" aria-label="Search">
@@ -2265,13 +2369,16 @@ function renderList(){
         <td><b>${esc(e.member_name || "Unnamed")}</b>${e.member_id === me.id || e.subject_id === me.id ? ' <span class="badge">You</span>' : ""}${(e.input_ids || []).includes(me.id) ? ' <span class="badge">Your input</span>' : ""}</td>
         ${several ? `<td>${esc(typeName(e))}</td>` : ""}
         <td>${esc(e.semester)}</td><td>${esc([e.division, e.subsystem].filter(Boolean).join(" · "))}</td>
-        <td>${esc(listText(inputNames(e)))}</td><td>${esc(personName(writerOf(e)))}</td>
+        <td>${esc(listText(inputNames(e)))}</td><td>${esc(personName(writerOf(e)))}${can("evals.assign") ? ` <button type="button" class="linkbtn" data-act="chgEvaluator" data-id="${esc(e.id)}" title="Change who the evaluator is">Change…</button>` : ""}</td>
         <td>${statusBadge(e.status, e.kind, e)}${hasSelf(e) ? ' <span class="badge" title="Their self-eval is linked on this evaluation">+ self-eval</span>' : ""}${e.member_commented_at ? ' <span class="badge" title="They added comments">Comments</span>' : ""}${
           e.meeting_at && e.status !== "shared" && new Date(e.meeting_at) > Date.now() - 6 * 3600e3 ? ` <span class="badge" title="Eval meeting">${esc(fmtWhen(e.meeting_at))}</span>` : ""}</td>
-        <td>${fmtDate(e.updated_at)}</td></tr>`).join("") || `<tr><td colspan="${several ? 8 : 7}" class="none">No evaluations match.</td></tr>`}
+        <td>${fmtDate(e.updated_at)}${can("evals.assign") ? ` <button type="button" class="linkbtn" data-act="evRemove" data-id="${esc(e.id)}" title="Delete an eval made by mistake">Delete…</button>` : ""}</td></tr>`).join("") || `<tr><td colspan="${several ? 8 : 7}" class="none">No evaluations match.</td></tr>`}
     </tbody></table></div>`;
-  m.innerHTML = h;
+  m.innerHTML = h + deletedHTML();
+  bindDeleted();
 }
+const deletedHTML = () => can("evals.assign") ? `<details class="deleted" id="delList"><summary>Deleted evals</summary><div id="delBody"><p class="savest">Loading…</p></div></details>` : "";
+const bindDeleted = () => $("#delList")?.addEventListener("toggle", ev => { if (ev.target.open) loadDeleted(); });
 $("#main").addEventListener("change", e => {
   const s = e.target;
   if (s.dataset.edit && draft && view.mode === "edit" && section === "rubrics") { editChange(s); return; }
@@ -3340,6 +3447,9 @@ document.addEventListener("click", e => {
     case "export": exportData(); break;
     case "newEval": openNewEval(); break;
     case "openEval": location.hash = "#/evals/" + d.id; break;
+    case "chgEvaluator": changeEvaluator(d.id); break;
+    case "evRemove": removeEval(d.id); break;
+    case "evRestore": restoreEval(d.id); break;
     case "evStatus": setEvalStatus(d.s); break;
     case "evShare": shareEval(); break;
     case "evDelete": deleteEval(); break;

@@ -1189,7 +1189,7 @@ await test('the Treasurer sets budgets; approving over budget needs a note', asy
   await as(treasurer, () => rejects(rpc('set_budgets', [{ ...budgets, amounts: { Aero: 'lots' } }]), /must be a dollar amount/));
   await as(treasurer, () => rpc('set_budgets', [budgets]));
   const wf = (await db.query(`select value from app_settings where key = 'workflow'`)).rows[0].value;
-  assert.deepEqual(wf.budgets, { ...budgets, order: [] });
+  assert.deepEqual(wf.budgets, { ...budgets, parents: {}, order: [] });
   assert.ok(Array.isArray(wf.rules)); // the rules are left alone
   const number = numberOf(await submit({ ...vendorRequest, subsystem: 'Aero' }, [{ ...oneItem[0], unit_price: 400 }]));
   await rejects(review(ce, number, 'approve'), /over its budget.*add a note saying why/);
@@ -1584,6 +1584,48 @@ await test('Budget categories: rename, combine (budgets add up), delete, and kee
   // Case-only rename doesn't double the budget.
   await as(treasurer, () => rpc('rename_category', ['Suspension', 'SUSPENSION', false]));
   assert.deepEqual((await budgetsNow()).amounts, { SUSPENSION: '10.00' });
+  await as(treasurer, () => rpc('set_budgets', [{ field: '', amounts: {}, block: false }]));
+});
+
+await test('Budget categories inside categories; approving checks every budget above; moving money is kept (058)', async () => {
+  const budgetsNow = async () => (await db.query(`select value -> 'budgets' b from app_settings where key = 'workflow'`)).rows[0].b;
+  const base = { field: 'subsystem', block: false };
+  await as(treasurer, () => rpc('set_budgets', [{ ...base, amounts: { Mechanical: '1000', Aero: '300' }, parents: { Aero: 'Mechanical', Wings: 'Aero', ' ': 'x' } }]));
+  assert.deepEqual((await budgetsNow()).parents, { Aero: 'Mechanical', Wings: 'Aero' });
+  await as(treasurer, () => rejects(rpc('set_budgets', [{ ...base, amounts: {}, parents: { Mechanical: 'Wings', Wings: 'Aero', Aero: 'Mechanical' } }]), /under itself/));
+  await as(treasurer, () => rejects(rpc('set_budgets', [{ ...base, amounts: {}, parents: { Aero: 'aero' } }]), /can't be under itself/));
+  // With the switch on, sub-budgets have to fit their parent's.
+  await as(treasurer, () => rejects(rpc('set_budgets', [{ ...base, block: true, amounts: { Mechanical: '100', Aero: '80', Wings: '40' }, parents: { Aero: 'Mechanical', Wings: 'Mechanical' } }]),
+    /under "Mechanical" add up to \$120\.00, more than its own \$100\.00/));
+  // Approving checks the budget above the request's own category (Aero has none; Mechanical does).
+  const used = Number((await db.query(`select coalesce(sum(request_total(id)), 0) n from requests where subsystem = 'Aero' and season = $1 and status in ('Approved', 'Ordered', 'Received')`, [thisSeason])).rows[0].n);
+  await as(treasurer, () => rpc('set_budgets', [{ ...base, block: true, amounts: { Mechanical: String(used + 50) }, parents: { Aero: 'Mechanical' } }]));
+  const number = numberOf(await submit({ ...vendorRequest, subsystem: 'Aero' }, [{ ...oneItem[0], quantity: 1, unit_price: 80 }]));
+  await rejects(review(ce, number, 'approve'), /Mechanical \(which Aero is under\) over its budget/);
+  await review(ce, number, 'approve', 'Wings first');
+  assert.equal(await statusOf(number), 'Approved');
+  // Moving money: both budgets change, and the move is kept.
+  await as(treasurer, () => rpc('set_budgets', [{ ...base, amounts: { Mechanical: '500', Aero: '100' }, parents: { Aero: 'Mechanical' } }]));
+  await as(member, () => rejects(rpc('move_budget', ['Mechanical', 'Aero', 150, '']), /Only the Treasurer/));
+  await as(treasurer, () => rejects(rpc('move_budget', ['Mechanical', 'Aero', 900, '']), /only has \$500\.00/));
+  await as(treasurer, () => rejects(rpc('move_budget', ['Nothing', 'Aero', 5, '']), /no budget to move from/));
+  await as(treasurer, () => rpc('move_budget', ['mechanical', 'Aero', 150, 'Wing molds cost more']));
+  await as(treasurer, () => rpc('move_budget', ['Aero', 'Spares', 25.5, '']));   // a new category gets the money
+  const b = await budgetsNow();
+  assert.deepEqual(b.amounts, { Mechanical: '350.00', Aero: '224.50', Spares: '25.50' });
+  assert.deepEqual(b.parents, { Aero: 'Mechanical' });   // moving money doesn't move categories
+  const moves = (await as(treasurer, () => db.query(`select from_name, to_name, amount::float a, note, moved_by_name from budget_moves order by moved_at, amount desc`))).rows;
+  assert.deepEqual(moves, [
+    { from_name: 'Mechanical', to_name: 'Aero', a: 150, note: 'Wing molds cost more', moved_by_name: 'Tess Treasurer' },
+    { from_name: 'Aero', to_name: 'Spares', a: 25.5, note: '', moved_by_name: 'Tess Treasurer' }]);
+  await as(member, () => rejects(db.query(`insert into budget_moves (from_name, to_name, amount) values ('a', 'b', 1)`), /permission denied/));
+  // Renaming carries what's under it along; deleting puts what was under it one level up.
+  await as(treasurer, () => rpc('set_budgets', [{ ...base, amounts: {}, parents: { Aero: 'Mechanical', Wings: 'Aero', Mechanical: 'Car' } }]));
+  await as(member, () => rejects(rpc('budget_rename_parents', ['Aero', 'Aerodynamics', false]), /Only the Treasurer/));
+  await as(treasurer, () => rpc('budget_rename_parents', ['aero', 'Aerodynamics', false]));
+  assert.deepEqual((await budgetsNow()).parents, { Aerodynamics: 'Mechanical', Wings: 'Aerodynamics', Mechanical: 'Car' });
+  await as(treasurer, () => rpc('budget_rename_parents', ['Mechanical', '', true]));
+  assert.deepEqual((await budgetsNow()).parents, { Aerodynamics: 'Car', Wings: 'Aerodynamics' });
   await as(treasurer, () => rpc('set_budgets', [{ field: '', amounts: {}, block: false }]));
 });
 

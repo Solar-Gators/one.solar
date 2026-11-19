@@ -843,6 +843,61 @@ await test('an item links to an Orders request and an Inventory item without cha
   await rejects(by(member, 'pm_add_ref', t1.id, 'inventory', cat, ''), /can't see Inventory/, '42501');
   await rejects(by(other, 'pm_add_ref', t1.id, 'order', req, ''), /Edit items/, '42501');
   await by(member, 'pm_remove_ref', inv.id);
+  // 060: the project adds up what its linked requests cost; nobody who can't see the links gets them
+  await db.query(`insert into request_items (request_id, item_name, quantity, unit_price, position) values ($1, 'Nickel strip', 2, 25, 0)`, [req]);
+  const spend = await by(member, 'pm_project_spend', t1.project_id);
+  assert.deepEqual(spend.map((x) => [x.number, x.status, Number(x.total), x.items]), [['SG27-900', 'Ordered', 50, [t1.key]]]);
+  assert.deepEqual(await by(guest, 'pm_project_spend', t1.project_id), []);
+});
+
+await test('061: team dates, parts reserved from Inventory, and orders not placed in time', async () => {
+  // team dates: everyone in Projects reads them; only "manage Projects" keeps them
+  await rejects(by(member, 'pm_save_key_date', null, { day: '2027-07-01', name: 'ASC' }), /projects\.manage/);
+  const asc = await by(admin, 'pm_save_key_date', null, { day: '2027-07-01', end_day: '2027-07-09', name: 'ASC', kind: 'competition' });
+  await rejects(by(admin, 'pm_save_key_date', null, { day: '2027-07-09', end_day: '2027-07-01', name: 'Backwards' }), /check constraint/);
+  assert.deepEqual((await as(member, () => db.query(`select name, kind from pm_key_dates`))).rows, [{ name: 'ASC', kind: 'competition' }]);
+  assert.equal(await visibleCount(guest, 'pm_key_dates'), 0);
+  await by(admin, 'pm_delete_key_date', asc);
+  assert.equal((await one(`select count(*)::int c from pm_key_dates`)).c, 0);
+
+  // parts: a quantity reserves them while the item is open
+  const unit = (await one(`select code from inventory_units limit 1`)).code;
+  const cells = await by(admin, 'inventory_save_item', null, { name: 'Cells 21700', unit, sku: 'CELL-21700' });
+  const ref = await by(admin, 'pm_add_ref', t1.id, 'inventory', cells, '');
+  await by(admin, 'pm_set_ref_qty', ref.id, 40);
+  const res = await by(admin, 'inventory_reserved', [cells]);
+  assert.equal(Number(res[cells].total), 40);
+  assert.equal(res[cells].items[0].key, t1.key);
+  await rejects(by(admin, 'pm_set_ref_qty', ref.id, -1), /above 0/);
+  await rejects(by(other, 'pm_set_ref_qty', ref.id, 2), /Edit items/, '42501');
+  assert.deepEqual(await by(guest, 'inventory_reserved', [cells]), {});
+
+  // an order that isn't placed, for an item starting in 3 days: a warning, and its owner and manager are told once
+  await db.query(`select set_config('request.jwt.claim.sub', $1, false)`, [member]);
+  const req = (await db.query(`insert into requests (request_number, created_by, requester, title, status)
+    values ('SG27-901', $1, 'Mia Member', 'Cells', 'Approved') returning id`, [member])).rows[0].id;
+  const soon = (await one(`select (current_date + 3)::text d`)).d;
+  const later = (await one(`select (current_date + 30)::text d`)).d;
+  const job = await create(admin, t1.project_id, t1.type_id, 'Build the pack', { start_date: soon, owner_id: member });
+  const far = await create(admin, t1.project_id, t1.type_id, 'Later job', { start_date: later });
+  await by(admin, 'pm_add_ref', job.id, 'order', req, '');
+  await by(admin, 'pm_add_ref', far.id, 'order', req, '');
+  const warn = await by(admin, 'pm_order_warnings', t1.project_id);
+  assert.deepEqual(warn.map((w) => [w.key, w.number, w.status]), [[job.key, 'SG27-901', 'Approved']]);
+  assert.deepEqual(await by(guest, 'pm_order_warnings', t1.project_id), []);
+  const told = () => all(`select user_id from pm_notifications where item_id = $1 and title like 'Order not placed%' order by user_id`, [job.id]);
+  await db.query(`update pm_schedule_state set last_run = null`);
+  const ran = await by(admin, 'pm_run_scheduled');
+  assert.equal(ran.ran, true);
+  assert.ok(ran.order_alerts >= 1);
+  assert.ok((await told()).some((r) => r.user_id === member), 'the owner is told');
+  const n = (await told()).length;
+  await db.query(`update pm_schedule_state set last_run = null`);
+  await by(admin, 'pm_run_scheduled');
+  assert.equal((await told()).length, n, 'not again within 3 days');
+  // ordered: no warning any more
+  await db.query(`update requests set status = 'Ordered' where id = $1`, [req]);
+  assert.deepEqual(await by(admin, 'pm_order_warnings', t1.project_id), []);
 });
 
 // ---- planning ------------------------------------------------------------------------------------------

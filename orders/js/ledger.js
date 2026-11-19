@@ -136,8 +136,15 @@ const counts = (l) => l.status !== 'cancelled' && l.amount !== null;
  * sent / approved by the department) and left = budget − both. Matching ignores
  * case and spaces. Lines with no category show as "(no category)". `order` is the
  * Treasurer's order of the categories (migration 021).
+ *
+ * Categories can sit inside others (058): `parents` is { child: parent }. Then a row's spent and pipeline
+ * include everything under it (ownSpent / ownPipeline are its own lines), `left` compares that with its
+ * budget, and `allocated` is what its sub-categories' budgets add up to (null if none has one), with
+ * `unallocated` = budget − allocated (negative: the sub-budgets are more than its budget). Rows come in tree
+ * order with `depth` and `parent`; the totals count each line once and each budget once (a budget under a
+ * budgeted category is already part of that one).
  */
-export function budgetTable(lines, amounts = {}, order = []) {
+export function budgetTable(lines, amounts = {}, order = [], parents = {}) {
   const rows = new Map();
   const row = (name) => {
     const k = norm(name);
@@ -148,27 +155,85 @@ export function budgetTable(lines, amounts = {}, order = []) {
     if (amount === '' || amount === null || amount === undefined) continue;
     row(name).budget = num(amount);
   }
+  // every category named as a parent or a child has a row, even with no budget or lines yet
+  const up = new Map();
+  for (const [child, parent] of Object.entries(parents || {})) {
+    if (!String(child).trim() || !String(parent).trim() || norm(child) === norm(parent)) continue;
+    row(parent);
+    row(child);
+    up.set(norm(child), norm(parent));
+  }
   for (const l of lines.filter(counts)) {
     const r = row(l.category);
     if (SPENT.has(l.status)) r.spent += l.amount;
     else r.pipeline += l.amount;
   }
-  const list = [...rows.values()].map((r) => ({
-    ...r,
-    spent: round(r.spent),
-    pipeline: round(r.pipeline),
-    left: r.budget === null ? null : round(r.budget - r.spent - r.pipeline),
+  // a loop (shouldn't happen: the database refuses them) is cut where it closes
+  const parentOf = (k) => {
+    const p = up.get(k);
+    if (!p) return null;
+    for (let x = p, n = 0; x && n < 50; x = up.get(x), n++) if (x === k) return null;
+    return p;
+  };
+  const kids = new Map();
+  for (const k of rows.keys()) {
+    const p = parentOf(k);
+    if (p) (kids.get(p) || kids.set(p, []).get(p)).push(k);
+  }
+  const rolled = new Map();
+  const roll = (k) => {
+    if (rolled.has(k)) return rolled.get(k);
+    const r = rows.get(k);
+    const sum = { spent: r.spent, pipeline: r.pipeline };
+    rolled.set(k, sum);
+    for (const c of kids.get(k) || []) {
+      const s = roll(c);
+      sum.spent += s.spent;
+      sum.pipeline += s.pipeline;
+    }
+    return sum;
+  };
+  const budgetedAbove = (k) => {
+    for (let p = parentOf(k), n = 0; p && n < 50; p = parentOf(p), n++) if (rows.get(p).budget !== null) return true;
+    return false;
+  };
+  const shaped = new Map([...rows].map(([k, r]) => {
+    const s = roll(k);
+    const sub = (kids.get(k) || []).map((c) => rows.get(c).budget).filter((b) => b !== null);
+    const allocated = sub.length ? round(sub.reduce((a, b) => a + b, 0)) : null;
+    return [k, {
+      ...r,
+      ownSpent: round(r.spent),
+      ownPipeline: round(r.pipeline),
+      spent: round(s.spent),
+      pipeline: round(s.pipeline),
+      left: r.budget === null ? null : round(r.budget - s.spent - s.pipeline),
+      parent: parentOf(k) ? rows.get(parentOf(k)).category : null,
+      children: (kids.get(k) || []).length,
+      allocated,
+      unallocated: r.budget !== null && allocated !== null ? round(r.budget - allocated) : null,
+    }];
   }));
+  const list = [...shaped.values()];
   const total = {
-    budget: round(list.reduce((s, r) => s + (r.budget || 0), 0)),
-    spent: round(list.reduce((s, r) => s + r.spent, 0)),
-    pipeline: round(list.reduce((s, r) => s + r.pipeline, 0)),
+    budget: round([...shaped].filter(([k]) => !budgetedAbove(k)).reduce((s, [, r]) => s + (r.budget || 0), 0)),
+    spent: round(list.reduce((s, r) => s + r.ownSpent, 0)),
+    pipeline: round(list.reduce((s, r) => s + r.ownPipeline, 0)),
   };
   total.left = round(total.budget - total.spent - total.pipeline);
-  // The Treasurer's order; then budgeted categories (in the order they were set), then the rest.
+  // The Treasurer's order; then budgeted categories (in the order they were set), then the rest; children
+  // right under their parent, in the same order.
   const place = new Map((order || []).map((name, i) => [norm(name), i]));
   const rank = (r) => (place.has(norm(r.category)) ? place.get(norm(r.category)) : r.budget !== null ? 1e6 : 2e6);
-  return { rows: list.map((r, i) => [r, i]).sort((a, b) => rank(a[0]) - rank(b[0]) || a[1] - b[1]).map(([r]) => r), total };
+  const index = new Map([...shaped.keys()].map((k, i) => [k, i]));
+  const sorted = (keys) => [...keys].sort((a, b) => rank(shaped.get(a)) - rank(shaped.get(b)) || index.get(a) - index.get(b));
+  const out = [];
+  const walk = (k, depth) => {
+    out.push({ ...shaped.get(k), depth });
+    for (const c of sorted(kids.get(k) || [])) walk(c, depth + 1);
+  };
+  for (const k of sorted([...shaped.keys()].filter((k) => !parentOf(k)))) walk(k, 0);
+  return { rows: out, total };
 }
 
 const round = (n) => Math.round(n * 100) / 100;

@@ -117,6 +117,18 @@ if any part is wrong. Three come built in: *Simple board*, *Engineering design*,
 
 ## The timeline and the scheduling engine
 
+**Planning right in the Gantt:** "+ Add" under a project (or "+ Add to KEY" across projects) makes a new item with its kind, title and dates, so its bar appears straight away. "+" on a row adds something under it, any depth, as long as the work types allow it (a type goes under a higher level, or the types its settings name). ⇥ puts a row under the one above it; ⇤ takes it out a level. A row with things under it, and each project, gets a dark summary bar spanning everything under it. Across projects, "+ New project" starts one and opens its timeline. These are ordinary items: List, Board, Backlog and Calendar show them too. Creating saves right away; dragging bars is still a what-if until "Apply".
+
+**More planning in the Gantt (061):**
+- **Draw dates:** an item without dates gets a shaded row; drag across it (or click for a week) to give it a start and due date. Like dragging bars, it's a what-if until "Apply". **Only undated** lists just the items still missing dates (and what they're under).
+- **Rename in place:** double-click a title on the timeline.
+- **Reorder and nest by dragging:** drag a row by its ⋮⋮ handle onto another row. The middle of a row puts it under that row; the top or bottom edge puts it before or after. A spot where the work types don't allow it is greyed out.
+- **Collapse all / Expand all**, and **Fit**, which picks the zoom that shows everything at once (Days, Weeks, Months, Quarters and Today were already there).
+- **Slip against a baseline:** with a baseline chosen, each row shows how many days it moved (+3d later, −2d earlier), and **Moved since the baseline** lists them, worst first.
+- **Team dates:** competitions, design reviews, deadlines and breaks for the whole team, kept by whoever can manage Projects (**Team dates…** on any timeline). They show as bands on every project's timeline (with the name in the date header) and on the Calendar. The **Team dates** box hides them.
+- **Other projects:** a dependency on an item in another project shows as a tag on the row: "ELEC-12 ▸" where that item finishes (this waits on it), "◂ MECH-4" where it starts (it waits on this). Click to open it. (They always shaped the forecast; now they're visible.)
+- **Orders not placed in time:** an open item linked to an Orders request that isn't Ordered or Received, starting within the project's warning window (7 days unless changed under Summary → Orders & budget) or already started, shows "order ⚠" on its row, a list under Schedule warnings and on the Summary. Its owner and the project manager get an inbox notification (and email, if Project updates email is on), at most every 3 days per item. It runs with the timed work, so with the optional cron job (supabase/ops/cron_projects.sql) it also runs on days nobody opens Projects.
+
 Three kinds of date are kept apart:
 
 - **Target** dates (solid bars): what people typed. They never move on their own.
@@ -162,9 +174,11 @@ original in Microsoft 365.
 ## Other one.solar apps
 
 - **Orders**: link an item to a purchase request; the request's status is read live (so "not here yet" shows on the
-  item). Projects never changes a request.
+  item). Projects never changes a request. The project's **Summary** adds up its linked requests (spent: ordered or received; committed: approved, not ordered yet; waiting for approval) next to the project's own budget (**Set budget…**, for whoever can configure the project), and the request's page in Orders lists the project items it's linked to (migration 060).
 - **Inventory**: link an item to an inventory item; what's available is read live for people who can see Inventory.
-  Projects never changes stock.
+  Projects never changes stock. **How many?** on a linked part (061) reserves that many while the item is open: the
+  item shows what's left after other open items' reservations ("short by 4" in red when there isn't enough), and the
+  part's page in Inventory lists **Reserved for projects**.
 - **CE divisions and subsystems**: the same list Inventory uses (`org_divisions` / `org_subsystems`, edited in Admin →
   CE divisions & subsystems). A project has an owning division / subsystem and others taking part; new items take the
   project's unless they say otherwise. Renaming keeps the link; history keeps the names of the time.

@@ -78,7 +78,7 @@ export async function renderFinances(el, ctx) {
     }
   }
   const lines = ledgerLines({ requests, purchases, field: budgets.field, season });
-  const table = budgetTable(lines, budgets.amounts, budgets.order);
+  const table = budgetTable(lines, budgets.amounts, budgets.order, Number(config.schemaVersion) >= 58 ? budgets.parents : {});
   const funding = fundingTotals(funds, sponsorsIn);
   const seasonList = [...new Set([config.season, ...seasons, ...purchases.map((p) => p.season)])].filter(Boolean).sort().reverse();
   const field = budgetFields(config).find((f) => f.key === budgets.field);
@@ -395,19 +395,30 @@ function drawBudget(box, s) {
   const key = (c) => String(c || '').trim().toLowerCase();
   const noteOf = (name) => Object.entries(CATEGORY_NOTES).find(([k]) => key(k) === key(name))?.[1] || '';
   const named = table.rows.filter((r) => r.category !== '(no category)');
+  // 058: categories inside categories, and moving money between them
+  const tree = Number(config.schemaVersion) >= 58;
+  const parents = { ...(tree ? budgets.parents || {} : {}) };
   const actions = (r, i) => `<span class="category-actions">${organize
     ? `<button type="button" class="icon-btn" data-move-category="${i}" data-dir="-1" title="Move up" aria-label="Move ${esc(r.category)} up" ${i === 0 ? 'disabled' : ''}>↑</button>
        <button type="button" class="icon-btn" data-move-category="${i}" data-dir="1" title="Move down" aria-label="Move ${esc(r.category)} down" ${i >= named.length - 1 ? 'disabled' : ''}>↓</button>
        <button type="button" class="icon-btn" data-rename-category="${esc(r.category)}" title="Rename, or combine with another category" aria-label="Rename ${esc(r.category)}">✎</button>`
-    : ''}<button type="button" class="icon-btn" data-delete-category="${esc(r.category)}" title="Delete this category" aria-label="Delete ${esc(r.category)}">&times;</button></span>`;
+    : ''}${tree ? `<button type="button" class="icon-btn" data-add-sub="${esc(r.category)}" title="Add a sub-category under ${esc(r.category)}" aria-label="Add a sub-category under ${esc(r.category)}">＋</button>
+       <button type="button" class="icon-btn" data-reparent="${esc(r.category)}" title="Put it under another category" aria-label="Put ${esc(r.category)} under another category">⤷</button>` : ''}<button type="button" class="icon-btn" data-delete-category="${esc(r.category)}" title="Delete this category" aria-label="Delete ${esc(r.category)}">&times;</button></span>`;
+  // what a parent's sub-budgets come to, next to its own budget
+  const allocation = (r) => (r.allocated === null || r.budget === null ? ''
+    : `<div class="hint budget-alloc${r.unallocated < 0 ? ' is-over' : ''}">Sub-budgets ${fmtMoney(r.allocated)} · ${r.unallocated < 0 ? `<strong>${fmtMoney(-r.unallocated)} more than its budget</strong>` : `${fmtMoney(r.unallocated)} not given out`}</div>`);
   box.innerHTML = `
+    ${canBudget && tree ? `<div class="card-actions budget-tools">
+        <button type="button" class="btn btn-sm" data-move-money ${named.some((r) => r.budget) ? '' : 'disabled title="Set a budget first"'}>Move money…</button>
+        <button type="button" class="btn btn-sm btn-ghost" data-from-org title="Adds each CE division as a category, with its subsystems under it (Admin → CE divisions & subsystems). Nothing that's already there changes.">Start from divisions &amp; subsystems</button>
+      </div>` : ''}
     <div class="table-wrap">
       <table class="table stack-mobile budget-ledger">
         <thead><tr><th>Category</th><th class="num">Budget</th><th class="num">Spent</th><th class="num">In the pipeline</th><th class="num">Left</th><th></th>${notesOn ? '<th>Notes</th>' : ''}</tr></thead>
         <tbody>${table.rows
           .map(
             (r, i) => `<tr class="${r.left !== null && r.left < 0 ? 'is-over' : ''}">
-              <td class="cell-primary" data-label=""><a href="#/finances" data-category="${esc(r.category)}" title="See its purchases">${esc(r.category)}</a></td>
+              <td class="cell-primary" data-label=""${r.depth ? ` style="padding-left:${12 + r.depth * 18}px"` : ''}>${r.depth ? '<span class="muted" aria-hidden="true">↳ </span>' : ''}<a href="#/finances" data-category="${esc(r.category)}" title="See its purchases">${esc(r.category)}</a>${r.children ? ` <span class="muted small">(incl. ${r.children} under it)</span>` : ''}${allocation(r)}</td>
               <td class="num" data-label="Budget">${canBudget && r.category !== '(no category)'
                 ? `<input class="budget-input" data-budget="${esc(r.category)}" value="${r.budget === null ? '' : r.budget.toFixed(2)}" inputmode="decimal" placeholder="Set" aria-label="Budget for ${esc(r.category)}">`
                 : money(r.budget) || '—'}</td>
@@ -438,7 +449,26 @@ function drawBudget(box, s) {
           <span>Approving over budget needs a written reason <span class="hint">The approver has to say why; it's kept in the request's History.</span></span></label>
       </div></details>` : ''}
     <p class="hint">Spent = ${STEPS.filter((x) => x.counts === 'spent' && !x.hidden).map((x) => x.label).join(', ')}. In the pipeline = approved but not ordered yet (${STEPS.filter((x) => x.counts === 'pipeline' && !x.hidden).map((x) => x.label).join(', ')}).
-      Purchases added by hand count too; cancelled ones don't. The same budgets warn approvers before a request goes over.${notesOn && s.canEdit ? ' Notes are just for you (and whoever sees Finances).' : ''}</p>`;
+      Purchases added by hand count too; cancelled ones don't. The same budgets warn approvers before a request goes over.${notesOn && s.canEdit ? ' Notes are just for you (and whoever sees Finances).' : ''}
+      ${tree ? ' A category with others under it (↳) counts everything under it; approving checks its budget too. With "Approving over budget needs a written reason" on, sub-budgets also can\'t add up to more than their parent\'s.' : ''}</p>
+    ${tree ? '<details class="about" data-moves-box><summary>Money moves</summary><div data-moves><p class="muted small">Loading…</p></div></details>' : ''}`;
+
+  // Money moves: who moved how much from where to where, and why (058).
+  const movesBox = box.querySelector('[data-moves-box]');
+  movesBox?.addEventListener('toggle', async () => {
+    if (!movesBox.open || movesBox.dataset.loaded) return;
+    movesBox.dataset.loaded = '1';
+    try {
+      const moves = await api.budgetMoves(100);
+      movesBox.querySelector('[data-moves]').innerHTML = moves.length
+        ? `<div class="table-wrap"><table class="table stack-mobile"><thead><tr><th>When</th><th>From</th><th>To</th><th class="num">Amount</th><th>Why</th><th>Who</th></tr></thead><tbody>${moves.map((m) => `<tr>
+            <td data-label="When">${esc(fmtDate(m.moved_at))}</td><td data-label="From">${esc(m.from_name)}</td><td data-label="To">${esc(m.to_name)}</td>
+            <td class="num" data-label="Amount">${fmtMoney(Number(m.amount))}</td><td data-label="Why">${esc(m.note) || '<span class="muted">—</span>'}</td><td data-label="Who">${esc(m.moved_by_name)}</td></tr>`).join('')}</tbody></table></div>`
+        : '<p class="muted small">No money moved yet. "Move money…" moves budget from one category to another and keeps a record here.</p>';
+    } catch (err) {
+      movesBox.querySelector('[data-moves]').innerHTML = errorBox(err);
+    }
+  });
 
   const saveBudgets = async (next) => {
     try {
@@ -474,7 +504,81 @@ function drawBudget(box, s) {
     if (!name || !value) return showError(new Error('Enter a category and its budget.'));
     saveBudgets({ amounts: { ...(budgets.amounts || {}), [name]: value } });
   });
-  box.addEventListener('click', (e) => {
+  box.addEventListener('click', async (e) => {
+    // 058: sub-categories, "put under", money moves, starting from the CE divisions
+    const sub = e.target.closest('[data-add-sub]');
+    if (sub) {
+      const name = await askText({ title: `A category under ${sub.dataset.addSub}`, label: 'Name', placeholder: 'e.g. Cells', ok: 'Add',
+        hint: 'Give it a budget next. What\'s spent in it also counts toward the category it\'s under.' });
+      if (!name?.trim()) return;
+      if (key(name) === key(sub.dataset.addSub)) return showError(new Error('Pick a different name from the category it goes under.'));
+      return saveBudgets({ parents: { ...parents, [name.trim()]: sub.dataset.addSub } });
+    }
+    const rep = e.target.closest('[data-reparent]');
+    if (rep) {
+      const name = rep.dataset.reparent;
+      const below = new Set([key(name)]);
+      for (let grew = true; grew;) {
+        grew = false;
+        for (const [c, p] of Object.entries(parents)) if (below.has(key(p)) && !below.has(key(c))) (below.add(key(c)), (grew = true));
+      }
+      const options = named.filter((r) => !below.has(key(r.category)));
+      const now = Object.entries(parents).find(([c]) => key(c) === key(name))?.[1] || '';
+      const to = await pickDialog({ title: `Put "${name}" under…`, ok: 'Save',
+        body: `<div class="field"><label for="reparent-to">Category</label><select id="reparent-to" name="to">
+            <option value="">(nothing: a top-level category)</option>${options.map((r) => `<option value="${esc(r.category)}" ${key(r.category) === key(now) ? 'selected' : ''}>${esc(`${'— '.repeat(r.depth)}${r.category}`)}</option>`).join('')}</select></div>
+          <p class="hint">What's under "${esc(name)}" comes along.</p>`,
+        read: (f) => f.elements.to.value });
+      if (to === null) return;
+      const next = Object.fromEntries(Object.entries(parents).filter(([c]) => key(c) !== key(name)));
+      if (to) next[name] = to;
+      return saveBudgets({ parents: next });
+    }
+    if (e.target.closest('[data-move-money]')) {
+      const budgeted = named.filter((r) => r.budget);
+      const moved = await pickDialog({ title: 'Move money between categories', ok: 'Move it',
+        body: `<div class="form-grid">
+            <div class="field span-2"><label for="mm-from">From</label><select id="mm-from" name="from" required>${budgeted.map((r) => `<option value="${esc(r.category)}">${esc(`${'— '.repeat(r.depth)}${r.category}`)} (${esc(fmtMoney(r.budget))})</option>`).join('')}</select></div>
+            <div class="field span-2"><label for="mm-to">To</label><input id="mm-to" name="to" list="fin-move-to" required placeholder="A category, or a new one"><datalist id="fin-move-to">${named.map((r) => `<option value="${esc(r.category)}">`).join('')}</datalist></div>
+            <div class="field span-2"><label for="mm-amount">Amount ($)</label><input id="mm-amount" name="amount" inputmode="decimal" required placeholder="250"></div>
+            <div class="field span-2"><label for="mm-note">Why</label><input id="mm-note" name="note" maxlength="500" placeholder="e.g. BMS needed more cells"></div></div>
+          <p class="hint">Both budgets change, and the move is kept under "Money moves" with who, when and why.</p>`,
+        read: async (f) => {
+          const amount = toAmount(f.elements.amount.value);
+          if (!amount || Number(amount) <= 0) throw new Error('Enter an amount more than $0.');
+          await api.moveBudget(f.elements.from.value, f.elements.to.value.trim(), Number(amount), f.elements.note.value.trim());
+          return `Moved ${fmtMoney(Number(amount))} from ${f.elements.from.value} to ${f.elements.to.value.trim()}.`;
+        } });
+      if (!moved) return;
+      setFlash(moved);
+      await reloadConfig();
+      return rerender();
+    }
+    if (e.target.closest('[data-from-org]')) {
+      try {
+        const { divisions, subsystems } = await api.orgTree();
+        if (!divisions.length) return showError(new Error('There are no CE divisions yet. Add them in Admin → CE divisions & subsystems.'));
+        const has = new Set([...table.rows.map((r) => key(r.category)), ...Object.keys(parents).map(key)]);
+        const next = { ...parents };
+        const order = [...(budgets.order || [])];
+        let added = 0;
+        for (const d of divisions) {
+          const subs = subsystems.filter((y) => y.division_id === d.id && !has.has(key(y.name)));
+          if (!subs.length) continue;   // a category shows once it has something under it, a budget or a purchase
+          if (!has.has(key(d.name)) && !order.some((o) => key(o) === key(d.name))) (order.push(d.name), (added += 1));
+          for (const x of subs) {
+            next[x.name] = d.name;
+            order.push(x.name);
+            added += 1;
+          }
+        }
+        if (!added) return showError(new Error('Every CE division (with subsystems) is already here.'));
+        setFlash(`Added ${added} categor${added === 1 ? 'y' : 'ies'} from the CE divisions and subsystems. Give them budgets.`);
+        return saveBudgets({ parents: next, order });
+      } catch (err) {
+        return showError(err);
+      }
+    }
     const del = e.target.closest('[data-delete-category]');
     if (del) return moveCategory(del.dataset.deleteCategory, 'delete', s);
     const ren = e.target.closest('[data-rename-category]');
@@ -819,6 +923,40 @@ function editSteps({ lines, config, reloadConfig, rerender }) {
 }
 
 /**
+ * A small dialog: `body` is the fields, `read(form)` gives the answer (or throws to show an error; it may be
+ * async and do the saving). Resolves with the answer, or null when cancelled.
+ */
+function pickDialog({ title, body, ok = 'Save', read }) {
+  return new Promise((resolve) => {
+    const dialog = document.createElement('dialog');
+    dialog.className = 'card sheet-dialog';
+    dialog.innerHTML = `<form method="dialog" novalidate><h2>${esc(title)}</h2>${body}<div data-pick-errors></div>
+      <div class="form-actions"><button type="button" class="btn btn-ghost" data-pick-cancel>Cancel</button><button type="submit" class="btn btn-primary">${esc(ok)}</button></div></form>`;
+    document.body.appendChild(dialog);
+    let answer = null;
+    const close = () => (dialog.close(), dialog.remove(), resolve(answer));
+    dialog.querySelector('[data-pick-cancel]').addEventListener('click', close);
+    dialog.addEventListener('cancel', (e) => (e.preventDefault(), close()));
+    const form = dialog.querySelector('form');
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!form.checkValidity()) return form.reportValidity();
+      const btn = form.querySelector('[type="submit"]');
+      btn.disabled = true;
+      try {
+        answer = await read(form);
+        close();
+      } catch (err) {
+        form.querySelector('[data-pick-errors]').innerHTML = errorBox(err);
+        btn.disabled = false;
+      }
+    });
+    dialog.showModal();
+    form.querySelector('select, input')?.focus();
+  });
+}
+
+/**
  * Rename a category, combine it with another (mode 'rename'), or delete it ('delete'):
  * every purchase in it (requests too) moves to the other category. Renaming carries
  * the budget over (added to the other's when combining); deleting drops it.
@@ -833,7 +971,9 @@ function moveCategory(name, mode, { lines, categories, budgets, season, config, 
     if (!confirm(`Delete the "${name}" category and its budget?`)) return;
     const amounts = Object.fromEntries(Object.entries(budgets.amounts || {}).filter(([k]) => key(k) !== key(name)));
     const order = (budgets.order || []).filter((c) => key(c) !== key(name));
-    return api.setBudgets({ ...budgets, amounts, order }).then(() => moveCategoryNote(config, name, null)).then(reloadConfig).then(rerender).catch(showError);
+    return api.setBudgets({ ...budgets, amounts, order })
+      .then(() => (Number(config.schemaVersion) >= 58 ? api.renameInBudgetTree(name, '', true) : null))
+      .then(() => moveCategoryNote(config, name, null)).then(reloadConfig).then(rerender).catch(showError);
   }
   const count = `${using.length} purchase${using.length === 1 ? '' : 's'}`;
   const dialog = document.createElement('dialog');
@@ -891,6 +1031,8 @@ function moveCategory(name, mode, { lines, categories, budgets, season, config, 
         }
         await api.setBudgets({ ...budgets, amounts: Object.fromEntries(Object.entries(budgets.amounts || {}).filter(([k]) => key(k) !== key(name))) });
       }
+      // 058: what was under it comes along (renaming), or moves one level up (deleting)
+      if (Number(config.schemaVersion) >= 58) await api.renameInBudgetTree(name, deleting ? '' : to, deleting);
       await moveCategoryNote(config, name, deleting ? null : to);
       close();
       const what = `${moved} purchase${moved === 1 ? '' : 's'}`;

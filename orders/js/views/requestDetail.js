@@ -9,6 +9,7 @@
  * Plus, for the Treasurer: private notes (the ledger line's), and deleting a request entirely (025).
  */
 import { api } from '../api.js';
+import { supabase } from '../supabase.js';
 import { renderAttachments } from '../attachments.js';
 import { auth } from '../auth.js';
 import {
@@ -811,6 +812,7 @@ export async function renderRequestDetail(el, { config, params, rerender }) {
       <aside class="detail-side">
         ${actionPanel(r, config, { names, budget, purchase })}
         <div id="inventory-panel"></div>
+        <div id="projects-panel"></div>
         ${ledgerViewer() && notesShown(r) && Number(config.schemaVersion) >= 18 ? treasurerNotesCard(r, purchase) : ''}
         <div id="request-files"></div>
         ${showWatchers && watchers ? watchersCard(r, watchers, people, names) : ''}
@@ -822,6 +824,7 @@ export async function renderRequestDetail(el, { config, params, rerender }) {
 
   bindCopyButtons(el);
   inventoryPanel(el.querySelector('#inventory-panel'), r, config);
+  projectsPanel(el.querySelector('#projects-panel'), r, config);
 
   const errors = el.querySelector('#action-errors');
   // `message` may be a function, worked out after the action (e.g. "still waiting on Cara").
@@ -1255,6 +1258,21 @@ export async function renderRequestDetail(el, { config, params, rerender }) {
       }
     });
   });
+}
+
+const PM_PERMS = ['projects.view', 'projects.create', 'projects.manage'];
+/**
+ * 060: the project items this request is linked to (Projects → an item → "Parts & orders"), for people who can
+ * open Projects. Only the links they can see. Filled in after the page shows.
+ */
+async function projectsPanel(box, r, config) {
+  if (!box || Number(config.schemaVersion) < 60 || !PM_PERMS.some((p) => auth.can(p))) return;
+  const { data } = await supabase.from('pm_refs').select('item_id, pm_items(key, title)').eq('kind', 'order').eq('ref_id', r.id);
+  const items = (data || []).map((x) => x.pm_items).filter(Boolean);
+  if (!items.length || !box.isConnected) return;
+  box.innerHTML = `<section class="card"><h2>Projects</h2><ul class="plain-list">${items.map((i) =>
+    `<li><a href="${esc(appUrl(`projects/#/projects/item/${encodeURIComponent(i.key)}`))}">${esc(i.key)}</a> ${esc(i.title)}</li>`).join('')}</ul>
+    <p class="hint">It counts toward ${items.length === 1 ? 'that project' : 'those projects'}' spending (Projects → Summary).</p></section>`;
 }
 
 const INV_PERMS = ['inventory.view', 'inventory.use', 'inventory.receive', 'inventory.count', 'inventory.manage'];
