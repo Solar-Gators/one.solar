@@ -305,3 +305,14 @@ Tell the Chief Engineer or Treasurer, or open an issue on this GitHub repository
 ---
 
 *Maintaining the site (setup, database updates, running it locally, how the code works): see [docs/MAINTAINING.md](docs/MAINTAINING.md).*
+
+## Divisions & subsystems for people (056)
+
+People are in the CE divisions and subsystems listed in **Admin → CE divisions & subsystems**. Someone can be in several subsystems, in any divisions, or in a whole division without a subsystem (e.g. a Chief Engineer). ★ marks their main one.
+
+- **My account → Division & subsystems:** everyone sets their own.
+- **Admin → Divisions & people:** everyone on the team, filterable by division. People who can **Manage people & roles** change anyone. People who can **Change people's subsystems (own divisions)** (`people.subsystems`, Chief Engineers by default) change only the divisions they're in themselves, so a CE puts themselves in their division first. (CEs can also "Manage people & roles" by default, which already lets them change anyone; untick that for CEs if you want them limited to their division.)
+- **Admin → Users** shows each person's divisions and subsystems under their name.
+- **Solar Evals** fills in a self-eval's subsystem (when it's on the evals' Subsystem list) and picks the form variant named after their division; a new eval about someone does the same. When picking who gives input, people in the same subsystem come first, and with the evaluation chart's "Input picked from" (e.g. Subsystem Leads) only the lead of their own subsystem is offered when there is one.
+
+The database (`set_person_org`, `person_org`) enforces who may change what.

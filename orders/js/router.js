@@ -12,7 +12,7 @@ import { auth } from './auth.js';
 import { renderLogin } from './views/login.js';
 import { emailLink } from './emailLink.js';
 import { renderAccount, renderResetPassword } from './views/account.js';
-import { renderUsers, renderRoles, renderDropdowns, renderSeason, renderFormFields, renderImportOrders, ADMIN_TABS } from './views/admin.js';
+import { renderUsers, renderDivisionsPeople, renderRoles, renderDropdowns, renderSeason, renderFormFields, renderImportOrders, ADMIN_TABS } from './views/admin.js';
 import { renderAppearance, renderBrand, renderHistory } from './views/adminSetup.js';
 import { renderDisplay, renderTextBanner, renderIntros } from './views/adminPages.js';
 import { renderHomeScreen, renderOtherApps } from './views/adminApps.js';
@@ -191,6 +191,7 @@ const ROUTES = [
   { pattern: /^\/projects\/inbox$/, nav: 'pm-inbox', view: renderInbox, perm: PM_PERMS },
   { pattern: /^\/export$/, nav: 'requests', view: renderExport },
   { pattern: /^\/admin\/users$/, nav: 'admin', view: renderUsers, perm: tabPerms('users') },
+  { pattern: /^\/admin\/people$/, nav: 'admin', view: renderDivisionsPeople, perm: tabPerms('people') },
   { pattern: /^\/admin\/fields$/, nav: 'admin', view: renderFormFields, perm: tabPerms('fields') },
   { pattern: /^\/admin\/roles$/, nav: 'admin', view: renderRoles, perm: tabPerms('roles') },
   { pattern: /^\/admin\/dropdowns$/, nav: 'admin', view: renderDropdowns, perm: tabPerms('dropdowns') },

@@ -54,6 +54,8 @@ Click a box to change it: where it **sits**, its **eval type**, who it's **evalu
 
 **See every eval (troubleshooting)** (`evals.all`, Admin only by default) reads every evaluation, drafts included, and every submitted self-eval, whatever each type's "Who sees what" says. It's read only: it doesn't let anyone change, finish, share or delete an eval, and nobody is told. The eval shows a note saying why you can read it. Self-eval drafts stay private, and so do input notes. Untick it in Admin → Roles & permissions once you're done troubleshooting.
 
+**Divisions & subsystems (056).** Once people are in their divisions and subsystems (My account, or Admin → Divisions & people), a self-eval fills in their subsystem and division form, a new eval about someone does the same, and the input picker lists people from the same subsystem first. See docs/orders.md → Divisions & subsystems for people.
+
 ## Forms
 
 **Forms** holds every form and its versions. A form can have **variants**, e.g. one per CE division or per leadership position; a variant starts as a copy of the main form. Every saved version is kept, and evals keep their own copy.

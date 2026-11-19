@@ -813,6 +813,28 @@ async function loadSubsystems(){
     subsystemList = [...new Set((r[0]?.value?.subsystems || []).map(x => String(x).trim()).filter(Boolean))];
   } catch { subsystemList = []; }
 }
+/* 056: who is in which CE division and subsystem (Admin → Divisions & people, My account). [] before 056. */
+let personOrg = [], orgDivNames = new Map(), orgSubNames = new Map();
+async function loadPersonOrg(){
+  try {
+    const [d, s, p] = await Promise.all([rows(sb.from("org_divisions").select("id, name")), rows(sb.from("org_subsystems").select("id, name")),
+      rows(sb.from("person_org").select("user_id, division_id, subsystem_id, main"))]);
+    orgDivNames = new Map(d.map(x => [x.id, x.name])); orgSubNames = new Map(s.map(x => [x.id, x.name])); personOrg = p;
+  } catch { personOrg = []; }
+}
+const placesOfUser = uid => personOrg.filter(r => r.user_id === uid).sort((a, b) => (b.main ? 1 : 0) - (a.main ? 1 : 0));
+const mainSubsystem = uid => { const r = placesOfUser(uid).find(x => x.subsystem_id); return r ? orgSubNames.get(r.subsystem_id) || "" : ""; };
+const mainDivision = uid => { const r = placesOfUser(uid)[0]; return r ? orgDivNames.get(r.division_id) || "" : ""; };
+/** Their main subsystem as the evals' Subsystem list spells it ("" if it isn't on that list). */
+const subsystemFor = uid => { const m = lc(mainSubsystem(uid)).trim(); return !m ? "" : subsystemList.length ? (subsystemList.find(x => lc(x).trim() === m) || "") : mainSubsystem(uid); };
+const shareSubsystem = (a, b) => { const mine = new Set(placesOfUser(a).map(r => r.subsystem_id).filter(Boolean)); return placesOfUser(b).some(r => r.subsystem_id && mine.has(r.subsystem_id)); };
+/** The form variant named after someone's main division ("Electrical" → "Electrical CE"), if there is one. */
+function variantForDivision(kids, uid){
+  const d = lc(mainDivision(uid)).trim();
+  if (!d) return null;
+  const bare = t => lc(t.name).replace(/\s*\bce\b\s*$/, "").trim();
+  return kids.find(t => bare(t) === d) || kids.find(t => lc(t.name).includes(d) || d.includes(bare(t))) || null;
+}
 /** A Subsystem dropdown from that list. A saved value that isn't on the list (older evals) stays as a choice. */
 function subsystemControl(attrs, value, label = "Subsystem", required = false){
   value = String(value || "").trim();
@@ -950,7 +972,7 @@ async function boot(session){
       evalState = null;
       await loadMe(session);
       if (me.guest) { showGuest(); return; }
-      await Promise.all([loadRubrics(), loadEvals(), loadQuestions(), loadSetup(), loadSubsystems()]);
+      await Promise.all([loadRubrics(), loadEvals(), loadQuestions(), loadSetup(), loadSubsystems(), loadPersonOrg()]);
       $("#tabQ").hidden = !(can("evals.write") || can("evals.templates"));
       $("#tabSetup").hidden = !can("evals.types");
       $("#tabAssign").hidden = !can("evals.assign") || !setupReady;
@@ -1197,11 +1219,13 @@ const chartBoxOf = role => chart.find(c => c.role === role);
 const chartRoleList = (keys, self) => listText((keys || []).map(k => k === self ? `the other ${roleLabel(k)}s` : roleLabel(k))) || "—";
 /** Who can be picked to give input on an eval of `subject`: the chart's "picked from" positions, if any. */
 function inputChoices(typeId, s, subject, except){
-  const all = candidates(s.input, except);
+  // 056: people in the same subsystem first (their own subsystem lead at the top).
+  const all = candidates(s.input, except).sort((a, b) => (shareSubsystem(subject, b.id) ? 1 : 0) - (shareSubsystem(subject, a.id) ? 1 : 0));
   const pickFrom = [...new Set(chartBoxes(typeId, subject).flatMap(c => c.feedback_pick || []))];
   if (!pickFrom.length) return all;
   const ok = all.filter(p => pickFrom.some(k => holders(k).includes(p.id)));
-  return ok.length ? ok : all;
+  const same = ok.filter(p => shareSubsystem(subject, p.id));   // e.g. only the lead of their own subsystem
+  return same.length ? same : ok.length ? ok : all;
 }
 /** The form a box picks for this person, if their position has one. */
 const chartForm = (typeId, uid) => chartBoxes(typeId, uid).map(c => c.form_id).find(Boolean) || "";
@@ -2333,7 +2357,9 @@ $("#nType").addEventListener("change", fillNewEval);
 $("#nSubject").addEventListener("change", () => {
   toggleTyped();
   const f = chartForm($("#nType").value, $("#nSubject").value), v = f && latest(f);   // 054: their position's form
-  if (v && [...$("#nRubric").options].some(o => o.value === v.id)) $("#nRubric").value = v.id;
+  const dv = !v && $("#nSubject").value && variantForDivision(variantsOf(typeById($("#nType").value).settings.form.track), $("#nSubject").value);   // 056: or their division's
+  const pickV = v || (dv && latest(dv.id));
+  if (pickV && [...$("#nRubric").options].some(o => o.value === pickV.id)) $("#nRubric").value = pickV.id;
 });
 $("#dNew").addEventListener("close", async () => {
   if ($("#dNew").returnValue !== "ok") return;
@@ -2343,6 +2369,7 @@ $("#dNew").addEventListener("close", async () => {
   lsSet("sg-evals-last-track", t.id); lsSet("sg-evals-last-type", ty.id);
   const p = {type_id:ty.id, template_id:v.id, semester:$("#nSem").value.trim(), division:variantName(t)};
   if (subject) p.subject_id = subject; else { p.member_name = $("#nName").value.trim(); p.member_email = $("#nEmail").value.trim(); }
+  if (subject && subsystemFor(subject)) p.subsystem = subsystemFor(subject);   // 056: their main subsystem
   if (ty.id === "member" && !setupReady) delete p.type_id;
   try {
     const id = await call("eval_save", {p_id:null, p});
@@ -2359,7 +2386,7 @@ function openNewSelf(){
   $("#sfType").innerHTML = typeOpts(list, list.some(t => t.id === last) ? last : list[0].id);
   $("#sfTypeRow").hidden = list.length < 2;
   $("#sfSem").value = semesterNow();
-  $("#sfSub").outerHTML = subsystemControl('class="fi" id="sfSub" autocomplete="off" placeholder="e.g. BMS"', "", "Subsystem");
+  $("#sfSub").outerHTML = subsystemControl('class="fi" id="sfSub" autocomplete="off" placeholder="e.g. BMS"', subsystemFor(me.id), "Subsystem");   // 056: yours, if set
   fillNewSelf();
   openDlg("#dSelf");
 }
@@ -2374,7 +2401,8 @@ function fillNewSelf(){
     + `<option value="${esc(top)}" data-v="${esc(choice(track(top) || {id:top}))}">Not sure / other (the main form)</option>`;
   const lastT = lsGet("sg-evals-self-track");
   const chartT = chartForm($("#sfType").value, me.id);
-  $("#sfTrack").value = kids.some(k => k.id === chartT) ? chartT : kids.some(k => k.id === lastT) ? lastT : (kids[0]?.id || top);
+  const divT = variantForDivision(kids, me.id)?.id;   // 056: the variant for your division
+  $("#sfTrack").value = kids.some(k => k.id === chartT) ? chartT : divT ? divT : kids.some(k => k.id === lastT) ? lastT : (kids[0]?.id || top);
   const sub = formHasBind(top, "subsystem");
   $("#sfSub").hidden = $("#sfSub").previousElementSibling.hidden = !sub;
   $("#sfSub").required = sub && subsystemList.length > 0;
