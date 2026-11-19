@@ -90,6 +90,12 @@ export const inv = {
     if (!ids.length) return [];
     return unwrap(await supabase.from('inventory_ops').select('*').in('id', ids));
   },
+  /** 061: what open Projects items have reserved: { [item id]: { total, items: [{ qty, key, title, project, start, due }] } }. */
+  async reserved(ids) {
+    if (!ids.length) return {};
+    const res = await supabase.rpc('inventory_reserved', { p_items: ids });
+    return res.error ? {} : res.data || {};
+  },
   async receipts({ requestId, itemId } = {}) {
     let q = supabase.from('inventory_receipts').select('*');
     if (requestId) q = q.eq('request_id', requestId);

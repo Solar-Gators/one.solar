@@ -669,4 +669,63 @@ test.describe('projects', () => {
     await expect(page.locator('[data-alumni-share="1"]')).toBeVisible();
     expect(await one(page, aero)).toEqual({ status: 'archived' });
   });
+
+  test('planning in the Gantt: add an item and things under it, nest and un-nest them, and they show in List', async () => {
+    const day = (n) => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
+    await signIn(page, ADMIN);
+    await open(page, '/projects/#/projects/p/AERO/timeline', '.pm-gantt');
+    await page.locator('[data-add-root]').click();
+    await dialog(page).locator('#ga-kind').selectOption({ index: 0 });   // the highest level first
+    await dialog(page).locator('#ga-title').fill('Wind tunnel campaign');
+    await dialog(page).locator('#ga-start').fill(day(2));
+    await dialog(page).locator('#ga-due').fill(day(30));
+    await save(page, 'Add');
+    const top = page.locator('.pm-g-label', { hasText: 'Wind tunnel campaign' });
+    await expect(top).toBeVisible();
+    for (const [title, a, z] of [['Scale model', 2, 10], ['Test runs', 11, 20]]) {
+      await top.locator('[data-add-child]').click();
+      await dialog(page).locator('#ga-title').fill(title);
+      await dialog(page).locator('#ga-start').fill(day(a));
+      await dialog(page).locator('#ga-due').fill(day(z));
+      await save(page, 'Add');
+      await expect(page.locator('.pm-g-label', { hasText: title })).toBeVisible();
+    }
+    const parentOf = (title) => one(page, `select (select title from pm_items p where p.id = i.parent_id) parent from pm_items i where title = $1`, [title]);
+    expect(await parentOf('Test runs')).toEqual({ parent: 'Wind tunnel campaign' });
+    await expect(page.locator('.pm-g-sum').first()).toBeVisible();   // the summary bar over what's under it
+    await page.locator('.pm-g-label', { hasText: 'Test runs' }).locator('[data-outdent]').click();
+    await expect(toast(page)).toContainText('moved out a level');
+    expect(await parentOf('Test runs')).toEqual({ parent: null });
+    // 061: rename in place; an undated item gets its dates by drawing on its row (a what-if, then Apply)
+    await page.locator('.pm-g-label', { hasText: 'Test runs' }).locator('[data-rename]').dblclick();
+    await page.locator('.pm-g-rename').fill('Test runs (tunnel)');
+    await page.locator('.pm-g-rename').press('Enter');
+    await expect(toast(page)).toContainText('Renamed');
+    await expect(page.locator('.pm-g-label', { hasText: 'Test runs (tunnel)' })).toBeVisible();
+    await page.locator('[data-add-root]').click();
+    await dialog(page).locator('#ga-title').fill('Data review');
+    await dialog(page).locator('#ga-start').fill('');
+    await dialog(page).locator('#ga-due').fill('');
+    await save(page, 'Add');
+    await expect(page.locator('.pm-g-label', { hasText: 'Data review' })).toBeVisible();
+    await page.locator('[data-opt="undated"]').check();
+    const { id } = await one(page, `select id from pm_items where title = 'Data review'`);
+    const row = page.locator(`.pm-g-row[data-draw="${id}"]`);
+    await expect(row).toHaveCount(1);
+    const box = await row.boundingBox();
+    await page.mouse.move(box.x + 200, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + 300, box.y + box.height / 2, { steps: 5 });
+    await page.mouse.up();
+    await expect(page.locator('.pm-whatif')).toContainText('1 date change');
+    await page.locator('[data-apply]').click();
+    await save(page, 'Apply to the plan');
+    await expect(toast(page)).toContainText('Rescheduled 1 item');
+    await expect.poll(() => one(page, `select start_date is not null and due_date > start_date as ok from pm_items where title = 'Data review'`)).toEqual({ ok: true });
+    await page.locator('[data-opt="undated"]').uncheck();
+    await open(page, '/projects/#/projects/p/AERO/list', 'table');
+    await expect(page.locator('table')).toContainText('Scale model');
+    await expect(page.locator('table')).toContainText('Test runs');
+    await noOverflow(page);
+  });
 });

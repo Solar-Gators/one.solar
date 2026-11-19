@@ -4,6 +4,7 @@
  */
 import { esc, fmtDate, fmtDateTime, fmtMoney, takeFlash, setFlash } from '../../ui.js';
 import { inv } from '../../inventory/api.js';
+import { appUrl } from '../../../../shared/onesolar.js';
 import { HAZARDS } from '../../inventory/core.js';
 import { loadBase, invalidate, header, needsDatabase, stateChip, hazardChips, qty, locHref, locLabel, can, actionsFor, stockDialog,
   formDialog, lotLabel, lotProblem, firstExpiringFirst } from './kit.js';
@@ -14,9 +15,10 @@ export async function renderInvItem(el, ctx) {
   const missing = needsDatabase(ctx.config);
   if (missing) return (el.innerHTML = missing);
   const id = ctx.params.id;
-  const [b, item, stock, lots, parts, prefs, history, audit, receipts] = await Promise.all([
+  const [b, item, stock, lots, parts, prefs, history, audit, receipts, reserved] = await Promise.all([
     loadBase(), inv.item(id), inv.stock({ itemId: id }), inv.lots(id), inv.supplierParts(id), inv.myPrefs().catch(() => null),
     loadHistory({ itemId: id }, 60), inv.audit(id).catch(() => []), inv.receipts({ itemId: id }).catch(() => []),
+    inv.reserved([id]).then((r) => r[id] || null).catch(() => null),   // 061
   ]);
   if (!item) {
     el.innerHTML = `<section class="card no-access"><h1>Item not found</h1><p>It may have been removed, or the label is from somewhere else.</p>
@@ -47,6 +49,10 @@ export async function renderInvItem(el, ctx) {
 
     ${actions.length ? `<div class="inv-actions">${actions.map(([k, l]) => `<button type="button" class="btn ${k === 'use' ? 'btn-primary' : ''} btn-lg" data-act="${k}">${esc(l)}</button>`).join('')}</div>` : ''}
 
+    ${reserved ? `<section class="card"><div class="card-head"><h2>Reserved for projects</h2></div>
+      <p><strong>${esc(qty(reserved.total, item))}</strong> reserved by open Projects items${Number(totals.available) < Number(reserved.total) ? ` <span class="chip chip-tone tone-red">${esc(qty(Number(reserved.total) - Number(totals.available), item))} more than available</span>` : ` · <strong>${esc(qty(Number(totals.available) - Number(reserved.total), item))}</strong> free`}</p>
+      <ul class="plain-list">${reserved.items.map((r) => `<li>${esc(qty(r.qty, item))} for ${r.key ? `<a href="${esc(appUrl(`projects/#/projects/item/${encodeURIComponent(r.key)}`))}">${esc(r.key)}</a> ${esc(r.title)} <span class="muted small">${esc(r.project)}</span>` : esc(r.project)}${r.start || r.due ? ` <span class="muted small">· ${r.start ? `starts ${esc(fmtDate(r.start))}` : `due ${esc(fmtDate(r.due))}`}</span>` : ''}</li>`).join('')}</ul>
+      <p class="hint">Projects reserve parts when an item says how many it needs. Nothing is taken out of stock until someone uses them.</p></section>` : ''}
     <section class="card"><div class="card-head"><h2>Where it is</h2></div>
       ${here.length ? `<div class="table-wrap"><table class="table" data-fit><thead><tr><th>Location</th>${item.track_lots ? '<th>Lot</th><th>Expires</th>' : ''}<th>Status</th><th class="num">Quantity</th><th></th></tr></thead><tbody>
         ${here.map((s) => {

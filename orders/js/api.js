@@ -255,6 +255,26 @@ export const api = {
   async renameCategory(from, to, dropBudget = false) {
     return unwrap(await supabase.rpc('rename_category', { p_from: from, p_to: to, p_drop_budget: dropBudget }));
   },
+  /** 058: after a rename / delete, what was under the category goes along (or one level up). */
+  async renameInBudgetTree(from, to, deleting = false) {
+    unwrap(await supabase.rpc('budget_rename_parents', { p_from: from, p_to: to, p_deleting: deleting }));
+  },
+  /** 058: move budget from one category to another, kept in the history. */
+  async moveBudget(from, to, amount, note = '') {
+    unwrap(await supabase.rpc('move_budget', { p_from: from, p_to: to, p_amount: amount, p_note: note }));
+  },
+  /** 058: the latest money moves, newest first. */
+  async budgetMoves(limit = 50) {
+    return unwrap(await supabase.from('budget_moves').select('*').order('moved_at', { ascending: false }).limit(limit));
+  },
+  /** CE divisions and subsystems (050), for "Start from divisions & subsystems". */
+  async orgTree() {
+    const [d, s] = await Promise.all([
+      supabase.from('org_divisions').select('id, name, sort, archived_at').is('archived_at', null).order('sort').order('name'),
+      supabase.from('org_subsystems').select('id, division_id, name, sort, archived_at').is('archived_at', null).order('sort').order('name'),
+    ]);
+    return { divisions: unwrap(d), subsystems: unwrap(s) };
+  },
 
   // ---- The Treasurer's ledger (migration 018) -----------------------------------------
 

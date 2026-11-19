@@ -534,13 +534,13 @@ export function fitTables(root) {
  * (which looks out of place, especially on phones). Resolves with the trimmed text, or null if cancelled.
  *   const name = await askText({ title: 'New sponsor', label: 'Sponsor or donor name', ok: 'Add sponsor' });
  */
-export function askText({ title, label, hint = '', placeholder = '', ok = 'OK', multiline = false, required = true } = {}) {
+export function askText({ title, label, hint = '', placeholder = '', ok = 'OK', multiline = false, required = true, value = '' } = {}) {
   return new Promise((resolve) => {
     const dialog = document.createElement('dialog');
     dialog.className = 'sheet-dialog ask-dialog';
     const field = multiline
-      ? `<textarea id="ask-text" rows="3" placeholder="${esc(placeholder)}"></textarea>`
-      : `<input id="ask-text" type="text" placeholder="${esc(placeholder)}" autocomplete="off">`;
+      ? `<textarea id="ask-text" rows="3" placeholder="${esc(placeholder)}">${esc(value)}</textarea>`
+      : `<input id="ask-text" type="text" placeholder="${esc(placeholder)}" value="${esc(value)}" autocomplete="off">`;
     dialog.innerHTML = `<form method="dialog" novalidate>
       <h2>${esc(title)}</h2>
       <div class="field"><label for="ask-text">${esc(label)}</label>${field}${hint ? `<div class="hint">${esc(hint)}</div>` : ''}</div>

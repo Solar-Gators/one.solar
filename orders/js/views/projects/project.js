@@ -4,10 +4,12 @@
  *   { b, project, cfg, cfgOf(item), statuses, types, fields, projectIds, rerender, params, base }
  * so one view works for one project or for all of them.
  */
-import { esc, fmtDateTime, takeFlash } from '../../ui.js';
+import { esc, fmtDate, fmtDateTime, takeFlash, fmtMoney, askText } from '../../ui.js';
+import { todayISO } from '../../projects/schedule.js';
+import { appUrl } from '../../../../shared/onesolar.js';
 import { pm } from '../../projects/api.js';
 import { progressOf, attention } from '../../projects/core.js';
-import { needsDatabase, loadBase, loadConfig, shapesFor, header, projectTop, projectHref, itemHref, personName, avatar, can, rich, createItemDialog, statusChip, dueChip } from './kit.js';
+import { needsDatabase, loadBase, loadConfig, shapesFor, header, projectTop, projectHref, itemHref, personName, avatar, can, rich, createItemDialog, statusChip, dueChip, attempt, invalidate } from './kit.js';
 import { progressBar } from './projects.js';
 import { renderList } from './list.js';
 import { alumniShareCard, bindAlumniShare } from './alumni.js';
@@ -71,10 +73,12 @@ export async function renderAcross(el, ctx) {
 
 /** A project's front page: how it's doing (three ways, each explained), what's coming, who's in it, what just happened. */
 async function summary(el, { b, project, cfg, rerender }) {
-  const [rollup, upcoming, events, docs, alumniCard] = await Promise.all([
+  const [rollup, upcoming, events, docs, alumniCard, spend, late] = await Promise.all([
     pm.rollup(), pm.search({ project: project.id, filter: { all: [{ f: 'category', op: 'ne', v: 'done' }, { any: [{ f: 'milestone' }, { f: 'due', op: 'within', v: 14 }, { f: 'overdue' }] }] }, sort: 'due', limit: 12 }),
     pm.events({ projectIds: [project.id], limit: 15 }), pm.resources(project.id).catch(() => []),
     project.archived_at ? '' : alumniShareCard({ projectId: project.id, mayEdit: can(b, project.id, 'edit'), what: 'this project', heading: 'h2' }),
+    pm.projectSpend(project.id).catch(() => null),   // 060
+    pm.orderWarnings(project.id).catch(() => []),   // 061
   ]);
   const keyOf = new Map((await pm.itemsByIds([...new Set(events.map((e) => e.item_id).filter(Boolean))])).map((i) => [i.id, i.key]));
   const groups = rollup.groups.filter((g) => g.project_id === project.id);
@@ -108,6 +112,7 @@ async function summary(el, { b, project, cfg, rerender }) {
       <ul class="pm-mini">${cfg.members.map((m) => `<li>${avatar(b, m.user_id)} ${esc(personName(b, m.user_id))} <span class="muted">${esc(roleName(m))}</span></li>`).join('')}</ul>
       ${can(b, project.id, 'members') ? `<p><a href="${projectHref(project.key, 'settings/people')}">Add people or change roles</a></p>` : ''}
     </section>
+    ${spendCard(b, project, spend, late)}
     <section class="card"><h2>Documents</h2>
       <p>${docs.length ? `${docs.length} linked document${docs.length === 1 ? '' : 's'}.` : 'No documents linked yet.'} <a href="${projectHref(project.key, 'docs')}">Open the document library</a></p></section>
     ${alumniCard}
@@ -115,4 +120,47 @@ async function summary(el, { b, project, cfg, rerender }) {
       ${events.length ? `<ul class="pm-activity">${events.map((e) => `<li><span class="muted small">${esc(fmtDateTime(e.created_at))}</span> <strong>${esc(e.actor_name || 'one.solar')}</strong> ${esc(e.summary)}${keyOf.get(e.item_id) && !e.summary.includes(keyOf.get(e.item_id)) ? ` <a href="${itemHref(keyOf.get(e.item_id))}">${esc(keyOf.get(e.item_id))}</a>` : ''}</li>`).join('')}</ul>` : '<p class="muted">Nothing has happened yet.</p>'}
     </section></div>`;
   bindAlumniShare(el, { projectId: project.id, done: () => rerender() });
+  el.querySelector('[data-project-budget]')?.addEventListener('click', async () => {
+    const v = await askText({ title: 'Project budget', label: 'Budget ($)', placeholder: '1500', required: false, ok: 'Save', value: project.settings?.budget ?? '',
+      hint: 'What this project may spend on Orders. Leave it empty for none. Shown next to what its linked requests cost.' });
+    if (v === null) return;
+    const n = v.trim() === '' ? null : Number(v.replace(/[$,\s]/g, ''));
+    if (n !== null && !(n >= 0)) return alert('Enter a dollar amount, or leave it empty.');
+    if (await attempt(() => pm.saveProject(project.id, { settings: { budget: n } }), 'Budget saved.')) (invalidate(), rerender());
+  });
+  el.querySelector('[data-order-lead]')?.addEventListener('click', async () => {
+    const v = await askText({ title: 'Warn about orders', label: 'Days before an item starts', placeholder: '7', required: false, ok: 'Save', value: project.settings?.order_lead_days ?? 7,
+      hint: "An item linked to an Orders request that isn't ordered yet is a warning this many days before it starts, and its owner and the project manager are told." });
+    if (v === null) return;
+    const n = v.trim() === '' ? 7 : Number(v);
+    if (!Number.isInteger(n) || n < 0 || n > 365) return alert('Enter a whole number of days, 0 to 365.');
+    if (await attempt(() => pm.saveProject(project.id, { settings: { order_lead_days: n } }), 'Saved.')) (invalidate(), rerender());
+  });
+}
+
+/**
+ * 060: Orders & budget. The Orders requests linked to this project's items (on each item, "Parts & orders"),
+ * added up: spent (ordered or received), committed (approved, not ordered yet) and waiting (submitted), next to
+ * the project's own budget.
+ */
+function spendCard(b, project, spend, late = []) {
+  if (!spend) return '';
+  const sum = (sts) => spend.filter((r) => sts.includes(r.status)).reduce((s, r) => s + (Number(r.total) || 0), 0);
+  const spent = sum(['Ordered', 'Received']);
+  const committed = sum(['Approved']);
+  const waiting = sum(['Submitted']);
+  const budget = project.settings?.budget ?? null;
+  const left = budget === null ? null : budget - spent - committed;
+  const mayEdit = can(b, project.id, 'configure');
+  if (!spend.length && budget === null && !mayEdit && !late.length) return '';
+  return `<section class="card"><h2>Orders &amp; budget</h2>
+    ${late.length ? `<div class="alert alert-warning"><strong>Not ordered in time:</strong><ul class="pm-mini">${late.map((w) => `<li><a href="${itemHref(w.key)}">${esc(w.key)}</a> ${esc(w.title)} ${w.start < todayISO() ? 'started' : 'starts'} ${esc(fmtDate(w.start))}; <a href="${esc(appUrl(`orders/#/requests/${encodeURIComponent(w.number)}`))}">${esc(w.number)}</a> is ${esc(w.status)}.</li>`).join('')}</ul></div>` : ''}
+    <div class="pm-nums"><span><strong>${esc(fmtMoney(spent))}</strong> spent</span><span><strong>${esc(fmtMoney(committed))}</strong> committed</span><span><strong>${esc(fmtMoney(waiting))}</strong> waiting for approval</span></div>
+    <p>${budget === null ? '<span class="muted">No project budget set.</span>'
+      : `Budget <strong>${esc(fmtMoney(budget))}</strong> · <span class="${left < 0 ? 'is-late' : ''}">${left < 0 ? `${esc(fmtMoney(-left))} over` : `${esc(fmtMoney(left))} left`}</span>`}
+      ${mayEdit ? ' <button type="button" class="btn btn-sm btn-ghost" data-project-budget>Set budget…</button>' : ''}</p>
+    <p class="muted small">Orders not placed are flagged ${esc(String(project.settings?.order_lead_days ?? 7))} days before their item starts.${mayEdit ? ' <button type="button" class="btn btn-sm btn-ghost" data-order-lead>Change…</button>' : ''}</p>
+    ${spend.length ? `<ul class="pm-mini">${spend.slice(0, 12).map((r) => `<li><a href="${esc(appUrl(`orders/#/requests/${encodeURIComponent(r.number)}`))}">${esc(r.number)}</a> ${esc(r.title)} <span class="muted small">${esc(r.status)} · ${esc(fmtMoney(r.total))} · ${r.items.map((k) => `<a href="${itemHref(k)}">${esc(k)}</a>`).join(', ')}</span></li>`).join('')}</ul>${spend.length > 12 ? `<p class="muted small">and ${spend.length - 12} more.</p>` : ''}`
+      : '<p class="muted small">No Orders requests linked yet. Link them on an item, under "Parts &amp; orders".</p>'}
+  </section>`;
 }

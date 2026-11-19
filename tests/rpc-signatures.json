@@ -44,6 +44,21 @@
   "returns": "uuid",
   "anon": true
  },
+ "budget_above": {
+  "args": "p_parents jsonb, p_name text",
+  "returns": "TABLE(name text, depth integer)",
+  "anon": false
+ },
+ "budget_below": {
+  "args": "p_parents jsonb, p_name text",
+  "returns": "SETOF text",
+  "anon": false
+ },
+ "budget_rename_parents": {
+  "args": "p_from text, p_to text, p_deleting boolean",
+  "returns": "void",
+  "anon": false
+ },
  "cancel_request": {
   "args": "p_id uuid, p_reason text",
   "returns": "void",
@@ -147,6 +162,11 @@
  "eval_assigned_evaluators": {
   "args": "p_type text, p_subject uuid",
   "returns": "uuid[]",
+  "anon": false
+ },
+ "eval_change_evaluator": {
+  "args": "p_eval uuid, p_to uuid, p_note text",
+  "returns": "void",
   "anon": false
  },
  "eval_chart_feedback": {
@@ -289,9 +309,19 @@
   "returns": "void",
   "anon": false
  },
+ "eval_remove": {
+  "args": "p_eval uuid, p_note text",
+  "returns": "uuid",
+  "anon": false
+ },
  "eval_require_evaluator": {
   "args": "s jsonb, p_type_name text",
   "returns": "void",
+  "anon": false
+ },
+ "eval_restore": {
+  "args": "p_deletion uuid",
+  "returns": "uuid",
   "anon": false
  },
  "eval_rule_match": {
@@ -564,6 +594,11 @@
   "returns": "jsonb",
   "anon": false
  },
+ "inventory_reserved": {
+  "args": "p_items uuid[]",
+  "returns": "jsonb",
+  "anon": false
+ },
  "inventory_return": {
   "args": "p_op uuid, p jsonb",
   "returns": "jsonb",
@@ -651,6 +686,11 @@
  },
  "mark_received": {
   "args": "p_id uuid, p_received_date date, p_notes text",
+  "returns": "void",
+  "anon": false
+ },
+ "move_budget": {
+  "args": "p_from text, p_to text, p_amount numeric, p_note text",
   "returns": "void",
   "anon": false
  },
@@ -774,6 +814,11 @@
   "returns": "void",
   "anon": false
  },
+ "pm_delete_key_date": {
+  "args": "p_id uuid",
+  "returns": "void",
+  "anon": false
+ },
  "pm_delete_role": {
   "args": "p_id uuid",
   "returns": "void",
@@ -811,6 +856,16 @@
  },
  "pm_my_caps": {
   "args": "",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "pm_order_warnings": {
+  "args": "p_project uuid",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "pm_project_spend": {
+  "args": "p_project uuid",
   "returns": "jsonb",
   "anon": false
  },
@@ -862,6 +917,11 @@
  "pm_save_field": {
   "args": "p_project uuid, p_id uuid, p jsonb",
   "returns": "jsonb",
+  "anon": false
+ },
+ "pm_save_key_date": {
+  "args": "p_id uuid, p jsonb",
+  "returns": "uuid",
   "anon": false
  },
  "pm_save_layout": {
@@ -934,6 +994,11 @@
   "returns": "void",
   "anon": false
  },
+ "pm_set_ref_qty": {
+  "args": "p_ref uuid, p_qty numeric",
+  "returns": "void",
+  "anon": false
+ },
  "pm_test_automation": {
   "args": "p_project uuid, p jsonb",
   "returns": "jsonb",
@@ -962,6 +1027,11 @@
  "pm_watch": {
   "args": "p_item uuid, p_on boolean",
   "returns": "void",
+  "anon": false
+ },
+ "pmx_linked_request_total": {
+  "args": "p_request uuid, p_project uuid",
+  "returns": "numeric",
   "anon": false
  },
  "purge_old_diagnostics": {

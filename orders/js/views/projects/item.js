@@ -40,10 +40,25 @@ export async function renderItem(el, { config, params, rerender }) {
   // the other ends of dependencies, and linked records, read with my own access
   const others = await pm.itemsByIds([...new Set([...x.depsIn.map((d) => d.from_item), ...x.depsOut.map((d) => d.to_item), item.parent_id].filter(Boolean))]);
   const otherById = new Map(others.map((o) => [o.id, o]));
-  const [orders, stock] = await Promise.all([
+  const invIds = x.refs.filter((r) => r.kind === 'inventory').map((r) => r.ref_id);
+  const [orders, stock, reserved] = await Promise.all([
     pm.requestsByIds(x.refs.filter((r) => r.kind === 'order').map((r) => r.ref_id)).catch(() => []),
-    pm.inventoryByIds(x.refs.filter((r) => r.kind === 'inventory').map((r) => r.ref_id)).catch(() => []),
+    pm.inventoryByIds(invIds).catch(() => []),
+    pm.inventoryReserved(invIds).catch(() => ({})),   // 061
   ]);
+  /** 061: an Inventory part's stock for this item: what it needs, and whether what's left after other open items is enough. */
+  const partLine = (r, o) => {
+    if (!o) return '<span class="muted small">(open Inventory to see stock)</span>';
+    const unit = esc(o.unit || '');
+    const need = r.qty === null || r.qty === undefined ? null : Number(r.qty);
+    const others = (Number(reserved[r.ref_id]?.total) || 0) - (item.category !== 'done' && !item.archived_at ? need || 0 : 0);
+    const free = Number(o.available) - others;
+    const short = need !== null && item.category !== 'done' ? need - free : 0;
+    return `<span class="chip-tone tone-${short > 0 ? 'red' : Number(o.available) > 0 ? 'green' : 'amber'}">${esc(Number(o.available))} ${unit} available</span>`
+      + (others > 0 ? ` <span class="muted small" title="${esc((reserved[r.ref_id]?.items || []).filter((q) => q.key !== item.key).map((q) => `${q.qty} for ${q.key ? `${q.key} ${q.title}` : q.project}`).join('\n'))}">${esc(others)} reserved for other items</span>` : '')
+      + (need !== null ? ` · needs <strong>${esc(need)}</strong> ${unit}${short > 0 ? ` <span class="chip-tone tone-red">short by ${esc(short)}</span>` : ''}` : '')
+      + (mayEdit ? ` <button type="button" class="btn btn-sm btn-ghost" data-ref-qty="${esc(r.id)}" data-qty="${esc(need ?? '')}">${need === null ? 'How many?' : 'Change'}</button>` : '');
+  };
   const waitingOn = x.depsIn.filter((d) => otherById.get(d.from_item)?.category !== 'done');
 
   const read = (key) => {
@@ -153,13 +168,13 @@ export async function renderItem(el, { config, params, rerender }) {
           ${x.refs.length ? `<ul class="pm-mini">${x.refs.map((r) => {
             const o = r.kind === 'order' ? orders.find((q) => q.id === r.ref_id) : stock.find((q) => q.id === r.ref_id);
             const live = r.kind === 'order' ? (o ? `<span class="chip-tone tone-${o.status === 'Received' ? 'green' : o.status === 'Ordered' ? 'blue' : 'amber'}">${esc(o.status)}</span>${['Received'].includes(o.status) ? '' : ' <span class="muted small">not here yet</span>'}` : '')
-              : (o ? `<span class="chip-tone tone-${Number(o.available) > 0 ? 'green' : 'red'}">${esc(Number(o.available))} ${esc(o.unit || '')} available</span>` : '<span class="muted small">(open Inventory to see stock)</span>');
+              : partLine(r, o);
             const href = r.kind === 'order' ? appUrl(`orders/#/requests/${encodeURIComponent(o?.request_number || r.label.split(' · ')[0])}`) : appUrl(`inventory/#/inventory/items/${encodeURIComponent(r.ref_id)}`);
             return `<li><span class="chip">${r.kind === 'order' ? 'Order' : 'Inventory'}</span> <a href="${esc(href)}">${esc(r.label)}</a> ${live} ${r.note ? `<span class="muted small">${esc(r.note)}</span>` : ''}
               ${mayEdit ? `<button type="button" class="btn btn-sm btn-ghost" data-unref="${esc(r.id)}" aria-label="Remove this link">✕</button>` : ''}</li>`;
           }).join('')}</ul>` : '<p class="muted">No orders or inventory items linked.</p>'}
           ${mayEdit ? '<p><button type="button" class="btn btn-sm" data-add-ref="order">+ Link an order</button> <button type="button" class="btn btn-sm" data-add-ref="inventory">+ Link an inventory item</button></p>' : ''}
-          <p class="hint">Status and stock are read live from Orders and Inventory. Nothing here orders anything or changes stock.</p></section>
+          <p class="hint">Status and stock are read live from Orders and Inventory. Nothing here orders anything or changes stock; saying how many of a part this needs reserves them (Inventory shows it) until it's done.</p></section>
 
         <section class="card"><h2>Comments</h2>
           <ul class="pm-comments">${x.comments.map((c) => `<li class="${c.deleted_at ? 'is-removed' : ''}"><div class="pm-comment-head">${c.author_id ? avatar(b, c.author_id) : '<span class="pm-avatar">⚙</span>'}
@@ -201,6 +216,14 @@ export async function renderItem(el, { config, params, rerender }) {
     else if (d.unlinkDoc) fresh(() => pm.removeResourceLink(d.unlinkDoc));
     else if (d.addRef) (await refDialog(item, d.addRef)) && again();
     else if (d.unref) fresh(() => pm.removeRef(d.unref));
+    else if (d.refQty) {
+      const v = await askText({ title: 'How many does this need?', label: 'Quantity', required: false, ok: 'Save', value: d.qty,
+        hint: "While this item isn't done, that many are reserved for it in Inventory. Leave it empty to reserve none." });
+      if (v === null) return;
+      const n = v.trim() === '' ? null : Number(v);
+      if (n !== null && !(n > 0)) return alert('Enter a quantity above 0, or leave it empty.');
+      fresh(() => pm.setRefQty(d.refQty, n), n === null ? 'Not reserved.' : 'Reserved.');
+    }
     else if (d.delComment) confirm('Remove this comment?') && fresh(() => pm.editComment(d.delComment, null));
     else if (d.moveProject !== undefined) {
       const moved = await moveDialog(b, item);
