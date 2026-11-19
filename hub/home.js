@@ -144,7 +144,8 @@ function drawWaiting() {
       <span class="waiting-who"><strong>${esc(w.full_name || w.email)}</strong>${w.full_name ? ` <span class="muted">${esc(w.email)}</span>` : ''}
         <span class="muted small">· signed up ${ago(w.created_at)}</span></span>
       <span class="waiting-actions">${w.email_confirmed === false
-        ? '<span class="field-tag" title="They need to click the link in the email one.solar sent them before they can be accepted">Email not confirmed yet</span>'
+        ? `<span class="field-tag" title="They need to click the link in the email one.solar sent them before they can be accepted">Email not confirmed yet</span>
+          <button type="button" class="btn btn-sm btn-ghost" data-resend="${esc(w.id)}" title="Send the confirm-your-email message again (it may be in their Junk folder)">Resend email</button>`
         : `<button type="button" class="btn btn-sm btn-primary" data-accept="${esc(w.id)}">Accept as Member</button>`}
       ${'email_confirmed' in w ? `<button type="button" class="btn btn-sm btn-ghost danger-link" data-decline="${esc(w.id)}">Not on the team…</button>` : ''}</span></li>`).join('')}</ul>
     <p class="alert alert-error" id="waiting-error" role="alert" hidden></p>`;
@@ -169,6 +170,34 @@ async function accept(btn) {
   const note = $('#waiting-done');
   note.textContent = `${w.full_name || w.email} is on the team now, as a Member. Give them other roles in Admin → Users if they need them.`;
   note.hidden = false;
+}
+
+/**
+ * Send someone's confirm-your-email message again (Supabase sends it, like the first one; it isn't in the
+ * one.solar delivery log). The new link replaces the old one, and it opens the sign-in page's
+ * "Confirm my email" button, so Outlook's link scanner can't use it up.
+ */
+async function resendConfirm(btn) {
+  const w = waiting.find((x) => x.id === btn.dataset.resend);
+  if (!w?.email) return;
+  btn.disabled = true;
+  btn.textContent = 'Sending…';
+  const { error } = await sb.auth.resend({ type: 'signup', email: w.email, options: { emailRedirectTo: appUrl('orders/') } })
+    .catch((e) => ({ error: e }));
+  if (error) {
+    btn.disabled = false;
+    btn.textContent = 'Resend email';
+    const e = $('#waiting-error');
+    e.textContent = /rate|seconds|too many/i.test(error.message || '')
+      ? `Couldn't send it yet: ${error.message} Try again in a minute.`
+      : error.message;
+    e.hidden = false;
+    return;
+  }
+  btn.textContent = 'Sent ✓';
+  const done = $('#waiting-done');
+  done.textContent = `Sent ${w.full_name || w.email} a new confirm-your-email message. Only the newest one works; tell them to check Junk if it doesn't show up.`;
+  done.hidden = false;
 }
 
 /** 043: turn away someone who isn't on Solar Gators (their account is deleted; a new sign-up is flagged). */
@@ -644,6 +673,7 @@ document.addEventListener('click', async (e) => {
   if (t.closest('[data-fav]')) return toggleFav(t.closest('[data-fav]').dataset.fav);
   if (t.closest('[data-accept]')) return accept(t.closest('[data-accept]'));
   if (t.closest('[data-decline]')) return decline(t.closest('[data-decline]'));
+  if (t.closest('[data-resend]')) return resendConfirm(t.closest('[data-resend]'));
   if (t.closest('#edit-open')) {
     await loadPositions();
     startEditing();
