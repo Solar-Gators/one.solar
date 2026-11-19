@@ -101,6 +101,8 @@ export function createFakeClient(kind) {
         signedIn = false;
         return { error: null };
       },
+      // "Resend email" on the waiting list: nothing is sent here.
+      resend: async ({ email } = {}) => ({ data: {}, error: email ? null : { message: 'An email address is required' } }),
     },
   };
 }
