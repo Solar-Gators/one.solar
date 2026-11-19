@@ -315,4 +315,6 @@ People are in the CE divisions and subsystems listed in **Admin → CE divisions
 - **Admin → Users** shows each person's divisions and subsystems under their name.
 - **Solar Evals** fills in a self-eval's subsystem (when it's on the evals' Subsystem list) and picks the form variant named after their division; a new eval about someone does the same. When picking who gives input, people in the same subsystem come first, and with the evaluation chart's "Input picked from" (e.g. Subsystem Leads) only the lead of their own subsystem is offered when there is one.
 
+**Filled in from Solar Evals (057):** anyone with no division or subsystem yet gets the one their latest eval names (its Division and Subsystem, matched by name, ignoring case and a trailing " CE"; a subsystem, else the whole division). It ran once for everyone who did an eval before 056, and runs again whenever an eval is saved. It never changes anyone who already has one. Names that match nothing in Admin → CE divisions & subsystems are skipped: add the missing ones there, then press **Fill in from Solar Evals** on Admin → Divisions & people (people who can Manage people & roles).
+
 The database (`set_person_org`, `person_org`) enforces who may change what.

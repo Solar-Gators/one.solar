@@ -152,6 +152,7 @@ export async function renderPeopleOrg(el, { config }, { adminHeader, listProfile
       <label>Division <select data-org-filter><option value="">Everyone</option><option value="none">Not in any yet</option>${org.divs.filter((d) => !d.archived_at).map((d) => `<option value="${esc(d.id)}">${esc(d.name)}</option>`).join('')}</select></label>
       <label>Search <input type="search" data-org-q placeholder="Name or email"></label>
       <span class="muted small" data-org-count></span>
+      ${auth.can('users.manage') && Number(config?.schemaVersion) >= 57 ? '<button type="button" class="btn btn-sm btn-ghost" data-org-fill title="Everyone with no division or subsystem yet gets the one their latest Solar Evals eval names. Nobody who has one is changed.">Fill in from Solar Evals</button>' : ''}
     </div>
     <div class="table-wrap" data-org-compact><table class="table stack-mobile org-table">
       <thead><tr><th>Name</th><th>Positions</th><th>Divisions & subsystems</th></tr></thead>
@@ -175,6 +176,20 @@ export async function renderPeopleOrg(el, { config }, { adminHeader, listProfile
   };
   el.querySelector('[data-org-filter]').addEventListener('change', (e) => { view.division = e.target.value; draw(); });
   el.querySelector('[data-org-q]').addEventListener('input', (e) => { view.q = e.target.value; draw(); });
+  el.querySelector('[data-org-fill]')?.addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    btn.disabled = true;
+    try {
+      const n = ok(await supabase.rpc('person_org_fill_from_evals'));
+      const fresh = await loadOrg();
+      org.byUser = fresh.byUser;
+      draw();
+      btn.textContent = n ? `Filled in ${n} ${n === 1 ? 'person' : 'people'} ✓` : 'Nobody new to fill in';
+    } catch (err) {
+      btn.disabled = false;
+      btn.insertAdjacentHTML('afterend', `<span class="org-err">${errorBox(err)}</span>`);
+    }
+  });
   bindOrgEditors(el, org, () => {
     const none = team.filter((p) => !(org.byUser.get(p.id) || []).length).length;
     el.querySelector('[data-org-count]').textContent = el.querySelector('[data-org-count]').textContent.replace(/\d+ not in any/, `${none} not in any`);
