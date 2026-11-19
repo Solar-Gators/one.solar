@@ -14,6 +14,7 @@ import { guardLeaving } from '../leaveGuard.js';
 import { SCHOOL_EMAIL } from './account.js';
 import { appUrl } from '../../../shared/onesolar.js';
 import { renderImport } from './importPage.js';
+import { loadOrg, orgText, renderPeopleOrg } from './peopleOrg.js';
 import {
   FIELD_TYPES, LOCKED, LIST_FIELDS, CONDITION_OPS, requestFields, itemFields, typeLabel, makeKey, fieldOptions, describeCondition,
 } from '../formFields.js';
@@ -31,6 +32,7 @@ const ANY_ADMIN = ['users.manage', 'settings.edit', 'site.customize', 'seasons.m
  */
 export const ADMIN_TABS = [
   ['users', 'Users', ['users.manage'], 'one.solar'],
+  ['people', 'Divisions & people', ['users.manage', 'people.subsystems'], 'one.solar'],
   ['roles', 'Roles & permissions', ['users.manage', 'roles.edit'], 'one.solar'],
   ['season', 'Team & season', ['settings.edit', 'seasons.manage'], 'one.solar'],
   ['brand', 'Logo & accent', ['site.customize'], 'one.solar'],
@@ -118,6 +120,8 @@ export const about = (html, summary = 'How this works') =>
 // ---- Users --------------------------------------------------------------------
 
 export const renderUsers = (el, ctx) => renderPeople(el, ctx, 'users');
+/** 056: Admin → Divisions & people. */
+export const renderDivisionsPeople = (el, ctx) => renderPeopleOrg(el, ctx, { adminHeader, listProfiles: () => api.listProfiles() });
 export const renderRoles = (el, ctx) => renderPeople(el, ctx, 'roles');
 
 /** Not cleared yet, and the account was made after the removal: they signed up again. */
@@ -149,12 +153,13 @@ async function renderPeople(el, { rerender, config }, part) {
   const roles = auth.roles;
   const showChanges = part === 'users' && Number(config?.schemaVersion) >= 42 && auth.can('users.manage');
   const v52 = Number(config?.schemaVersion) >= 52;
-  const [people, removed, problems, changes, alums] = await Promise.all([
+  const [people, removed, problems, changes, alums, org] = await Promise.all([
     api.listProfiles(),
     part === 'users' ? api.listRemovedPeople().catch(() => []) : [],
     showChanges && !auth.hasRole('admin') ? api.roleChangeProblems(roles.filter((r) => !['member', 'guest', 'alumni'].includes(r.key)).map((r) => r.key)).catch(() => ({})) : {},
     showChanges ? api.listRoleChanges().catch(() => []) : [],
     part === 'users' && v52 ? api.listAlumStatuses().catch(() => ({})) : {},
+    part === 'users' && Number(config?.schemaVersion) >= 56 ? loadOrg().catch(() => null) : null,   // 056: divisions & subsystems
   ]);
   const me = auth.user.id;
   // 035: only Admins give or take the Admin role (or change an Admin), and only "Edit roles &
@@ -249,7 +254,7 @@ async function renderPeople(el, { rerender, config }, part) {
           ${people
             .map(
               (p) => `<tr data-user="${esc(p.id)}" ${flagOf(p) ? 'class="is-flagged"' : ''}>
-                <td class="cell-primary" data-label=""><strong>${esc(p.full_name || '—')}</strong>${p.id === me ? ' <span class="muted small">(you)</span>' : ''}
+                <td class="cell-primary" data-label=""><strong>${esc(p.full_name || '—')}</strong>${p.id === me ? ' <span class="muted small">(you)</span>' : ''}${orgText(org, p.id) ? `<div class="muted small" title="Division & subsystems (Admin → Divisions & people)">${esc(orgText(org, p.id))}</div>` : ''}
                   ${flagOf(p) ? `<div class="rejoined-flag"><span class="flag-text">⚠ ${removedWhen(flagOf(p))}. Signed up again ${fmtDate(p.created_at)}.</span>
                     <span class="flag-actions"><button type="button" class="btn btn-sm" data-let-back="${esc(p.email)}">Let them back in</button>
                     ${!v44 || iAmAdmin ? `<button type="button" class="btn btn-sm btn-danger" data-remove="${esc(p.id)}">Remove again</button>` : ''}</span></div>` : ''}</td>

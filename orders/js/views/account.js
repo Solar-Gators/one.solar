@@ -3,6 +3,7 @@ import { homePath } from '../appMode.js';
 import { api } from '../api.js';
 import { auth } from '../auth.js';
 import { esc, errorBox, setFlash, takeFlash } from '../ui.js';
+import { accountOrgSection } from './peopleOrg.js';
 
 function passwordForm(buttonLabel) {
   return `
@@ -86,6 +87,7 @@ export async function renderAccount(el, { config, rerender }) {
           <button type="submit" class="btn btn-primary">Save profile</button>
         </form>
       </section>
+      <section class="card" id="org-card"></section>
       <section class="card" id="email">
         <h2>Email address</h2>
         ${schoolEmail && leaving ? `<div class="alert alert-warning"><strong>Switch to a personal email.</strong> UF turns off
@@ -116,6 +118,7 @@ export async function renderAccount(el, { config, rerender }) {
       </section>
     </div>`;
 
+  accountOrgSection(el, config);   // 056: your division & subsystems (fills in after loading)
   el.querySelector('#email-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const email = e.target.email.value.trim().toLowerCase();

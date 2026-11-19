@@ -25,7 +25,7 @@ jobs:
   test:
     name: Tests
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30 # the full suite takes about 17-20 minutes now; 20 cut it off (PR #16)
     steps:
       - name: Simulated test failure (requested)
         if: ${{ inputs.simulate_test_failure }}

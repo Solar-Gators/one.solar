@@ -1565,3 +1565,15 @@ a.step-link:hover { text-decoration: underline; }
 .recently-deleted { margin-top: 24px; }
 .recently-deleted > summary { cursor: pointer; font-weight: 600; }
 .recently-deleted > p { margin: 8px 0; }
+
+/* 056: divisions & subsystems (Admin → Divisions & people, My account) */
+.org-editor { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.org-chip { display: inline-flex; align-items: center; gap: 2px; padding: 2px 4px 2px 10px; border: 1px solid var(--border, #d0d7e2); border-radius: 999px; background: var(--surface-2, #f4f6fa); font-size: 13.5px; }
+.org-chip.is-main { border-color: var(--accent, #f26b1d); }
+.org-x { border: 0; background: none; cursor: pointer; color: inherit; opacity: .6; font-size: 15px; line-height: 1; padding: 2px 6px; border-radius: 999px; }
+.org-x:hover, .org-x:focus-visible { opacity: 1; background: rgba(0,0,0,.06); }
+.org-add { max-width: 220px; font-size: 13.5px; padding: 3px 6px; }
+.org-err:empty { display: none; }
+.org-err { flex-basis: 100%; }
+.org-toolbar { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; margin: 12px 0; }
+.org-toolbar label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 600; }

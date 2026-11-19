@@ -1129,6 +1129,11 @@
   "returns": "void",
   "anon": false
  },
+ "set_person_org": {
+  "args": "p_user uuid, p_items jsonb",
+  "returns": "void",
+  "anon": false
+ },
  "set_request_owner": {
   "args": "p_id uuid, p_user_id uuid",
   "returns": "void",
