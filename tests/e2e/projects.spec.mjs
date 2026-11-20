@@ -282,7 +282,10 @@ test.describe('projects', () => {
     await expect(page.locator('[data-do-move]')).toHaveText(['Start design', 'Reopen'].filter((n) => n !== 'Reopen')); // only what the workflow offers from Draft
     await page.locator('[data-do-move]', { hasText: 'Start design' }).click();
     await expect(toast(page)).toContainText('is now "In Design"');
-    // "Send for review" needs an owner: the move asks for it
+    // "Send for review" needs an owner: the move asks for it (new items start with their creator as owner, so take it off first)
+    await sql(page, `update pm_items set owner_id = null where id = $1`, [id]);
+    await open(page, `/projects/#/projects/item/${itemKey}`, '[data-do-move]');
+    await expect(page.locator('[data-do-move]', { hasText: 'Send for review' })).toBeVisible();
     await page.locator('[data-do-move]', { hasText: 'Send for review' }).click();
     await expect(dialog(page).locator('[data-field="owner"]')).toContainText('*');
     await dialog(page).locator('[name="f:owner"]').selectOption({ label: MEMBER.name });
@@ -415,11 +418,13 @@ test.describe('projects', () => {
     // 062: click a bar for its details panel; save a change there, then Undo puts it back
     const pack = (await one(page, `select id from pm_items where title = 'Pack assembly'`)).id;
     await page.locator(`.pm-g-bar[data-bar="${pack}"]`).click();
-    await expect(page.locator('.pm-g-panel [name="title"]')).toHaveValue('Pack assembly');
-    await page.locator('.pm-g-panel [name="progress"]').fill('40');
-    await page.locator('.pm-g-panel [type="submit"]').click();
-    await expect(toast(page)).toContainText('saved');
-    expect((await one(page, `select progress from pm_items where title = 'Pack assembly'`)).progress).toBe(40);
+    await expect(page.locator('.pm-g-panel [data-panel-title]')).toHaveValue('Pack assembly');
+    // each field saves when it's changed: progress through its picker
+    await page.locator('.pm-g-panel [data-ie="progress"]').click();
+    await page.locator('.pm-pick-num input').fill('40');
+    await page.locator('.pm-pick-num button').click();
+    await expect(toast(page)).toContainText('progress changed');
+    await expect.poll(async () => (await one(page, `select progress from pm_items where title = 'Pack assembly'`)).progress).toBe(40);
     // present: the chart as a slide
     await page.click('[data-present]');
     await expect(page.locator('.pm-present-chart svg')).toBeVisible();
@@ -427,14 +432,14 @@ test.describe('projects', () => {
     await shot(page, 'timeline-present');
     await page.click('[data-present-exit]');
     await expect(page.locator('.pm-gantt')).toBeVisible();
-    // the dark theme (remembered for this project on this device)
-    await openPop(page, 'show');
-    await page.locator('[data-g-theme]').selectOption('dark');
-    await expect(page.locator('.pm-gantt-wrap.is-dark')).toBeVisible();
+    // light / dark follows the site's own setting (account menu), not a separate switch
+    await expect(page.locator('[data-g-theme]')).toHaveCount(0);
+    const bg = () => page.locator('.pm-gantt').evaluate((n) => getComputedStyle(n).backgroundColor);
+    const light = await bg();
+    await page.evaluate(() => (document.documentElement.dataset.theme = 'dark'));
+    await expect.poll(bg).not.toBe(light);
     await shot(page, 'timeline-dark');
-    await openPop(page, 'show');
-    await page.locator('[data-g-theme]').selectOption('light');
-    await expect(page.locator('.pm-gantt-wrap.is-dark')).toHaveCount(0);
+    await page.evaluate(() => (document.documentElement.dataset.theme = 'light'));
     await noOverflow(page);
   });
 
@@ -448,9 +453,10 @@ test.describe('projects', () => {
     await open(page, '/projects/#/projects/p/BAT/board', '.kanban');
     const card = page.locator('.kcard', { hasText: 'Module design' });
     await expect(page.locator('.kanban-col').nth(0)).toContainText('Module design');
-    // the "Move" menu (what phones and keyboards use) offers only the workflow's moves from Draft
-    await expect(card.locator('[data-move] option')).toHaveText(['Move…', 'Start design → In Design']);
-    await card.locator('[data-move]').selectOption({ label: 'Start design → In Design' });
+    // the status on the card (what phones and keyboards use instead of dragging) offers only the workflow's moves from Draft
+    await card.locator('[data-ie="status"]').click();
+    await expect(page.locator('.pm-pick-opt')).toHaveText([/In Design/]);
+    await page.locator('.pm-pick-opt', { hasText: 'In Design' }).click();
     await expect(toast(page)).toContainText('is now "In Design"');
     await expect(page.locator('.kanban-col').nth(1)).toContainText('Module design');
     // dragging to a column the workflow has no move to is refused with the reason
@@ -468,8 +474,86 @@ test.describe('projects', () => {
     await page.locator('[data-lane]').selectOption('');
   });
 
+  test('change things where they show, with Undo; add with a title; change several at once; Ctrl+K and the shortcuts', async () => {
+    const day = (n) => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
+    const item = (title) => one(page, `select id, key, owner_id, due_date::text due, priority, archived_at from pm_items where title = $1`, [title]);
+    await open(page, '/projects/#/projects/p/BAT/list', '.pm-table');
+    const row = (title) => page.locator('.pm-table tr', { hasText: title });
+    // owner: click it, pick a person; it's saved at once, and Undo puts it back
+    const before = await item('Module design');
+    const mia = (await one(page, `select id from profiles where full_name = 'Mia Member'`)).id;
+    await row('Module design').locator('[data-ie="owner"]').click();
+    await page.locator('.pm-pick-q').fill('Mia');
+    await page.locator('.pm-pick-opt', { hasText: 'Mia Member' }).click();
+    await expect(row('Module design').locator('[data-ie="owner"]')).toContainText('Mia Member');   // on the page straight away
+    await expect(toast(page)).toContainText('owner changed to Mia Member');
+    await expect.poll(async () => (await item('Module design')).owner_id).toBe(mia);
+    await page.locator('.pm-toast-undo').click();
+    await expect.poll(async () => (await item('Module design')).owner_id).toBe(before.owner_id);
+    // due date: the common choices are one click
+    const dueBefore = (await item('Pack assembly')).due;
+    await row('Pack assembly').locator('[data-ie="due"]').click();
+    await page.locator('.pm-pick-opt', { hasText: 'In two weeks' }).click();
+    await expect.poll(async () => (await item('Pack assembly')).due).not.toBe(dueBefore);
+    expect(Math.abs(Date.parse((await item('Pack assembly')).due) - Date.parse(day(14)))).toBeLessThanOrEqual(864e5);   // two weeks from today (local day)
+    await page.locator('.pm-toast-undo').click();
+    await expect.poll(async () => (await item('Pack assembly')).due).toBe(dueBefore);
+    // quick add: a title and Enter; I'm its owner; Undo takes it away again
+    await page.locator('.pm-qa input[type="text"]').fill('Busbar torque check');
+    await page.locator('.pm-qa input[type="text"]').press('Enter');
+    await expect(toast(page)).toContainText('Added BAT-');
+    const added = await item('Busbar torque check');
+    expect(added.owner_id).toBe((await one(page, `select id from profiles where full_name = 'Pat Manager'`)).id);
+    await expect(row('Busbar torque check')).toBeVisible();
+    await page.locator('.pm-toast-undo').click();
+    await expect.poll(async () => !!(await item('Busbar torque check')).archived_at).toBe(true);
+    // several at once: tick two, the bar appears, change their priority
+    await expect(row('Module design')).toBeVisible();
+    await row('Module design').locator('[data-select]').check();
+    await row('Pack assembly').locator('[data-select]').check();
+    await expect(page.locator('.pm-bulkbar')).toContainText('2 selected');
+    await page.locator('.pm-bulkbar [data-b="priority"]').click();
+    await page.locator('.pm-pick-opt', { hasText: 'High' }).click();
+    await expect(toast(page)).toContainText('Changed 2 items');
+    await expect.poll(async () => (await item('Pack assembly')).priority).toBe('high');
+    await expect(page.locator('.pm-bulkbar')).toBeHidden();
+    await row('Module design').locator('[data-select]').check();
+    await row('Pack assembly').locator('[data-select]').check();
+    await page.locator('.pm-bulkbar [data-b="priority"]').click();
+    await page.locator('.pm-pick-opt', { hasText: 'Medium' }).click();
+    await expect.poll(async () => (await item('Module design')).priority).toBe('medium');
+    // a shortcut on the row under the mouse: P opens its priority
+    await row('Cell selection').hover();
+    await page.keyboard.press('p');
+    await expect(page.locator('.pm-pick')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.locator('.pm-pick')).toHaveCount(0);
+    // ? lists the shortcuts
+    await page.keyboard.press('?');
+    await expect(dialog(page)).toContainText('Keyboard shortcuts');
+    await dialog(page).locator('[data-cancel]').click();
+    // Ctrl+K: type an item's name, Enter opens it
+    await page.keyboard.press('Control+k');
+    await expect(page.locator('.pm-cmd')).toBeVisible();
+    await page.locator('.pm-cmd-q').fill('Pack assembly');
+    await expect(page.locator('.pm-cmd-row', { hasText: 'Pack assembly' })).toBeVisible();
+    await page.locator('.pm-cmd-row', { hasText: 'Pack assembly' }).first().click();
+    await expect(page).toHaveURL(/#\/projects\/item\/BAT-/);
+    await expect(page.locator('h1')).toContainText('Pack assembly');
+    // on the item page: the title renames in place, the due date is a click away
+    await page.locator('[data-rename-title]').click();
+    await page.locator('.pm-title-input').fill('Pack assembly (v2)');
+    await page.locator('.pm-title-input').press('Enter');
+    await expect(toast(page)).toContainText('title changed');
+    await expect.poll(async () => !!(await item('Pack assembly (v2)'))?.id).toBe(true);
+    await page.locator('.pm-toast-undo').click();
+    await expect.poll(async () => !!(await item('Pack assembly'))?.id).toBe(true);
+    await noOverflow(page);
+  });
+
   test('a document is linked by pasting its Teams address; an Orders request is linked and shows its status', async () => {
     await open(page, `/projects/#/projects/item/${itemKey}`, '[data-add-doc]');
+    await expect(page.locator('.pm-key')).toHaveText(itemKey);   // the last test ended on another item's page (same document, so its button shows at once)
     await page.click('[data-add-doc]');
     const url = 'https://uflorida.sharepoint.com/:x:/r/sites/SolarGators/Shared%20Documents/Battery/Pack_sizing-v3.xlsx?d=wabc&csf=1&web=1';
     await dialog(page).locator('#doc-url').fill('javascript:alert(1)');
@@ -568,7 +652,9 @@ test.describe('projects', () => {
     await expect(dialog(page).locator('[data-field="cf.chemistry"]')).toHaveCount(0);
     await save(page, 'Create');
     const card = page.locator('.kcard', { hasText: 'Top shell mold' });
-    await expect(card.locator('[data-move] option')).toHaveText(['Move…', 'Move to Material Ready → Material Ready']);
+    await card.locator('[data-ie="status"]').click();
+    await expect(page.locator('.pm-pick-opt')).toHaveText([/Material Ready/]);
+    await page.keyboard.press('Escape');
     // neither project changed the other
     const statuses = async (k) => (await sql(page, `select s.name from pm_statuses s join pm_projects p on p.id = s.project_id where p.key = $1 order by s.sort`, [k])).map((r) => r.name);
     expect(await statuses('BAT')).toEqual(['Draft', 'In Design', 'In Review', 'Approved', 'Released']);
@@ -765,7 +851,7 @@ test.describe('projects', () => {
     await page.mouse.move(box.x + 300, box.y + box.height / 2, { steps: 5 });
     await page.mouse.up();
     // 062: drawing saves straight away, with an Undo
-    await expect(page.locator('#pm-undo')).toContainText('Undo');
+    await expect(page.locator('.pm-toast-undo')).toBeVisible();
     await expect.poll(() => one(page, `select start_date is not null and due_date > start_date as ok from pm_items where title = 'Data review'`)).toEqual({ ok: true });
     await page.locator('[data-opt="undated"]').uncheck();
     await shot(page, 'timeline-planning');

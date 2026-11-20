@@ -7,10 +7,13 @@
  */
 import { esc } from '../../ui.js';
 import { pm } from '../../projects/api.js';
-import { boardColumns, moveTo, rankBetween, PRIORITIES, newId } from '../../projects/core.js';
+import { boardColumns, moveTo, rankBetween, PRIORITIES } from '../../projects/core.js';
 import { bindKanbanDnd } from '../../kanbanDnd.js';
-import { filterBar, bindFilterBar, filterOf, can, formDialog, toast, attempt, runMove, moveSelect, itemHref, typeBadge, avatar, priorityChip, dueChip, personName, fieldInput, readFields, bindOrgPickers } from './kit.js';
+import { filterBar, bindFilterBar, filterOf, can, formDialog, toast, runMove, itemHref, typeBadge, personName, ie, mayEditItem } from './kit.js';
 import { loadViews, viewsFor, pickView, viewPicker, bindViewPicker } from './saved.js';
+import { bindInline } from './inline.js';
+import { bindSelection, pickBox } from './select.js';
+import { quickAdd, bindQuickAdd } from './quick.js';
 
 const states = new Map();
 const stateOf = (key) => states.get(key) || states.set(key, { f: { q: '', owner: '', category: '', priority: '', type: '', more: null }, view: undefined, config: {}, dirty: false, closed: new Set() }).get(key);
@@ -53,13 +56,14 @@ export async function renderBoard(el, scope) {
       const v = i.custom?.[k.slice(3)];
       return v === undefined || v === '' ? '' : `<span class="chip" title="${esc(c?.fields.find((f) => f.key === k.slice(3))?.name || k)}">${esc(Array.isArray(v) ? v.join(', ') : v === true ? '✓' : v)}</span>`;
     }).join('');
-    return `<article class="kcard pm-card tone-edge-${esc(c?.typeById.get(i.type_id)?.color || 'gray')}" data-card="${esc(i.id)}" ${drag ? 'draggable="true"' : ''}>
-      <div class="kcard-meta"><span>${typeBadge(c?.typeById.get(i.type_id))} <a class="pm-keylink" href="${itemHref(i.key)}">${esc(i.key)}</a></span>${avatar(b, i.owner_id)}</div>
+    const edit = mayEditItem(b, i);
+    return `<article class="kcard pm-card tone-edge-${esc(c?.typeById.get(i.type_id)?.color || 'gray')}" data-card="${esc(i.id)}" ${drag ? 'draggable="true"' : ''} tabindex="-1">
+      <div class="kcard-meta"><span>${pickBox(i)}${typeBadge(c?.typeById.get(i.type_id))} <a class="pm-keylink" href="${itemHref(i.key)}">${esc(i.key)}</a></span>${ie(b, c, i, 'owner', 'avatar')}</div>
       <a class="kcard-name" href="${itemHref(i.key)}">${esc(i.title)}</a>
-      <div class="kcard-tags">${priorityChip(i.priority)}${dueChip(i)}${i.blocked ? `<span class="chip-tone tone-red" title="${esc(i.blocked_reason || 'Blocked')}">⛔ Blocked</span>` : ''}
+      <div class="kcard-tags">${i.priority !== 'medium' || edit ? ie(b, c, i, 'priority', 'quiet') : ''}${i.due_date || edit ? ie(b, c, i, 'due', 'short') : ''}${i.blocked ? `<span class="chip-tone tone-red" title="${esc(i.blocked_reason || 'Blocked')}">⛔ Blocked</span>` : ''}
         ${Number(i.open_deps) ? `<span class="chip-tone tone-amber" title="Waiting on ${i.open_deps} other item(s)">⏳ ${i.open_deps}</span>` : ''}
         ${Number(i.children) ? `<span class="chip" title="Items under it that are done">☑ ${i.children_done}/${i.children}</span>` : ''}${extra}</div>
-      <div class="kcard-foot">${drag ? moveSelect(c, i, 'Move…') : ''}${c && (can(b, i.project_id, 'edit') || i.owner_id === b.me) ? `<button type="button" class="btn btn-sm btn-ghost" data-quick="${esc(i.id)}" aria-label="Quick edit ${esc(i.key)}">✎</button>` : ''}</div>
+      ${drag ? `<div class="kcard-foot">${ie(b, c, i, 'status')}</div>` : ''}
     </article>`;
   };
   const column = (c, ci, laneId) => {
@@ -72,7 +76,8 @@ export async function renderBoard(el, scope) {
       ${laneId === lanes[0] ? `<header><h2>${esc(c.name)}</h2><span class="muted small" title="${c.wip ? `Limit: ${c.wip} at a time` : 'Cards in this column'}">${all}${c.wip ? ` / ${c.wip}` : ''}</span></header>
         ${over ? `<p class="pm-wip-warn" role="status">Over the limit of ${c.wip}: finish something before starting more.</p>` : ''}` : ''}
       <div class="kanban-cards" data-drop="${ci}|${esc(laneId)}">${list.map(card).join('') || '<p class="kanban-empty muted small">Nothing here.</p>'}</div>
-      ${addable ? `<form class="kanban-add" data-add="${ci}|${esc(laneId)}"><input type="text" placeholder="+ Add an item" aria-label="Add an item to ${esc(c.name)}" maxlength="200"></form>` : ''}</section>`;
+      ${addable ? quickAdd(b, { project_id: project.id, status_ids: c.status_ids, ...(lane === 'owner' && laneId ? { owner_id: laneId } : {}), ...(lane === 'priority' && laneId ? { priority: laneId } : {}), ...(lane === 'parent' && laneId ? { parent_id: laneId } : {}) },
+        { placeholder: '+ Add an item', label: `Add an item to ${c.name}`, cls: 'kanban-add' }) : ''}</section>`;
   };
   const stray = items.filter((i) => colOf(i) < 0);
 
@@ -88,7 +93,7 @@ export async function renderBoard(el, scope) {
     ${stray.length ? `<details class="card"><summary>${stray.length} item${stray.length === 1 ? ' is' : 's are'} in a status that no column shows</summary>
       <ul class="pm-mini">${stray.map((i) => `<li><a href="${itemHref(i.key)}">${esc(i.key)} · ${esc(i.title)}</a> <span class="muted">${esc(scope.statuses.find((s) => s.id === i.status_id)?.name || '')}</span></li>`).join('')}</ul>
       <p class="hint">Add the status to a column in "Columns &amp; cards".</p></details>` : ''}
-    ${items.length ? '' : '<div class="empty"><p><strong>No items on this board.</strong></p><p>Add one with "New item", or change the filter.</p></div>'}`;
+    ${items.length ? '' : `<div class="empty"><p><strong>No items on this board.</strong></p><p>${project ? 'Type a title under a column and press Enter to add one there.' : 'Items show here once they\'re added to a project.'}${Object.values(st.f).some(Boolean) ? ' Or change the filter.' : ''}</p></div>`}`;
 
   const changed = () => ((st.dirty = true), scope.rerender());
   bindFilterBar(el, b, st.f, changed, { fields: cfg?.fields, statuses: scope.statuses, sprints: cfg?.sprints });
@@ -129,42 +134,12 @@ export async function renderBoard(el, scope) {
     scope.rerender();
   };
   bindKanbanDnd(el, { onDrop: move });
-  el.addEventListener('change', async (e) => {
-    const sel = e.target.closest('[data-move]');
-    if (!sel || !sel.value) return;
-    const item = byId.get(sel.dataset.move);
-    const c = scope.cfgOf(item);
-    const res = await runMove(b, c, item, c.transitions.find((t) => t.id === sel.value));
-    sel.value = '';
-    if (res) scope.rerender();
-  });
-  el.addEventListener('submit', async (e) => {
-    const form = e.target.closest('[data-add]');
-    if (!form) return;
-    e.preventDefault();
-    const title = form.querySelector('input').value.trim();
-    if (!title) return;
-    const [ci, laneId] = [Number(form.dataset.add.split('|')[0]), form.dataset.add.split('|').slice(1).join('|')];
-    const type = cfg.types.find((t) => !t.archived_at && t.level === 1) || cfg.types.find((t) => !t.archived_at);
-    const statusId = columns[ci].status_ids.find((sid) => cfg.statusById.get(sid)?.workflow_id === type.workflow_id);
-    const made = await attempt(() => pm.createItem(newId(), { project_id: project.id, type_id: type.id, title, status_id: statusId,
-      ...(lane === 'owner' && laneId ? { owner_id: laneId } : {}), ...(lane === 'priority' && laneId ? { priority: laneId } : {}), ...(lane === 'parent' && laneId ? { parent_id: laneId } : {}) }));
-    if (made) scope.rerender();
-  });
+  // change in place (a status change moves the card to its new column), several at once, add with a title
+  bindInline(el, { b, itemOf: (id) => byId.get(id), cfgOf: scope.cfgOf, after: (i, keys) => keys.includes('status_id') && scope.rerender() });
+  bindSelection(el, { b, items: () => items, cfgOf: scope.cfgOf, done: () => scope.rerender(), sprints: cfg?.sprints || [] });
+  bindQuickAdd(el, { b, done: () => scope.rerender() });
   el.addEventListener('click', async (e) => {
-    const q = e.target.closest('[data-quick]');
-    if (q) {
-      const item = byId.get(q.dataset.quick);
-      const c = scope.cfgOf(item);
-      const full = { ...item, ...(await pm.itemByKey(item.key)) };
-      const saved = await formDialog({ title: `${esc(item.key)} · ${esc(item.title)}`, submit: 'Save',
-        body: `<div class="field"><label for="qe-title">Title</label><input id="qe-title" name="title" type="text" maxlength="200" required value="${esc(item.title)}"></div>
-          <div class="form-grid">${['owner', 'priority', 'due_date', 'estimate_hours', 'blocked'].map((k) => fieldInput(k, { b, cfg: c, item: full })).join('')}</div>
-          <p><a href="${itemHref(item.key)}">Open the full item</a></p>`,
-        onOpen: bindOrgPickers,
-        onSubmit: (f) => pm.updateItem(item.id, full.version, { title: f.elements.title.value.trim(), ...readFields(f, c) }) });
-      if (saved) scope.rerender();
-    } else if (e.target.closest('[data-board-settings]')) {
+    if (e.target.closest('[data-board-settings]')) {
       const next = await boardSettings(scope, columns, st.config);
       if (next) ((st.config = next), changed());
     }

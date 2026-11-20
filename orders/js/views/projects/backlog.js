@@ -5,10 +5,13 @@
  */
 import { esc, fmtDate } from '../../ui.js';
 import { pm } from '../../projects/api.js';
-import { rankBetween, newId } from '../../projects/core.js';
+import { rankBetween } from '../../projects/core.js';
 import { todayISO } from '../../projects/schedule.js';
 import { bindKanbanDnd } from '../../kanbanDnd.js';
-import { filterBar, bindFilterBar, filterOf, can, formDialog, attempt, toast, itemHref, typeBadge, statusChip, priorityChip, dueChip, peopleOptions, loadConfig, invalidate } from './kit.js';
+import { filterBar, bindFilterBar, filterOf, can, formDialog, attempt, toast, itemHref, typeBadge, ie, loadConfig, invalidate } from './kit.js';
+import { bindInline } from './inline.js';
+import { bindSelection, pickBox } from './select.js';
+import { quickAdd, bindQuickAdd } from './quick.js';
 
 const states = new Map();
 const stateOf = (key) => states.get(key) || states.set(key, { f: { q: '', owner: '', category: '', priority: '', type: '', more: null }, group: '' }).get(key);
@@ -27,13 +30,11 @@ export async function renderBacklog(el, scope) {
   const hours = (list) => list.reduce((s, i) => s + (Number(i.estimate_hours) || 0), 0);
   const titleOf = new Map(items.map((i) => [i.id, i]));
 
-  const row = (i, n, list) => `<li class="pm-bl-row" data-card="${esc(i.id)}" ${plan || edit ? 'draggable="true"' : ''}>
-    <span class="pm-bl-grip" aria-hidden="true">⋮⋮</span>
+  const row = (i, n, list) => `<li class="pm-bl-row" data-card="${esc(i.id)}" ${plan || edit ? 'draggable="true"' : ''} tabindex="-1">
+    <span class="pm-bl-grip" aria-hidden="true">⋮⋮</span>${pickBox(i)}
     <div class="pm-bl-main">${typeBadge(cfg.typeById.get(i.type_id))} <a class="pm-keylink" href="${itemHref(i.key)}">${esc(i.key)}</a> <a href="${itemHref(i.key)}">${esc(i.title)}</a>
-      ${statusChip(cfg.statusById.get(i.status_id))} ${priorityChip(i.priority)} ${dueChip(i)}${i.blocked ? ' <span class="chip-tone tone-red">⛔</span>' : ''}</div>
-    ${edit ? `<input class="pm-bl-est" type="number" min="0" step="any" value="${esc(i.estimate_hours ?? '')}" placeholder="h" data-est="${esc(i.id)}" aria-label="Estimate in hours for ${esc(i.key)}" title="Estimate (hours)">
-      <select class="pm-bl-owner" data-owner="${esc(i.id)}" aria-label="Owner of ${esc(i.key)}">${peopleOptions(b, i.owner_id, 'No owner')}</select>`
-      : `<span class="muted small">${i.estimate_hours === null ? '' : `${Number(i.estimate_hours)} h`}</span>`}
+      ${ie(b, cfg, i, 'status')} ${ie(b, cfg, i, 'priority', 'quiet')} ${ie(b, cfg, i, 'due', 'short')}${i.blocked ? ' <span class="chip-tone tone-red">⛔</span>' : ''}</div>
+    <span class="pm-bl-est" title="Estimate (hours)">${ie(b, cfg, i, 'estimate')}</span><span class="pm-bl-owner">${ie(b, cfg, i, 'owner', 'name')}</span>
     ${plan || edit ? `<span class="pm-bl-move"><button type="button" class="btn btn-sm btn-ghost" data-up="${esc(i.id)}" ${n ? '' : 'disabled'} aria-label="Move ${esc(i.key)} up">↑</button>
       <button type="button" class="btn btn-sm btn-ghost" data-down="${esc(i.id)}" ${n < list.length - 1 ? '' : 'disabled'} aria-label="Move ${esc(i.key)} down">↓</button>
       <select data-send="${esc(i.id)}" aria-label="Move ${esc(i.key)} to"><option value="">Move to…</option><option value="top">Top of this list</option><option value="bottom">Bottom of this list</option>
@@ -45,6 +46,7 @@ export async function renderBacklog(el, scope) {
     }
     return list.map(row).join('') || '<li class="muted pm-bl-empty">Nothing here. Drag items in, or use an item\'s "Move to…" menu.</li>';
   };
+  const adder = (ctx, placeholder) => (can(b, project.id, 'create') && !project.archived_at ? quickAdd(b, { project_id: project.id, ...ctx }, { placeholder }) : '');
   const sprintBox = (s) => {
     const list = inList(s.id);
     return `<section class="card pm-sprint ${s.status === 'active' ? 'is-active' : ''}" data-sprint="${esc(s.id)}">
@@ -52,7 +54,7 @@ export async function renderBacklog(el, scope) {
         <span class="muted small">${s.start_date ? `${esc(fmtDate(s.start_date))} – ${esc(fmtDate(s.end_date || s.start_date))} · ` : ''}${list.length} item${list.length === 1 ? '' : 's'} · ${hours(list)} h estimated</span>
         ${plan ? `<span class="card-actions"><button type="button" class="btn btn-sm btn-ghost" data-edit-sprint>Edit</button>${s.status === 'planned' ? '<button type="button" class="btn btn-sm" data-start-sprint>Start</button>' : '<button type="button" class="btn btn-sm btn-primary" data-close-sprint>Close sprint</button>'}</span>` : ''}</div>
       ${s.goal ? `<p class="muted">Goal: ${esc(s.goal)}</p>` : ''}
-      <ul class="pm-bl" data-drop="${esc(s.id)}">${listHtml(s.id, list)}</ul></section>`;
+      <ul class="pm-bl" data-drop="${esc(s.id)}">${listHtml(s.id, list)}</ul>${adder({ sprint_id: s.id }, `+ Add to ${s.name}`)}</section>`;
   };
   const backlog = inList('');
 
@@ -62,7 +64,7 @@ export async function renderBacklog(el, scope) {
     ${total > items.length ? `<p class="alert alert-info">Showing the first ${items.length} of ${total} open items. Narrow the filter to see the rest.</p>` : ''}
     ${sprintsOn ? open.map(sprintBox).join('') : ''}
     <section class="card"><div class="pm-sprint-head"><h2>Backlog</h2><span class="muted small">${backlog.length} item${backlog.length === 1 ? '' : 's'} · ${hours(backlog)} h estimated${backlog.some((i) => i.estimate_hours === null) ? ` · ${backlog.filter((i) => i.estimate_hours === null).length} without an estimate` : ''}</span></div>
-      ${can(b, project.id, 'create') && !project.archived_at ? '<form data-quick-add class="pm-inline-add"><input type="text" maxlength="200" placeholder="+ Add to the backlog (press Enter)" aria-label="Add an item to the backlog"></form>' : ''}
+      ${adder({}, '+ Add to the backlog (Enter to add, Shift+Enter for the full form)')}
       <ul class="pm-bl" data-drop="">${listHtml('', backlog)}</ul></section>
     ${closed.length ? `<details class="card"><summary>Finished sprints (${closed.length})</summary>${closed.map((s) => `<div class="pm-sprint-done"><strong>${esc(s.name)}</strong> <span class="muted small">closed ${esc(fmtDate(s.closed_at))}</span>
       <div>${(s.summary?.done || []).length} finished, ${(s.summary?.carried || []).length} carried over${s.goal ? ` · Goal: ${esc(s.goal)}` : ''}</div>
@@ -106,24 +108,20 @@ export async function renderBacklog(el, scope) {
       if (res) (toast(`${sprint.name} is closed.`), reload());
     }
   });
+  const byId = new Map(items.map((i) => [i.id, i]));
+  // the hours under each list follow an estimate changed in place
+  bindInline(el, { b, itemOf: (id) => byId.get(id), cfgOf: () => cfg, after: (i, keys) => keys.includes('estimate_hours') && again() });
+  bindSelection(el, { b, items: () => items, cfgOf: () => cfg, done: again, sprints: cfg.sprints });
+  bindQuickAdd(el, { b, done: again });
   el.addEventListener('change', async (e) => {
     const d = e.target.dataset;
-    if (d.est) await attempt(() => pm.updateItem(d.est, null, { estimate_hours: e.target.value === '' ? null : Number(e.target.value) }));
-    else if (d.owner) await attempt(() => pm.updateItem(d.owner, null, { owner_id: e.target.value || null }));
-    else if (d.send && e.target.value) {
+    if (d.send && e.target.value) {
       const item = items.find((i) => i.id === d.send);
       const here = item.sprint_id && open.some((s) => s.id === item.sprint_id) ? item.sprint_id : '';
       if (e.target.value === 'top') return place(d.send, here, null, true);
       if (e.target.value === 'bottom') return place(d.send, here, null);
       return place(d.send, e.target.value.slice(7), null);
-    } else return;
-    if (d.est) again();
-  });
-  el.querySelector('[data-quick-add]')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const title = e.target.querySelector('input').value.trim();
-    const type = cfg.types.find((t) => !t.archived_at && t.level === 1) || cfg.types.find((t) => !t.archived_at);
-    if (title && (await attempt(() => pm.createItem(newId(), { project_id: project.id, type_id: type.id, title })))) again();
+    }
   });
 }
 

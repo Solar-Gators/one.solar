@@ -6,8 +6,11 @@ import { esc, fmtDate } from '../../ui.js';
 import { pm } from '../../projects/api.js';
 import { relDay } from '../../projects/core.js';
 import { todayISO } from '../../projects/schedule.js';
-import { needsDatabase, loadBase, shapesFor, header, itemHref, projectHref, statusChip, typeBadge, priorityChip, dueChip, moveSelect, runMove, can, toast, attempt, personName } from './kit.js';
+import { needsDatabase, loadBase, shapesFor, header, itemHref, projectHref, typeBadge, ie, can, toast, attempt, personName } from './kit.js';
 import { askText } from '../../ui.js';
+import { bindInline } from './inline.js';
+import { bindSelection, pickBox } from './select.js';
+import { quickAdd, bindQuickAdd } from './quick.js';
 
 const view = { group: 'when', show: 'open' };
 
@@ -47,14 +50,14 @@ export async function renderMyWork(el, { config, rerender }) {
   const row = (i) => {
     const c = cfgOf(i);
     const p = b.projectById.get(i.project_id);
-    return `<li class="pm-work" data-item="${esc(i.id)}">
+    return `<li class="pm-work" data-item="${esc(i.id)}" tabindex="-1">${pickBox(i)}
       <div class="pm-work-main">${typeBadge(c?.typeById.get(i.type_id))} <a href="${itemHref(i.key)}"><strong>${esc(i.title)}</strong></a>
         <div class="pm-work-meta"><a href="${itemHref(i.key)}" class="pm-keylink">${esc(i.key)}</a> · <a href="${projectHref(p?.key || '')}">${esc(p?.name || '')}</a>
-          ${statusChip(c?.statusById.get(i.status_id))} ${priorityChip(i.priority)} ${dueChip(i)}
+          ${ie(b, c, i, 'priority', 'quiet')} ${ie(b, c, i, 'due')}
           ${i.owner_id && i.owner_id !== b.me ? `<span class="muted small">Owner: ${esc(personName(b, i.owner_id))}</span>` : ''}</div>
         ${i.blocked ? `<div class="pm-work-why">⛔ Blocked${i.blocked_reason ? `: ${esc(i.blocked_reason)}` : ''}</div>` : ''}
         ${Number(i.open_deps) ? `<div class="pm-work-why">⏳ Waiting on ${i.open_deps} other item${Number(i.open_deps) === 1 ? '' : 's'} to finish</div>` : ''}</div>
-      <div class="pm-work-act">${c && can(b, i.project_id, 'transition') ? moveSelect(c, i, 'Update…') : ''}</div></li>`;
+      <div class="pm-work-act">${ie(b, c, i, 'status')}</div></li>`;
   };
   const block = ([title, list, tone]) => (list.length ? `<section class="card pm-work-group ${tone}"><h2>${esc(title)} <span class="muted">${list.length}</span></h2><ul class="pm-work-list">${list.map(row).join('')}</ul></section>` : '');
   const approvalRow = (a, mineToDecide) => {
@@ -75,8 +78,9 @@ export async function renderMyWork(el, { config, rerender }) {
       <a class="btn btn-sm" href="#/projects/list">Search all work</a>
       ${done.length ? '<button type="button" class="btn btn-sm" id="mw-summary" title="A plain list of what you finished, to paste into a self-evaluation or a report">Copy what I finished</button>' : ''}
     </div>
+    ${quickAdd(b, {}, { placeholder: '+ Add something to do (it\'s yours; Enter to add)', label: 'Add an item for yourself', cls: 'pm-qa-mine' })}
     ${toApprove.length ? `<section class="card pm-work-group is-warn"><h2>Waiting for your approval <span class="muted">${toApprove.length}</span></h2><ul class="pm-work-list">${toApprove.map((a) => approvalRow(a, true)).join('')}</ul></section>` : ''}
-    ${sections.map(block).join('') || (open.length ? '' : `<div class="empty"><p><strong>Nothing assigned to you right now.</strong></p><p>When someone makes you the owner of an item, or adds you as a collaborator, it shows here.</p><p><a class="btn btn-primary" href="#/projects/all">Look at the projects</a></p></div>`)}
+    ${sections.map(block).join('') || (open.length ? '' : emptyState(b))}
     ${asked.length ? `<section class="card pm-work-group"><h2>You asked for approval <span class="muted">${asked.length}</span></h2><ul class="pm-work-list">${asked.map((a) => approvalRow(a, false)).join('')}</ul></section>` : ''}
     ${watching.length ? `<details class="card pm-work-group"><summary><h2>Watching <span class="muted">${watching.length}</span></h2></summary><ul class="pm-work-list">${watching.map(row).join('')}</ul></details>` : ''}
     ${done.length ? `<details class="card pm-work-group"><summary><h2>Finished in the last two weeks <span class="muted">${done.length}</span></h2></summary><ul class="pm-work-list">${done.map(row).join('')}</ul></details>` : ''}`;
@@ -90,16 +94,13 @@ export async function renderMyWork(el, { config, rerender }) {
     const text = done.map((i) => `- ${i.title} (${i.key}, ${b.projectById.get(i.project_id)?.name || ''}), finished ${fmtDate(i.completed_at)}`).join('\n');
     await navigator.clipboard.writeText(text).then(() => toast('Copied. Paste it wherever you describe your work.'), () => toast('Couldn\'t copy.', 'bad'));
   });
-  el.addEventListener('change', async (e) => {
-    const sel = e.target.closest('[data-move]');
-    if (!sel || !sel.value) return;
-    const item = mine.concat(watching).find((i) => i.id === sel.dataset.move);
-    const c = cfgOf(item);
-    const res = await runMove(b, c, item, c.transitions.find((t) => t.id === sel.value));
-    sel.value = '';
-    if (res) rerender();
-  });
+  // change in place; a finished item stays where it is until the page is opened again (so it doesn't jump away)
+  const all = [...mine, ...watching];
+  bindInline(el, { b, itemOf: (id) => all.find((i) => i.id === id), cfgOf });
+  bindSelection(el, { b, items: () => all, cfgOf, done: rerender });
+  bindQuickAdd(el, { b, done: rerender });
   el.addEventListener('click', async (e) => {
+    if (e.target.closest('[data-shortcuts]')) return void import('./command.js').then((m) => m.helpDialog());
     const t = e.target.closest('[data-approve], [data-reject]');
     if (!t) return;
     const approve = t.dataset.approve !== undefined;
@@ -107,4 +108,16 @@ export async function renderMyWork(el, { config, rerender }) {
     if (!approve && !note) return;
     if (await attempt(() => pm.decideApproval(t.dataset.approve || t.dataset.reject, approve, note), approve ? 'Approved.' : 'Sent back.')) rerender();
   });
+}
+
+/** Nothing of mine yet: my subsystem's projects (or every project), and how to start. */
+function emptyState(b) {
+  const sub = b.myOrg?.subsystem_id;
+  const div = b.myOrg?.division_id;
+  const near = b.projects.filter((p) => !p.archived_at && ((sub && p.subsystem_id === sub) || (!sub && div && p.division_id === div)));
+  const where = sub ? b.subsystemById.get(sub)?.name : div ? b.divisionById.get(div)?.name : '';
+  return `<div class="empty"><p><strong>Nothing assigned to you right now.</strong></p>
+    <p>When someone makes you the owner of an item, or adds you as a collaborator, it shows here. You can also add something for yourself above.</p>
+    ${near.length ? `<p>${esc(where)}'s projects:</p><p class="pm-empty-links">${near.map((p) => `<a class="btn btn-sm" href="${projectHref(p.key)}">${esc(p.name)}</a>`).join(' ')}</p>` : ''}
+    <p><a class="btn btn-primary" href="#/projects/all">Look at the projects</a> <button type="button" class="btn btn-ghost" data-shortcuts>Keyboard shortcuts</button></p></div>`;
 }

@@ -9,7 +9,7 @@
  *
  * More when you want it:
  *   Color by    kind (default), status, subsystem, owner or priority.
- *   Show        dependencies, progress, labels on bars, item keys, owners, team dates; density; light / dark.
+ *   Show        dependencies, progress, labels on bars, item keys, owners, team dates; density. Light / dark follows the site.
  *   Filter      the usual filters, and "Only undated" (draw on a row to give an item its dates).
  *   Plan        the scheduling engine (projects/schedule.js): the FORECAST (dashed outline) from dependencies,
  *               working days and what has happened, the critical path, baselines and how far rows slipped, and
@@ -26,7 +26,10 @@ import { pm } from '../../projects/api.js';
 import { schedule, proposeDates, toDay, toISO, todayISO, makeCalendar } from '../../projects/schedule.js';
 import { DEP_KINDS, PRIORITIES, CATEGORIES, newId, rankBetween } from '../../projects/core.js';
 import { auth } from '../../auth.js';
-import { filterBar, bindFilterBar, filterOf, can, formDialog, attempt, toast, itemHref, avatar, personName, canCreateProjects, invalidate, projectHref } from './kit.js';
+import { filterBar, bindFilterBar, filterOf, can, formDialog, attempt, toast, itemHref, avatar, personName, canCreateProjects, invalidate, projectHref, ie, mayEditItem, mayDateItem } from './kit.js';
+import { bindInline, saveField } from './inline.js';
+import { bindSelection, pickBox } from './select.js';
+import { quickAdd, bindQuickAdd } from './quick.js';
 
 /** Kinds of item that can go under `parent` (an item) or at the top (null), highest level first. */
 export function kindsUnder(cfg, parent) {
@@ -46,7 +49,7 @@ const COLOR_BY = { type: 'Kind of work', status: 'Status', subsystem: 'Subsystem
 const ZOOMS = { week: ['Weeks', 18], month: ['Months', 6], season: ['Season', 0] };
 const DENSITY = { comfortable: { row: 40, bar: 22 }, compact: { row: 30, bar: 16 } };
 const SHOW = { deps: 'Dependencies', progress: 'Progress', labels: 'Labels on bars', keys: 'Item keys', owners: 'Owners', team: 'Team dates' };
-const DEFAULTS = { zoom: 'week', colorBy: 'type', theme: 'light', density: 'comfortable', labelW: 280,
+const DEFAULTS = { zoom: 'week', colorBy: 'type', density: 'comfortable', labelW: 280,
   show: { deps: true, progress: true, labels: false, keys: false, owners: false, team: true },
   plan: { forecast: false, critical: false, whatIf: false, baseline: '' } };
 
@@ -60,7 +63,7 @@ function loadPrefs(key) {
 }
 function savePrefs(key, st) {
   try {
-    localStorage.setItem(prefKey(key), JSON.stringify({ zoom: st.zoom, colorBy: st.colorBy, theme: st.theme, density: st.density, labelW: st.labelW, show: st.show, plan: st.plan }));
+    localStorage.setItem(prefKey(key), JSON.stringify({ zoom: st.zoom, colorBy: st.colorBy, density: st.density, labelW: st.labelW, show: st.show, plan: st.plan }));
   } catch { /* not kept: fine */ }
 }
 const states = new Map();
@@ -76,23 +79,11 @@ const span2 = (s, z) => (s && z ? toDay(z) - toDay(s) + 1 : null);
 const lengthText = (n) => (n === null ? '' : n % 7 === 0 ? `${n / 7} week${n === 7 ? '' : 's'}` : `${n} day${n === 1 ? '' : 's'}`);
 const rangeText = (s, z) => (s && z ? `${fmtDate(s)} – ${fmtDate(z)} · ${lengthText(span2(s, z))}` : fmtDate(s || z));
 
-/** A short "Undo" bar at the bottom of the page after a change that saved straight away. */
-function undoBar(text, undo) {
-  document.getElementById('pm-undo')?.remove();
-  const d = document.createElement('div');
-  d.id = 'pm-undo';
-  d.className = 'pm-undo';
-  d.setAttribute('role', 'status');
-  d.innerHTML = `<span>${esc(text)}</span><button type="button" class="btn btn-sm">Undo</button><button type="button" class="pm-undo-x" aria-label="Close">×</button>`;
-  document.body.append(d);
-  const timer = setTimeout(() => d.remove(), 9000);
-  d.querySelector('.pm-undo-x').onclick = () => (clearTimeout(timer), d.remove());
-  d.querySelector('.btn').onclick = async () => {
-    clearTimeout(timer);
-    d.remove();
-    await undo();
-  };
-}
+/** The site's own light / dark setting (account menu): the chart and the slide follow it. */
+const siteDark = () => document.documentElement.dataset.theme === 'dark';
+
+/** The same notice with Undo as everywhere else in Projects, after a change that saved straight away. */
+const undoBar = (text, undo) => toast(text, 'ok', { undo });
 
 export async function renderTimeline(el, scope) {
   const { b, project } = scope;
@@ -367,7 +358,7 @@ export async function renderTimeline(el, scope) {
     const mayEdit = can(b, i.project_id, 'edit');
     return `<div class="pm-g-label${r.children ? ' is-group' : ''}${plan.byId.get(i.id)?.critical && st.plan.critical ? ' is-critical' : ''}${dim(i)}${st.selected === i.id ? ' is-selected' : ''}" data-row="${esc(i.id)}" style="height:${ROW}px;padding-left:${6 + r.depth * 18}px">
       ${mayEdit && i.category !== 'done' ? `<span class="pm-g-grip" data-grip="${esc(i.id)}" title="Drag onto another row: the middle puts it under that row, the top or bottom edge before or after it" aria-hidden="true">⋮⋮</span>` : '<span class="pm-g-grip is-empty"></span>'}
-      ${r.children ? `<button type="button" class="pm-g-toggle" data-toggle="${esc(i.id)}" aria-expanded="${!st.closed.has(i.id)}" aria-label="${st.closed.has(i.id) ? 'Show' : 'Hide'} what's under ${esc(i.key)}">${st.closed.has(i.id) ? '▸' : '▾'}</button>` : '<span class="pm-g-toggle"></span>'}
+      ${pickBox(i)}${r.children ? `<button type="button" class="pm-g-toggle" data-toggle="${esc(i.id)}" aria-expanded="${!st.closed.has(i.id)}" aria-label="${st.closed.has(i.id) ? 'Show' : 'Hide'} what's under ${esc(i.key)}">${st.closed.has(i.id) ? '▸' : '▾'}</button>` : '<span class="pm-g-toggle"></span>'}
       <span class="pm-g-dot${i.is_milestone ? ' is-ms' : ''}" style="--c:${c.hex}" title="${esc(c.name)}"></span>
       <span class="pm-g-name">${st.show.keys ? `<a class="pm-g-key" href="${itemHref(i.key)}">${esc(i.key)}</a>` : ''}<span class="pm-g-title${i.category === 'done' ? ' is-done' : ''}" ${mayEdit ? `data-rename="${esc(i.id)}" title="${esc(i.key)} ${esc(i.title)} (double-click to rename)"` : `title="${esc(i.key)} ${esc(i.title)}"`}>${esc(i.title)}</span></span>
       ${slipChip(i)}${undated(i) && !st.undated ? '<span class="pm-g-chip" title="No start or due date yet: drag across the row to set them">no dates</span>' : ''}${(ordersFor.get(i.id) || []).length ? `<span class="pm-g-chip is-warn" title="${esc(ordersFor.get(i.id).map((w) => `${w.number} is ${w.status}, not ordered yet`).join('\n'))}">order ⚠</span>` : ''}
@@ -379,8 +370,7 @@ export async function renderTimeline(el, scope) {
   const pop = (name, labelHtml, body) => `<details class="pm-pop" data-pop="${name}" ${st.pop === name ? 'open' : ''}><summary class="btn btn-sm">${labelHtml}</summary><div class="pm-pop-body">${body}</div></details>`;
   const check = (attr, k, label, on, hint = '') => `<label class="pm-pop-check" ${hint ? `title="${esc(hint)}"` : ''}><input type="checkbox" ${attr}="${k}" ${on ? 'checked' : ''}> ${esc(label)}</label>`;
   const showMenu = pop('show', 'Show ▾', `${Object.entries(SHOW).map(([k, l]) => check('data-show', k, l, st.show[k])).join('')}
-    <div class="pm-pop-row"><span>Rows</span><select data-density aria-label="Row size"><option value="comfortable" ${st.density === 'comfortable' ? 'selected' : ''}>Comfortable</option><option value="compact" ${st.density === 'compact' ? 'selected' : ''}>Compact</option></select></div>
-    <div class="pm-pop-row"><span>Theme</span><select data-g-theme aria-label="Chart theme"><option value="light" ${st.theme !== 'dark' ? 'selected' : ''}>Light</option><option value="dark" ${st.theme === 'dark' ? 'selected' : ''}>Dark</option></select></div>`);
+    <div class="pm-pop-row"><span>Rows</span><select data-density aria-label="Row size"><option value="comfortable" ${st.density === 'comfortable' ? 'selected' : ''}>Comfortable</option><option value="compact" ${st.density === 'compact' ? 'selected' : ''}>Compact</option></select></div>`);
   const planMenu = pop('plan', `Plan${trying || st.plan.forecast || st.plan.critical || st.plan.baseline || st.plan.whatIf ? ' •' : ''} ▾`, `
     ${check('data-plan', 'forecast', 'Forecast', st.plan.forecast, 'Dashed outlines: where the scheduling engine expects each item to really fall, from dependencies, working days and what has happened')}
     ${check('data-plan', 'critical', 'Critical path', st.plan.critical, 'Red: the chain of items with no slack, which decides the finish date')}
@@ -422,7 +412,7 @@ export async function renderTimeline(el, scope) {
         <div class="card-actions"><button type="button" class="btn btn-sm btn-primary" data-apply>Apply to the plan</button>${project ? '<button type="button" class="btn btn-sm" data-save-scenario>Keep as a what-if</button>' : ''}<button type="button" class="btn btn-sm btn-ghost" data-discard>Discard</button></div></div>` : ''}
     ${total > all.length ? `<p class="alert alert-info">Showing the first ${all.length} of ${total} items.</p>` : ''}
     ${plan.loop.length ? `<p class="alert alert-error">Some items depend on each other in a loop, so they can't be scheduled: ${plan.loop.map((id) => esc(byId.get(id)?.key || '')).join(', ')}.</p>` : ''}
-    ${rows.length ? `<div class="pm-gantt-wrap${st.theme === 'dark' ? ' is-dark' : ''}" style="--label-w:${labelW}px;--row:${ROW}px">
+    ${rows.length ? `<div class="pm-gantt-wrap" style="--label-w:${labelW}px;--row:${ROW}px">
       <div class="pm-gantt">
         <div class="pm-g-left"><div class="pm-g-head pm-g-lhead"><span>Work package</span>
           <span class="pm-g-label-end"><button type="button" class="pm-g-more" data-collapse-all title="Collapse all" aria-label="Collapse all">⊟</button><button type="button" class="pm-g-more" data-expand-all title="Expand all" aria-label="Expand all">⊞</button></span></div>
@@ -439,6 +429,7 @@ export async function renderTimeline(el, scope) {
               <marker id="pm-g-tip-c" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L8 4 L0 8 z"/></marker></defs>${arrows()}</svg>
           </div></div></div>
       <div class="pm-g-legend">${legendHtml}<span class="pm-g-spacer"></span><span class="muted small">${seasonNote}${st.plan.forecast ? `${seasonNote ? ' · ' : ''}Forecast finish: <strong>${esc(fmtDate(plan.finish))}</strong>` : ''}</span></div>
+      ${project && can(b, project.id, 'create') && !project.archived_at ? quickAdd(b, { project_id: project.id }, { placeholder: '+ Add an item (Enter; then drag across its row to give it dates)', cls: 'pm-qa-gantt' }) : ''}
       <div data-panel-slot></div></div>`
       : st.undated ? '<div class="empty"><p><strong>Every open item has dates.</strong></p></div>'
       : `<div class="empty"><p><strong>${shown ? 'Nothing matches the filters.' : 'Nothing on the timeline yet.'}</strong></p>${project && can(b, project.id, 'create') && !shown ? `<p><button type="button" class="btn btn-primary" data-add-root="${esc(project.id)}">+ Add the first item</button></p>` : ''}</div>`}
@@ -461,6 +452,8 @@ export async function renderTimeline(el, scope) {
     scroller.addEventListener('scroll', () => (st.scroll = scroller.scrollLeft));
   }
   if (st.filters) bindFilterBar(el, b, st.f, again, { fields: scope.fields, statuses: scope.statuses });
+  bindSelection(el, { b, items: () => rows.filter((r) => r.item).map((r) => r.item), cfgOf: scope.cfgOf, done: again, sprints: scope.cfg?.sprints || [] });
+  bindQuickAdd(el, { b, done: again });
   if (st.selected && byId.has(st.selected)) openPanel(byId.get(st.selected));
 
   /** Save new dates straight away (with Undo), or, in what-if mode, only try them out. */
@@ -489,58 +482,39 @@ export async function renderTimeline(el, scope) {
     el.querySelectorAll('.pm-g-label.is-selected').forEach((n) => n.classList.remove('is-selected'));
     el.querySelector(`.pm-g-label[data-row="${CSS.escape(i.id)}"]`)?.classList.add('is-selected');
     const cfg = scope.cfgOf(i);
-    const mayEdit = can(b, i.project_id, 'edit');
-    const mayDate = mayEdit || can(b, i.project_id, 'plan');
-    const types = (cfg?.types || []).filter((t) => !t.archived_at);
+    const mayEdit = mayEditItem(b, i);
     const c = col.get(i.id) || colorOf(i);
-    const ro = (ok) => (ok ? '' : 'disabled');
-    slot.innerHTML = `<aside class="pm-g-panel" aria-label="${esc(i.key)} ${esc(i.title)}"><form data-panel-form>
+    // each field saves as soon as it's changed (with Undo), like everywhere else; in what-if mode dates are only tried out
+    const row = (label, html) => `<div class="pm-g-panel-row"><span class="pm-g-panel-label">${label}</span><span>${html}</span></div>`;
+    const dates = st.plan.whatIf && mayDateItem(b, i)
+      ? `<button type="button" class="pm-ie" data-dates="${esc(i.id)}">${esc(i.start_date || i.due_date ? rangeText(i.start_date || i.due_date, i.due_date || i.start_date) : 'No dates')} · try other dates…</button>`
+      : `${ie(b, cfg, i, 'start')} → ${ie(b, cfg, i, 'due')}`;
+    slot.innerHTML = `<aside class="pm-g-panel" aria-label="${esc(i.key)} ${esc(i.title)}">
       <div class="pm-g-panel-head"><span class="pm-g-dot" style="--c:${c.hex}"></span><a href="${itemHref(i.key)}">${esc(i.key)}</a>
-        <span class="muted small">${esc(cfg?.statusById?.get(i.status_id)?.name || '')}</span><button type="button" class="pm-g-more" data-close-panel aria-label="Close">×</button></div>
-      <label class="field">Title<input name="title" type="text" maxlength="200" value="${esc(i.title)}" ${ro(mayEdit)} required></label>
-      <label class="field">Kind<select name="type_id" ${ro(mayEdit)}>${types.map((t) => `<option value="${esc(t.id)}" ${t.id === i.type_id ? 'selected' : ''}>${esc(`${t.icon ? `${t.icon} ` : ''}${t.name}`)}</option>`).join('')}</select></label>
-      <div class="pm-g-panel-2"><label class="field">Start<input name="start" type="date" value="${esc(i.start_date || '')}" ${ro(mayDate)}></label>
-        <label class="field">Due<input name="due" type="date" value="${esc(i.due_date || '')}" ${ro(mayDate)}></label></div>
-      <label class="field">Owner<select name="owner_id" ${ro(mayEdit)}><option value="">No owner</option>${b.people.map((p) => `<option value="${esc(p.id)}" ${p.id === i.owner_id ? 'selected' : ''}>${esc(p.full_name || p.email)}</option>`).join('')}</select></label>
-      <label class="field">Progress <output>${Number(i.progress) || 0}%</output><input name="progress" type="range" min="0" max="100" step="5" value="${Number(i.progress) || 0}" ${ro(mayEdit)}></label>
-      <label class="field">Notes<textarea name="description" rows="5" placeholder="Loading…" ${ro(mayEdit)}></textarea></label>
-      <p class="pm-g-panel-err alert alert-error" hidden></p>
-      <div class="form-actions">${mayDate ? '<button type="submit" class="btn btn-primary btn-sm">Save</button>' : ''}<a class="btn btn-sm btn-ghost" href="${itemHref(i.key)}">Open full item</a></div>
-    </form></aside>`;
-    const form = slot.querySelector('form');
+        <button type="button" class="pm-g-more" data-close-panel aria-label="Close" title="Close (Esc)">×</button></div>
+      ${mayEdit ? `<input class="pm-g-panel-title" data-panel-title type="text" maxlength="200" value="${esc(i.title)}" aria-label="Title" title="Click to rename; Enter saves">` : `<h3 class="pm-g-panel-title">${esc(i.title)}</h3>`}
+      ${row('Status', ie(b, cfg, i, 'status'))}${row('Kind', ie(b, cfg, i, 'type'))}${row('Dates', dates)}
+      ${row('Owner', ie(b, cfg, i, 'owner', 'name'))}${row('Priority', ie(b, cfg, i, 'priority'))}${row('Progress', ie(b, cfg, i, 'progress'))}
+      <label class="field">Notes<textarea data-panel-notes rows="5" placeholder="Loading…" ${mayEdit ? '' : 'disabled'}></textarea><span class="hint">Saved when you click away.</span></label>
+      <div class="form-actions"><a class="btn btn-sm btn-ghost" href="${itemHref(i.key)}">Open full item</a></div></aside>`;
+    const panel = slot.querySelector('.pm-g-panel');
+    bindInline(slot, { b, itemOf: (id) => byId.get(id), cfgOf: scope.cfgOf, after: () => again() });
+    const notes = panel.querySelector('[data-panel-notes]');
     let desc = null;
     pm.itemDescription(i.id).then((d) => {
       desc = d;
-      form.elements.description.value = d;
-      form.elements.description.placeholder = 'Anything people should know';
-    }).catch(() => (form.elements.description.placeholder = ''));
-    form.elements.progress.oninput = () => (form.querySelector('output').textContent = `${form.elements.progress.value}%`);
+      notes.value = d;
+      notes.placeholder = 'Anything people should know';
+    }).catch(() => (notes.placeholder = ''));
+    notes.addEventListener('blur', () => desc !== null && notes.value !== desc && saveField({ b, item: i, cfg, root: slot }, { description: notes.value }).then((ok) => ok && (desc = notes.value)));
+    const title = panel.querySelector('[data-panel-title]');
+    title?.addEventListener('keydown', (e) => (e.key === 'Enter' ? (e.preventDefault(), title.blur()) : e.key === 'Escape' ? ((title.value = i.title), title.blur()) : null));
+    title?.addEventListener('blur', async () => {
+      const v = title.value.trim();
+      if (!v) title.value = i.title;
+      else if (v !== i.title && (await saveField({ b, item: i, cfg, root: slot }, { title: v }))) again();
+    });
     slot.querySelector('[data-close-panel]').onclick = () => closePanel();
-    form.onsubmit = async (e) => {
-      e.preventDefault();
-      const f = form.elements;
-      const err = form.querySelector('.pm-g-panel-err');
-      if (f.start.value && f.due.value && f.start.value > f.due.value) return void ((err.textContent = 'The start date is after the due date.'), (err.hidden = false));
-      const patch = {};
-      if (mayEdit) {
-        if (f.title.value.trim() && f.title.value.trim() !== i.title) patch.title = f.title.value.trim();
-        if (f.type_id.value !== i.type_id) patch.type_id = f.type_id.value;
-        if ((f.owner_id.value || null) !== (i.owner_id || null)) patch.owner_id = f.owner_id.value || null;
-        if (Number(f.progress.value) !== (Number(i.progress) || 0)) patch.progress = Number(f.progress.value);
-        if (desc !== null && f.description.value !== desc) patch.description = f.description.value;
-      }
-      if ((f.start.value || null) !== (i.start_date || null)) patch.start_date = f.start.value || null;
-      if ((f.due.value || null) !== (i.due_date || null)) patch.due_date = f.due.value || null;
-      if (!Object.keys(patch).length) return closePanel();
-      try {
-        await pm.updateItem(i.id, i.version, patch);
-        toast(`${i.key} saved.`);
-        again();
-      } catch (ex) {
-        err.textContent = ex.message;
-        err.hidden = false;
-      }
-    };
   }
   function closePanel() {
     st.selected = '';
@@ -615,7 +589,6 @@ export async function renderTimeline(el, scope) {
       st.plan[d.plan] = t.checked;
       if (d.plan === 'whatIf' && !t.checked && Object.keys(st.overrides).length) toast('The tried-out changes are still there: Apply or Discard them.');
     } else if (d.density !== undefined) st.density = t.value;
-    else if (d.gTheme !== undefined) st.theme = t.value;
     else if (d.colorBy !== undefined) ((st.colorBy = t.value), (st.only = ''));
     else if (d.baseline !== undefined) st.plan.baseline = t.value;
     else if (d.opt === 'undated') st.undated = t.checked;
@@ -978,7 +951,7 @@ export async function renderTimeline(el, scope) {
 
   // ---- Present: a clean chart with a title and a legend, to show or to download
   function renderPresent() {
-    const dark = st.theme === 'dark';
+    const dark = siteDark();
     const seasonName = seasonRow?.name || '';
     if (st.title === null) st.title = project ? project.name : 'Projects';
     if (st.subtitle === null) st.subtitle = `${seasonName ? `${seasonName} / ` : ''}${project ? `${project.name} roadmap` : 'Roadmap'}`;
@@ -986,8 +959,7 @@ export async function renderTimeline(el, scope) {
       <div class="pm-present-tools">
         <label class="field">Title<input data-present-title type="text" maxlength="80" value="${esc(st.title)}"></label>
         <label class="field">Subtitle<input data-present-sub type="text" maxlength="120" value="${esc(st.subtitle)}"></label>
-        <div class="card-actions"><button type="button" class="btn btn-sm" data-present-theme>${dark ? 'Light' : 'Dark'}</button>
-          <button type="button" class="btn btn-sm" data-present-png>Download PNG</button>
+        <div class="card-actions"><button type="button" class="btn btn-sm" data-present-png>Download PNG</button>
           <button type="button" class="btn btn-sm" data-present-print>Print / PDF</button>
           <button type="button" class="btn btn-sm" data-present-full>Full screen</button>
           <button type="button" class="btn btn-sm btn-primary" data-present-exit>Done</button></div></div>
@@ -996,7 +968,6 @@ export async function renderTimeline(el, scope) {
     const redraw = () => (chart.innerHTML = exportSvg());
     el.querySelector('[data-present-title]').oninput = (e) => ((st.title = e.target.value), redraw());
     el.querySelector('[data-present-sub]').oninput = (e) => ((st.subtitle = e.target.value), redraw());
-    el.querySelector('[data-present-theme]').onclick = () => ((st.theme = dark ? 'light' : 'dark'), persist(), again());
     el.querySelector('[data-present-exit]').onclick = () => ((st.present = false), document.fullscreenElement && document.exitFullscreen(), again());
     el.querySelector('[data-present-print]').onclick = () => window.print();
     el.querySelector('[data-present-full]').onclick = () => chart.requestFullscreen?.().catch(() => toast('Full screen isn\'t available here.', 'bad'));
@@ -1025,9 +996,12 @@ export async function renderTimeline(el, scope) {
 
   /** The chart as one SVG (16:9-ish, like a slide): title, months over weeks, the work, bars, team dates and a legend. */
   function exportSvg() {
-    const dark = st.theme === 'dark';
-    const C = dark ? { bg: '#202124', panel: '#26272b', text: '#f4f4f5', muted: '#a1a1aa', line: '#3a3b40', month: '#4a4b51' }
-      : { bg: '#ffffff', panel: '#f6f7f9', text: '#1f2430', muted: '#6b7280', line: '#e6e8ec', month: '#c9cdd4' };
+    // the site's own colors (light or dark, whichever the account menu is on), so the slide matches the app
+    const css = getComputedStyle(document.documentElement);
+    const v = (name, fallback) => css.getPropertyValue(name).trim() || fallback;
+    const dark = siteDark();
+    const C = { bg: v('--surface', dark ? '#081f3d' : '#ffffff'), panel: v('--surface-2', dark ? '#0d2b50' : '#f8fafc'), text: v('--text', dark ? '#f7f9ff' : '#1c2733'),
+      muted: v('--muted', dark ? '#a8b8ce' : '#5d6d7e'), line: v('--border-soft', dark ? '#17375c' : '#edf1f5'), month: v('--border', dark ? '#23486f' : '#dde3ea') };
     const list = rows.filter((r) => r.item || r.header);
     const W = 1600;
     const pad = 48;

@@ -4,9 +4,11 @@
  */
 import { esc } from '../../ui.js';
 import { pm } from '../../projects/api.js';
-import { PRIORITIES } from '../../projects/core.js';
-import { filterBar, bindFilterBar, filterOf, itemTable, TABLE_COLUMNS, can, formDialog, peopleOptions, toast, attempt } from './kit.js';
+import { filterBar, bindFilterBar, filterOf, itemTable, TABLE_COLUMNS, can, formDialog, attempt } from './kit.js';
 import { loadViews, viewsFor, pickView, viewPicker, bindViewPicker } from './saved.js';
+import { bindInline } from './inline.js';
+import { bindSelection } from './select.js';
+import { quickAdd, bindQuickAdd } from './quick.js';
 
 const PAGE = 50;
 const states = new Map();
@@ -39,12 +41,13 @@ export async function renderList(el, scope) {
         <button type="button" class="btn btn-sm" data-dir aria-label="Reverse the order">${st.dir === 'asc' ? '↑' : '↓'}</button>
         <button type="button" class="btn btn-sm" data-columns>Columns</button><button type="button" class="btn btn-sm" data-csv>Download</button></div></div>
     ${filterBar(b, st.f, { types: scope.types })}
-    <div class="pm-bulk" data-bulk hidden><strong data-count></strong>
-      <select data-bulk-priority aria-label="Set priority"><option value="">Priority…</option>${PRIORITIES.map(([k, l]) => `<option value="${k}">${l}</option>`).join('')}</select>
-      <select data-bulk-owner aria-label="Set owner"><option value="">Owner…</option>${peopleOptions(b, null, '')}</select>
-      <button type="button" class="btn btn-sm" data-bulk-more>More…</button><button type="button" class="btn btn-sm btn-ghost" data-bulk-archive>Archive</button></div>
-    <p class="muted small" aria-live="polite">${page.total} item${page.total === 1 ? '' : 's'}${page.total > PAGE ? `, showing ${st.page * PAGE + 1}–${Math.min(page.total, (st.page + 1) * PAGE)}` : ''}</p>
-    ${itemTable(b, page.items, scope.cfgOf, { columns, select: canBulk, empty: 'No items match. Change the filter, or add one with "New item".' })}
+    <p class="muted small" aria-live="polite">${page.total} item${page.total === 1 ? '' : 's'}${page.total > PAGE ? `, showing ${st.page * PAGE + 1}–${Math.min(page.total, (st.page + 1) * PAGE)}` : ''}
+      ${page.items.length ? '<span class="pm-tip">Click a status, owner, priority or date to change it.</span>' : ''}</p>
+    ${itemTable(b, page.items, scope.cfgOf, { columns, select: canBulk,
+      empty: Object.values(st.f).some((v) => v && v !== 'open') ? '<p><strong>No items match.</strong></p><p><button type="button" class="btn btn-sm" data-clear-filters>Clear the filter</button></p>'
+        : project ? '<p><strong>No open items in this project yet.</strong></p><p>Type a title below and press Enter. You can fill in the rest later, right in the list.</p>'
+          : '<p><strong>Nothing open that you can see.</strong></p><p>Items show here once they\'re added to a project.</p>',
+      foot: project && can(b, project.id, 'create') && !project.archived_at ? quickAdd(b, { project_id: project.id }, { placeholder: '+ Add an item (Enter to add, Shift+Enter for the full form)', cls: 'pm-qa-table' }) : '' })}
     ${pages > 1 ? `<nav class="pm-pages" aria-label="Pages"><button type="button" class="btn btn-sm" data-page="${st.page - 1}" ${st.page ? '' : 'disabled'}>← Previous</button>
       <span>Page ${st.page + 1} of ${pages}</span><button type="button" class="btn btn-sm" data-page="${st.page + 1}" ${st.page + 1 < pages ? '' : 'disabled'}>Next →</button></nav>` : ''}`;
 
@@ -71,39 +74,15 @@ export async function renderList(el, scope) {
     if (all) downloadCsv(b, all.items, scope, `${project?.key || 'projects'}-items.csv`);
   };
 
-  // several at once
-  const picked = () => [...el.querySelectorAll('[data-select]:checked')].map((n) => n.dataset.select);
-  const bulk = el.querySelector('[data-bulk]');
-  const sync = () => {
-    bulk.hidden = !picked().length;
-    bulk.querySelector('[data-count]').textContent = `${picked().length} selected`;
-  };
-  el.addEventListener('change', (e) => {
-    if (e.target.matches('[data-select-all]')) el.querySelectorAll('[data-select]').forEach((n) => (n.checked = e.target.checked));
-    if (e.target.matches('[data-select], [data-select-all]')) sync();
+  // change in place, several at once, add with a title
+  const byId = new Map(page.items.map((i) => [i.id, i]));
+  bindInline(el, { b, itemOf: (id) => byId.get(id), cfgOf: scope.cfgOf });
+  if (canBulk) bindSelection(el, { b, items: () => page.items, cfgOf: scope.cfgOf, done: () => scope.rerender(), sprints: cfg?.sprints || [] });
+  bindQuickAdd(el, { b, done: () => scope.rerender() });
+  el.querySelector('.empty [data-clear-filters]')?.addEventListener('click', () => {
+    Object.assign(st.f, { q: '', owner: '', category: '', priority: '', type: '', more: null });
+    changed();
   });
-  const apply = async (p) => {
-    const res = await attempt(() => pm.bulkUpdate(picked(), p));
-    if (!res) return;
-    toast(`Changed ${res.changed} item${res.changed === 1 ? '' : 's'}.${res.failed.length ? ` ${res.failed.length} couldn't be changed: ${res.failed.slice(0, 3).map((f) => `${f.key || 'an item'} (${f.error})`).join('; ')}` : ''}`, res.failed.length ? 'bad' : 'ok');
-    scope.rerender();
-  };
-  bulk.querySelector('[data-bulk-priority]').onchange = (e) => e.target.value && apply({ priority: e.target.value });
-  bulk.querySelector('[data-bulk-owner]').onchange = (e) => e.target.value && apply({ owner_id: e.target.value });
-  bulk.querySelector('[data-bulk-archive]').onclick = () => confirm(`Archive ${picked().length} item(s) and everything under them? They can be restored.`) && apply({ archived: true });
-  bulk.querySelector('[data-bulk-more]').onclick = async () => {
-    const p = await formDialog({ title: `Change ${picked().length} items`, submit: 'Change them',
-      body: `<p class="muted">Only what you fill in is changed.</p><div class="form-grid">
-        <div class="field"><label for="bk-start">Start date</label><input id="bk-start" name="start_date" type="date"></div>
-        <div class="field"><label for="bk-due">Due date</label><input id="bk-due" name="due_date" type="date"></div>
-        <div class="field span-2"><label for="bk-labels">Add labels</label><input id="bk-labels" name="labels" type="text" placeholder="Separate with commas"></div>
-        ${cfg?.sprints.some((s) => s.status !== 'closed') ? `<div class="field span-2"><label for="bk-sprint">Sprint</label><select id="bk-sprint" name="sprint"><option value="">Leave as is</option><option value="none">Backlog (no sprint)</option>${cfg.sprints.filter((s) => s.status !== 'closed').map((s) => `<option value="${esc(s.id)}">${esc(s.name)}</option>`).join('')}</select></div>` : ''}
-      </div>`,
-      onSubmit: (f) => ({ ...(f.elements.start_date.value ? { start_date: f.elements.start_date.value } : {}), ...(f.elements.due_date.value ? { due_date: f.elements.due_date.value } : {}),
-        ...(f.elements.labels.value.trim() ? { add_labels: f.elements.labels.value.split(',').map((x) => x.trim()).filter(Boolean) } : {}),
-        ...(f.elements.sprint?.value ? { sprint_id: f.elements.sprint.value === 'none' ? null : f.elements.sprint.value } : {}) }) });
-    if (p && Object.keys(p).length) apply(p);
-  };
 }
 
 function applyView(st, v, id = null) {
