@@ -26,6 +26,7 @@ export function needsDatabase(config) {
 let base = null;
 const configs = new Map();
 let ranScheduled = false;
+let commandsOn = false;
 let unreadAt = 0;
 
 /** The unread count on the Inbox button (checked at most every 30 seconds). */
@@ -42,12 +43,18 @@ export function refreshUnread(now = false) {
 /** Projects, programs, people, CE divisions and what I may do in each project. Kept until invalidate(). */
 export async function loadBase({ fresh = false } = {}) {
   refreshUnread();
+  if (!commandsOn) {
+    commandsOn = true;
+    import('./command.js').then((m) => m.installCommands()).catch(() => {});   // Ctrl+K and the shortcuts
+  }
   if (!base || fresh) {
-    base = Promise.all([pm.projects(), pm.programs(), api.listProfiles(), pm.divisions().catch(() => []), pm.subsystems().catch(() => []), pm.myCaps(), pm.myRoles(auth.user?.id)])
-      .then(([projects, programs, profiles, divisions, subsystems, caps, myRoles]) => {
+    base = Promise.all([pm.projects(), pm.programs(), api.listProfiles(), pm.divisions().catch(() => []), pm.subsystems().catch(() => []), pm.myCaps(), pm.myRoles(auth.user?.id),
+      pm.myOrg(auth.user?.id).catch(() => [])])
+      .then(([projects, programs, profiles, divisions, subsystems, caps, myRoles, myOrg]) => {
         const people = profiles.filter((p) => (p.roles || []).some((r) => r !== 'guest' && r !== 'alumni'));
         return {
           projects, programs, people, divisions, subsystems, caps, me: auth.user?.id,
+          myOrg: myOrg[0] || null,   // my main division / subsystem: the default for new items
           myRoles: new Map(myRoles.map((m) => [m.project_id, m.role_id])),
           projectById: new Map(projects.map((p) => [p.id, p])),
           projectByKey: new Map(projects.map((p) => [p.key, p])),
@@ -136,13 +143,31 @@ export function projectTop(b, project, active, actions = '') {
 /** Safe formatting for descriptions and comments (everything escaped first), with @mentions marked. */
 export const rich = (text) => renderRichText(text).replace(/(^|[\s>(])@([A-Z][\w'.-]*(?: [A-Z][\w'.-]*)?)/g, '$1<span class="pm-mention">@$2</span>');
 
-/** A short notice at the bottom of the screen ("Saved", "Moved to In Review"). */
-export function toast(message, kind = 'ok') {
+/**
+ * A short notice at the bottom of the screen ("Saved", "Moved to In Review"). With { undo }, it has an Undo
+ * button and stays a little longer; Undo runs undo() once.
+ */
+export function toast(message, kind = 'ok', { undo = null } = {}) {
   document.querySelector('.pm-toast')?.remove();
-  const el = Object.assign(document.createElement('div'), { className: `pm-toast is-${kind}`, textContent: message });
-  el.setAttribute('role', 'status');
+  const el = Object.assign(document.createElement('div'), { className: `pm-toast is-${kind}${undo ? ' has-undo' : ''}` });
+  el.setAttribute('role', kind === 'bad' ? 'alert' : 'status');
+  el.innerHTML = `<span>${esc(message)}</span>${undo ? '<button type="button" class="pm-toast-undo">Undo</button>' : ''}<button type="button" class="pm-toast-x" aria-label="Close">×</button>`;
   document.body.append(el);
-  setTimeout(() => el.remove(), kind === 'ok' ? 3200 : 7000);
+  const timer = setTimeout(() => el.remove(), undo ? 9000 : kind === 'ok' ? 3200 : 8000);
+  el.querySelector('.pm-toast-x').onclick = () => (clearTimeout(timer), el.remove());
+  el.querySelector('.pm-toast-undo')?.addEventListener('click', () => {
+    clearTimeout(timer);
+    el.remove();
+    undo();
+  }, { once: true });
+}
+/** An error in plain words: what happened and what to do, without database codes. */
+export function friendly(err, item = null) {
+  const m = String(err?.message || err || '');
+  if (/failed to fetch|networkerror|load failed|network request failed/i.test(m)) return "Couldn't reach one.solar. Check your connection and try again; nothing was changed.";
+  if (/jwt expired|invalid jwt|refresh token/i.test(m)) return 'You were signed out. Sign in again, then try once more.';
+  if (/^permission denied|row-level security/i.test(m)) return `You can't change that${item ? ` on ${item.key}` : ''} with your role in this project. Ask its project manager.`;
+  return m || 'Something went wrong. Try again.';
 }
 /** Run something that changes data; a failure shows as a notice instead of breaking the page. Returns its result or undefined. */
 export async function attempt(fn, done = '') {
@@ -151,9 +176,41 @@ export async function attempt(fn, done = '') {
     if (done) toast(done);
     return r || true;   // a function with no result still counts as done
   } catch (err) {
-    toast(err.message, 'bad');
+    toast(friendly(err), 'bad');
     return undefined;
   }
+}
+
+// ---- changing things in place (inline.js does the saving) ----------------------------------------------
+/** May I change this item's fields? (edit, or create and it's mine) */
+export const mayEditItem = (b, i) => !!i && !i.archived_at && (can(b, i.project_id, 'edit') || (can(b, i.project_id, 'create') && (i.owner_id === b.me || i.reporter_id === b.me)));
+/** May I change its dates? (planners may, even if they can't edit the rest) */
+export const mayDateItem = (b, i) => mayEditItem(b, i) || (!!i && !i.archived_at && can(b, i.project_id, 'plan'));
+export const mayMoveItem = (b, i) => !!i && !i.archived_at && can(b, i.project_id, 'transition');
+const IE_KEYS = { status: 'S', owner: 'A', due: 'D', priority: 'P', estimate: 'E' };
+const IE_LABELS = { status: 'status', owner: 'owner', due: 'due date', start: 'start date', priority: 'priority', type: 'kind', estimate: 'estimate', progress: 'progress' };
+/** How a field looks (the inside of its button). look: 'name' (owner with name), 'avatar', 'short', 'badge' (kind icon only). */
+export function ieInner(b, cfg, i, field, look = '') {
+  switch (field) {
+    case 'status': return statusChip(cfg?.statusById.get(i.status_id)) || '<span class="muted">—</span>';
+    case 'owner': return look === 'avatar' ? avatar(b, i.owner_id) : i.owner_id ? `${avatar(b, i.owner_id)} ${esc(personName(b, i.owner_id))}` : '<span class="muted">No owner</span>';
+    case 'due': return dueChip(i) || `<span class="muted">${look === 'short' ? '—' : 'No due date'}</span>`;
+    case 'start': return i.start_date ? esc(fmtDate(i.start_date)) : `<span class="muted">${look === 'short' ? '—' : 'No start date'}</span>`;
+    case 'priority': return priorityChip(i.priority) || `<span class="muted">${look === 'quiet' ? '·' : 'Medium'}</span>`;
+    case 'type': return typeBadge(cfg?.typeById.get(i.type_id), look !== 'badge') || '<span class="muted">—</span>';
+    case 'estimate': return i.estimate_hours === null || i.estimate_hours === undefined || i.estimate_hours === '' ? '<span class="muted">—</span>' : `${Number(i.estimate_hours)} h`;
+    case 'progress': return `<progress max="100" value="${Number(i.progress) || 0}"></progress> ${Number(i.progress) || 0}%`;
+    default: return '';
+  }
+}
+/** A field you can click to change (or just its value, when I can't change it). */
+export function ie(b, cfg, i, field, look = '') {
+  const inner = ieInner(b, cfg, i, field, look);
+  const may = !cfg ? false : field === 'status' ? mayMoveItem(b, i) : field === 'due' || field === 'start' ? mayDateItem(b, i)
+    : field === 'owner' ? mayEditItem(b, i) || (!i.archived_at && can(b, i.project_id, 'assign')) : mayEditItem(b, i);
+  if (!may) return `<span class="pm-ie-ro">${inner}</span>`;
+  const key = IE_KEYS[field];
+  return `<button type="button" class="pm-ie" data-ie="${esc(field)}" data-ie-id="${esc(i.id)}"${look ? ` data-ie-look="${esc(look)}"` : ''} aria-haspopup="listbox" title="Change ${IE_LABELS[field]}${key ? ` (${key})` : ''}" aria-label="${esc(`${i.key}: change ${IE_LABELS[field]}`)}">${inner}</button>`;
 }
 
 /** A one.solar dialog with a form. onSubmit(form) does the work; its errors show in the dialog. Resolves with its result, or null. */
@@ -322,7 +379,15 @@ export const loadParents = async (projectId) => (await pm.search({ project: proj
  * "New item" dialog: pick the type, and the form follows that type's "create" layout. defaults: fields already
  * decided by where it was opened (a board column's status, a parent, a sprint…). Resolves with the new item or null.
  */
-export async function createItemDialog(b, cfg, defaults = {}) {
+/** What a new item starts with: me as its owner, and the project's subsystem (or mine). `given` wins. */
+export const smartDefaults = (b, project, given = {}) => {
+  const org = project?.subsystem_id || project?.division_id
+    ? { division_id: project.division_id || b.subsystemById.get(project.subsystem_id)?.division_id || null, subsystem_id: project.subsystem_id || null }
+    : b.myOrg ? { division_id: b.myOrg.division_id, subsystem_id: b.myOrg.subsystem_id } : {};
+  return { owner_id: b.me, ...org, ...Object.fromEntries(Object.entries(given).filter(([, v]) => v !== undefined)) };
+};
+export async function createItemDialog(b, cfg, given = {}) {
+  const defaults = smartDefaults(b, cfg.project, given);
   const types = cfg.types.filter((t) => !t.archived_at);
   if (!types.length) return toast('This project has no work-item types yet. Add one in Settings → Work types.', 'bad');
   const parents = await loadParents(cfg.project.id).catch(() => []);
@@ -592,20 +657,21 @@ export function conditionDialog(b, current, ctx = {}, title = 'Filter') {
 }
 
 /** Rows of items as a table. columns: keys from COLS. `cfgOf(item)` gives the item's project configuration (or null). */
-export function itemTable(b, items, cfgOf, { columns = ['key', 'title', 'status', 'owner', 'priority', 'due_date'], select = false, empty = 'Nothing here.' } = {}) {
-  if (!items.length) return `<div class="empty">${esc(empty)}</div>`;
+export function itemTable(b, items, cfgOf, { columns = ['key', 'title', 'status', 'owner', 'priority', 'due_date'], select = false, empty = 'Nothing here.', inline = true, foot = '' } = {}) {
+  if (!items.length) return `<div class="empty">${empty}</div>${foot}`;
+  const E = (field, look) => (i, c) => (inline ? ie(b, c, i, field, look) : ieInner(b, c, i, field, look));
   const COLS = {
     key: ['Key', (i) => `<a href="${itemHref(i.key)}" class="pm-keylink">${esc(i.key)}</a>`],
     title: ['Title', (i, c) => `${typeBadge(c?.typeById.get(i.type_id))} <a href="${itemHref(i.key)}">${esc(i.title)}</a>${i.blocked ? ' <span class="chip-tone tone-red" title="Blocked">⛔ Blocked</span>' : ''}${Number(i.open_deps) ? ` <span class="chip-tone tone-amber" title="Waiting on ${i.open_deps} other item(s)">⏳ ${i.open_deps}</span>` : ''}${Number(i.children) ? ` <span class="muted small" title="Items under it done">${i.children_done}/${i.children}</span>` : ''}`],
-    status: ['Status', (i, c) => statusChip(c?.statusById.get(i.status_id))],
-    owner: ['Owner', (i) => (i.owner_id ? esc(personName(b, i.owner_id)) : '<span class="muted">—</span>')],
-    priority: ['Priority', (i) => priorityChip(i.priority) || '<span class="muted">Medium</span>'],
-    due_date: ['Due', (i) => dueChip(i) || '<span class="muted">—</span>'],
-    start_date: ['Start', (i) => esc(i.start_date ? fmtDate(i.start_date) : '—')],
+    status: ['Status', E('status')],
+    owner: ['Owner', E('owner', 'name')],
+    priority: ['Priority', E('priority')],
+    due_date: ['Due', E('due', 'short')],
+    start_date: ['Start', E('start', 'short')],
     project: ['Project', (i) => `<a href="${projectHref(b.projectById.get(i.project_id)?.key || '')}">${esc(b.projectById.get(i.project_id)?.name || '')}</a>`],
     subsystem: ['Subsystem', (i) => esc(b.subsystemById.get(i.subsystem_id)?.name || b.divisionById.get(i.division_id)?.name || '—')],
-    estimate_hours: ['Estimate', (i) => (i.estimate_hours === null ? '—' : `${Number(i.estimate_hours)} h`)],
-    progress: ['Progress', (i) => `<progress max="100" value="${Number(i.progress)}" title="${Number(i.progress)}%"></progress>`],
+    estimate_hours: ['Estimate', E('estimate')],
+    progress: ['Progress', E('progress')],
     labels: ['Labels', (i) => (i.labels || []).map((l) => `<span class="chip">${esc(l)}</span>`).join(' ')],
     updated: ['Changed', (i) => esc(fmtDate(i.updated_at))],
   };
@@ -617,12 +683,12 @@ export function itemTable(b, items, cfgOf, { columns = ['key', 'title', 'status'
     return f?.type === 'url' ? `<a href="${esc(v)}" target="_blank" rel="noopener noreferrer">Open</a>` : esc(Array.isArray(v) ? v.join(', ') : v === true ? 'Yes' : v);
   };
   const cols = columns.map((k) => (COLS[k] ? [k, ...COLS[k]] : k.startsWith('cf.') ? [k, k.slice(3).replace(/_/g, ' '), custom(k)] : null)).filter(Boolean);
-  return `<div class="table-wrap"><table class="pm-table"><thead><tr>${select ? '<th><input type="checkbox" data-select-all aria-label="Select all"></th>' : ''}${cols
+  return `<div class="table-wrap"><table class="pm-table"><thead><tr>${select ? '<th class="pm-sel-cell"><input type="checkbox" data-select-all aria-label="Select all"></th>' : ''}${cols
     .map(([k, label]) => `<th data-col="${esc(k)}">${esc(label)}</th>`).join('')}</tr></thead><tbody>${items.map((i) => {
     const c = cfgOf(i);
-    return `<tr data-item="${esc(i.id)}" class="${i.category === 'done' ? 'is-done' : ''}">${select ? `<td><input type="checkbox" data-select="${esc(i.id)}" aria-label="Select ${esc(i.key)}"></td>` : ''}${cols
+    return `<tr data-item="${esc(i.id)}" tabindex="-1" class="${i.category === 'done' ? 'is-done' : ''}">${select ? `<td class="pm-sel-cell"><input type="checkbox" data-select="${esc(i.id)}" aria-label="Select ${esc(i.key)}"></td>` : ''}${cols
       .map(([k, label, fn]) => `<td data-label="${esc(label)}" data-col="${esc(k)}">${fn(i, c)}</td>`).join('')}</tr>`;
-  }).join('')}</tbody></table></div>`;
+  }).join('')}</tbody></table></div>${foot}`;
 }
 export const TABLE_COLUMNS = [['key', 'Key'], ['title', 'Title'], ['status', 'Status'], ['owner', 'Owner'], ['priority', 'Priority'], ['due_date', 'Due'], ['start_date', 'Start'],
   ['project', 'Project'], ['subsystem', 'Subsystem'], ['estimate_hours', 'Estimate'], ['progress', 'Progress'], ['labels', 'Labels'], ['updated', 'Changed']];

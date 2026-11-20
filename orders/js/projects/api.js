@@ -37,6 +37,8 @@ export const pm = {
   myCaps: () => call('pm_my_caps'),
   /** My project role in each project I've been added to. */
   myRoles: async (userId) => (userId ? unwrap(await supabase.from('pm_members').select('project_id, role_id').eq('user_id', userId).order('project_id')) : []),
+  /** Where I am on the team (056): my divisions and subsystems, my main one first. Empty before 056 or for guests. */
+  myOrg: async (userId) => (userId ? unwrap(await supabase.from('person_org').select('division_id, subsystem_id, main').eq('user_id', userId).order('main', { ascending: false })) : []),
   prefs: () => rows(() => supabase.from('pm_prefs').select('*').order('user_id')),
   templates: async () => unwrap(await supabase.from('pm_templates').select('id, name, description, version, created_by, updated_at, archived_at').is('archived_at', null).order('name')),
   template: async (id) => unwrap(await supabase.from('pm_templates').select('*').eq('id', id).maybeSingle()),

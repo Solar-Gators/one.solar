@@ -9,8 +9,11 @@ import { pm } from '../../projects/api.js';
 import { PRIORITIES, DEP_KINDS, layoutFor, movesFor, fieldLabel, findMentions, relDay } from '../../projects/core.js';
 import { evalFormula } from '../../projects/formula.js';
 import { appUrl } from '../../../../shared/onesolar.js';
-import { needsDatabase, loadBase, loadConfig, can, header, itemHref, projectHref, personName, avatar, statusChip, typeBadge, priorityChip, dueChip, rich, formDialog, attempt, toast,
-  formSections, readFields, bindOrgPickers, loadParents, runMove, createItemDialog } from './kit.js';
+import { needsDatabase, loadBase, loadConfig, can, header, itemHref, projectHref, personName, avatar, typeBadge, statusChip, priorityChip, dueChip, rich, formDialog, attempt, toast,
+  formSections, readFields, bindOrgPickers, loadParents, runMove, ie } from './kit.js';
+import { bindInline, saveField } from './inline.js';
+import { quickAdd, bindQuickAdd } from './quick.js';
+import { noteRecentItem } from './command.js';
 import { addDocDialog, docLink } from './docs.js';
 import { alumniShareCard, bindAlumniShare } from './alumni.js';
 
@@ -26,9 +29,9 @@ export async function renderItem(el, { config, params, rerender }) {
   }
   if (item.key !== params.id.toUpperCase()) return void (location.hash = itemHref(item.key)); // it moved projects: its new name
   const project = b.projectById.get(item.project_id);
+  noteRecentItem(item);
   const [cfg, x] = await Promise.all([loadConfig(b, project.id), pm.itemExtras(item.id)]);
   const type = cfg.typeById.get(item.type_id);
-  const status = cfg.statusById.get(item.status_id);
   const may = (cap) => can(b, project.id, cap);
   const collab = x.people.filter((p) => p.kind === 'collab').map((p) => p.user_id);
   const watchers = x.people.filter((p) => p.kind === 'watch').map((p) => p.user_id);
@@ -95,8 +98,10 @@ export async function renderItem(el, { config, params, rerender }) {
   };
   const viewLayout = layoutFor(cfg, item.type_id, 'view').some((s) => s.fields.length) && cfg.layouts.some((l) => l.kind === 'view')
     ? layoutFor(cfg, item.type_id, 'view') : layoutFor(cfg, item.type_id, 'edit');
+  // these change right here (click the value); everything else is in "Edit"
+  const INLINE = { owner: 'owner', priority: 'priority', start_date: 'start', due_date: 'due', estimate_hours: 'estimate', progress: 'progress' };
   const details = viewLayout.map((s) => {
-    const rows = s.fields.map((f) => [f.key, read(f.key)]).filter(([, v]) => v !== null);
+    const rows = s.fields.map((f) => [f.key, INLINE[f.key] && !item.archived_at ? ie(b, cfg, item, INLINE[f.key], f.key === 'owner' ? 'name' : '') : read(f.key)]).filter(([, v]) => v !== null);
     return rows.length ? `<h3>${esc(s.title || 'Details')}</h3><dl class="pm-dl">${rows.map(([k, v]) => `<div><dt>${esc(fieldLabel(k, cfg.fields))}</dt><dd>${v || '<span class="muted">—</span>'}</dd></div>`).join('')}</dl>` : '';
   }).join('');
 
@@ -120,7 +125,8 @@ export async function renderItem(el, { config, params, rerender }) {
   const alumniCard = item.archived_at ? '' : await alumniShareCard({ projectId: project.id, itemId: item.id, mayEdit: may('edit'), what: 'this item' });
 
   el.innerHTML = `${takeFlash()}<a class="back-link" href="${projectHref(project.key, 'list')}">← ${esc(project.name)}</a>
-    ${header(`${typeBadge(type)} ${esc(item.title)}`, `<span class="pm-key">${esc(item.key)}</span> · ${esc(type?.name || '')} · ${statusChip(status)} ${priorityChip(item.priority)}
+    ${header(`${typeBadge(type)} ${mayEdit ? `<span class="pm-title-edit" data-rename-title tabindex="0" role="button" title="Click to rename">${esc(item.title)}</span>` : esc(item.title)}`,
+      `<span class="pm-key">${esc(item.key)}</span> · ${esc(type?.name || '')} · ${ie(b, cfg, item, 'status')} ${priorityChip(item.priority)}
         ${item.archived_at ? '<span class="chip-tone tone-gray">Archived</span>' : ''}`,
       `${moves.map((t) => `<button type="button" class="btn ${cfg.statusById.get(t.to_status)?.category === 'done' ? 'btn-primary' : ''}" data-do-move="${esc(t.id)}" title="${esc(t.description || `Move to ${cfg.statusById.get(t.to_status)?.name}`)}">${esc(t.name)}</button>`).join('')}
        ${mayEdit ? '<button type="button" class="btn" data-edit>Edit</button>' : ''}
@@ -139,8 +145,8 @@ export async function renderItem(el, { config, params, rerender }) {
 
     <div class="pm-item">
       <div class="pm-item-main">
-        <section class="card"><h2>What's expected</h2>
-          ${item.description ? `<div class="pm-rich">${rich(item.description)}</div>` : '<p class="muted">No description yet.</p>'}
+        <section class="card" data-desc-card><h2>What's expected ${mayEdit ? '<button type="button" class="btn btn-sm btn-ghost" data-edit-desc>Edit</button>' : ''}</h2>
+          <div data-desc>${item.description ? `<div class="pm-rich">${rich(item.description)}</div>` : `<p class="muted">No description yet.${mayEdit ? ' <button type="button" class="btn btn-sm btn-ghost" data-edit-desc>Add one</button>' : ''}</p>`}</div>
           ${item.acceptance ? `<h3>Done means</h3><div class="pm-rich">${rich(item.acceptance)}</div>` : ''}</section>
 
         <section class="card"><h2>Checklist ${x.checklist.length ? `<span class="muted">${checkDone}/${x.checklist.length}</span>` : ''}</h2>
@@ -150,7 +156,8 @@ export async function renderItem(el, { config, params, rerender }) {
 
         <section class="card"><h2>Items under this one ${x.children.length ? `<span class="muted">${x.children.filter((c) => c.category === 'done').length}/${x.children.length}</span>` : ''}</h2>
           ${x.children.length ? `<ul class="pm-mini">${x.children.map((c) => `<li>${typeBadge(cfg.typeById.get(c.type_id))} <a href="${itemHref(c.key)}">${esc(c.key)} · ${esc(c.title)}</a> ${statusChip(cfg.statusById.get(c.status_id))} ${avatar(b, c.owner_id)}</li>`).join('')}</ul>` : '<p class="muted">Nothing under it.</p>'}
-          ${may('create') && !item.archived_at ? '<p><button type="button" class="btn btn-sm" data-add-child>+ Add an item under this</button></p>' : ''}</section>
+          ${may('create') && !item.archived_at ? quickAdd(b, { project_id: project.id, parent_id: item.id, parent_type_id: item.type_id, division_id: item.division_id || undefined, subsystem_id: item.subsystem_id || undefined },
+            { placeholder: '+ Add an item under this (Enter to add, Shift+Enter for the full form)' }) : ''}</section>
 
         <section class="card"><h2>Dependencies</h2>
           <h3>This waits on</h3>${x.depsIn.length ? `<ul class="pm-mini">${x.depsIn.map((d) => depRow(d, d.from_item, true)).join('')}</ul>` : '<p class="muted">Nothing.</p>'}
@@ -195,11 +202,56 @@ export async function renderItem(el, { config, params, rerender }) {
 
   const again = () => rerender();
   const fresh = async (fn, done) => (await attempt(fn, done)) && again();
+  // change in place; then the page refreshes quietly (history, warnings) behind the new value
+  bindInline(el, { b, itemOf: (id) => (id === item.id ? item : null), cfgOf: () => cfg, after: () => again() });
+  bindQuickAdd(el, { b, done: again });
+  const renameTitle = (node) => {
+    const input = Object.assign(document.createElement('input'), { type: 'text', value: item.title, maxLength: 200, className: 'pm-title-input' });
+    input.setAttribute('aria-label', 'Title');
+    node.replaceWith(input);
+    input.focus();
+    input.select();
+    let done = false;
+    const finish = async (save) => {
+      if (done) return;
+      done = true;
+      const title = input.value.trim();
+      if (!save || !title || title === item.title) return void input.replaceWith(node);
+      node.textContent = title;
+      input.replaceWith(node);
+      if (!(await saveField({ b, item, cfg, root: el }, { title }))) node.textContent = item.title;
+    };
+    input.addEventListener('keydown', (e) => (e.key === 'Enter' ? (e.preventDefault(), finish(true)) : e.key === 'Escape' ? finish(false) : null));
+    input.addEventListener('blur', () => finish(true));
+  };
+  el.querySelector('[data-rename-title]')?.addEventListener('click', (e) => renameTitle(e.currentTarget));
+  el.querySelector('[data-rename-title]')?.addEventListener('keydown', (e) => e.key === 'Enter' && (e.preventDefault(), renameTitle(e.currentTarget)));
+  const editDescription = () => {
+    const box = el.querySelector('[data-desc]');
+    box.innerHTML = `<form class="pm-desc-form"><textarea rows="8" aria-label="What's expected">${esc(item.description || '')}</textarea>
+      <div class="hint">**bold**, - lists, [text](https://link) and @Name work here. Ctrl+Enter saves, Esc cancels.</div>
+      <div class="form-actions"><button type="button" class="btn btn-ghost" data-cancel-desc>Cancel</button><button type="submit" class="btn btn-primary">Save</button></div></form>`;
+    const form = box.querySelector('form');
+    const area = form.querySelector('textarea');
+    area.focus();
+    const save = async () => {
+      const btn = form.querySelector('[type=submit]');
+      btn.disabled = true;
+      btn.textContent = 'Saving…';
+      if (await saveField({ b, item, cfg, root: el, after: again }, { description: area.value })) return;
+      btn.disabled = false;   // refused: what was typed stays, with the reason in the notice
+      btn.textContent = 'Save';
+    };
+    form.onsubmit = (e) => (e.preventDefault(), save());
+    area.addEventListener('keydown', (e) => (e.key === 'Enter' && (e.ctrlKey || e.metaKey) ? (e.preventDefault(), save()) : e.key === 'Escape' && area.value === (item.description || '') ? again() : null));
+    form.querySelector('[data-cancel-desc]').onclick = () => (area.value === (item.description || '') || confirm('Throw away what you typed?')) && again();
+  };
   el.addEventListener('click', async (e) => {
     const t = e.target.closest('button');
     if (!t) return;
     const d = t.dataset;
-    if (d.doMove) (await runMove(b, cfg, item, cfg.transitions.find((q) => q.id === d.doMove))) && again();
+    if (d.editDesc !== undefined) editDescription();
+    else if (d.doMove) (await runMove(b, cfg, item, cfg.transitions.find((q) => q.id === d.doMove))) && again();
     else if (d.edit !== undefined) (await editDialog(b, cfg, item, collab)) && again();
     else if (d.watch !== undefined) fresh(() => pm.watch(item.id, !watchers.includes(b.me)));
     else if (d.archive !== undefined) confirm(item.archived_at ? `Restore ${item.key}?` : `Archive ${item.key} and everything under it? It can be restored.`) && fresh(() => pm.archiveItem(item.id, !item.archived_at));
@@ -209,7 +261,6 @@ export async function renderItem(el, { config, params, rerender }) {
       fresh(() => pm.decideApproval(d.approve || d.reject, !!d.approve, note), d.approve ? 'Approved.' : 'Sent back.');
     } else if (d.accept !== undefined) fresh(() => pm.accept(item.id, d.accept === '1'), d.accept === '1' ? 'Accepted.' : 'Acceptance withdrawn.');
     else if (d.checkDel) fresh(() => pm.saveChecklist(item.id, x.checklist.filter((c) => c.id !== d.checkDel)));
-    else if (d.addChild !== undefined) (await createItemDialog(b, cfg, { parent_id: item.id, division_id: item.division_id, subsystem_id: item.subsystem_id })) && again();
     else if (d.unlink) fresh(() => pm.unlink(d.unlink));
     else if (d.addDep !== undefined) (await depDialog(b, item)) && again();
     else if (d.addDoc !== undefined) (await addDocDialog(b, project, { projectId: project.id, itemId: item.id }, { siteUrl: config.siteUrl })) && again();

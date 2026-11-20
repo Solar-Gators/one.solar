@@ -42,6 +42,34 @@ whose role may approve can then **review and accept** it; reopening it clears bo
 **Descriptions and comments** use a small safe formatting: `**bold**`, `- lists`, `# headings`,
 `[text](https://link)`. Everything typed is escaped first; nothing typed is ever run.
 
+### Working fast (the same everywhere)
+
+- **Change things where they show.** Click a status, owner, due or start date, priority, estimate or progress (in
+  List, on a Board card, in the Backlog, in My work, on an item's page, in the Timeline's panel), pick, and it's
+  saved. The page shows the new value at once; the save happens behind it. A notice offers **Undo**. If the change
+  is refused, the old value comes back and the notice says why in plain words. Status is a workflow move, so a move
+  that needs fields, a comment or an approval still asks first. On an item's page the **title** renames in place
+  (click it) and **What's expected** has its own **Edit**.
+- **The same pickers everywhere.** Type to filter; you come first in the people list, then the people you picked
+  lately; dates have one-click choices (today, tomorrow, Friday, next Monday, in a week, in two weeks) or any day.
+- **Add with just a title.** "+ Add…" at the bottom of a list, a board column, a sprint, the backlog, the timeline,
+  an item's "Items under this one", and at the top of My work (pick the project). Enter adds it; where you typed
+  decides the rest (that column's status, that sprint, that parent). **Shift+Enter** or **More…** opens the full
+  form with the title in it. Undo takes it away (it's archived).
+- **Sensible starting values.** A new item is yours (owner: you) and in the project's subsystem, or yours from
+  People (Admin → Divisions & people) when the project has none. Change either right away.
+- **Several at once.** Tick the box on rows or cards (Shift-click ticks a range; X ticks the one under the mouse)
+  in List, Board, Backlog, Timeline or My work. A bar at the bottom changes their status, owner, due date, priority,
+  more (start date, labels, sprint) or archives them. Anything that couldn't change is named, with why. Esc clears.
+- **Ctrl+K** (⌘K on a Mac) jumps to any project, item (by name or `BAT-12`) or page, or starts a new item. Items you
+  opened lately are listed first.
+- **Keyboard shortcuts** (press **?** for the list): **C** new item, **/** search, **J / K** next / previous row,
+  **Enter** open; on the row under the mouse **S** status, **A** owner, **D** due date, **P** priority, **E**
+  estimate; **G** then **M**y work, **P**rojects, **I**nbox, **B**oards, **T**imeline, **C**alendar, a**L**l work,
+  **D**ashboards. They don't fire while you're typing.
+- **You always see what's happening:** a thin bar at the top while a page loads, a spinner on a value while it saves,
+  and a notice when it's done (or why it wasn't).
+
 ### Who can do what
 
 Two layers:
@@ -126,8 +154,8 @@ choices are remembered per project on their own device.
 - **Move things by dragging.** Drag a bar to move it, or its ends to change the start or due date (whole days at
   Weeks zoom, whole weeks when zoomed out; a tag shows the new dates as you go). It **saves straight away**, with an
   **Undo** at the bottom of the screen. The arrow keys move a selected bar too (Shift for a week).
-- **Click a bar** (or press Enter on it) for a **side panel**: title, kind, start, due, owner, progress and notes,
-  saved together, plus a link to the full item.
+- **Click a bar** (or press Enter on it) for a **side panel**: title, status, kind, dates, owner, priority, progress
+  and notes. Each one saves as soon as it's changed (notes when you click away), plus a link to the full item.
 - **Draw dependencies:** hover a bar and drag the dot at its end onto the bar that has to wait for it (finish →
   start). Click an arrow to remove it. The other kinds, and gaps, are on the item's page.
 - **⋯ on a row:** Details, Open, Add under it, Set dates, Put under the row above, Take out a level.
@@ -145,14 +173,14 @@ choices are remembered per project on their own device.
 - **Color:** kind of work (default), status, subsystem, owner or priority. Kind colors are the work types' colors
   (Settings → Work types).
 - **Show:** dependency arrows, progress, labels on bars, item keys, owners, team dates; compact
-  or comfortable rows; **light or dark** theme.
+  or comfortable rows. Light or dark follows the site's own setting (the account menu), like every other page.
 - **Filter:** the usual filters plus **Only undated**.
 - **Plan:** **Forecast** (dashed outlines and "late" markers), **Critical path** (red), **What-if mode** (dragging
   only tries changes out until "Apply"), a **Baseline** to compare against (each row then shows its slip, and
   **Moved since the baseline** lists them), **Save a baseline**, saved what-ifs, **Reschedule to forecast…**, and
   **Team dates…** (competitions, design reviews, deadlines, breaks and the season start, for whoever can manage
   Projects; they show as bands on every timeline and on the Calendar).
-- **Present:** the chart as a clean slide, with a title and subtitle you can type, light or dark, **Download PNG**,
+- **Present:** the chart as a clean slide (in the site's light or dark colors), with a title and subtitle you can type, **Download PNG**,
   **Print / PDF** (landscape) and **Full screen**.
 
 Also shown when they apply: **Other projects**' dependencies as tags on the row ("ELEC-12 ▸" where that item finishes,
@@ -227,6 +255,11 @@ original in Microsoft 365.
   [`orders/js/views/projects/`](../orders/js/views/projects); pure logic (tested in Node) in
   [`orders/js/projects/`](../orders/js/projects): `schedule.js`, `links.js`, `formula.js`, `core.js`, and `api.js`
   (every read and RPC). Styles: [`orders/css/projects.css`](../orders/css/projects.css).
+- **One way of working, shared by every view:** `pick.js` (the pickers), `inline.js` (change a field in place, with
+  Undo; the buttons come from `kit.js` → `ie()`), `select.js` (tick boxes and the bar for several at once),
+  `quick.js` (add with a title) and `command.js` (Ctrl+K and the shortcuts). A view only says which fields to show;
+  saving, Undo, errors and permissions are the same everywhere. Edits in place save with `pm_update_item` without a
+  version check (one field at a time, so the last change wins); the edit form still refuses a stale save.
 - **No new libraries.** SortableJS, Frappe Gantt and calendar libraries were considered. The board uses the same
   small native drag-and-drop as the Sponsors board (now shared: [`orders/js/kanbanDnd.js`](../orders/js/kanbanDnd.js)),
   and the timeline and calendar are drawn here, because they need things those libraries don't do (baselines,

@@ -225,6 +225,16 @@ let renderToken = 0;
 export function startRouter(ctx, { onRender } = {}) {
   const render = async () => {
     const token = ++renderToken;
+    // A page that takes more than a moment shows a thin bar at the top (apps that style body.is-loading).
+    const slow = setTimeout(() => token === renderToken && document.body.classList.add('is-loading'), 250);
+    try {
+      await renderPage(token);
+    } finally {
+      clearTimeout(slow);
+      if (token === renderToken) document.body.classList.remove('is-loading');
+    }
+  };
+  const renderPage = async (token) => {
     // No address (the app was just opened): the app's own first page (Orders' Home, the Sponsors board…).
     // "#/inventory/items?q=bolt": the page, then its filters (kept in the address, so a link or Back keeps them).
     const [path, search = ''] = (location.hash.replace(/^#/, '') || homePath()).split('?');
