@@ -187,8 +187,8 @@ column, rounded bars colored by the **kind of work**, and a legend underneath. C
 that kind; click it again to show everything. Everything else is off until someone turns it on, and each person's
 choices are remembered per project on their own device.
 
-- **Move things by dragging.** Drag a bar to move it, or its ends to change the start or due date (whole days at
-  Weeks zoom, whole weeks when zoomed out; a tag shows the new dates as you go). It **saves straight away**, with an
+- **Move things by dragging.** Drag a bar to move it, or its ends to change the start or due date (whole days when
+  days are wide enough, whole weeks when zoomed out; a tag shows the new dates as you go). It **saves straight away**, with an
   **Undo** at the bottom of the screen. The arrow keys move a selected bar too (Shift for a week).
 - **Click a bar** (or press Enter on it) for a **side panel**: title, status, kind, dates, owner, priority, progress
   and notes. Each one saves as soon as it's changed (notes when you click away), plus a link to the full item.
@@ -205,7 +205,11 @@ choices are remembered per project on their own device.
 
 **The toolbar, for when you want more:**
 
-- **Weeks / Months / Season** zoom (Season fits everything), and **Today**.
+- **Zoom:** **− / +**, the presets **Days / Weeks / Months / Quarters / Year**, **Ctrl + scroll** (or a trackpad pinch)
+  around the mouse, or the **−** and **+** keys. The headers follow: months over days, months over weeks, or years
+  over months. **Fit ▾** fits a span to the width: everything shown, this car cycle (when it has dates), the next 3, 6
+  or 12 months, or any from–to dates; it refits when the window changes size. **Today** scrolls back to today.
+  The zoom is remembered per project in this browser (the old Season choice became "Fit: everything shown").
 - **Color:** kind of work (default), status, subsystem, owner or priority. Kind colors are the work types' colors
   (Settings → Work types).
 - **Show:** dependency arrows, progress, labels on bars, item keys, owners, team dates; compact

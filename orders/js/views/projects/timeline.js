@@ -52,10 +52,22 @@ const PALETTE = ['blue', 'orange', 'teal', 'purple', 'green', 'pink', 'amber', '
 const CAT_TONE = { todo: 'gray', doing: 'blue', done: 'green' };
 const PRI_TONE = { urgent: 'red', high: 'orange', medium: 'blue', low: 'gray' };
 const COLOR_BY = { type: 'Kind of work', status: 'Status', subsystem: 'Subsystem', owner: 'Owner', priority: 'Priority' };
-const ZOOMS = { week: ['Weeks', 18], month: ['Months', 6], season: ['Season', 0] };
+/** Zoom: how wide a day is, in pixels. The presets; − / +, Ctrl+scroll (or pinching) and the − / + keys go between them. */
+const ZOOMS = [['day', 'Days', 40], ['week', 'Weeks', 18], ['month', 'Months', 6], ['quarter', 'Quarters', 2.2], ['year', 'Year', 0.9]];
+const PX_MIN = 0.4;
+const PX_MAX = 80;
+const clampPx = (n) => Math.min(PX_MAX, Math.max(PX_MIN, Number(n) || 18));
+/** Fit: a span of dates made to fill the width (it's chosen again as the window changes size). */
+const FITS = { all: 'Everything shown', cycle: 'This car cycle', '3m': 'Next 3 months', '6m': 'Next 6 months', '12m': 'Next 12 months' };
+let resizeTimer = 0;
+let onResize = null;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => onResize?.(), 200);
+});
 const DENSITY = { comfortable: { row: 40, bar: 22 }, compact: { row: 30, bar: 16 } };
 const SHOW = { deps: 'Dependencies', progress: 'Progress', labels: 'Labels on bars', keys: 'Item keys', owners: 'Owners', team: 'Team dates' };
-const DEFAULTS = { zoom: 'week', colorBy: 'type', density: 'comfortable', labelW: 280,
+const DEFAULTS = { px: 18, fit: '', colorBy: 'type', density: 'comfortable', labelW: 280,
   show: { deps: true, progress: true, labels: false, keys: false, owners: false, team: true },
   plan: { forecast: false, critical: false, whatIf: false, baseline: '' } };
 
@@ -64,13 +76,17 @@ function loadPrefs(key) {
   const d = key ? DEFAULTS : { ...DEFAULTS, labelW: 340 };   // every project: room for the levels above the work
   try {
     const p = JSON.parse(localStorage.getItem(prefKey(key)) || 'null');
-    if (p) return { ...d, ...p, show: { ...d.show, ...p.show }, plan: { ...d.plan, ...p.plan } };
+    if (p) {
+      // saved before zoom was a number: Weeks, Months or Season (now "Fit: everything shown")
+      if (p.px === undefined && p.zoom) Object.assign(p, p.zoom === 'season' ? { fit: 'all' } : { px: p.zoom === 'month' ? 6 : 18 });
+      return { ...d, ...p, show: { ...d.show, ...p.show }, plan: { ...d.plan, ...p.plan } };
+    }
   } catch { /* private window: defaults */ }
   return { ...d, show: { ...d.show }, plan: { ...d.plan } };
 }
 function savePrefs(key, st) {
   try {
-    localStorage.setItem(prefKey(key), JSON.stringify({ zoom: st.zoom, colorBy: st.colorBy, density: st.density, labelW: st.labelW, show: st.show, plan: st.plan }));
+    localStorage.setItem(prefKey(key), JSON.stringify({ px: st.px, fit: st.fit, colorBy: st.colorBy, density: st.density, labelW: st.labelW, show: st.show, plan: st.plan }));
   } catch { /* not kept: fine */ }
 }
 const states = new Map();
@@ -78,7 +94,7 @@ function stateOf(key) {
   if (!states.has(key)) {
     states.set(key, { ...loadPrefs(key), f: { q: '', owner: '', category: '', priority: '', type: '', more: null }, closed: new Set(), overrides: {}, scenario: '',
       scroll: null, undated: false, filters: false, pop: '', only: '', selected: '', present: false, title: null, subtitle: null,
-      focus: null, focusSet: false, level: '' });
+      focus: null, focusSet: false, level: '', room: null, anchor: null });
   }
   return states.get(key);
 }
@@ -299,38 +315,77 @@ export async function renderTimeline(el, scope) {
   let last = Math.max(...days) + 21;
   const seasonRow = seasons.filter((k) => toDay(k.day) <= Math.max(first + 14, tday)).pop() || seasons[0] || null;
   const season = seasonRow ? toDay(seasonRow.day) : null;
+  // Fit: the dates to fill the width with (the chart still reaches everything shown; it scrolls to the start).
+  const cycleSpan = () => {
+    const ids = cyclesInView(b);
+    const list = (ids ? b.programs.filter((g) => ids.includes(g.id)) : cyclesOf(b)).filter((g) => g.start_date && g.end_date);
+    return list.length ? [Math.min(...list.map((g) => toDay(g.start_date))), Math.max(...list.map((g) => toDay(g.end_date)))] : null;
+  };
+  const fitSpan = !st.fit ? null : typeof st.fit === 'object' ? [toDay(st.fit.from), toDay(st.fit.to)]
+    : st.fit === 'cycle' ? cycleSpan() || [first, last]
+    : st.fit === '3m' ? [tday - 7, tday + 91] : st.fit === '6m' ? [tday - 7, tday + 182] : st.fit === '12m' ? [tday - 14, tday + 365]
+    : [first, last];
+  if (fitSpan) {
+    first = Math.min(first, fitSpan[0]);
+    last = Math.max(last, fitSpan[1]);
+  }
   // start on a week boundary (the season's weekday, else Monday) so week columns line up
   const weekday0 = season ?? (tday - ((new Date(tday * 864e5).getUTCDay() + 6) % 7));
   first -= ((first - weekday0) % 7 + 7) % 7;
   const labelW = Math.max(160, Math.min(520, Number(st.labelW) || 280));
-  const room = Math.max(320, (el.clientWidth || 900) - labelW - 8);
-  const px = st.zoom === 'season' ? Math.max(1.5, room / (last - first + 1)) : ZOOMS[st.zoom]?.[1] || 18;
-  if (st.zoom === 'season' || (last - first + 1) * px < room) last = first + Math.ceil(room / px) - 1;   // fill the width
+  // The chart's width. This draws before it's on the page, so it's worked out from the page (and checked once it's there).
+  const room = st.room || Math.max(320, (document.getElementById('app')?.clientWidth || el.clientWidth || 900) - labelW - 40);
+  if (fitSpan && (st.fit === 'all' || fitSpan[0] < first)) fitSpan[0] = first;   // "everything": from the week boundary
+  const px = fitSpan ? clampPx(room / (fitSpan[1] - fitSpan[0] + 1)) : clampPx(st.px);
+  if ((last - first + 1) * px < room) last = first + Math.ceil(room / px) - 1;   // fill the width
   const x = (iso) => (toDay(iso) - first) * px;
   const width = Math.round((last - first + 1) * px);
   const { row: ROW, bar: BAR } = DENSITY[st.density] || DENSITY.comfortable;
   const cal = makeCalendar(settings);
-  const snap = st.zoom === 'week' ? 1 : 7;
+  const snap = px >= 10 ? 1 : 7;   // dragging moves by days when they're wide enough, else by weeks
 
   // ---- header: months over season weeks (or dates), with team dates
   const weekStarts = [];
   for (let d = first; d <= last; d += 7) weekStarts.push(d);
   const monthStarts = [];
   for (let d = first; d <= last; d++) if (new Date(d * 864e5).getUTCDate() === 1 || d === first) monthStarts.push(d);
+  const tier = px >= 20 ? 'day' : 7 * px >= 18 ? 'week' : 'month';
+  const yearStarts = monthStarts.filter((d) => d === first || new Date(d * 864e5).getUTCMonth() === 0);
+  /** A month's name for the room it has: "November 2026", "Nov 2026", "November", "Nov", "N" or nothing. */
+  const monthName = (d, w, withYear) => {
+    const date = new Date(d * 864e5);
+    const year = withYear && w >= 64;
+    if (w < 12) return '';
+    if (w < 28) return date.toLocaleDateString('en-US', { month: 'narrow', timeZone: 'UTC' });
+    return date.toLocaleDateString('en-US', { month: w >= (year ? 112 : 86) ? 'long' : 'short', year: year ? 'numeric' : undefined, timeZone: 'UTC' });
+  };
   const weekLabel = (d) => (season !== null ? (d >= season ? String(Math.floor((d - season) / 7) + 1).padStart(2, '0') : '') : String(new Date(d * 864e5).getUTCDate()));
   const head = () => {
-    const months = monthStarts.map((d, n) => {
-      const date = new Date(d * 864e5);
-      const end = (monthStarts[n + 1] ?? last + 1);
-      return `<span class="pm-g-month" style="left:${(d - first) * px}px;width:${(end - d) * px}px">${esc(date.toLocaleDateString('en-US', { month: (end - d) * px > 70 ? 'long' : 'short', year: date.getUTCMonth() === 0 || n === 0 ? 'numeric' : undefined, timeZone: 'UTC' }))}</span>`;
-    }).join('');
-    const weeks = 7 * px >= 18 ? weekStarts.map((d) => `<span class="pm-g-wk" style="left:${(d - first) * px}px;width:${7 * px}px">${weekLabel(d)}</span>`).join('') : '';
+    const cell = (cls, d, end, text, title = '') => `<span class="${cls}" style="left:${(d - first) * px}px;width:${(end - d) * px}px"${title ? ` title="${esc(title)}"` : ''}>${esc(text)}</span>`;
+    let months;
+    let weeks;
+    if (tier === 'month') {
+      // far out: years on top, months below
+      months = yearStarts.map((d, n) => cell('pm-g-month', d, yearStarts[n + 1] ?? last + 1, (yearStarts[n + 1] ?? last + 1) - d >= 6 / px ? String(new Date(d * 864e5).getUTCFullYear()) : '')).join('');
+      weeks = monthStarts.map((d, n) => cell('pm-g-wk', d, monthStarts[n + 1] ?? last + 1, monthName(d, ((monthStarts[n + 1] ?? last + 1) - d) * px, false),
+        new Date(d * 864e5).toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' }))).join('');
+    } else {
+      months = monthStarts.map((d, n) => {
+        const end = monthStarts[n + 1] ?? last + 1;
+        return cell('pm-g-month', d, end, monthName(d, (end - d) * px, n === 0 || new Date(d * 864e5).getUTCMonth() === 0));
+      }).join('');
+      weeks = tier === 'week' ? weekStarts.map((d) => `<span class="pm-g-wk" style="left:${(d - first) * px}px;width:${7 * px}px">${weekLabel(d)}</span>`).join('')
+        : Array.from({ length: last - first + 1 }, (_, n) => {
+          const date = new Date((first + n) * 864e5);
+          return `<span class="pm-g-wk is-day${date.getUTCDay() === 0 || date.getUTCDay() === 6 ? ' is-weekend' : ''}" style="left:${n * px}px;width:${px}px" title="${esc(date.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', timeZone: 'UTC' }))}">${date.getUTCDate()}</span>`;
+        }).join('');
+    }
     const keys = keysShown.map((k) => `<span class="pm-g-keyhead is-${esc(k.kind)}" style="left:${x(k.day)}px" title="${esc(`${k.name}: ${fmtDate(k.day)}${k.end_day && k.end_day !== k.day ? ` – ${fmtDate(k.end_day)}` : ''}${k.note ? ` · ${k.note}` : ''}`)}">${esc(k.name)}</span>`).join('');
     return `<div class="pm-g-head" style="width:${width}px">${months}${weeks}${keys}</div>`;
   };
-  const gridLines = () => weekStarts.map((d) => `<div class="pm-g-vl" style="left:${(d - first) * px}px"></div>`).join('')
+  const gridLines = () => (7 * px >= 10 ? weekStarts.map((d) => `<div class="pm-g-vl" style="left:${(d - first) * px}px"></div>`).join('') : '')
     + monthStarts.slice(1).map((d) => `<div class="pm-g-vl is-month" style="left:${(d - first) * px}px"></div>`).join('')
-    + (st.zoom === 'week' ? Array.from({ length: last - first + 1 }, (_, n) => (cal.isWork(first + n) ? '' : `<div class="pm-g-off" style="left:${n * px}px;width:${px}px"></div>`)).join('') : '');
+    + (px >= 10 ? Array.from({ length: last - first + 1 }, (_, n) => (cal.isWork(first + n) ? '' : `<div class="pm-g-off" style="left:${n * px}px;width:${px}px"></div>`)).join('') : '');
 
   // ---- bars
   const rowIndex = new Map();
@@ -480,8 +535,22 @@ export async function renderTimeline(el, scope) {
       ${scenarios.length ? `<div class="pm-pop-row"><span>What-ifs</span><select data-scenario aria-label="Saved what-ifs"><option value="">Saved what-ifs…</option>${scenarios.map((s) => `<option value="${esc(s.id)}">${esc(s.name)}${s.applied_at ? ' (applied)' : ''}</option>`).join('')}</select></div>` : ''}
       <button type="button" class="btn btn-sm" data-to-forecast title="Try out moving every unfinished item's dates to where the forecast says they'll really be">Reschedule to forecast…</button>` : ''}
     ${auth.can('projects.manage') ? '<button type="button" class="btn btn-sm" data-key-dates>Team dates…</button>' : ''}`);
+  const zoomName = st.fit ? '' : ZOOMS.find(([, , p]) => Math.abs(Math.log(px / p)) < 0.15)?.[0] || '';
+  const ZOOM_TIPS = { day: 'Each day', week: 'Week by week', month: 'Month by month', quarter: 'About a season on the screen', year: 'A year or more on the screen' };
+  const fitWords = !st.fit ? '' : typeof st.fit === 'object' ? `${fmtDate(st.fit.from)} – ${fmtDate(st.fit.to)}` : FITS[st.fit];
+  const fitMenu = pop('fit', st.fit ? `Fit: ${esc(fitWords)} ▾` : 'Fit ▾', `<p class="pm-pop-note">Fit a span of dates to the width of the screen.</p>
+    ${Object.entries(FITS).filter(([k]) => k !== 'cycle' || cycleSpan()).map(([k, l]) => `<button type="button" class="pm-pop-item${st.fit === k ? ' is-on' : ''}" data-fit="${k}">${esc(l)}${k === 'cycle' ? ` <span class="muted small">${esc(rangeText(toISO(cycleSpan()[0]), toISO(cycleSpan()[1])).split(' · ')[0])}</span>` : ''}</button>`).join('')}
+    <div class="pm-pop-row pm-fit-range"><input type="date" data-fit-from aria-label="From" value="${esc(typeof st.fit === 'object' && st.fit ? st.fit.from : toISO(tday))}">
+      <span>to</span><input type="date" data-fit-to aria-label="To" value="${esc(typeof st.fit === 'object' && st.fit ? st.fit.to : toISO(tday + 120))}">
+      <button type="button" class="btn btn-sm" data-fit-custom>Show</button></div>
+    ${st.fit ? '<button type="button" class="pm-pop-item" data-fit="">Stop fitting (keep this zoom)</button>' : ''}`);
   const toolbar = `<div class="pm-g-toolbar">
-      <div class="pm-seg" role="group" aria-label="Zoom">${Object.entries(ZOOMS).map(([z, [l]]) => `<button type="button" data-zoom-to="${z}" class="${st.zoom === z ? 'is-on' : ''}" aria-pressed="${st.zoom === z}">${l}</button>`).join('')}</div>
+      <div class="pm-g-zoom" role="group" aria-label="Zoom">
+        <button type="button" class="btn btn-sm" data-zoom-step="-1" title="Zoom out (Ctrl + scroll, a pinch, or the − key)" aria-label="Zoom out" ${px <= PX_MIN ? 'disabled' : ''}>−</button>
+        <div class="pm-seg">${ZOOMS.map(([k, l, p]) => `<button type="button" data-zoom-px="${p}" class="${zoomName === k ? 'is-on' : ''}" aria-pressed="${zoomName === k}" title="${esc(ZOOM_TIPS[k])}">${l}</button>`).join('')}</div>
+        <button type="button" class="btn btn-sm" data-zoom-step="1" title="Zoom in (Ctrl + scroll, a pinch, or the + key)" aria-label="Zoom in" ${px >= PX_MAX ? 'disabled' : ''}>+</button>
+      </div>
+      ${fitMenu}
       <button type="button" class="btn btn-sm" data-today>Today</button>
       ${!project && nodes.length ? `<div class="pm-seg" role="group" aria-label="Level">${LEVELS.map(([k, l]) => `<button type="button" data-level="${k}" class="${st.level === k ? 'is-on' : ''}" aria-pressed="${st.level === k}" title="Fold the rows down to ${l.toLowerCase()}">${l}</button>`).join('')}</div>` : ''}
       <label class="pm-g-colorby">Color <select data-color-by aria-label="Color bars by">${Object.entries(COLOR_BY).map(([k, l]) => `<option value="${k}" ${st.colorBy === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
@@ -548,10 +617,64 @@ export async function renderTimeline(el, scope) {
     </div>` : ''}`;
 
   const wrap = el.querySelector('.pm-gantt-wrap');
+  /** Zoom to `to` pixels a day, keeping the date at `ax` pixels into the chart (default: the middle) where it is. */
+  const setZoom = (to, ax = null) => {
+    const sc = el.querySelector('[data-scroll]');
+    const at = ax ?? (sc ? sc.clientWidth / 2 : 0);
+    st.anchor = sc ? { day: first + (sc.scrollLeft + at) / px, x: at } : null;
+    st.px = clampPx(to);
+    st.fit = '';
+    persist();
+    again();
+  };
   const scroller = el.querySelector('[data-scroll]');
   if (scroller) {
-    scroller.scrollLeft = st.scroll ?? Math.max(0, x(today) - 160);
-    scroller.addEventListener('scroll', () => (st.scroll = scroller.scrollLeft));
+    // Where to scroll: after a zoom, the same date under the mouse; a fit, its start; else where it was, or today.
+    // (Only possible once the chart is on the page: see check() below.)
+    const want = Math.max(0, st.anchor ? (st.anchor.day - first) * px - st.anchor.x
+      : st.scroll ?? (fitSpan ? (fitSpan[0] - first) * px : x(today) - 160));
+    st.anchor = null;
+    st.scroll = want;
+    scroller.scrollLeft = want;
+    scroller.addEventListener('scroll', () => scroller.isConnected && (st.scroll = scroller.scrollLeft));
+    // Ctrl / ⌘ + scroll (and a trackpad pinch) zooms around the mouse; it redraws once the wheel stops.
+    let pending = 1;
+    let wheelTimer = 0;
+    let wheelAt = 0;
+    scroller.addEventListener('wheel', (e) => {
+      if (!e.ctrlKey && !e.metaKey) return;
+      e.preventDefault();
+      pending *= Math.exp(-Math.max(-60, Math.min(60, e.deltaY)) * 0.01);
+      wheelAt = e.clientX - scroller.getBoundingClientRect().left;
+      scroller.querySelector('.pm-g-head')?.style.setProperty('opacity', '.6');
+      clearTimeout(wheelTimer);
+      wheelTimer = setTimeout(() => {
+        const f = pending;
+        pending = 1;
+        setZoom(px * f, wheelAt);
+      }, 140);
+    }, { passive: false });
+    // The real width, once it's on the page: draw again if the guess was off (or the window changed size).
+    let tries = 0;
+    const check = () => {
+      if (!scroller.isConnected) return void (++tries < 20 && requestAnimationFrame(check));
+      const real = scroller.clientWidth;
+      if (real && Math.abs(real - room) > 3) {
+        st.room = real;
+        again();
+      } else {
+        st.room = real || st.room;
+        scroller.scrollLeft = want;
+      }
+    };
+    requestAnimationFrame(check);
+    onResize = () => {
+      if (!scroller.isConnected) return void (onResize = null);
+      if (Math.abs(scroller.clientWidth - room) > 3) {
+        st.room = scroller.clientWidth;
+        again();
+      }
+    };
   }
   if (st.filters) bindFilterBar(el, b, st.f, again, { fields: scope.fields, statuses: scope.statuses });
   bindSelection(el, { b, items: () => rows.filter((r) => r.item).map((r) => r.item), cfgOf: scope.cfgOf, done: again, sprints: scope.cfg?.sprints || [] });
@@ -720,6 +843,9 @@ export async function renderTimeline(el, scope) {
     } else if (e.key === 'Escape') {
       el.querySelector('.pm-g-menu')?.remove();
       closePops();
+    } else if (['-', '+', '='].includes(e.key) && !e.ctrlKey && !e.metaKey && !e.target.closest?.('input, textarea, select, [contenteditable]')) {
+      e.preventDefault();
+      setZoom(px * (e.key === '-' ? 1 / 1.6 : 1.6));
     }
   });
 
@@ -748,7 +874,25 @@ export async function renderTimeline(el, scope) {
       st.scroll = null;
       again();
     } else if (d.level) (setLevel(d.level), again());
-    else if (d.zoomTo) ((st.zoom = d.zoomTo), (st.scroll = null), persist(), again());
+    else if (d.zoomPx) setZoom(Number(d.zoomPx));
+    else if (d.zoomStep) setZoom(px * (Number(d.zoomStep) > 0 ? 1.6 : 1 / 1.6));
+    else if (d.fit !== undefined) {
+      if (d.fit === '') st.px = px;   // stop fitting: keep what's on the screen
+      st.fit = d.fit;
+      st.pop = '';
+      st.scroll = null;
+      persist();
+      again();
+    } else if (d.fitCustom !== undefined) {
+      const from = el.querySelector('[data-fit-from]').value;
+      const to = el.querySelector('[data-fit-to]').value;
+      if (!from || !to || to < from) return void toast('Pick a start and an end after it.', 'bad');
+      st.fit = { from, to };
+      st.pop = '';
+      st.scroll = null;
+      persist();
+      again();
+    }
     else if (d.today !== undefined) scroller && (scroller.scrollLeft = Math.max(0, x(today) - 160));
     else if (d.filters !== undefined) ((st.filters = !st.filters), again());
     else if (d.legend !== undefined) ((st.only = st.only === d.legend ? '' : d.legend), again());

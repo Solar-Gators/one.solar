@@ -441,6 +441,30 @@ test.describe('projects', () => {
     await shot(page, 'timeline-dark');
     await page.evaluate(() => (document.documentElement.dataset.theme = 'light'));
     await noOverflow(page);
+
+    // Zoom: the chart fills the page's width; presets, − / +, and Fit
+    const chart = () => page.locator('[data-scroll]').evaluate((n) => ({ w: n.clientWidth, full: n.scrollWidth, left: n.scrollLeft }));
+    const pane = await page.locator('.pm-gantt').evaluate((n) => n.clientWidth);
+    await page.click('[data-zoom-px="0.9"]');
+    await expect(page.locator('.pm-g-zoom .is-on')).toHaveText('Year');
+    await expect(page.locator('.pm-g-right .pm-g-month').first()).toHaveText(/^20\d\d$/);   // years over months
+    await expect.poll(async () => (await chart()).w).toBeGreaterThan(pane - 400);   // not the old 900-pixel guess
+    await page.click('[data-zoom-step="1"]');
+    await expect(page.locator('.pm-g-zoom .is-on')).toHaveCount(0);   // between presets
+    await page.click('[data-zoom-px="40"]');
+    await expect(page.locator('.pm-g-zoom .is-on')).toHaveText('Days');
+    await expect(page.locator('.pm-g-wk.is-day').first()).toBeVisible();
+    await page.click('[data-pop=fit] summary');
+    await page.click('[data-fit="all"]');
+    await expect(page.locator('[data-pop=fit] summary')).toContainText('Everything shown');
+    await expect.poll(async () => { const c = await chart(); return c.full - c.w; }).toBeLessThanOrEqual(2);   // all of it, no scrolling
+    await page.click('[data-pop=fit] summary');
+    await page.fill('[data-fit-from]', '2027-01-01');
+    await page.fill('[data-fit-to]', '2027-03-31');
+    await page.click('[data-fit-custom]');
+    await expect(page.locator('[data-pop=fit] summary')).toContainText('Fit:');
+    await page.click('[data-zoom-px="18"]');   // back to Weeks for the tests after this one
+    await expect(page.locator('.pm-g-zoom .is-on')).toHaveText('Weeks');
   });
 
   test('backlog, calendar and the board all show the same items; the board makes real workflow moves', async () => {
