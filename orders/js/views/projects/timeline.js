@@ -17,6 +17,11 @@
  *               forecast). Team dates are kept here too.
  *   Present     a clean full-screen chart with a title and legend; download it as a PNG or print it to PDF.
  *
+ * Every project (063): levels above the projects, Car (when two car cycles are shown) → CE division → subsystem
+ * → project → work. It opens on my subsystem (else my division); the breadcrumbs above zoom out to everything or
+ * back in, and Level (Divisions / Subsystems / Projects / Work) folds the rows to that depth. A folded level is
+ * one summary bar, with how many of its items are late.
+ *
  * Each row's ⋯ menu adds things under it, nests it or takes it out a level, and sets its dates; ⋮⋮ drags it
  * onto another row (middle: under it; edges: before / after); double-click a title to rename it. Each person's
  * choices (zoom, colors, what's shown) are remembered per project in this browser.
@@ -26,10 +31,11 @@ import { pm } from '../../projects/api.js';
 import { schedule, proposeDates, toDay, toISO, todayISO, makeCalendar } from '../../projects/schedule.js';
 import { DEP_KINDS, PRIORITIES, CATEGORIES, newId, rankBetween } from '../../projects/core.js';
 import { auth } from '../../auth.js';
-import { filterBar, bindFilterBar, filterOf, can, formDialog, attempt, toast, itemHref, avatar, personName, canCreateProjects, invalidate, projectHref, ie, mayEditItem, mayDateItem } from './kit.js';
+import { filterBar, bindFilterBar, filterOf, can, canEditKinds, formDialog, attempt, toast, itemHref, avatar, personName, canCreateProjects, invalidate, projectHref, ie, mayEditItem, mayDateItem } from './kit.js';
 import { bindInline, saveField } from './inline.js';
 import { bindSelection, pickBox } from './select.js';
 import { quickAdd, bindQuickAdd } from './quick.js';
+import { cyclesInView, cyclesOf, cycleOfProject } from './cycles.js';
 
 /** Kinds of item that can go under `parent` (an item) or at the top (null), highest level first. */
 export function kindsUnder(cfg, parent) {
@@ -55,11 +61,12 @@ const DEFAULTS = { zoom: 'week', colorBy: 'type', density: 'comfortable', labelW
 
 const prefKey = (key) => `pm.gantt.${key || 'all'}`;
 function loadPrefs(key) {
+  const d = key ? DEFAULTS : { ...DEFAULTS, labelW: 340 };   // every project: room for the levels above the work
   try {
     const p = JSON.parse(localStorage.getItem(prefKey(key)) || 'null');
-    if (p) return { ...DEFAULTS, ...p, show: { ...DEFAULTS.show, ...p.show }, plan: { ...DEFAULTS.plan, ...p.plan } };
+    if (p) return { ...d, ...p, show: { ...d.show, ...p.show }, plan: { ...d.plan, ...p.plan } };
   } catch { /* private window: defaults */ }
-  return { ...DEFAULTS, show: { ...DEFAULTS.show }, plan: { ...DEFAULTS.plan } };
+  return { ...d, show: { ...d.show }, plan: { ...d.plan } };
 }
 function savePrefs(key, st) {
   try {
@@ -70,7 +77,8 @@ const states = new Map();
 function stateOf(key) {
   if (!states.has(key)) {
     states.set(key, { ...loadPrefs(key), f: { q: '', owner: '', category: '', priority: '', type: '', more: null }, closed: new Set(), overrides: {}, scenario: '',
-      scroll: null, undated: false, filters: false, pop: '', only: '', selected: '', present: false, title: null, subtitle: null });
+      scroll: null, undated: false, filters: false, pop: '', only: '', selected: '', present: false, title: null, subtitle: null,
+      focus: null, focusSet: false, level: '' });
   }
   return states.get(key);
 }
@@ -94,9 +102,9 @@ export async function renderTimeline(el, scope) {
   const tday = toDay(today);
   const filter = filterOf(st.f);
   const [{ items: all, total }, deps, baselines, scenarios, shown, keyDates, orderWarnings] = await Promise.all([
-    pm.searchAll({ project: project?.id, sort: 'rank' }, 3000), pm.deps(scope.projectIds),
+    pm.searchAll({ project: project?.id, projects: scope.only, sort: 'rank' }, 3000), pm.deps(scope.projectIds),
     project ? pm.baselines(project.id) : [], project ? pm.scenarios(project.id) : [],
-    filter || st.f.q ? pm.searchAll({ project: project?.id, filter, q: st.f.q }, 3000).then((r) => new Set(r.items.map((i) => i.id))) : null,
+    filter || st.f.q ? pm.searchAll({ project: project?.id, projects: scope.only, filter, q: st.f.q }, 3000).then((r) => new Set(r.items.map((i) => i.id))) : null,
     pm.keyDates().catch(() => []),
     Promise.all(scope.projectIds.map((pid) => pm.orderWarnings(pid).catch(() => []))).then((x) => x.flat()),
   ]);
@@ -139,13 +147,95 @@ export async function renderTimeline(el, scope) {
     rows.push({ item: i, depth, children: children.length });
     if (!st.closed.has(i.id)) children.forEach((c) => walk(c, depth + 1));
   };
-  for (const pid of scope.projectIds) {
+  const live = scope.projectIds.filter((pid) => {
     const roots = kids.get(`root:${pid}`) || [];
     roots.forEach(mark);
-    if (!roots.some((r) => visible.has(r.id))) continue;
-    if (!project) rows.push({ header: b.projectById.get(pid) });
-    if (project || !st.closed.has(pid)) roots.forEach((r) => walk(r, 0));
+    return roots.some((r) => visible.has(r.id)) || (!shown && !st.undated);   // an empty project shows too (e.g. next car's), unless filtering
+  });
+  const projectRows = (pid, depth) => {
+    const roots = kids.get(`root:${pid}`) || [];
+    if (project) return roots.forEach((r) => walk(r, 0));
+    const p = b.projectById.get(pid);
+    rows.push({ header: { kind: 'project', id: pid, key: p.key, name: p.name, pids: [pid], toggle: pid, late: lateIn([pid]) }, depth });
+    if (!st.closed.has(pid)) roots.forEach((r) => walk(r, depth + 1));
+  };
+
+  // ---- across projects: the levels above them (Car → CE division → subsystem), and where it opens
+  const lateIn = (pids) => items.filter((i) => pids.includes(i.project_id) && i.category !== 'done' && i.due_date && i.due_date < today).length;
+  const carsShown = cyclesInView(b);
+  const multiCar = carsShown ? carsShown.length > 1 : cyclesOf(b).length > 1;
+  const nodes = project ? [] : live.map((pid) => {
+    const p = b.projectById.get(pid);
+    return { pid, p, car: multiCar ? cycleOfProject(b, p)?.id || '' : '', div: p.division_id || b.subsystemById.get(p.subsystem_id)?.division_id || '', sub: p.subsystem_id || '' };
+  });
+  const sortOf = (list, id) => { const at = list.findIndex((x) => x.id === id); return at < 0 ? 1e9 : at; };
+  const divOrder = [...b.divisions].sort((a, z) => (a.sort - z.sort) || a.name.localeCompare(z.name));
+  const subOrder = [...b.subsystems].sort((a, z) => (a.sort - z.sort) || a.name.localeCompare(z.name));
+  const LEVEL = {
+    car: { get: (n) => n.car, name: (id) => b.programs.find((g) => g.id === id)?.name || 'No car cycle', order: (id) => sortOf(cyclesOf(b), id) },
+    division: { get: (n) => n.div, name: (id) => b.divisionById.get(id)?.name || 'No CE division', order: (id) => (id ? sortOf(divOrder, id) : 1e9) },
+    subsystem: { get: (n) => n.sub, name: (id) => b.subsystemById.get(id)?.name || '', order: (id) => sortOf(subOrder, id) },
+  };
+  const levelsUsed = [...(multiCar ? ['car'] : []), ...(nodes.some((n) => n.div) ? ['division'] : []), ...(nodes.some((n) => n.sub) ? ['subsystem'] : [])];
+  if (!project && !st.focusSet) {   // the first time: my subsystem, else my division
+    st.focusSet = true;
+    const mine = b.myOrg;
+    if (mine?.subsystem_id && nodes.some((n) => n.sub === mine.subsystem_id)) st.focus = { kind: 'subsystem', id: mine.subsystem_id };
+    else if (mine?.division_id && nodes.some((n) => n.div === mine.division_id)) st.focus = { kind: 'division', id: mine.division_id };
   }
+  if (st.focus && !nodes.some((n) => LEVEL[st.focus.kind]?.get(n) === st.focus.id)) st.focus = null;   // nothing there now
+  const focus = project ? null : st.focus;
+  const inFocus = focus ? nodes.filter((n) => LEVEL[focus.kind].get(n) === focus.id) : nodes;
+  const dropped = !focus ? [] : focus.kind === 'subsystem' ? ['division', 'subsystem'] : [focus.kind];
+  const levels = levelsUsed.filter((k) => !dropped.includes(k));
+  const groupKey = (kind, id) => `${kind}:${id || 'none'}`;
+  const emit = (list, at, depth) => {
+    if (at >= levels.length) return [...list].sort((a, z) => a.p.name.localeCompare(z.p.name)).forEach((n) => projectRows(n.pid, depth));
+    const kind = levels[at];
+    const L = LEVEL[kind];
+    const groups = new Map();
+    for (const n of [...list].sort((a, z) => L.order(L.get(a)) - L.order(L.get(z)))) (groups.get(L.get(n)) || groups.set(L.get(n), []).get(L.get(n))).push(n);
+    for (const [id, ns] of groups) {
+      // no subsystem, or a subsystem with one project: the project goes straight under the level above (no row saying the same twice)
+      if (kind === 'subsystem' && (!id || ns.length === 1)) { emit(ns, at + 1, depth); continue; }
+      const key = groupKey(kind, id);
+      const pids = ns.map((n) => n.pid);
+      rows.push({ header: { kind, id, key, name: L.name(id), pids, toggle: key, late: lateIn(pids), count: pids.length }, depth });
+      if (!st.closed.has(key)) emit(ns, at + 1, depth + 1);
+    }
+  };
+  if (project) projectRows(project.id, 0);
+  else emit(inFocus, 0, 0);
+  // where I am: Everything › Electrical › Battery (each one zooms out to it)
+  const crumbs = () => {
+    if (project || !levelsUsed.some((k) => k !== 'car')) return '';
+    const path = [];
+    if (focus?.kind === 'car') path.push(['car', focus.id]);
+    if (focus?.kind === 'division') path.push(['division', focus.id]);
+    if (focus?.kind === 'subsystem') {
+      const div = b.subsystemById.get(focus.id)?.division_id;
+      if (div) path.push(['division', div]);
+      path.push(['subsystem', focus.id]);
+    }
+    const crumb = (kind, id, last) => (last ? `<span aria-current="location">${esc(LEVEL[kind].name(id))}</span>`
+      : `<button type="button" data-focus="${kind}:${esc(id)}">${esc(LEVEL[kind].name(id))}</button>`);
+    const mine = b.myOrg?.subsystem_id;
+    return `<nav class="pm-g-crumbs" aria-label="Where you are">${path.length ? '<button type="button" data-focus="">Everything</button>' : '<span aria-current="location">Everything</span>'}
+      ${path.map(([k, id], n) => ` <span class="pm-g-crumb-sep" aria-hidden="true">›</span> ${crumb(k, id, n === path.length - 1)}`).join('')}
+      ${focus?.id !== mine && mine && nodes.some((n) => n.sub === mine) ? ` <button type="button" class="pm-g-crumb-mine" data-focus="subsystem:${esc(mine)}">My subsystem</button>` : ''}</nav>`;
+  };
+  const LEVELS = [['division', 'Divisions'], ['subsystem', 'Subsystems'], ['project', 'Projects'], ['work', 'Work']]
+    .filter(([k]) => k === 'project' || k === 'work' || levels.includes(k));
+  const setLevel = (lv) => {
+    const depthOf = { division: 0, subsystem: 1, project: 2, work: 3 }[lv];
+    for (const n of nodes) {
+      if (n.car) st.closed.delete(groupKey('car', n.car));
+      st.closed[depthOf <= 0 ? 'add' : 'delete'](groupKey('division', n.div));
+      if (n.sub) st.closed[depthOf <= 1 ? 'add' : 'delete'](groupKey('subsystem', n.sub));
+      st.closed[depthOf <= 2 ? 'add' : 'delete'](n.pid);
+    }
+    st.level = lv;
+  };
 
   // ---- colors: one meaning at a time, with a legend
   const legend = new Map();
@@ -189,6 +279,7 @@ export async function renderTimeline(el, scope) {
     return s;
   };
   const spanProject = (pid) => (kids.get(`root:${pid}`) || []).reduce((s, r) => merge(merge(s, own(r)), spanUnder(r)), null);
+  const spanHeader = (h) => h.pids.reduce((s, pid) => merge(s, spanProject(pid)), null);
 
   // ---- the days shown, and how wide a day is
   const days = [tday];
@@ -198,7 +289,7 @@ export async function renderTimeline(el, scope) {
     days.push(...[t.start, t.due, st.plan.forecast && p?.start, st.plan.forecast && p?.finish, baseline?.[i.id]?.start, baseline?.[i.id]?.due].filter(Boolean).map(toDay));
   }
   for (const r of rows) {
-    const s = r.header ? spanProject(r.header.id) : r.item && r.children ? spanUnder(r.item) : null;
+    const s = r.header ? spanHeader(r.header) : r.item && r.children ? spanUnder(r.item) : null;
     if (s) days.push(toDay(s[0]), toDay(s[1]));
   }
   const keysShown = st.show.team ? keyDates.filter((k) => k.kind !== 'season' && toDay(k.end_day || k.day) >= tday - 30 && toDay(k.day) <= tday + 240) : [];
@@ -252,7 +343,7 @@ export async function renderTimeline(el, scope) {
   const summary = (s, top, title) => (s ? `<div class="pm-g-sum" style="top:${top}px;left:${x(s[0])}px;width:${(toDay(s[1]) - toDay(s[0]) + 1) * px}px" title="${esc(title)}: ${esc(rangeText(s[0], s[1]))}"></div>` : '');
   const bar = (r, n) => {
     const top = n * ROW;
-    if (r.header) return `<div class="pm-g-row is-group" style="top:${top}px;height:${ROW}px;width:${width}px"></div>${summary(spanProject(r.header.id), top + ROW / 2 - 2, r.header.name)}`;
+    if (r.header) return `<div class="pm-g-row is-group is-${r.header.kind}" style="top:${top}px;height:${ROW}px;width:${width}px"></div>${summary(spanHeader(r.header), top + ROW / 2 - 2, r.header.name)}`;
     const i = r.item;
     const { p, t } = span(i);
     const c = col.get(i.id);
@@ -347,10 +438,19 @@ export async function renderTimeline(el, scope) {
   const slipped = baseline ? items.map((i) => ({ i, s: slipOf(i) })).filter((v) => v.s).sort((a, z) => z.s - a.s) : [];
   const label = (r) => {
     if (r.header) {
-      const pid = r.header.id;
-      return `<div class="pm-g-label is-group is-header" style="height:${ROW}px">
-        <button type="button" class="pm-g-toggle" data-toggle="${esc(pid)}" aria-expanded="${!st.closed.has(pid)}" aria-label="${st.closed.has(pid) ? 'Show' : 'Hide'} ${esc(r.header.name)}">${st.closed.has(pid) ? '▸' : '▾'}</button>
-        <a class="pm-g-title" href="${projectHref(r.header.key, 'timeline')}">${esc(r.header.name)}</a>
+      const h = r.header;
+      const pid = h.id;
+      const open = !st.closed.has(h.toggle);
+      const toggle = `<button type="button" class="pm-g-toggle" data-toggle="${esc(h.toggle)}" aria-expanded="${open}" aria-label="${open ? 'Hide' : 'Show'} ${esc(h.name)}">${open ? '▾' : '▸'}</button>`;
+      const late = h.late ? `<span class="pm-g-chip is-warn" title="Items in ${esc(h.name)} past their due date">${h.late} late</span>` : '';
+      if (h.kind !== 'project') {
+        return `<div class="pm-g-label is-group is-header is-level is-${h.kind}" style="height:${ROW}px;padding-left:${6 + r.depth * 18}px">${toggle}
+          <button type="button" class="pm-g-title pm-g-level" data-focus="${h.kind}:${esc(h.id)}" title="Show only ${esc(h.name)}">${esc(h.name)}</button>
+          <span class="pm-g-label-end">${late}<span class="muted small">${h.count} project${h.count === 1 ? '' : 's'}</span></span></div>`;
+      }
+      return `<div class="pm-g-label is-group is-header" style="height:${ROW}px;padding-left:${6 + r.depth * 18}px">
+        ${toggle}
+        <a class="pm-g-title" href="${projectHref(h.key, 'timeline')}">${esc(h.name)}</a>${st.closed.has(pid) ? late : ''}
         <span class="pm-g-label-end">${can(b, pid, 'create') ? `<button type="button" class="pm-g-more" data-add-root="${esc(pid)}" title="Add to ${esc(r.header.name)}" aria-label="Add to ${esc(r.header.name)}">+</button>` : ''}</span></div>`;
     }
     const i = r.item;
@@ -383,6 +483,7 @@ export async function renderTimeline(el, scope) {
   const toolbar = `<div class="pm-g-toolbar">
       <div class="pm-seg" role="group" aria-label="Zoom">${Object.entries(ZOOMS).map(([z, [l]]) => `<button type="button" data-zoom-to="${z}" class="${st.zoom === z ? 'is-on' : ''}" aria-pressed="${st.zoom === z}">${l}</button>`).join('')}</div>
       <button type="button" class="btn btn-sm" data-today>Today</button>
+      ${!project && nodes.length ? `<div class="pm-seg" role="group" aria-label="Level">${LEVELS.map(([k, l]) => `<button type="button" data-level="${k}" class="${st.level === k ? 'is-on' : ''}" aria-pressed="${st.level === k}" title="Fold the rows down to ${l.toLowerCase()}">${l}</button>`).join('')}</div>` : ''}
       <label class="pm-g-colorby">Color <select data-color-by aria-label="Color bars by">${Object.entries(COLOR_BY).map(([k, l]) => `<option value="${k}" ${st.colorBy === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
       ${showMenu}
       <button type="button" class="btn btn-sm${st.filters || filterCount ? ' is-on' : ''}" data-filters aria-expanded="${st.filters}">Filter${filterCount ? ` · ${filterCount}` : ''}</button>
@@ -410,6 +511,7 @@ export async function renderTimeline(el, scope) {
         <div>Forecast finish: ${esc(fmtDate(base.finish))} → <strong>${esc(fmtDate(plan.finish))}</strong>${plan.finish === base.finish ? ' (no change)' : ''}. Warnings: ${base.warnings.length} → <strong>${plan.warnings.length}</strong>.
           ${moved.length ? `Also moves ${moved.length} other item${moved.length === 1 ? '' : 's'}: ${moved.slice(0, 6).map((m) => `${esc(m.item.key)} (${esc(fmtDate(m.from))} → ${esc(fmtDate(m.to))})`).join(', ')}${moved.length > 6 ? '…' : ''}.` : 'No other item\'s forecast moves.'}</div>
         <div class="card-actions"><button type="button" class="btn btn-sm btn-primary" data-apply>Apply to the plan</button>${project ? '<button type="button" class="btn btn-sm" data-save-scenario>Keep as a what-if</button>' : ''}<button type="button" class="btn btn-sm btn-ghost" data-discard>Discard</button></div></div>` : ''}
+    ${crumbs()}
     ${total > all.length ? `<p class="alert alert-info">Showing the first ${all.length} of ${total} items.</p>` : ''}
     ${plan.loop.length ? `<p class="alert alert-error">Some items depend on each other in a loop, so they can't be scheduled: ${plan.loop.map((id) => esc(byId.get(id)?.key || '')).join(', ')}.</p>` : ''}
     ${rows.length ? `<div class="pm-gantt-wrap" style="--label-w:${labelW}px;--row:${ROW}px">
@@ -428,7 +530,7 @@ export async function renderTimeline(el, scope) {
               <marker id="pm-g-tip" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L8 4 L0 8 z"/></marker>
               <marker id="pm-g-tip-c" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L8 4 L0 8 z"/></marker></defs>${arrows()}</svg>
           </div></div></div>
-      <div class="pm-g-legend">${legendHtml}<span class="pm-g-spacer"></span><span class="muted small">${seasonNote}${st.plan.forecast ? `${seasonNote ? ' · ' : ''}Forecast finish: <strong>${esc(fmtDate(plan.finish))}</strong>` : ''}</span></div>
+      <div class="pm-g-legend">${legendHtml}${st.colorBy === 'type' && canEditKinds() ? '<button type="button" class="pm-g-leg pm-g-leg-add" data-new-kind title="Add a kind of work to every project (Calc, Test plan…)">+ New kind</button>' : ''}<span class="pm-g-spacer"></span><span class="muted small">${seasonNote}${st.plan.forecast ? `${seasonNote ? ' · ' : ''}Forecast finish: <strong>${esc(fmtDate(plan.finish))}</strong>` : ''}</span></div>
       ${project && can(b, project.id, 'create') && !project.archived_at ? quickAdd(b, { project_id: project.id }, { placeholder: '+ Add an item (Enter; then drag across its row to give it dates)', cls: 'pm-qa-gantt' }) : ''}
       <div data-panel-slot></div></div>`
       : st.undated ? '<div class="empty"><p><strong>Every open item has dates.</strong></p></div>'
@@ -639,7 +741,13 @@ export async function renderTimeline(el, scope) {
       return;
     }
     el.querySelector('.pm-g-menu')?.remove();
-    if (d.toggle) (st.closed[st.closed.has(d.toggle) ? 'delete' : 'add'](d.toggle), again());
+    if (d.toggle) (st.closed[st.closed.has(d.toggle) ? 'delete' : 'add'](d.toggle), (st.level = ''), again());
+    else if (d.focus !== undefined) {
+      const [kind, id] = d.focus.split(':');
+      st.focus = kind ? { kind, id } : null;
+      st.scroll = null;
+      again();
+    } else if (d.level) (setLevel(d.level), again());
     else if (d.zoomTo) ((st.zoom = d.zoomTo), (st.scroll = null), persist(), again());
     else if (d.today !== undefined) scroller && (scroller.scrollLeft = Math.max(0, x(today) - 160));
     else if (d.filters !== undefined) ((st.filters = !st.filters), again());
@@ -647,10 +755,16 @@ export async function renderTimeline(el, scope) {
     else if (d.collapseAll !== undefined) {
       for (const [k, list] of kids) if (!k.startsWith('root:') && list.length) st.closed.add(k);
       if (!project) scope.projectIds.forEach((pid) => st.closed.add(pid));
+      st.level = '';
       again();
-    } else if (d.expandAll !== undefined) (st.closed.clear(), again());
+    } else if (d.expandAll !== undefined) (st.closed.clear(), (st.level = ''), again());
     else if (d.details) openPanel(byId.get(d.details));
     else if (d.present !== undefined) ((st.present = true), again());
+    else if (d.newKind !== undefined) {
+      const { kindDialog } = await import('./kinds.js');
+      const k = await kindDialog(b);
+      if (k) (toast(`${k.name} is now a kind of work in every project.`), again());
+    }
     else if (d.keyDates !== undefined) (await keyDatesDialog(keyDates)) && again();
     else if (d.addRoot) (await addItem(d.addRoot, null)) && again();
     else if (d.addChild) {
@@ -1010,8 +1124,8 @@ export async function renderTimeline(el, scope) {
     const top0 = 150;
     const headH = 64;
     const cw = W - pad * 2 - LW;
-    const lo = Math.min(...[tday, ...list.flatMap((r) => (r.item ? [own(r.item)?.[0]] : spanProject(r.header.id) ? [spanProject(r.header.id)[0]] : [])).filter(Boolean).map(toDay)]);
-    const hi = Math.max(...[tday, ...list.flatMap((r) => (r.item ? [own(r.item)?.[1]] : spanProject(r.header.id) ? [spanProject(r.header.id)[1]] : [])).filter(Boolean).map(toDay)]);
+    const lo = Math.min(...[tday, ...list.flatMap((r) => (r.item ? [own(r.item)?.[0]] : spanHeader(r.header) ? [spanHeader(r.header)[0]] : [])).filter(Boolean).map(toDay)]);
+    const hi = Math.max(...[tday, ...list.flatMap((r) => (r.item ? [own(r.item)?.[1]] : spanHeader(r.header) ? [spanHeader(r.header)[1]] : [])).filter(Boolean).map(toDay)]);
     let f0 = lo - 3;
     f0 -= ((f0 - weekday0) % 7 + 7) % 7;
     const f1 = Math.max(hi + 4, f0 + 27);
@@ -1057,7 +1171,7 @@ export async function renderTimeline(el, scope) {
       if (n % 2 === 1) out += `<rect x="${pad}" y="${y}" width="${W - pad * 2}" height="${RH}" fill="${C.panel}" opacity="0.5"/>`;
       if (r.header) {
         out += `<text x="${pad + 16}" y="${y + RH / 2 + 6}" font-size="17" font-weight="700" fill="${C.text}">${t(r.header.name)}</text>`;
-        const s = spanProject(r.header.id);
+        const s = spanHeader(r.header);
         if (s) out += `<rect x="${X(toDay(s[0]))}" y="${y + RH / 2 - 2}" width="${(toDay(s[1]) - toDay(s[0]) + 1) * ppx}" height="4" rx="2" fill="${C.muted}"/>`;
         return;
       }

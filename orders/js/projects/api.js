@@ -28,6 +28,9 @@ function unwrap({ data, error }) {
 }
 const rows = async (build) => unwrap(await allPages(build));
 const call = async (fn, args) => unwrap(await supabase.rpc(fn, args));
+/** 063: { projects: [ids] } (the car cycles shown) as a filter on the project; one project (p.project) wins. */
+const only = ({ projects, ...p }) => (!projects || p.project ? p
+  : { ...p, filter: { all: [...(p.filter ? [p.filter] : []), { f: 'project', op: 'in', v: projects.length ? projects : ['00000000-0000-0000-0000-000000000000'] }] } });
 const of = (table, projectId, order = 'id') => rows(() => supabase.from(table).select('*').eq('project_id', projectId).order(order).order('id'));
 
 export const pm = {
@@ -62,13 +65,13 @@ export const pm = {
     const [statuses, types, transitions, fields, layouts] = await Promise.all([get('pm_statuses'), get('pm_types'), get('pm_transitions'), get('pm_fields'), get('pm_layouts')]);
     return { statuses, types, transitions, fields, layouts };
   },
-  search: (p) => call('pm_search', { p }),
+  search: (p) => call('pm_search', { p: only(p) }),
   /** Every item matching a filter, a page at a time, up to `max` (boards, timelines, calendars). */
   async searchAll(p, max = 3000) {
     const items = [];
     let total = 0;
     for (let offset = 0; offset < max; offset += 1000) {
-      const page = await call('pm_search', { p: { ...p, limit: 1000, offset } });
+      const page = await call('pm_search', { p: { ...only(p), limit: 1000, offset } });
       total = page.total;
       items.push(...page.items);
       if (items.length >= total || !page.items.length) break;
@@ -148,6 +151,10 @@ export const pm = {
 
   // ---- projects and their configuration ----
   saveProgram: (id, p) => call('pm_save_program', { p_id: id, p }),
+  /** 063: the team's kinds of work (one list for every project), how much each is used, and changing it (leads). */
+  kinds: () => rows(() => supabase.from('pm_kinds').select('*').order('level').order('sort').order('name')),
+  kindUsage: () => call('pm_kind_usage', {}),
+  saveKind: (id, p) => call('pm_save_kind', { p_id: id, p }),
   saveProject: (id, p) => call('pm_save_project', { p_id: id, p }),
   saveRole: (projectId, id, p) => call('pm_save_role', { p_project: projectId, p_id: id, p }),
   deleteRole: (id) => call('pm_delete_role', { p_id: id }),

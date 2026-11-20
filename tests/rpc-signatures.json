@@ -839,6 +839,11 @@
   "returns": "jsonb",
   "anon": false
  },
+ "pm_kind_usage": {
+  "args": "",
+  "returns": "jsonb",
+  "anon": false
+ },
  "pm_link": {
   "args": "p jsonb",
   "returns": "jsonb",
@@ -847,6 +852,11 @@
  "pm_mark_read": {
   "args": "p_ids bigint[]",
   "returns": "void",
+  "anon": false
+ },
+ "pm_may_edit_kinds": {
+  "args": "",
+  "returns": "boolean",
   "anon": false
  },
  "pm_move_item": {
@@ -922,6 +932,11 @@
  "pm_save_key_date": {
   "args": "p_id uuid, p jsonb",
   "returns": "uuid",
+  "anon": false
+ },
+ "pm_save_kind": {
+  "args": "p_id uuid, p jsonb",
+  "returns": "jsonb",
   "anon": false
  },
  "pm_save_layout": {

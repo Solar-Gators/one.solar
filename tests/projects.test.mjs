@@ -90,8 +90,8 @@ let private1;
 await test('default access: every team role can open Projects; CEs and Admins can create; only Admins manage everything', async () => {
   const perms = async (r) => (await all(`select permission from role_permissions where role = $1 and permission like 'projects.%' order by 1`, [r])).map((x) => x.permission);
   assert.deepEqual(await perms('member'), ['projects.view']);
-  assert.deepEqual(await perms('ce'), ['projects.create', 'projects.view']);
-  assert.deepEqual(await perms('admin'), ['projects.create', 'projects.manage', 'projects.view']);
+  assert.deepEqual(await perms('ce'), ['projects.create', 'projects.kinds', 'projects.view']);   // 063: leads edit the kinds of work
+  assert.deepEqual(await perms('admin'), ['projects.create', 'projects.kinds', 'projects.manage', 'projects.view']);
   assert.deepEqual(await perms('guest'), []);
   assert.deepEqual(await perms('alumni'), []);
 });

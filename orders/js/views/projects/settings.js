@@ -38,7 +38,7 @@ async function details(el, { b, project, cfg, rerender }) {
       <div class="form-grid"><div class="field span-3"><label for="pd-name">Name</label><input id="pd-name" name="name" type="text" maxlength="120" required value="${esc(project.name)}"></div>
         <div class="field"><label>Key</label><output class="pm-formula">${esc(project.key)}</output><div class="hint">Can't change: it's in every item's name.</div></div>
         <div class="field span-4"><label for="pd-desc">About this project</label><textarea id="pd-desc" name="description" rows="3">${esc(project.description)}</textarea></div>
-        <div class="field span-2"><label for="pd-program">Program</label><select id="pd-program" name="program">${opt('', 'None', !project.program_id)}${b.programs.filter((g) => !g.archived_at || g.id === project.program_id).map((g) => opt(g.id, g.name, g.id === project.program_id)).join('')}</select></div>
+        <div class="field span-2"><label for="pd-program">Car cycle</label><select id="pd-program" name="program">${opt('', 'None', !project.program_id)}${b.programs.filter((g) => !g.archived_at || g.id === project.program_id).map((g) => opt(g.id, g.name, g.id === project.program_id)).join('')}</select></div>
         <div class="field span-2"><label for="pd-lead">Project manager</label><select id="pd-lead" name="lead">${peopleOptions(b, project.lead_id, 'Nobody')}</select></div>
         <div class="field span-2"><label for="pd-div">Owning CE division</label><select id="pd-div" name="division" data-division>${opt('', '—', !project.division_id)}${b.divisions.filter((d) => !d.archived_at || d.id === project.division_id).map((d) => opt(d.id, d.name, d.id === project.division_id)).join('')}</select></div>
         <div class="field span-2"><label for="pd-sub">Owning subsystem</label><select id="pd-sub" name="subsystem" data-subsystem>${opt('', '—', !project.subsystem_id)}${b.subsystems.filter((s) => !s.archived_at || s.id === project.subsystem_id).map((s) => `<option value="${esc(s.id)}" data-div="${esc(s.division_id)}" ${s.id === project.subsystem_id ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</select></div>
@@ -127,9 +127,10 @@ async function people(el, { b, project, cfg, reload }) {
 async function types(el, { project, cfg, reload }) {
   const flows = cfg.workflows.filter((w) => !w.archived_at);
   const list = [...cfg.types].sort((x, y) => !!x.archived_at - !!y.archived_at || x.level - y.level || x.sort - y.sort);
-  el.innerHTML = `<section class="card"><h2>Work-item types</h2><p class="muted">The kinds of work this project has. Each has its own workflow, its own forms and its place in the hierarchy.</p>
+  el.innerHTML = `<section class="card"><h2>Work-item types</h2><p class="muted">The kinds of work this project has. Each has its own workflow, its own forms and its place in the hierarchy.
+      The ones marked <span class="chip">Team</span> are on the whole team's list (<a href="#/projects/kinds">Kinds of work</a>): their name, icon and color are the same in every project, and only leads change them. You can still hide one here, and pick its workflow and what it goes under.</p>
     <div class="table-wrap"><table class="pm-table"><thead><tr><th>Type</th><th>Level</th><th>Goes under</th><th>Workflow</th><th></th></tr></thead><tbody>${list.map((t) => `<tr class="${t.archived_at ? 'is-done' : ''}">
-      <td>${typeBadge(t)} <strong>${esc(t.name)}</strong>${t.is_milestone ? ' <span class="chip">Milestone</span>' : ''}${t.archived_at ? ' <span class="chip-tone tone-gray">Archived</span>' : ''}<div class="muted small">${esc(t.description)}</div></td>
+      <td>${typeBadge(t)} <strong>${esc(t.name)}</strong>${t.kind_id ? ' <span class="chip" title="On the whole team\'s list of kinds of work">Team</span>' : ''}${t.is_milestone ? ' <span class="chip">Milestone</span>' : ''}${t.archived_at ? ` <span class="chip-tone tone-gray">${t.kind_id ? 'Hidden here' : 'Archived'}</span>` : ''}<div class="muted small">${esc(t.description)}</div></td>
       <td>${t.level}</td><td>${t.parent_type_ids.length ? t.parent_type_ids.map((id) => esc(cfg.typeById.get(id)?.name || '')).join(', ') : t.level === 0 ? '<span class="muted">Top level</span>' : '<span class="muted">Anything higher up</span>'}</td>
       <td>${esc(flows.find((w) => w.id === t.workflow_id)?.name || '')}</td><td><button type="button" class="btn btn-sm" data-edit-type="${esc(t.id)}">Edit</button></td></tr>`).join('')}</tbody></table></div>
     <p><button type="button" class="btn btn-primary" data-new-type>+ Work type</button></p>
@@ -139,9 +140,9 @@ async function types(el, { project, cfg, reload }) {
     if (!t || (t.dataset.newType === undefined && !t.dataset.editType)) return;
     const ty = cfg.typeById.get(t.dataset.editType);
     const res = await formDialog({ title: ty ? `Work type: ${esc(ty.name)}` : 'New work type', submit: 'Save', wide: true,
-      body: `<div class="form-grid"><div class="field span-2"><label for="ty-name">Name</label><input id="ty-name" name="name" type="text" maxlength="40" required value="${esc(ty?.name || '')}" placeholder="Design Review"></div>
-          <div class="field"><label for="ty-icon">Icon (a symbol or emoji)</label><input id="ty-icon" name="icon" type="text" maxlength="4" value="${esc(ty?.icon || '')}" placeholder="☑"></div>
-          <div class="field"><label for="ty-color">Color</label><select id="ty-color" name="color">${TONES.map((c) => opt(c, c, (ty?.color || 'blue') === c)).join('')}</select></div>
+      body: `${ty?.kind_id ? '<p class="alert alert-info">On the whole team\'s list: its name, icon and color are changed in <a href="#/projects/kinds">Kinds of work</a> (leads), for every project at once.</p>' : ''}<div class="form-grid"><div class="field span-2"><label for="ty-name">Name</label><input id="ty-name" name="name" type="text" maxlength="40" required value="${esc(ty?.name || '')}" placeholder="Design Review" ${ty?.kind_id ? 'readonly' : ''}></div>
+          <div class="field"><label for="ty-icon">Icon (a symbol or emoji)</label><input id="ty-icon" name="icon" type="text" maxlength="4" value="${esc(ty?.icon || '')}" placeholder="☑" ${ty?.kind_id ? 'readonly' : ''}></div>
+          <div class="field"><label for="ty-color">Color</label><select id="ty-color" name="color" ${ty?.kind_id ? 'disabled' : ''}>${TONES.map((c) => opt(c, c, (ty?.color || 'blue') === c)).join('')}</select></div>
           <div class="field span-4"><label for="ty-desc">What it's for</label><input id="ty-desc" name="description" type="text" maxlength="500" value="${esc(ty?.description || '')}"></div>
           <div class="field"><label for="ty-level">Level</label><select id="ty-level" name="level">${[[0, '0 · top (epic)'], [1, '1 · ordinary work'], [2, '2 · under level 1'], [3, '3'], [4, '4']].map(([n, l]) => opt(n, l, (ty?.level ?? 1) === n)).join('')}</select></div>
           <div class="field span-3"><label for="ty-flow">Workflow</label><select id="ty-flow" name="workflow">${flows.map((w) => opt(w.id, w.name, w.id === ty?.workflow_id)).join('')}</select></div></div>
@@ -152,7 +153,7 @@ async function types(el, { project, cfg, reload }) {
           <div class="field span-4"><label for="ty-body">Description (a starting outline)</label><textarea id="ty-body" name="body" rows="2">${esc(ty?.defaults?.description || '')}</textarea></div>
           <div class="field span-4"><label for="ty-acc">What "done" means</label><textarea id="ty-acc" name="acceptance" rows="2">${esc(ty?.defaults?.acceptance || '')}</textarea></div></div></fieldset>
         <label class="pm-check"><input type="checkbox" name="milestone" ${ty?.is_milestone ? 'checked' : ''}> A milestone (a date, not a stretch of work)</label>
-        ${ty ? `<label class="pm-check"><input type="checkbox" name="archived" ${ty.archived_at ? 'checked' : ''}> Archived (existing items stay; no new ones)</label>` : ''}
+        ${ty ? `<label class="pm-check"><input type="checkbox" name="archived" ${ty.archived_at ? 'checked' : ''}> ${ty.kind_id ? 'Hidden in this project (existing items stay; no new ones here)' : 'Archived (existing items stay; no new ones)'}</label>` : ''}
         <div data-mapping></div>`,
       async onSubmit(f) {
         const x = f.elements;

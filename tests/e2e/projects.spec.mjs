@@ -860,4 +860,82 @@ test.describe('projects', () => {
     await expect(page.locator('table')).toContainText('Test runs');
     await noOverflow(page);
   });
+
+  test('063: a lead adds a kind of work to every project; car cycles; the team timeline opens on my subsystem with levels above it', async () => {
+    // kinds of work: one list for the team, changed by leads only
+    await signIn(page, MANAGER);
+    await open(page, '/projects/#/projects/kinds', 'h1');
+    await expect(page.locator('h1')).toHaveText('Kinds of work');
+    await expect(page.locator('[data-new-kind]')).toHaveCount(0);
+    await signIn(page, ADMIN);
+    await open(page, '/projects/#/projects/kinds', '[data-new-kind]');
+    await page.click('[data-new-kind]');
+    await dialog(page).locator('#kd-name').fill('Calc');
+    await dialog(page).locator('#kd-icon').fill('∑');
+    await dialog(page).locator('.pm-kind-color', { has: page.locator('input[value="purple"]') }).click();
+    await save(page, 'Add to every project');
+    await expect(toast(page)).toContainText('Calc is now in every project');
+    await expect(page.locator('.pm-kinds')).toContainText('Calc');
+    const missing = await sql(page, `select p.key from pm_projects p where p.archived_at is null
+      and not exists (select 1 from pm_types t where t.project_id = p.id and t.name = 'Calc' and t.color = 'purple' and t.kind_id is not null)`);
+    expect(missing).toEqual([]);
+    await open(page, '/projects/#/projects/p/BAT/settings/types', '.pm-table');
+    await expect(page.locator('.pm-table tr', { hasText: 'Calc' })).toContainText('Team');
+
+    // car cycles: the first one is the current car; the next is started from it, its projects copied without items
+    await open(page, '/projects/#/projects/all', '#new-program');
+    await expect(page.locator('.pm-cycles')).toHaveCount(0);   // nothing to switch between yet
+    await page.click('#new-program');
+    await dialog(page).locator('#cy-name').fill('Car 7');
+    await dialog(page).locator('#cy-start').fill('2025-08-20');
+    await save(page);
+    await expect(page.locator('.pm-program h2', { hasText: 'Car 7' })).toBeVisible();
+    await page.click('#new-program');
+    await dialog(page).locator('#nc-name').fill('Car 8');
+    await dialog(page).locator('#nc-start').fill('2027-01-11');
+    await dialog(page).locator('[data-copy-all]').uncheck();
+    await dialog(page).locator('.pm-copy-row', { hasText: 'BAT' }).first().locator('input[name=copy]').check();
+    await expect(dialog(page).locator('[data-key-for]').first()).not.toHaveValue('');
+    const newKey = await dialog(page).locator('.pm-copy-row', { hasText: 'BAT' }).first().locator('[data-key-for]').inputValue();
+    expect(newKey).toBe('BAT8');
+    await save(page, 'Start it');
+    await expect(page.locator('.alert', { hasText: 'Car 8 is ready with 1 project' })).toBeVisible();
+    expect(await one(page, `select g.name car, (select count(*)::int from pm_items i where i.project_id = p.id) items from pm_projects p join pm_programs g on g.id = p.program_id where p.key = 'BAT8'`))
+      .toEqual({ car: 'Car 8', items: 0 });
+    // the switcher: it now shows Car 8 (just started); Car 7 is still the current car
+    await expect(page.locator('[data-cycle]', { hasText: 'Car 8' })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('.pm-project[data-project="BAT8"]')).toBeVisible();
+    await expect(page.locator('.pm-project[data-project="AERO"]')).toHaveCount(0);
+    await page.locator('[data-cycle]', { hasText: 'Car 7' }).click();
+    await expect(page.locator('.pm-project[data-project="AERO"]')).toBeVisible();   // made before there were cycles: the current car's
+    await expect(page.locator('.pm-project[data-project="BAT8"]')).toHaveCount(0);
+    await page.locator('[data-cycle="both"]').click();
+    await expect(page.locator('.pm-program h2', { hasText: 'Car 8' })).toBeVisible();
+    await shot(page, 'car-cycles');
+
+    // levels: BAT is the Battery subsystem's; I'm in Battery, so the team timeline opens there
+    const { id: battery, division_id: elec } = await one(page, `select id, division_id from org_subsystems where name = 'Battery'`);
+    await sql(page, `update pm_projects set subsystem_id = $1, division_id = $2 where key in ('BAT', 'BAT8')`, [battery, elec]);
+    const { id: me } = await one(page, `select id from auth.users where email = $1`, [ADMIN.email]);
+    await sql(page, `insert into person_org (user_id, division_id, subsystem_id, main) values ($1, $2, $3, true) on conflict do nothing`, [me, elec, battery]);
+    await page.goto('/projects/#/projects/timeline');
+    await page.reload();   // a fresh start for the timeline (it remembers where you were while the page is open)
+    await expect(page.locator('.pm-g-crumbs')).toContainText('Battery', { timeout: 30000 });
+    await expect(page.locator('.pm-g-label.is-car', { hasText: 'Car 7' })).toBeVisible();
+    await expect(page.locator('.pm-g-label.is-car', { hasText: 'Car 8' })).toBeVisible();
+    await expect(page.locator('.pm-g-label.is-header', { hasText: 'Aero' })).toHaveCount(0);   // not in Battery
+    await page.locator('.pm-g-crumbs [data-focus=""]').click();
+    await expect(page.locator('.pm-g-crumbs [aria-current]')).toHaveText('Everything');
+    await expect(page.locator('.pm-g-label.is-division', { hasText: 'Electrical' }).first()).toBeVisible();
+    await page.locator('[data-level="project"]').click();
+    await expect(page.locator('[data-level="project"]')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('.pm-g-label:not(.is-header)')).toHaveCount(0);   // folded down to projects: no work rows
+    await page.locator('.pm-g-crumbs .pm-g-crumb-mine').click();
+    await expect(page.locator('.pm-g-crumbs [aria-current]')).toHaveText('Battery');
+    await shot(page, 'timeline-levels');
+    // the legend offers a new kind to leads
+    await page.locator('[data-level="work"]').click();
+    await expect(page.locator('[data-new-kind]')).toBeVisible();
+    await noOverflow(page);
+  });
 });

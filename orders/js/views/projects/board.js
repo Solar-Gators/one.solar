@@ -32,7 +32,7 @@ export async function renderBoard(el, scope) {
   // Open work, plus what was finished in the last 30 days (so "Done" doesn't grow for ever).
   const recent = { any: [{ f: 'category', op: 'ne', v: 'done' }, { f: 'completed', op: 'last', v: 30 }] };
   const user = filterOf(st.f);
-  const { items, total } = await pm.searchAll({ project: project?.id, filter: { all: [recent, ...(user ? [user] : []), ...(st.config.filter ? [st.config.filter] : [])] }, q: st.f.q, sort: 'rank' }, 2000);
+  const { items, total } = await pm.searchAll({ project: project?.id, projects: scope.only, filter: { all: [recent, ...(user ? [user] : []), ...(st.config.filter ? [st.config.filter] : [])] }, q: st.f.q, sort: 'rank' }, 2000);
   const byId = new Map(items.map((i) => [i.id, i]));
   const colOf = (i) => columns.findIndex((c) => c.status_ids.includes(i.status_id));
 
