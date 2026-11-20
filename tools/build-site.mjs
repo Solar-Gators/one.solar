@@ -23,6 +23,7 @@ export const SITE_PATHS = [
   'admin/',
   'inventory/',
   'projects/',
+  'events/',
   'evals/',
   'gatorwire/',
   'scope-map/',

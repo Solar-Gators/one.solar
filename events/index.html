@@ -1,0 +1,79 @@
+<!doctype html>
+<!-- Events: a one.solar app built from the same code as Orders (../orders/js, see appMode.js). Migration 064. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://xvacijpdfqccsigcoctg.supabase.co wss://xvacijpdfqccsigcoctg.supabase.co; worker-src 'self' blob:; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Events · one.solar</title>
+  <link rel="icon" type="image/png" href="../shared/assets/favicon.png">
+  <link rel="apple-touch-icon" href="../shared/assets/apple-touch-icon.png">
+  <meta name="theme-color" content="#ffffff">
+  <!-- Light or dark before the page draws (shared by every one.solar app); the account menu's Appearance changes it (js/main.js applyTheme). -->
+  <script src="../shared/theme.js"></script>
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="one.solar">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <!-- Relative paths, so it works at /one.solar/orders/, on a custom domain and on localhost. -->
+  <link rel="stylesheet" href="../shared/onesolar.css">
+  <link rel="stylesheet" href="../orders/css/styles.css">
+  <link rel="stylesheet" href="../orders/css/projects.css">
+  <link rel="stylesheet" href="../orders/css/events.css">
+</head>
+<body class="signed-out" data-app="events">
+  <header class="topbar">
+    <div class="topbar-inner">
+      <!-- The logo goes to the one.solar home screen (every Solar Gators app); Home in the menu is this app's dashboard. -->
+      <a class="brand" href="../" aria-label="one.solar: all Solar Gators apps">
+        <img class="brand-logo" src="../shared/assets/solar-gators-logo.png" alt="Solar Gators" width="800" height="237">
+        <span class="brand-divider" aria-hidden="true"></span>
+        <span id="brand-name">one<span class="brand-accent">.solar</span></span>
+        <span class="brand-app">Events</span>
+      </a>
+
+      <!-- Phones and tablets: the links fold into this menu. -->
+      <button type="button" class="menu-btn signed-in-only" id="menu-btn" aria-expanded="false" aria-controls="main-nav">
+        <span class="menu-icon" aria-hidden="true"></span><span class="menu-label">Menu</span>
+      </button>
+
+      <!-- All events, Stats and Categories show only to roles that can use them (main.js updateChrome); the pages check too. -->
+      <nav class="nav signed-in-only" id="main-nav" aria-label="Main">
+        <a href="#/events" data-nav="ev-mine">My events</a>
+        <a href="#/events/all" data-nav="ev-all" data-perm="events.create events.attendance" hidden>All events</a>
+        <a href="#/events/stats" data-nav="ev-stats" data-perm="events.attendance" hidden>Stats</a>
+        <a href="#/events/setup" data-nav="ev-setup" data-perm="events.create" hidden>Categories &amp; questions</a>
+      </nav>
+
+      <a class="btn btn-primary new-cta signed-in-only" href="#/events/new" data-nav="ev-new" data-perm="events.create" hidden><span aria-hidden="true">+</span><span class="cta-label"> New event</span></a>
+
+      <div class="account-menu signed-in-only">
+        <button type="button" class="account-link" id="account-btn" aria-expanded="false" aria-controls="account-pop" aria-haspopup="true"></button>
+        <div class="account-pop" id="account-pop" hidden>
+          <a href="#/account" data-nav="account">My account &amp; notifications</a>
+          <a href="#/help" data-nav="help" id="nav-help" hidden>Help</a>
+          <div class="theme-pick" role="group" aria-label="Appearance">
+            <span>Appearance</span>
+            <div class="theme-options">
+              <button type="button" data-theme-set="auto" title="Follow this device's setting">Auto</button>
+              <button type="button" data-theme-set="light">Light</button>
+              <button type="button" data-theme-set="dark">Dark</button>
+            </div>
+          </div>
+          <button type="button" id="menu-install" hidden>Install the app</button>
+          <button type="button" id="menu-report">Report a problem</button>
+          <button type="button" id="menu-sign-out">Sign out</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="banner" id="banner" hidden></div>
+  <div class="announcement" id="announcement" role="status" hidden></div>
+
+  <main id="app" class="container" tabindex="-1"></main>
+
+  <footer class="footer container" id="footer"></footer>
+
+  <script type="module" src="../orders/js/main.js"></script>
+</body>
+</html>

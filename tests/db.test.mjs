@@ -532,6 +532,7 @@ await test('everyone signed in can read the permission list', async () => {
   assert.deepEqual(rows.map((r) => r.key), ['people.accept', 'people.subsystems', 'request.review', 'request.order', 'settings.edit', 'site.customize', 'seasons.manage', 'workflow.edit', 'finances.view', 'finances.edit', 'sponsors.view', 'sponsors.edit', 'evals.templates', 'evals.write', 'evals.view', 'evals.all', 'evals.assign', 'evals.types', 'users.manage', 'roles.edit',
     'inventory.view', 'inventory.use', 'inventory.receive', 'inventory.count', 'inventory.manage',
     'projects.view', 'projects.create', 'projects.manage', 'projects.kinds',
+    'events.create', 'events.attendance',
     'sgaa.edit', 'sgaa.messages', 'sgaa.alumni']);
 });
 
@@ -710,7 +711,7 @@ await test('no roles means Member; unknown roles are refused', async () => {
 
 await test('Admin has every permission, including the new ones', async () => {
   const perms = (await db.query(`select string_agg(permission, ',' order by permission) as p from role_permissions where role = 'admin'`)).rows[0].p;
-  assert.equal(perms, 'evals.all,evals.assign,evals.templates,evals.types,evals.view,evals.write,finances.edit,finances.view,inventory.count,inventory.manage,inventory.receive,inventory.use,inventory.view,people.accept,people.subsystems,projects.create,projects.kinds,projects.manage,projects.view,request.order,request.review,roles.edit,seasons.manage,settings.edit,sgaa.alumni,sgaa.edit,sgaa.messages,site.customize,sponsors.edit,sponsors.view,users.manage,workflow.edit');
+  assert.equal(perms, 'evals.all,evals.assign,evals.templates,evals.types,evals.view,evals.write,events.attendance,events.create,finances.edit,finances.view,inventory.count,inventory.manage,inventory.receive,inventory.use,inventory.view,people.accept,people.subsystems,projects.create,projects.kinds,projects.manage,projects.view,request.order,request.review,roles.edit,seasons.manage,settings.edit,sgaa.alumni,sgaa.edit,sgaa.messages,site.customize,sponsors.edit,sponsors.view,users.manage,workflow.edit');
 });
 
 await test('custom roles: create, rename, grant, and delete', async () => {
@@ -1932,7 +1933,7 @@ console.log('Solar Evals (028)');
   await setRole(evalCe, 'ce'); await setRole(evalCe2, 'ce'); await setRole(eboard, 'eboard');
   // Earlier tests reset the CE role's permissions; put back what 028 gives it.
   await db.exec(`insert into role_permissions (role, permission) values ('ce', 'evals.templates'), ('ce', 'evals.write'), ('ce', 'evals.view') on conflict do nothing`);
-  assert.deepEqual((await db.query(`select permission from role_permissions where role = 'eboard' order by 1`)).rows.map((r) => r.permission), ['evals.templates', 'evals.types', 'evals.view', 'inventory.use', 'inventory.view', 'people.accept', 'projects.create', 'projects.kinds', 'projects.view', 'sgaa.alumni', 'sgaa.edit', 'sgaa.messages']);
+  assert.deepEqual((await db.query(`select permission from role_permissions where role = 'eboard' order by 1`)).rows.map((r) => r.permission), ['evals.templates', 'evals.types', 'evals.view', 'events.attendance', 'events.create', 'inventory.use', 'inventory.view', 'people.accept', 'projects.create', 'projects.kinds', 'projects.view', 'sgaa.alumni', 'sgaa.edit', 'sgaa.messages']);
   const MASTER = '00000000-0000-4000-8000-0000000000a1';
   const sel = (uid, sql, args = []) => as(uid, async () => (await db.query(sql, args)).rows);
   const visible = (uid) => sel(uid, `select id from evals`).then((r) => r.map((x) => x.id));

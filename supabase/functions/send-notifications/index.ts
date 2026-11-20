@@ -67,6 +67,7 @@ const FALLBACK: Record<string, Template> = {
   sponsor_update: { subject: '{sponsor}: {what}', body: '{actor} updated {sponsor} on the Sponsors board: {what}.' },
   eval_update: { subject: 'Solar Evals: {what}', body: 'Hi {first_name}, {details}' },
   project_update: { subject: '{what}', body: 'Hi {first_name}, {details}' },
+  event_invite: { subject: '{what}', body: 'Hi {first_name}, {details}' },
   sgaa_message: {
     subject: 'Alumni hub: {what}',
     body: 'Hi {first_name}, {from_name} ({from_kind}) sent you a message on the alumni hub.\nAbout: {need}\n{details}\nReply to this email to answer {from_name} directly.',
@@ -156,9 +157,10 @@ export function render(row: Pick<Row, 'event' | 'payload'>, settings: Record<str
   const evals = row.event.startsWith('eval_');
   const projects = row.event.startsWith('project_');
   const sgaa = row.event.startsWith('sgaa_');
+  const events = row.event.startsWith('event_');
   const all: [string, string][] = sgaa
     ? [['From', values.from_name], ['Reply to', values.reply_to]]
-    : projects
+    : projects || events
     ? []
     : evals
     ? [['Member', values.member], ['Semester', values.semester]]
@@ -177,7 +179,7 @@ export function render(row: Pick<Row, 'event' | 'payload'>, settings: Record<str
     subject: fill(t.subject || '{request_number}', values).split('\n')[0] || 'Order form',
     lines: fill(t.body || '', values).split('\n').filter(Boolean),
     link: values.link,
-    linkLabel: sgaa ? 'See your alumni messages' : projects ? 'Open in Projects' : evals ? 'Open Solar Evals' : sponsor ? 'Open on the Sponsors board' : values.request_number ? `Open ${values.request_number}` : 'Open the order form',
+    linkLabel: sgaa ? 'See your alumni messages' : events ? 'Open in Events' : projects ? 'Open in Projects' : evals ? 'Open Solar Evals' : sponsor ? 'Open on the Sponsors board' : values.request_number ? `Open ${values.request_number}` : 'Open the order form',
     facts: row.event === 'test' ? [] : facts,
     logo: logoUrl(settings?.siteUrl || ''),
     ...(sgaa ? {

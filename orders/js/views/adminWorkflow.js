@@ -307,7 +307,7 @@ export async function renderNotifications(el, { config, rerender, reloadConfig }
       return `${heading}<tr data-ev="${ev.key}">
         <td class="cell-primary" data-label=""><strong>${esc(ev.label)}</strong><div class="muted small">${esc(ev.who)}</div></td>
         <td class="center" data-label="Email"><input type="checkbox" data-ch="email" aria-label="Email for ${esc(ev.label)}" ${on.email ? 'checked' : ''}></td>
-        <td class="center" data-label="Teams">${ev.emailOnly ? '<span class="muted small" title="Email only: replies go to the alum">—</span>'
+        <td class="center" data-label="Teams">${ev.emailOnly ? `<span class="muted small" title="${esc(ev.emailOnlyWhy || 'Email only')}">—</span>`
           : `<input type="checkbox" data-ch="teams" aria-label="Teams for ${esc(ev.label)}" ${on.teams ? 'checked' : ''}>`}</td>
         <td data-label=""><button type="button" class="btn btn-sm" data-edit>${editing === ev.key ? 'Done' : 'Edit message'}</button></td>
       </tr>
