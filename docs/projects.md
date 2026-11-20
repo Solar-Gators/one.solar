@@ -19,7 +19,7 @@ can set up a completely new kind of project without a developer.
 | **List** | A searchable, sortable table, a page at a time. Choose columns (custom fields too), filter, save it as a view, change several items at once, download a CSV. |
 | **Board** | A kanban. Columns are a saved mapping of statuses (several statuses can share a column, each column can have a limit), swimlanes group the cards. Drag a card, or use its **Move** menu. |
 | **Backlog** | Unfinished work in priority order: drag (or arrows / "Move to…") to reorder, estimate and assign in place. Sprints are optional. |
-| **Timeline** | A Gantt chart: target dates, the forecast, a baseline, dependencies, the critical path, schedule warnings, and what-ifs. |
+| **Timeline** | A Gantt chart like the team's roadmap slides: drag to plan (with Undo), click for details, draw dependencies, present or export. The forecast, baseline, critical path and what-ifs are under Plan. |
 | **Calendar** | Deadlines, milestones, starts and project events, by month, week or agenda. Drag a deadline to another day. |
 | **Documents** | The project's linked documents (Teams / SharePoint / OneDrive / GitHub / CAD…). |
 | **Settings** | Details, People & roles, Work types, Workflows, Fields, Forms, Rules, Templates. |
@@ -117,17 +117,49 @@ if any part is wrong. Three come built in: *Simple board*, *Engineering design*,
 
 ## The timeline and the scheduling engine
 
-**Planning right in the Gantt:** "+ Add" under a project (or "+ Add to KEY" across projects) makes a new item with its kind, title and dates, so its bar appears straight away. "+" on a row adds something under it, any depth, as long as the work types allow it (a type goes under a higher level, or the types its settings name). ⇥ puts a row under the one above it; ⇤ takes it out a level. A row with things under it, and each project, gets a dark summary bar spanning everything under it. Across projects, "+ New project" starts one and opens its timeline. These are ordinary items: List, Board, Backlog and Calendar show them too. Creating saves right away; dragging bars is still a what-if until "Apply".
+**The timeline (062): simple by default.** It looks like the team's roadmap slides: months over season weeks
+(01, 02, … counted from the latest **Season start** team date; calendar dates if there isn't one), a "Work package"
+column, rounded bars colored by the **kind of work**, and a legend underneath. Click a legend entry to pick out
+that kind; click it again to show everything. Everything else is off until someone turns it on, and each person's
+choices are remembered per project on their own device.
 
-**More planning in the Gantt (061):**
-- **Draw dates:** an item without dates gets a shaded row; drag across it (or click for a week) to give it a start and due date. Like dragging bars, it's a what-if until "Apply". **Only undated** lists just the items still missing dates (and what they're under).
-- **Rename in place:** double-click a title on the timeline.
-- **Reorder and nest by dragging:** drag a row by its ⋮⋮ handle onto another row. The middle of a row puts it under that row; the top or bottom edge puts it before or after. A spot where the work types don't allow it is greyed out.
-- **Collapse all / Expand all**, and **Fit**, which picks the zoom that shows everything at once (Days, Weeks, Months, Quarters and Today were already there).
-- **Slip against a baseline:** with a baseline chosen, each row shows how many days it moved (+3d later, −2d earlier), and **Moved since the baseline** lists them, worst first.
-- **Team dates:** competitions, design reviews, deadlines and breaks for the whole team, kept by whoever can manage Projects (**Team dates…** on any timeline). They show as bands on every project's timeline (with the name in the date header) and on the Calendar. The **Team dates** box hides them.
-- **Other projects:** a dependency on an item in another project shows as a tag on the row: "ELEC-12 ▸" where that item finishes (this waits on it), "◂ MECH-4" where it starts (it waits on this). Click to open it. (They always shaped the forecast; now they're visible.)
-- **Orders not placed in time:** an open item linked to an Orders request that isn't Ordered or Received, starting within the project's warning window (7 days unless changed under Summary → Orders & budget) or already started, shows "order ⚠" on its row, a list under Schedule warnings and on the Summary. Its owner and the project manager get an inbox notification (and email, if Project updates email is on), at most every 3 days per item. It runs with the timed work, so with the optional cron job (supabase/ops/cron_projects.sql) it also runs on days nobody opens Projects.
+- **Move things by dragging.** Drag a bar to move it, or its ends to change the start or due date (whole days at
+  Weeks zoom, whole weeks when zoomed out; a tag shows the new dates as you go). It **saves straight away**, with an
+  **Undo** at the bottom of the screen. The arrow keys move a selected bar too (Shift for a week).
+- **Click a bar** (or press Enter on it) for a **side panel**: title, kind, start, due, owner, progress and notes,
+  saved together, plus a link to the full item.
+- **Draw dependencies:** hover a bar and drag the dot at its end onto the bar that has to wait for it (finish →
+  start). Click an arrow to remove it. The other kinds, and gaps, are on the item's page.
+- **⋯ on a row:** Details, Open, Add under it, Set dates, Put under the row above, Take out a level.
+- **Draw dates:** an item without dates gets a shaded row; drag across it (or click for a week) to give it dates.
+  **Filter → Only undated** lists just those (and what they're under).
+- **Rename in place:** double-click a title. **Reorder and nest:** drag a row by its ⋮⋮ handle onto another row (the
+  middle puts it under; the top or bottom edge puts it before or after; greyed out where the work types don't allow
+  it). **Collapse all / Expand all** in the column header. Drag the column's edge to make it wider.
+- **"+ Add"** makes a new item with its kind, title and dates; across projects, "+" on a project's row adds to it and
+  "+ New project" starts one. These are ordinary items: List, Board, Backlog and Calendar show them too.
+
+**The toolbar, for when you want more:**
+
+- **Weeks / Months / Season** zoom (Season fits everything), and **Today**.
+- **Color:** kind of work (default), status, subsystem, owner or priority. Kind colors are the work types' colors
+  (Settings → Work types).
+- **Show:** dependency arrows, progress, labels on bars, item keys, owners, team dates; compact
+  or comfortable rows; **light or dark** theme.
+- **Filter:** the usual filters plus **Only undated**.
+- **Plan:** **Forecast** (dashed outlines and "late" markers), **Critical path** (red), **What-if mode** (dragging
+  only tries changes out until "Apply"), a **Baseline** to compare against (each row then shows its slip, and
+  **Moved since the baseline** lists them), **Save a baseline**, saved what-ifs, **Reschedule to forecast…**, and
+  **Team dates…** (competitions, design reviews, deadlines, breaks and the season start, for whoever can manage
+  Projects; they show as bands on every timeline and on the Calendar).
+- **Present:** the chart as a clean slide, with a title and subtitle you can type, light or dark, **Download PNG**,
+  **Print / PDF** (landscape) and **Full screen**.
+
+Also shown when they apply: **Other projects**' dependencies as tags on the row ("ELEC-12 ▸" where that item finishes,
+"◂ MECH-4" where it starts), and **Orders not placed in time**: an open item linked to an Orders request that isn't
+Ordered or Received, starting within the project's warning window (7 days unless changed under Summary → Orders &
+budget) or already started, shows "order ⚠" on its row and a list under Schedule warnings. Its owner and the project
+manager get an inbox notification (and email, if Project updates email is on), at most every 3 days per item.
 
 Three kinds of date are kept apart:
 
@@ -152,7 +184,7 @@ The engine ([`orders/js/projects/schedule.js`](../orders/js/projects/schedule.js
 **Warnings** say when an item is forecast to finish after its due date, when it was meant to have started and hasn't,
 and when its planned start is earlier than its dependencies allow (naming the item that's holding it up).
 
-**What-if**: dragging or resizing a bar, "Dates" on a row, or "Reschedule to forecast…" changes nothing. It shows
+**What-if** (Plan → What-if mode): dragging or resizing a bar, "Set dates" on a row, or "Reschedule to forecast…" changes nothing. It shows
 what the forecast finish becomes, which other items move, and how the warnings change. Then **Apply to the plan**
 (one saved change with a note, in every item's history), **Keep as a what-if** (to come back to), or **Discard**.
 

@@ -188,6 +188,8 @@ export const pm = {
   inventoryReserved: (ids) => (ids.length ? call('inventory_reserved', { p_items: ids }) : Promise.resolve({})),
   /** 061: open items whose linked order isn't placed and that start soon (or already did). */
   orderWarnings: (projectId) => call('pm_order_warnings', { p_project: projectId }),
+  /** 062: an item's description (search results leave it out), for the timeline's side panel. */
+  itemDescription: async (id) => (unwrap(await supabase.from('pm_items').select('description').eq('id', id).maybeSingle()) || {}).description || '',
   /** 061: the team's dates (competitions, reviews…), drawn on every timeline. */
   keyDates: async () => unwrap(await supabase.from('pm_key_dates').select('*').order('day')),
   saveKeyDate: (id, p) => call('pm_save_key_date', { p_id: id, p }),

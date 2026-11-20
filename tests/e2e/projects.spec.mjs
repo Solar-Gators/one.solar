@@ -38,6 +38,17 @@ const one = async (page, query, params = []) => (await sql(page, query, params))
 const save = (page, name = 'Save') => dialog(page).getByRole('button', { name, exact: true }).click();
 /** PM_SHOTS=1 keeps pictures of the main pages in test-results/pm-shots (for looking at, not compared). */
 const shot = (page, name) => (process.env.PM_SHOTS ? page.screenshot({ path: `test-results/pm-shots/${name}.png`, fullPage: true }) : null);
+/** Opens a toolbar menu on the timeline (Show, Plan) if it isn't open already. */
+const openPop = async (page, name) => {
+  const d = page.locator(`details.pm-pop[data-pop="${name}"]`);
+  if (!(await d.evaluate((n) => n.open))) await d.locator('summary').click();
+  await expect(d.locator('.pm-pop-body')).toBeVisible();
+};
+/** The ⋯ menu on a timeline row, then one of its items. */
+const rowMenu = async (page, title, item) => {
+  await page.locator('.pm-g-label', { hasText: title }).locator('[data-menu]').click();
+  await page.locator(`.pm-g-menu ${item}`).click();
+};
 const noOverflow = async (page) => expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
 
 test.describe('projects', () => {
@@ -356,6 +367,12 @@ test.describe('projects', () => {
     await expect(page.locator('.pm-g-bar')).toHaveCount(4);
     await expect(page.locator('.pm-g-arrow')).toHaveCount(2);
     await expect(page.locator('.pm-g-today')).toHaveCount(1);
+    // simple by default: no forecast or critical path until they're turned on under Plan
+    await expect(page.locator('.pm-g-bar.is-critical')).toHaveCount(0);
+    await openPop(page, 'plan');
+    await page.locator('[data-plan="forecast"]').check();
+    await openPop(page, 'plan');
+    await page.locator('[data-plan="critical"]').check();
     // Cell selection is late, so everything after it is pushed: warnings, and the chain is the critical path
     const warnings = page.locator('.pm-summary .card', { hasText: 'Schedule warnings' });
     await expect(warnings).toContainText(`${await key('Cell selection')}`);
@@ -367,7 +384,9 @@ test.describe('projects', () => {
     await shot(page, 'timeline');
     // a what-if: give Module design two more weeks; the plan shows the effect but nothing is saved
     const before = await one(page, `select due_date::text d from pm_items where title = 'Module design'`);
-    await page.locator('.pm-g-label', { hasText: 'Module design' }).locator('[data-dates]').click();
+    await openPop(page, 'plan');
+    await page.locator('[data-plan="whatIf"]').check();
+    await rowMenu(page, 'Module design', '[data-dates]');
     await dialog(page).locator('#gd-due').fill(day(19));
     await save(page, 'Try these dates');
     await expect(page.locator('.pm-whatif')).toContainText('Nothing is saved yet');
@@ -375,11 +394,12 @@ test.describe('projects', () => {
     expect((await one(page, `select due_date::text d from pm_items where title = 'Module design'`)).d).toBe(before.d);
     // a baseline, then apply the what-if: now it's saved, with history, and the baseline still shows the old plan
     await page.click('[data-discard]');
+    await openPop(page, 'plan');
     await page.click('[data-save-baseline]');
     await dialog(page).locator('#ask-text').fill('Plan of record');
     await dialog(page).getByRole('button', { name: 'Save' }).click();
     await expect(toast(page)).toContainText('Baseline saved');
-    await page.locator('.pm-g-label', { hasText: 'Module design' }).locator('[data-dates]').click();
+    await rowMenu(page, 'Module design', '[data-dates]');
     await dialog(page).locator('#gd-due').fill(day(19));
     await save(page, 'Try these dates');
     await page.click('[data-apply]');
@@ -387,8 +407,34 @@ test.describe('projects', () => {
     await dialog(page).getByRole('button', { name: 'Apply to the plan' }).click();
     await expect(toast(page)).toContainText('Rescheduled 1 item');
     expect((await one(page, `select due_date::text d from pm_items where title = 'Module design'`)).d).toBe(day(19));
+    await openPop(page, 'plan');
     await page.locator('[data-baseline]').selectOption({ index: 1 });
     await expect(page.locator('.pm-g-baseline')).toHaveCount(4);
+    await openPop(page, 'plan');
+    await page.locator('[data-plan="whatIf"]').uncheck();
+    // 062: click a bar for its details panel; save a change there, then Undo puts it back
+    const pack = (await one(page, `select id from pm_items where title = 'Pack assembly'`)).id;
+    await page.locator(`.pm-g-bar[data-bar="${pack}"]`).click();
+    await expect(page.locator('.pm-g-panel [name="title"]')).toHaveValue('Pack assembly');
+    await page.locator('.pm-g-panel [name="progress"]').fill('40');
+    await page.locator('.pm-g-panel [type="submit"]').click();
+    await expect(toast(page)).toContainText('saved');
+    expect((await one(page, `select progress from pm_items where title = 'Pack assembly'`)).progress).toBe(40);
+    // present: the chart as a slide
+    await page.click('[data-present]');
+    await expect(page.locator('.pm-present-chart svg')).toBeVisible();
+    await expect(page.locator('.pm-present-chart svg')).toContainText('WORK PACKAGE');
+    await shot(page, 'timeline-present');
+    await page.click('[data-present-exit]');
+    await expect(page.locator('.pm-gantt')).toBeVisible();
+    // the dark theme (remembered for this project on this device)
+    await openPop(page, 'show');
+    await page.locator('[data-g-theme]').selectOption('dark');
+    await expect(page.locator('.pm-gantt-wrap.is-dark')).toBeVisible();
+    await shot(page, 'timeline-dark');
+    await openPop(page, 'show');
+    await page.locator('[data-g-theme]').selectOption('light');
+    await expect(page.locator('.pm-gantt-wrap.is-dark')).toHaveCount(0);
     await noOverflow(page);
   });
 
@@ -673,8 +719,8 @@ test.describe('projects', () => {
   test('planning in the Gantt: add an item and things under it, nest and un-nest them, and they show in List', async () => {
     const day = (n) => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
     await signIn(page, ADMIN);
-    await open(page, '/projects/#/projects/p/AERO/timeline', '.pm-gantt');
-    await page.locator('[data-add-root]').click();
+    await open(page, '/projects/#/projects/p/AERO/timeline', '.pm-g-toolbar');
+    await page.locator('.pm-g-toolbar [data-add-root]').click();
     await dialog(page).locator('#ga-kind').selectOption({ index: 0 });   // the highest level first
     await dialog(page).locator('#ga-title').fill('Wind tunnel campaign');
     await dialog(page).locator('#ga-start').fill(day(2));
@@ -683,7 +729,7 @@ test.describe('projects', () => {
     const top = page.locator('.pm-g-label', { hasText: 'Wind tunnel campaign' });
     await expect(top).toBeVisible();
     for (const [title, a, z] of [['Scale model', 2, 10], ['Test runs', 11, 20]]) {
-      await top.locator('[data-add-child]').click();
+      await rowMenu(page, 'Wind tunnel campaign', '[data-add-child]');
       await dialog(page).locator('#ga-title').fill(title);
       await dialog(page).locator('#ga-start').fill(day(a));
       await dialog(page).locator('#ga-due').fill(day(z));
@@ -693,7 +739,7 @@ test.describe('projects', () => {
     const parentOf = (title) => one(page, `select (select title from pm_items p where p.id = i.parent_id) parent from pm_items i where title = $1`, [title]);
     expect(await parentOf('Test runs')).toEqual({ parent: 'Wind tunnel campaign' });
     await expect(page.locator('.pm-g-sum').first()).toBeVisible();   // the summary bar over what's under it
-    await page.locator('.pm-g-label', { hasText: 'Test runs' }).locator('[data-outdent]').click();
+    await rowMenu(page, 'Test runs', '[data-outdent]');
     await expect(toast(page)).toContainText('moved out a level');
     expect(await parentOf('Test runs')).toEqual({ parent: null });
     // 061: rename in place; an undated item gets its dates by drawing on its row (a what-if, then Apply)
@@ -702,12 +748,13 @@ test.describe('projects', () => {
     await page.locator('.pm-g-rename').press('Enter');
     await expect(toast(page)).toContainText('Renamed');
     await expect(page.locator('.pm-g-label', { hasText: 'Test runs (tunnel)' })).toBeVisible();
-    await page.locator('[data-add-root]').click();
+    await page.locator('.pm-g-toolbar [data-add-root]').click();
     await dialog(page).locator('#ga-title').fill('Data review');
     await dialog(page).locator('#ga-start').fill('');
     await dialog(page).locator('#ga-due').fill('');
     await save(page, 'Add');
     await expect(page.locator('.pm-g-label', { hasText: 'Data review' })).toBeVisible();
+    await page.click('[data-filters]');
     await page.locator('[data-opt="undated"]').check();
     const { id } = await one(page, `select id from pm_items where title = 'Data review'`);
     const row = page.locator(`.pm-g-row[data-draw="${id}"]`);
@@ -717,12 +764,11 @@ test.describe('projects', () => {
     await page.mouse.down();
     await page.mouse.move(box.x + 300, box.y + box.height / 2, { steps: 5 });
     await page.mouse.up();
-    await expect(page.locator('.pm-whatif')).toContainText('1 date change');
-    await page.locator('[data-apply]').click();
-    await save(page, 'Apply to the plan');
-    await expect(toast(page)).toContainText('Rescheduled 1 item');
+    // 062: drawing saves straight away, with an Undo
+    await expect(page.locator('#pm-undo')).toContainText('Undo');
     await expect.poll(() => one(page, `select start_date is not null and due_date > start_date as ok from pm_items where title = 'Data review'`)).toEqual({ ok: true });
     await page.locator('[data-opt="undated"]').uncheck();
+    await shot(page, 'timeline-planning');
     await open(page, '/projects/#/projects/p/AERO/list', 'table');
     await expect(page.locator('table')).toContainText('Scale model');
     await expect(page.locator('table')).toContainText('Test runs');
