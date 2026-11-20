@@ -11,7 +11,7 @@ import { loadBase, loadConfig, createItemDialog, itemHref, projectHref, can, for
 
 const PAGES = [
   ['My work', '#/projects', 'm'], ['All projects', '#/projects/all', 'p'], ['Inbox', '#/projects/inbox', 'i'], ['Boards', '#/projects/boards', 'b'],
-  ['Timeline (every project)', '#/projects/timeline', 't'], ['Calendar', '#/projects/calendar', 'c'], ['All work (search)', '#/projects/list', 'l'], ['Dashboards', '#/projects/dashboards', 'd'],
+  ['Timeline (every project)', '#/projects/timeline', 't'], ['Calendar', '#/projects/calendar', 'c'], ['All work (search)', '#/projects/list', 'l'], ['Dashboards', '#/projects/dashboards', 'd'], ['Kinds of work', '#/projects/kinds', 'k'],
 ];
 const TABS = [['Summary', ''], ['List', 'list'], ['Board', 'board'], ['Backlog', 'backlog'], ['Timeline', 'timeline'], ['Calendar', 'calendar'], ['Documents', 'docs']];
 const RECENT = 'pm.recentItems';

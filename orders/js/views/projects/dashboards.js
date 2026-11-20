@@ -11,6 +11,7 @@ import { schedule, todayISO } from '../../projects/schedule.js';
 import { needsDatabase, loadBase, shapesFor, header, itemHref, projectHref, personName, avatar, formDialog, toast, dueChip, statusChip, filterOf } from './kit.js';
 import { progressBar } from './projects.js';
 import { loadViews, viewsFor, pickView, viewPicker, bindViewPicker } from './saved.js';
+import { cycleSwitch, bindCycleSwitch, inView, cyclesOf } from './cycles.js';
 
 const WIDGETS = {
   numbers: 'Open, overdue, blocked, unassigned', projects: 'Projects: progress and who needs help', subsystems: 'Progress by CE division and subsystem', status: 'Items by status',
@@ -30,8 +31,8 @@ export async function renderDashboards(el, { config, params, rerender }) {
   const current = views.find((v) => v.id === st.view) || null;
   const sc = st.config.scope || {};
 
-  // what's in scope: by program, project and CE division
-  const projects = b.projects.filter((p) => !p.archived_at && (!sc.program || p.program_id === sc.program) && (!sc.project || p.id === sc.project));
+  // what's in scope: by car cycle (a dashboard's own, else the switcher at the top), project and CE division
+  const projects = b.projects.filter((p) => !p.archived_at && (sc.program ? p.program_id === sc.program : inView(b, p)) && (!sc.project || p.id === sc.project));
   const projectIds = projects.map((p) => p.id);
   const inScope = (x) => projectIds.includes(x.project_id) && (!sc.division || x.division_id === sc.division);
   const scopeFilter = { all: [{ f: 'project', op: 'in', v: projectIds.length ? projectIds : ['00000000-0000-0000-0000-000000000000'] }, ...(sc.division ? [{ f: 'division', v: sc.division }] : [])] };
@@ -42,11 +43,11 @@ export async function renderDashboards(el, { config, params, rerender }) {
   const isMs = (i) => !!shapes.cfgOf(i)?.typeById.get(i.type_id)?.is_milestone;
   const li = (i, extra = '') => `<li><a href="${itemHref(i.key)}">${esc(i.key)} · ${esc(i.title)}</a> ${dueChip(i)} ${avatar(b, i.owner_id)} ${extra}</li>`;
   const none = (text) => `<p class="muted">${esc(text)}</p>`;
-  const scopeBar = `<div class="pm-filters"><select data-scope="program" aria-label="Program"><option value="">Every program</option>${b.programs.filter((g) => !g.archived_at).map((g) => `<option value="${esc(g.id)}" ${sc.program === g.id ? 'selected' : ''}>${esc(g.name)}${g.vehicle ? ` (${esc(g.vehicle)})` : ''}</option>`).join('')}</select>
+  const scopeBar = `<div class="pm-filters"><select data-scope="program" aria-label="Car cycle"><option value="">${cyclesOf(b).length > 1 ? 'The car chosen above' : 'Every car cycle'}</option>${cyclesOf(b).map((g) => `<option value="${esc(g.id)}" ${sc.program === g.id ? 'selected' : ''}>${esc(g.name)}${g.vehicle ? ` (${esc(g.vehicle)})` : ''}</option>`).join('')}</select>
     <select data-scope="project" aria-label="Project"><option value="">Every project</option>${b.projects.filter((p) => !p.archived_at).map((p) => `<option value="${esc(p.id)}" ${sc.project === p.id ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select>
     <select data-scope="division" aria-label="CE division"><option value="">Every CE division</option>${b.divisions.filter((d) => !d.archived_at).map((d) => `<option value="${esc(d.id)}" ${sc.division === d.id ? 'selected' : ''}>${esc(d.name)}</option>`).join('')}</select></div>`;
   const tabs = `<nav class="pm-tabs" aria-label="Dashboards">${[['', 'Dashboard'], ['workload', 'Workload'], ['review', 'Weekly review']].map(([k, l]) => `<a href="#/projects/dashboards${k ? `/${k}` : ''}" ${(k || 'board') === tab ? 'aria-current="page"' : ''}>${l}</a>`).join('')}</nav>`;
-  const bindScope = () => el.querySelectorAll('[data-scope]').forEach((n) => (n.onchange = () => ((st.config = { ...st.config, scope: { ...sc, [n.dataset.scope]: n.value || undefined } }), (st.dirty = true), rerender())));
+  const bindScope = () => (bindCycleSwitch(el, b, rerender), el.querySelectorAll('[data-scope]')).forEach((n) => (n.onchange = () => ((st.config = { ...st.config, scope: { ...sc, [n.dataset.scope]: n.value || undefined } }), (st.dirty = true), rerender())));
 
   if (tab === 'workload') {
     const w = workload(items, b.people.filter((p) => items.some((i) => i.owner_id === p.id)), prefs);
@@ -57,7 +58,7 @@ export async function renderDashboards(el, { config, params, rerender }) {
     const bySub = new Map();
     for (const i of items) bySub.set(i.subsystem_id || i.division_id || '', (bySub.get(i.subsystem_id || i.division_id || '') || 0) + (Number(i.estimate_hours) || 0));
     const most = Math.max(1, ...bySub.values());
-    el.innerHTML = `${header('Dashboards', 'How the work is spread across people. Nobody has to track time: this uses the estimates on open items and their due dates.')}${tabs}${scopeBar}
+    el.innerHTML = `${header('Dashboards', 'How the work is spread across people. Nobody has to track time: this uses the estimates on open items and their due dates.')}${cycleSwitch(b)}${tabs}${scopeBar}
       <section class="card"><h2>Open work by person and week due</h2>
         <div class="table-wrap"><table class="pm-table pm-load"><thead><tr><th>Person</th><th>Items</th><th>Overdue</th>${w.weeks.map((x) => `<th>Week of ${esc(fmtDate(x))}</th>`).join('')}<th>No date</th><th>Total</th><th>Has (h/week)</th></tr></thead><tbody>
           ${w.rows.filter((r) => r.items).map((r) => `<tr class="${r.id ? '' : 'pm-unassigned'}"><td>${r.id ? `${avatar(b, r.id)} ${esc(personName(b, r.id))}` : '<strong>No owner</strong>'}</td><td><a href="#/projects/list">${r.items}</a>${r.unestimated ? ` <span class="muted small">(${r.unestimated} not estimated)</span>` : ''}</td>
@@ -94,7 +95,7 @@ export async function renderDashboards(el, { config, params, rerender }) {
       ['Decisions needed', [...waiting.map((a) => li(byId.get(a.item_id), `<span class="chip-tone tone-amber">Waiting for approval since ${esc(relDay(a.requested_at))}</span>`)),
         ...items.filter((i) => (i.labels || []).includes('decision')).map((i) => li(i, '<span class="chip">decision</span>'))], 'Nothing is waiting on an approval, and nothing is labeled "decision".'],
     ];
-    el.innerHTML = `${header('Dashboards', 'A summary to walk through at the weekly program review.', '<button type="button" class="btn" data-copy>Copy as text</button>')}${tabs}${scopeBar}
+    el.innerHTML = `${header('Dashboards', 'A summary to walk through at the weekly program review.', '<button type="button" class="btn" data-copy>Copy as text</button>')}${cycleSwitch(b)}${tabs}${scopeBar}
       <div class="pm-filters"><label class="inline-field">Looking back <select data-days>${[7, 14, 30].map((n) => `<option value="${n}" ${st.days === n ? 'selected' : ''}>${n} days</option>`).join('')}</select></label></div>
       <div class="pm-review">${parts.map(([title, rows, empty]) => `<section class="card"><h2>${esc(title)} <span class="muted">${rows.length}</span></h2>${rows.length ? `<ul class="pm-mini">${rows.join('')}</ul>` : none(empty)}</section>`).join('')}</div>
       <p class="hint">Label an item <code>decision</code> to bring it to this list. Only projects you can see are included.</p>`;
@@ -212,7 +213,7 @@ export async function renderDashboards(el, { config, params, rerender }) {
     }
   };
   const wide = new Set(['numbers', 'projects', 'subsystems', 'schedule']);
-  el.innerHTML = `${header('Dashboards', 'Progress across the projects you can see. Hover a number to see how it was worked out.')}${tabs}
+  el.innerHTML = `${header('Dashboards', 'Progress across the projects you can see. Hover a number to see how it was worked out.')}${cycleSwitch(b)}${tabs}
     <div class="pm-toolbar">${viewPicker(b, views, current, { noun: 'dashboard', dirty: st.dirty })}<div class="card-actions"><button type="button" class="btn btn-sm${st.edit ? ' is-on' : ''}" data-edit-widgets>${st.edit ? 'Done editing' : 'Edit widgets'}</button></div></div>
     ${scopeBar}
     <div class="pm-dash">${widgets.map((w, n) => `<section class="card pm-widget${wide.has(w.type) ? ' pm-wide' : ''}" data-widget="${n}"><div class="pm-widget-head"><h2>${esc(w.title || WIDGETS[w.type] || w.type)}</h2>

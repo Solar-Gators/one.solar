@@ -14,6 +14,7 @@ import { progressBar } from './projects.js';
 import { renderList } from './list.js';
 import { alumniShareCard, bindAlumniShare } from './alumni.js';
 import { renderBoard } from './board.js';
+import { cycleSwitch, bindCycleSwitch, inView, cyclesInView } from './cycles.js';
 
 const lazy = {
   backlog: () => import('./backlog.js').then((m) => m.renderBacklog),
@@ -57,15 +58,17 @@ export async function renderAcross(el, ctx) {
   if (missing) return void (el.innerHTML = missing);
   const which = ctx.params.parts[0];
   const b = await loadBase();
-  const projectIds = b.projects.filter((p) => !p.archived_at).map((p) => p.id);
+  // 063: the car cycles chosen at the top (this car, the next, both, everything)
+  const projectIds = b.projects.filter((p) => !p.archived_at && inView(b, p)).map((p) => p.id);
   const shapes = await shapesFor(b, projectIds);
   const scope = { b, project: null, cfg: null, cfgOf: shapes.cfgOf, statuses: shapes.all.statuses, types: shapes.all.types, fields: [], projectIds,
-    rerender: ctx.rerender, params: ctx.params, base: `#/projects/${which}` };
+    rerender: ctx.rerender, params: ctx.params, base: `#/projects/${which}`, only: cyclesInView(b) ? projectIds : null };
   const titles = { boards: ['Boards', 'Boards across projects: statuses with the same name share a column.'], timeline: ['Timeline', 'Every project on one timeline, with the dependencies between them.'],
     calendar: ['Calendar', 'Deadlines, milestones and project events.'], list: ['All work', 'Search every item you can see.'] };
-  el.innerHTML = `${takeFlash()}${header(titles[which][0], titles[which][1])}<div data-body></div>`;
+  el.innerHTML = `${takeFlash()}${header(titles[which][0], titles[which][1])}${cycleSwitch(b)}<div data-body></div>`;
+  bindCycleSwitch(el, b, ctx.rerender);
   const body = el.querySelector('[data-body]');
-  if (!projectIds.length) return void (body.innerHTML = '<div class="empty"><p><strong>No projects yet.</strong></p><p><a class="btn btn-primary" href="#/projects/all">Projects</a></p></div>');
+  if (!projectIds.length) return void (body.innerHTML = `<div class="empty"><p><strong>${cyclesInView(b) ? 'No projects in this car cycle yet.' : 'No projects yet.'}</strong></p><p><a class="btn btn-primary" href="#/projects/all">Projects</a></p></div>`);
   if (which === 'list') return renderList(body, scope);
   if (which === 'boards') return renderBoard(body, scope);
   return (await lazy[which]())(body, scope);

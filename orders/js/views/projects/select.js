@@ -17,8 +17,16 @@ export const pickBox = (i) => `<input type="checkbox" class="pm-pickbox" data-se
  * Make the tick boxes in `root` work and show the bar while anything is ticked. items(): the items on the page;
  * cfgOf(item): its project's configuration; done(): after a change (redraw).
  */
+// What's ticked on this page survives the page redrawing itself (after a save, an Undo, a refresh behind it).
+// One set per page, shared by every redraw of it; `kept.sync` redraws the live page's boxes and bar.
+let kept = { page: '', ids: new Set(), sync: null };
+
 export function bindSelection(root, { b, items, cfgOf, done, sprints = [] }) {
-  const picked = new Set();
+  const here = location.hash;
+  const onPage = new Set(items().map((i) => i.id));
+  if (kept.page !== here) kept = { page: here, ids: new Set(), sync: null };
+  const picked = kept.ids;
+  [...picked].forEach((id) => !onPage.has(id) && picked.delete(id));
   let last = null;
   const bar = document.createElement('div');
   bar.className = 'pm-bulkbar';
@@ -36,7 +44,13 @@ export function bindSelection(root, { b, items, cfgOf, done, sprints = [] }) {
   document.querySelector('.pm-bulkbar')?.remove();
   document.body.append(bar);
   // the bar belongs to this page: gone when the page is replaced
-  const gone = new MutationObserver(() => !root.isConnected && (bar.remove(), gone.disconnect(), document.removeEventListener('keydown', keys)));
+  const gone = new MutationObserver(() => {
+    if (root.isConnected) return;
+    bar.remove();
+    gone.disconnect();
+    document.removeEventListener('keydown', keys);
+    if (location.hash !== here && kept.page === here) kept = { page: '', ids: new Set(), sync: null };   // left the page: nothing stays ticked
+  });
   gone.observe(document.getElementById('app') || document.body, { childList: true });
 
   const boxes = () => [...root.querySelectorAll('[data-select]')];
@@ -51,7 +65,8 @@ export function bindSelection(root, { b, items, cfgOf, done, sprints = [] }) {
     bar.hidden = !picked.size;
     bar.querySelector('[data-count]').textContent = `${picked.size} selected`;
   };
-  const clear = () => (picked.clear(), sync());
+  kept.sync = sync;
+  const clear = () => (picked.clear(), sync(), kept.sync !== sync && kept.sync?.());   // a newer redraw of this page shows it too
   root.addEventListener('click', (e) => {
     const box = e.target.closest('[data-select]');
     if (!box) return;
@@ -72,6 +87,7 @@ export function bindSelection(root, { b, items, cfgOf, done, sprints = [] }) {
     if (e.key === 'Escape' && picked.size && !document.querySelector('dialog[open], .pm-pick')) clear();
   };
   document.addEventListener('keydown', keys);
+  if (picked.size) sync();
 
   const chosen = () => items().filter((i) => picked.has(i.id));
   const report = (n, failed) => {

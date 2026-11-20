@@ -14,6 +14,8 @@ import { todayISO } from '../../projects/schedule.js';
 
 export const PM_PERMS = ['projects.view', 'projects.create', 'projects.manage'];
 export const canCreateProjects = () => auth.can('projects.create') || auth.can('projects.manage');
+/** 063: leads (and Admins) change the team's kinds of work. */
+export const canEditKinds = () => auth.can('projects.kinds') || auth.can('projects.manage');
 
 /** The database has Projects (051)? Otherwise pages say so instead of failing. */
 export function needsDatabase(config) {
@@ -49,11 +51,11 @@ export async function loadBase({ fresh = false } = {}) {
   }
   if (!base || fresh) {
     base = Promise.all([pm.projects(), pm.programs(), api.listProfiles(), pm.divisions().catch(() => []), pm.subsystems().catch(() => []), pm.myCaps(), pm.myRoles(auth.user?.id),
-      pm.myOrg(auth.user?.id).catch(() => [])])
-      .then(([projects, programs, profiles, divisions, subsystems, caps, myRoles, myOrg]) => {
+      pm.myOrg(auth.user?.id).catch(() => []), pm.kinds().catch(() => [])])
+      .then(([projects, programs, profiles, divisions, subsystems, caps, myRoles, myOrg, kinds]) => {
         const people = profiles.filter((p) => (p.roles || []).some((r) => r !== 'guest' && r !== 'alumni'));
         return {
-          projects, programs, people, divisions, subsystems, caps, me: auth.user?.id,
+          projects, programs, people, divisions, subsystems, caps, me: auth.user?.id, kinds,
           myOrg: myOrg[0] || null,   // my main division / subsystem: the default for new items
           myRoles: new Map(myRoles.map((m) => [m.project_id, m.role_id])),
           projectById: new Map(projects.map((p) => [p.id, p])),

@@ -34,7 +34,7 @@ export async function renderCalendar(el, scope) {
   const user = filterOf(st.f);
   const inRange = (f) => ({ all: [{ f, op: 'gte', v: fromISO }, { f, op: 'lte', v: toISO_ }] });
   const [{ items }, events, keyDates] = await Promise.all([
-    pm.searchAll({ project: project?.id, q: st.f.q, sort: 'due',
+    pm.searchAll({ project: project?.id, projects: scope.only, q: st.f.q, sort: 'due',
       filter: { all: [...(user ? [user] : []), { any: [inRange('due'), inRange('start'), ...(st.work ? [{ all: [{ f: 'start', op: 'lte', v: toISO_ }, { f: 'due', op: 'gte', v: fromISO }] }] : [])] }] } }, 2000),
     pm.calendarEvents(scope.projectIds),
     pm.keyDates().catch(() => []),   // 061: the team's dates

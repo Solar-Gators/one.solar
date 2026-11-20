@@ -585,3 +585,36 @@ body.is-loading::after { content: ""; position: fixed; z-index: 2000; top: 0; le
 @media (prefers-reduced-motion: reduce) {
   .pm-ie.is-saving::after, body.is-loading::after { animation: none; }
 }
+
+/* ---- car cycles, levels and the team's kinds of work (063) ---- */
+.pm-cycles { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 0 14px; }
+.pm-cycles-label { color: var(--muted); font-size: 13px; font-weight: 600; }
+.pm-cycles .pm-seg button.is-on { background: var(--navy); color: var(--surface); }
+.pm-cycle-now { display: inline-block; margin-left: 4px; padding: 0 6px; border-radius: 999px; background: var(--orange); color: #fff; font-size: 10.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; vertical-align: middle; }
+.pm-g-crumbs { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 4px 0 10px; font-size: 14px; }
+.pm-g-crumbs button { border: 0; background: none; padding: 2px 4px; border-radius: 6px; color: var(--link, var(--orange)); font: inherit; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.pm-g-crumbs [aria-current] { font-weight: 700; padding: 2px 4px; }
+.pm-g-crumb-sep { color: var(--muted); }
+.pm-g-crumbs .pm-g-crumb-mine { margin-left: 8px; border: 1px solid var(--border); text-decoration: none; padding: 2px 10px; border-radius: 999px; color: var(--text); }
+.pm-g-label.is-level { font-weight: 700; }
+.pm-g-label.is-car { text-transform: uppercase; letter-spacing: .05em; font-size: 12.5px; }
+.pm-g-level { border: 0; background: none; padding: 0; font: inherit; color: inherit; text-align: left; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pm-g-level:hover, .pm-g-level:focus-visible { text-decoration: underline; }
+.pm-g-row.is-car, .pm-g-row.is-division { background: color-mix(in srgb, var(--g-group) 70%, var(--navy) 6%); }
+.pm-g-leg-add { border: 1px dashed var(--border); color: var(--muted); }
+.pm-g-leg-add:hover { color: var(--text); border-color: var(--orange); }
+.pm-kind-dot { display: inline-block; width: 12px; height: 12px; border-radius: 4px; background: var(--c); vertical-align: middle; flex: none; }
+.pm-kind-colors { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.pm-kind-color { position: relative; display: inline-flex; padding: 4px; border-radius: 8px; border: 2px solid transparent; cursor: pointer; }
+.pm-kind-color input { position: absolute; opacity: 0; pointer-events: none; }
+.pm-kind-color .pm-kind-dot { width: 22px; height: 22px; border-radius: 6px; }
+.pm-kind-color:has(input:checked) { border-color: var(--text); }
+.pm-kind-color:has(input:focus-visible) { outline: 2px solid var(--orange); outline-offset: 1px; }
+.pm-kinds td:first-child { min-width: 220px; }
+.pm-copy { border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; margin-top: 12px; }
+.pm-copy legend { font-weight: 700; padding: 0 4px; }
+.pm-copy-list { display: grid; gap: 6px; max-height: 260px; overflow-y: auto; margin-top: 6px; }
+.pm-copy-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 0; font-weight: 400; }
+.pm-copy-row input[type="checkbox"] { width: auto; flex: none; margin: 0; }
+.pm-copy-row > span { min-width: 180px; }
+.pm-copy-key { width: 110px; padding: 3px 8px; text-transform: uppercase; }

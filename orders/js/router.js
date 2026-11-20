@@ -50,6 +50,7 @@ import { renderItem } from './views/projects/item.js';
 import { renderDashboards } from './views/projects/dashboards.js';
 import { renderTemplates } from './views/projects/templates.js';
 import { renderInbox } from './views/projects/inbox.js';
+import { renderKinds } from './views/projects/kinds.js';
 import { errorBox, esc } from './ui.js';
 import { api } from './api.js';
 import { needsText, rolesWith } from './messages.js';
@@ -189,6 +190,7 @@ const ROUTES = [
   { pattern: /^\/projects\/dashboards(?:\/([\w-]+))?$/, nav: 'pm-dash', view: renderDashboards, perm: PM_PERMS },
   { pattern: /^\/projects\/templates$/, nav: 'pm-templates', view: renderTemplates, perm: ['projects.create', 'projects.manage'] },
   { pattern: /^\/projects\/inbox$/, nav: 'pm-inbox', view: renderInbox, perm: PM_PERMS },
+  { pattern: /^\/projects\/kinds$/, nav: 'pm-kinds', view: renderKinds, perm: PM_PERMS },
   { pattern: /^\/export$/, nav: 'requests', view: renderExport },
   { pattern: /^\/admin\/users$/, nav: 'admin', view: renderUsers, perm: tabPerms('users') },
   { pattern: /^\/admin\/people$/, nav: 'admin', view: renderDivisionsPeople, perm: tabPerms('people') },

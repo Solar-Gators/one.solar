@@ -14,7 +14,7 @@ can set up a completely new kind of project without a developer.
 | Page | What it's for |
 | --- | --- |
 | **My work** | What's on your plate: overdue, blocked (and why), due soon, in progress, up next; what's waiting for your approval; a menu on each item to move it along. "Copy what I finished" gives a plain list for a self-evaluation or report. |
-| **Projects** | Every project you can see, by program, with how each is doing. **New project** starts from a template. |
+| **Projects** | Every project you can see, by car cycle, with how each is doing. **New project** starts from a template; **Start a new car cycle** plans the next car (see Car cycles). |
 | **A project → Summary** | Progress three ways (each says how it's worked out), what's coming up, people, latest changes. |
 | **List** | A searchable, sortable table, a page at a time. Choose columns (custom fields too), filter, save it as a view, change several items at once, download a CSV. |
 | **Board** | A kanban. Columns are a saved mapping of statuses (several statuses can share a column, each column can have a limit), swimlanes group the cards. Drag a card, or use its **Move** menu. |
@@ -23,7 +23,8 @@ can set up a completely new kind of project without a developer.
 | **Calendar** | Deadlines, milestones, starts and project events, by month, week or agenda. Drag a deadline to another day. |
 | **Documents** | The project's linked documents (Teams / SharePoint / OneDrive / GitHub / CAD…). |
 | **Settings** | Details, People & roles, Work types, Workflows, Fields, Forms, Rules, Templates. |
-| **Boards / Timeline / Calendar** (top menu) | The same views across every project you can see. |
+| **Boards / Timeline / Calendar** (top menu) | The same views across every project you can see, for the car cycle chosen at the top. The Timeline has levels: Car → CE division → subsystem → project → work (see below). |
+| **Kinds of work** | The team's one list of kinds of work (Design Task, Calc, Design Review…): the same name, icon and color in every project. Leads change it. |
 | **Dashboards** | A board of widgets you can add, remove, reorder and save (for yourself, or shared with the team); **Workload**; **Weekly review**. |
 | **Templates** | Reusable project set-ups: make a project from one, save a project as one, apply one to a running project, export / import. |
 | **Inbox** | Notices about items you own, collaborate on or watch, and your choices about what you're told. |
@@ -66,7 +67,7 @@ whose role may approve can then **review and accept** it; reopening it clears bo
 - **Keyboard shortcuts** (press **?** for the list): **C** new item, **/** search, **J / K** next / previous row,
   **Enter** open; on the row under the mouse **S** status, **A** owner, **D** due date, **P** priority, **E**
   estimate; **G** then **M**y work, **P**rojects, **I**nbox, **B**oards, **T**imeline, **C**alendar, a**L**l work,
-  **D**ashboards. They don't fire while you're typing.
+  **D**ashboards, **K**inds of work. They don't fire while you're typing.
 - **You always see what's happening:** a thin bar at the top while a page loads, a spinner on a value while it saves,
   and a notice when it's done (or why it wasn't).
 
@@ -75,7 +76,8 @@ whose role may approve can then **review and accept** it; reopening it clears bo
 Two layers:
 
 1. **one.solar permissions** (Admin → Roles & permissions): `projects.view` *See projects* (every team role),
-   `projects.create` *Create projects* (Chief Engineers, E-board, Admins), `projects.manage` *Manage all projects*
+   `projects.create` *Create projects* (Chief Engineers, E-board, Admins), `projects.kinds` *Edit kinds of work
+   (whole team)* (Subsystem Leads, Chief Engineers, E-board, Admins; 063), `projects.manage` *Manage all projects*
    (Admins: everything in every project, including private ones). Without *See projects* a person sees nothing,
    whatever project role they have.
 2. **A role in each project** (Settings → People & roles). A new project has Project Administrator, Project
@@ -94,6 +96,18 @@ The database checks every change and every read: hiding a button is never the pr
 
 **Work types** (Settings → Work types): name, icon, color, level (0 is the top, an epic), which types it can go
 under, its workflow, whether it's a milestone, and what new items of that type start with.
+
+**Kinds of work for the whole team** (Projects → Kinds of work, 063). Kinds like Design Task, Calc or Design Review
+are one list for the team, so a kind looks the same in every project and the team timeline reads as one picture.
+- Leads (*Edit kinds of work*: Subsystem Leads, Chief Engineers, E-board) and Admins add, rename, recolor or retire
+  them, on that page or with **+ New kind** in a timeline's legend. Everyone else sees the list.
+- A new kind goes into every project at once, on that project's main workflow (the one most of its kinds use). A
+  project made later gets every kind too.
+- Renaming or recoloring changes it everywhere. Retiring hides it in every project (items keep it); putting it back
+  shows it again, except where a project had hidden it itself.
+- In a project, a team kind is marked **Team**: its name, icon and color come from the list, but the project still
+  picks its workflow, what it goes under and its starting values, and can **hide** it if it doesn't use it.
+- A project can still have kinds of its own. One with the same name as a team kind *is* that kind.
 
 **Workflows** (Settings → Workflows): a drawing of the statuses with arrows for the allowed moves, a table of
 statuses (name, category *To do / In progress / Done*, color, order) and of moves. Each move can be limited to some
@@ -143,7 +157,29 @@ added or updated; it matches by name, never removes anything and never touches e
 exported and imported as a file; an imported file is tried on a scratch project that is thrown away, and refused whole
 if any part is wrong. Three come built in: *Simple board*, *Engineering design*, *Manufacturing*.
 
+## Car cycles
+
+A car cycle (Car 7, Car 8…) has a name, an optional vehicle, start and end dates, and one of them is the **current
+car**. Every project belongs to one; projects made before there were car cycles count as the current car's.
+
+- **The switcher** at the top of Projects, the team Timeline, Boards, Calendar, All work and Dashboards shows one
+  car, **Both** (this car and the next on one time axis, each its own group) or **Everything**. It opens on the
+  current car and remembers your choice in this browser. With only one car cycle there's nothing to switch.
+- **Start a new car cycle** (Projects): name, dates, whether it's the current car now, and which of this car's
+  projects to start from. Each one ticked is copied with its set-up (kinds, workflows, fields, forms, boards, rules),
+  division, subsystem, manager and visibility, but **no items**, under a new key (BAT → BAT8). The old car is
+  untouched.
+- New projects go into the car you're looking at. **Edit** next to a car's name changes its dates, makes it the
+  current car, or archives it (its projects stay).
+
 ## The timeline and the scheduling engine
+
+**Levels (every project).** The team timeline groups projects under Car (when two cars are shown) → CE division →
+subsystem, each a row with one summary bar and how many of its items are late. It **opens on your subsystem** (your
+main one in People), else your division. The breadcrumbs above the chart (Everything › Electrical › Battery) zoom out
+or back in; click a level's name to show only it. **Level** in the toolbar folds the rows to Divisions, Subsystems,
+Projects or Work. A subsystem with one project shows just the project, and a project with nothing in it yet still
+shows (so next car's projects can be planned).
 
 **The timeline (062): simple by default.** It looks like the team's roadmap slides: months over season weeks
 (01, 02, … counted from the latest **Season start** team date; calendar dates if there isn't one), a "Work package"
@@ -257,7 +293,8 @@ original in Microsoft 365.
   (every read and RPC). Styles: [`orders/css/projects.css`](../orders/css/projects.css).
 - **One way of working, shared by every view:** `pick.js` (the pickers), `inline.js` (change a field in place, with
   Undo; the buttons come from `kit.js` → `ie()`), `select.js` (tick boxes and the bar for several at once),
-  `quick.js` (add with a title) and `command.js` (Ctrl+K and the shortcuts). A view only says which fields to show;
+  `quick.js` (add with a title) and `command.js` (Ctrl+K and the shortcuts). `cycles.js` is the car-cycle switcher and
+  "Start a new car cycle"; `kinds.js` the Kinds of work page and its dialog (063). A view only says which fields to show;
   saving, Undo, errors and permissions are the same everywhere. Edits in place save with `pm_update_item` without a
   version check (one field at a time, so the last change wins); the edit form still refuses a stale save.
 - **No new libraries.** SortableJS, Frappe Gantt and calendar libraries were considered. The board uses the same
