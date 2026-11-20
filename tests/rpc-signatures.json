@@ -149,6 +149,101 @@
   "returns": "jsonb",
   "anon": false
  },
+ "ev_check_in": {
+  "args": "p_event uuid, p_code text, p_answers jsonb",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "ev_checkin_code": {
+  "args": "p_event uuid",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "ev_checkin_info": {
+  "args": "p_event uuid",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "ev_delete_event": {
+  "args": "p_id uuid",
+  "returns": "void",
+  "anon": false
+ },
+ "ev_host_check_in": {
+  "args": "p_event uuid, p_user uuid, p_late boolean, p_answers jsonb",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "ev_invite_people": {
+  "args": "p_invite jsonb",
+  "returns": "SETOF uuid",
+  "anon": false
+ },
+ "ev_remove_attendance": {
+  "args": "p_event uuid, p_user uuid",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "ev_restore_attendance": {
+  "args": "p_event uuid, p_user uuid, p_was jsonb",
+  "returns": "void",
+  "anon": false
+ },
+ "ev_rsvp": {
+  "args": "p_event uuid, p_answer text, p_note text",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "ev_runs": {
+  "args": "p_event uuid",
+  "returns": "boolean",
+  "anon": false
+ },
+ "ev_save_category": {
+  "args": "p_id uuid, p jsonb",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "ev_save_event": {
+  "args": "p_id uuid, p jsonb",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "ev_save_template": {
+  "args": "p_id uuid, p jsonb",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "ev_sees": {
+  "args": "p_event uuid",
+  "returns": "boolean",
+  "anon": false
+ },
+ "ev_sees_all": {
+  "args": "",
+  "returns": "boolean",
+  "anon": false
+ },
+ "ev_set_checkin": {
+  "args": "p_event uuid, p_open boolean",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "ev_set_excused": {
+  "args": "p_event uuid, p_user uuid, p_excused boolean, p_note text",
+  "returns": "void",
+  "anon": false
+ },
+ "ev_set_late": {
+  "args": "p_event uuid, p_user uuid, p_late boolean",
+  "returns": "void",
+  "anon": false
+ },
+ "ev_sync": {
+  "args": "",
+  "returns": "integer",
+  "anon": false
+ },
  "eval_answers_visible": {
   "args": "p_self uuid",
   "returns": "boolean",
@@ -437,6 +532,41 @@
  "eval_visible_to_me": {
   "args": "s jsonb, p_status text, p_subject uuid, p_member uuid, p_inputs uuid[]",
   "returns": "boolean",
+  "anon": false
+ },
+ "evx_answers": {
+  "args": "p_questions jsonb, p_answers jsonb",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "evx_code": {
+  "args": "p_event uuid, p_window bigint",
+  "returns": "text",
+  "anon": false
+ },
+ "evx_log": {
+  "args": "p_event uuid, p_action text, p_user uuid, p_details jsonb",
+  "returns": "void",
+  "anon": false
+ },
+ "evx_questions": {
+  "args": "p jsonb",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "evx_require_member": {
+  "args": "",
+  "returns": "void",
+  "anon": false
+ },
+ "evx_require_runs": {
+  "args": "p_event uuid",
+  "returns": "ev_events",
+  "anon": false
+ },
+ "evx_sync_invitees": {
+  "args": "p_event uuid",
+  "returns": "uuid[]",
   "anon": false
  },
  "first_last_key": {

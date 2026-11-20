@@ -2,7 +2,7 @@
 #
 #   test   → the CI workflow (ci.yml). If it fails, nothing below runs.
 #   build  → copies just the site (tools/build-site.mjs: index.html, hub/, orders/, finances/, sponsors/, inventory/, projects/,
-#            admin/, evals/, gatorwire/, scope-map/, shared/) plus version.json (this commit).
+#            events/, admin/, evals/, gatorwire/, scope-map/, shared/) plus version.json (this commit).
 #   deploy → publishes it. Runs only after the repository variable PAGES_FROM_ACTIONS is "true", which
 #            you set when you switch Settings → Pages → Source to "GitHub Actions" (docs/RELEASING.md).
 #            Until then the site keeps publishing from the branch exactly as before.

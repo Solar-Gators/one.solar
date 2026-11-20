@@ -13,20 +13,21 @@ Every Solar Gators team app, in one place and one repo: **https://one.ufsolargat
 | Admin (people, permissions, settings) | `/admin/` | [`admin/`](admin) | [docs/orders.md](docs/orders.md#admin) |
 | Inventory (needs migration 050) | `/inventory/` | [`inventory/`](inventory) | [docs/inventory.md](docs/inventory.md) |
 | Projects (needs migration 051) | `/projects/` | [`projects/`](projects) | [docs/projects.md](docs/projects.md) |
+| Events (attendance, needs migration 064) | `/events/` | [`events/`](events) | [docs/events.md](docs/events.md) |
 | Alumni hub (SGAA, needs migration 052) | `/sgaa/` | [`sgaa/`](sgaa) | [docs/sgaa.md](docs/sgaa.md) |
 | Solar Evals | `/evals/` | [`evals/`](evals) | [docs/solar-evals.md](docs/solar-evals.md) |
 | GatorWire | `/gatorwire/` | [`gatorwire/`](gatorwire) | [docs/gatorwire.md](docs/gatorwire.md) |
 | CE Scope Map | `/scope-map/` | [`scope-map/`](scope-map) | an editable four-way Venn diagram of Chief Engineer responsibilities |
 | Solar Gators website | https://ufsolargators.org/ | (its own repo, Advertisement-Website) | a card on the home screen |
 
-Orders, Finances, Sponsors, Inventory, Projects and Admin are separate apps (each its own address, top bar and menu) built from the same
+Orders, Finances, Sponsors, Inventory, Projects, Events and Admin are separate apps (each its own address, top bar and menu) built from the same
 code in `orders/js/`: each app's `index.html` says which it is (`<body data-app="finances">`), and
 [`orders/js/appMode.js`](orders/js/appMode.js) decides which pages belong where. A link to another app's page
 (e.g. an old `orders/#/sponsors/…` email link) opens it in that app. Admin is grouped by where a setting applies: **one.solar** (every app: people, positions and permissions, the season,
 logo, banner, notifications, home screen), **Orders** (the request form, approvals, lists), and **Other apps** (where
 Sponsors, Finances and Solar Evals keep their own settings, inside each app).
 
-Orders, Finances, Sponsors, Inventory, Projects, Admin, Solar Evals and the alumni hub share one Supabase database ([`supabase/`](supabase)). For setting it up,
+Orders, Finances, Sponsors, Inventory, Projects, Events, Admin, Solar Evals and the alumni hub share one Supabase database ([`supabase/`](supabase)). For setting it up,
 running it locally, database updates and how the code fits together, see **[docs/MAINTAINING.md](docs/MAINTAINING.md)**.
 
 The old addresses (`/Orders-Form/…`, `/Custom-Apps/…`) still work: those repos now only send people here.

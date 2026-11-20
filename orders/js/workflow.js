@@ -28,7 +28,9 @@ export const EVENTS = [
   { key: 'sponsor_update', app: 'Sponsors', label: 'Sponsor card updated', who: 'People watching the card (Sponsors board)' },
   { key: 'project_update', app: 'Projects', label: 'Project updates', who: "Whoever is given an item, mentioned, asked to approve or reminded of a deadline, plus (if they chose it in Projects → Inbox) people on an item that changes. Projects' own inbox always works" },
   { key: 'eval_update', app: 'Solar Evals', label: 'Evaluation updates', who: 'The CE when a member submits a self-eval; the member when their meeting is scheduled and when their eval is shared' },
-  { key: 'sgaa_message', app: 'Alumni hub (SGAA)', label: 'Message from an alum', emailOnly: true, schema: 52,
+  { key: 'event_invite', app: 'Events', label: 'Event invitations', emailOnly: true, emailOnlyWhy: 'Email only: invitations also show in Events', schema: 64,
+    who: 'The people invited to an event, when its host ticks "Email the people invited" while saving it' },
+  { key: 'sgaa_message', app: 'Alumni hub (SGAA)', label: 'Message from an alum', emailOnly: true, emailOnlyWhy: 'Email only: replies go to the alum', schema: 52,
     who: 'The contact an alum (or teammate) writes to on the alumni hub. Replying answers the alum directly. Every message is also kept on the hub (Messages)' },
 ];
 export const PLACEHOLDERS = [

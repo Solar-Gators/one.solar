@@ -87,6 +87,19 @@ export const APPS = [
     ],
   },
   {
+    id: 'events',
+    section: 'apps',
+    name: 'Events',
+    blurb: 'Town halls, testing days and other team events: RSVP, check in with a QR code, and see who came.',
+    href: 'events/',
+    icon: '📅',
+    access: 'signedIn',
+    links: [
+      { label: 'My events', href: 'events/#/events' },
+      { label: 'Attendance stats', href: 'events/#/events/stats', access: ['events.attendance'] },
+    ],
+  },
+  {
     id: 'evals',
     section: 'apps',
     name: 'Solar Evals',

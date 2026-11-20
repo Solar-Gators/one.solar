@@ -51,6 +51,13 @@ import { renderDashboards } from './views/projects/dashboards.js';
 import { renderTemplates } from './views/projects/templates.js';
 import { renderInbox } from './views/projects/inbox.js';
 import { renderKinds } from './views/projects/kinds.js';
+import { renderEventsHome } from './views/events/home.js';
+import { renderEventList } from './views/events/list.js';
+import { renderEventForm } from './views/events/form.js';
+import { renderEvent } from './views/events/event.js';
+import { renderCheckin, renderCheckinScreen } from './views/events/checkin.js';
+import { renderEventStats, renderPersonStats } from './views/events/stats.js';
+import { renderEventSetup } from './views/events/setup.js';
 import { errorBox, esc } from './ui.js';
 import { api } from './api.js';
 import { needsText, rolesWith } from './messages.js';
@@ -64,7 +71,7 @@ const LEADS = ['request.review', 'request.order'];
 const tabPerms = (name) => ADMIN_TABS.find(([key]) => key === name)[2];
 
 /** A page your role can't open: say who to ask, and give a way out. */
-const WHO_TO_ASK = { finances: 'the Treasurer or an Admin', sponsors: 'the Business Coordinator or an Admin', admin: 'an Admin', orders: 'a Chief Engineer or an Admin', inventory: 'an inventory manager or an Admin', projects: 'an Admin' };
+const WHO_TO_ASK = { finances: 'the Treasurer or an Admin', sponsors: 'the Business Coordinator or an Admin', admin: 'an Admin', orders: 'a Chief Engineer or an Admin', inventory: 'an inventory manager or an Admin', projects: 'an Admin', events: 'a Subsystem Lead, a Chief Engineer or an Admin' };
 async function noAccess(perms) {
   const name = APPS[APP].name;
   // U-2: name the permission and the roles that have it (both readable by everyone signed in).
@@ -191,6 +198,17 @@ const ROUTES = [
   { pattern: /^\/projects\/templates$/, nav: 'pm-templates', view: renderTemplates, perm: ['projects.create', 'projects.manage'] },
   { pattern: /^\/projects\/inbox$/, nav: 'pm-inbox', view: renderInbox, perm: PM_PERMS },
   { pattern: /^\/projects\/kinds$/, nav: 'pm-kinds', view: renderKinds, perm: PM_PERMS },
+  // Events (064). Every member: their invitations, RSVPs, check-in. Leads: create, run check-in, stats.
+  { pattern: /^\/events$/, nav: 'ev-mine', view: renderEventsHome },
+  { pattern: /^\/events\/all$/, nav: 'ev-all', view: renderEventList },
+  { pattern: /^\/events\/new$/, nav: 'ev-new', view: renderEventForm, perm: ['events.create'] },
+  { pattern: /^\/events\/e\/([^/]+)\/edit$/, nav: 'ev-all', view: renderEventForm },
+  { pattern: /^\/events\/e\/([^/]+)\/screen$/, nav: 'ev-all', view: renderCheckinScreen },
+  { pattern: /^\/events\/e\/([^/]+)(?:\/(log))?$/, nav: 'ev-all', view: renderEvent },
+  { pattern: /^\/events\/checkin\/([^/]+)$/, nav: 'ev-mine', view: renderCheckin },
+  { pattern: /^\/events\/stats\/person\/([^/]+)$/, nav: 'ev-stats', view: renderPersonStats, perm: ['events.attendance'] },
+  { pattern: /^\/events\/stats(?:\/(events|groups))?$/, nav: 'ev-stats', view: renderEventStats, perm: ['events.attendance'] },
+  { pattern: /^\/events\/setup$/, nav: 'ev-setup', view: renderEventSetup, perm: ['events.create'] },
   { pattern: /^\/export$/, nav: 'requests', view: renderExport },
   { pattern: /^\/admin\/users$/, nav: 'admin', view: renderUsers, perm: tabPerms('users') },
   { pattern: /^\/admin\/people$/, nav: 'admin', view: renderDivisionsPeople, perm: tabPerms('people') },
