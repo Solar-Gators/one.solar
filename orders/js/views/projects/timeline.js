@@ -9,7 +9,10 @@
  *
  * More when you want it:
  *   Color by    kind (default), status, subsystem, owner or priority.
- *   Show        dependencies, progress, labels on bars, item keys, owners, team dates; density. Light / dark follows the site.
+ *   Rows        group by (structure, owner, kind, status, subsystem, none), order (planned, start, end, what waits on
+ *               what), pack rows that don't overlap in time, one row for a one-item project, hide rows outside the Fit.
+ *   Show        dependencies, progress, labels on bars (and what they say), dates on summaries, item keys, owners, team
+ *               dates, car cycles; density. Light / dark follows the site.
  *   Filter      the usual filters, and "Only undated" (draw on a row to give an item its dates).
  *   Plan        the scheduling engine (projects/schedule.js): the FORECAST (dashed outline) from dependencies,
  *               working days and what has happened, the critical path, baselines and how far rows slipped, and
@@ -66,9 +69,15 @@ window.addEventListener('resize', () => {
   resizeTimer = setTimeout(() => onResize?.(), 200);
 });
 const DENSITY = { comfortable: { row: 40, bar: 22 }, compact: { row: 30, bar: 16 } };
-const SHOW = { deps: 'Dependencies', progress: 'Progress', labels: 'Labels on bars', keys: 'Item keys', owners: 'Owners', team: 'Team dates' };
-const DEFAULTS = { px: 18, fit: '', colorBy: 'type', density: 'comfortable', labelW: 280,
-  show: { deps: true, progress: true, labels: false, keys: false, owners: false, team: true },
+const SHOW = { deps: 'Dependencies', progress: 'Progress', labels: 'Labels on bars', sums: 'Dates on summary bars', keys: 'Item keys', owners: 'Owners', team: 'Team dates', cycles: 'Car cycles' };
+/** What a bar's label says (Show → Labels on bars). */
+const BAR_TEXT = { name: 'Name', dates: 'Dates', both: 'Name and dates', owner: 'Owner', progress: 'Progress' };
+/** Rows, top to bottom: what they're grouped by, and the order inside a group. */
+const GROUP_BY = { structure: 'What\'s under what', owner: 'Owner', type: 'Kind of work', status: 'Status', subsystem: 'Subsystem', none: 'Nothing (one list)' };
+const SORT_BY = { rank: 'As planned', start: 'Start date', end: 'End date', deps: 'What waits on what' };
+const DEFAULTS = { px: 18, fit: '', colorBy: 'type', density: 'comfortable', labelW: 280, barText: 'name',
+  groupBy: 'structure', sortBy: 'rank', pack: false, merge: true, hideOutside: false, closed: [], level: '',
+  show: { deps: true, progress: true, labels: false, sums: true, keys: false, owners: false, team: true, cycles: true },
   plan: { forecast: false, critical: false, whatIf: false, baseline: '' } };
 
 const prefKey = (key) => `pm.gantt.${key || 'all'}`;
@@ -86,15 +95,17 @@ function loadPrefs(key) {
 }
 function savePrefs(key, st) {
   try {
-    localStorage.setItem(prefKey(key), JSON.stringify({ px: st.px, fit: st.fit, colorBy: st.colorBy, density: st.density, labelW: st.labelW, show: st.show, plan: st.plan }));
+    localStorage.setItem(prefKey(key), JSON.stringify({ px: st.px, fit: st.fit, colorBy: st.colorBy, density: st.density, labelW: st.labelW, show: st.show, plan: st.plan,
+      barText: st.barText, groupBy: st.groupBy, sortBy: st.sortBy, pack: st.pack, merge: st.merge, hideOutside: st.hideOutside, closed: [...st.closed], level: st.level }));
   } catch { /* not kept: fine */ }
 }
 const states = new Map();
 function stateOf(key) {
   if (!states.has(key)) {
-    states.set(key, { ...loadPrefs(key), f: { q: '', owner: '', category: '', priority: '', type: '', more: null }, closed: new Set(), overrides: {}, scenario: '',
+    const p = loadPrefs(key);   // what's folded and the level are remembered too
+    states.set(key, { ...p, f: { q: '', owner: '', category: '', priority: '', type: '', more: null }, closed: new Set(Array.isArray(p.closed) ? p.closed : []), overrides: {}, scenario: '',
       scroll: null, undated: false, filters: false, pop: '', only: '', selected: '', present: false, title: null, subtitle: null,
-      focus: null, focusSet: false, level: '', room: null, anchor: null });
+      focus: null, focusSet: false, level: p.level || '', room: null, anchor: null });
   }
   return states.get(key);
 }
@@ -142,13 +153,58 @@ export async function renderTimeline(el, scope) {
   for (const w of orderWarnings) (ordersFor.get(w.item) || ordersFor.set(w.item, []).get(w.item)).push(w);
   const mayPlanAny = scope.projectIds.some((pid) => can(b, pid, 'plan'));
 
-  // ---- rows: by project (across projects), then by parent, in backlog order; a filter keeps matches and what they're under
-  const undated = (i) => i.category !== 'done' && !target(i).start && !target(i).due;
-  const keep = (i) => (!shown || shown.has(i.id)) && (!st.undated || undated(i));
-  const undatedCount = items.filter(undated).length;
+  // ---- spans: an item's own dates (target, else the forecast), and everything under an item, a project or a group
+  const own = (i) => {
+    const t = target(i);
+    const p = plan.byId.get(i.id);
+    const a = t.start || t.due || p?.start;
+    const z = t.due || t.start || p?.finish;
+    return a && z ? [a, z] : null;
+  };
+  const merge = (s, o) => (!o ? s : !s ? [...o] : [o[0] < s[0] ? o[0] : s[0], o[1] > s[1] ? o[1] : s[1]]);
   const parentKey = (i) => (i.parent_id && byId.has(i.parent_id) ? i.parent_id : `root:${i.project_id}`);
   const kids = new Map();
   for (const i of items) (kids.get(parentKey(i)) || kids.set(parentKey(i), []).get(parentKey(i))).push(i);
+  const under = new Map();
+  const spanUnder = (i) => {
+    if (under.has(i.id)) return under.get(i.id);
+    under.set(i.id, null);
+    let s = null;
+    for (const c of kids.get(i.id) || []) s = merge(merge(s, own(c)), spanUnder(c));
+    under.set(i.id, s);
+    return s;
+  };
+  const spanProject = (pid) => (kids.get(`root:${pid}`) || []).reduce((s, r) => merge(merge(s, own(r)), spanUnder(r)), null);
+  const spanHeader = (h) => (h.items ? h.items.reduce((s, i) => merge(s, own(i)), null) : h.pids.reduce((s, pid) => merge(s, spanProject(pid)), null));
+  /** How far along a summary is (done counts as 100%), and how much of it is past its due date. */
+  const leavesOf = (i) => {
+    const k = kids.get(i.id) || [];
+    return k.length ? k.flatMap(leavesOf) : [i];
+  };
+  const infoOf = (list) => (!list.length ? null : {
+    pct: Math.round(list.reduce((s, i) => s + (i.category === 'done' ? 100 : Number(i.progress) || 0), 0) / list.length),
+    late: list.filter((i) => i.category !== 'done' && i.due_date && i.due_date < today).length,
+  });
+  const headerInfo = (h) => infoOf(h.items || h.pids.flatMap((pid) => (kids.get(`root:${pid}`) || []).flatMap(leavesOf)));
+
+  // Fit to set dates (anything but "everything shown"): known before the rows, so rows outside them can be left out
+  const cycleSpan = () => {
+    const ids = cyclesInView(b);
+    const list = (ids ? b.programs.filter((g) => ids.includes(g.id)) : cyclesOf(b)).filter((g) => g.start_date && g.end_date);
+    return list.length ? [Math.min(...list.map((g) => toDay(g.start_date))), Math.max(...list.map((g) => toDay(g.end_date)))] : null;
+  };
+  const fixedWindow = !st.fit || st.fit === 'all' ? null : typeof st.fit === 'object' ? [toDay(st.fit.from), toDay(st.fit.to)]
+    : st.fit === 'cycle' ? cycleSpan() : st.fit === '3m' ? [tday - 7, tday + 91] : st.fit === '6m' ? [tday - 7, tday + 182] : st.fit === '12m' ? [tday - 14, tday + 365] : null;
+  const hiding = !!(st.hideOutside && fixedWindow);
+  const outsideWindow = (i) => {
+    const s = own(i);
+    return !s || toDay(s[1]) < fixedWindow[0] || toDay(s[0]) > fixedWindow[1];
+  };
+
+  // ---- rows: by project (across projects), then by parent, in backlog order; a filter keeps matches and what they're under
+  const undated = (i) => i.category !== 'done' && !target(i).start && !target(i).due;
+  const keep = (i) => (!shown || shown.has(i.id)) && (!st.undated || undated(i)) && (!hiding || !outsideWindow(i));
+  const undatedCount = items.filter(undated).length;
   const visible = new Set();
   const mark = (i) => {
     let any = keep(i);
@@ -157,23 +213,73 @@ export async function renderTimeline(el, scope) {
     return any;
   };
   const rows = [];
-  const walk = (i, depth) => {
+  // Rows → Order: siblings as planned (backlog order), by start or end date, or what waits on what (then by start)
+  const startOf = (i) => {
+    const s = merge(own(i), spanUnder(i));
+    return s ? toDay(s[st.sortBy === 'end' ? 1 : 0]) : Infinity;
+  };
+  const sortList = (list) => {
+    if (st.sortBy === 'start' || st.sortBy === 'end') return [...list].sort((a, z) => startOf(a) - startOf(z));
+    if (st.sortBy !== 'deps') return list;
+    const ids = new Set(list.map((i) => i.id));
+    const waiting = new Map(list.map((i) => [i.id, 0]));
+    const next = new Map();
+    for (const d of deps) {
+      if (!ids.has(d.from_item) || !ids.has(d.to_item) || d.from_item === d.to_item) continue;
+      waiting.set(d.to_item, waiting.get(d.to_item) + 1);
+      (next.get(d.from_item) || next.set(d.from_item, []).get(d.from_item)).push(d.to_item);
+    }
+    const left = [...list].sort((a, z) => startOf(a) - startOf(z));
+    const out = [];
+    while (left.length) {
+      const at = left.findIndex((i) => waiting.get(i.id) === 0);
+      const [i] = left.splice(Math.max(at, 0), 1);   // a loop: the earliest goes first
+      out.push(i);
+      for (const id of next.get(i.id) || []) waiting.set(id, waiting.get(id) - 1);
+    }
+    return out;
+  };
+  const hasKids = (i) => (kids.get(i.id) || []).some((c) => visible.has(c.id));
+  // Rows → Pack rows: siblings with dates and nothing under them share a row when they don't overlap in time
+  const place = (list, depth, flat = false) => {
+    list = sortList(list);
+    if (!st.pack) return list.forEach((c) => (flat ? rows.push({ item: c, depth, children: 0 }) : walk(c, depth)));
+    const lanes = [];
+    const laneOf = new Map();
+    for (const c of list.filter((i) => own(i) && (flat || !hasKids(i))).sort((a, z) => toDay(own(a)[0]) - toDay(own(z)[0]))) {
+      const [s, z] = own(c).map(toDay);
+      let lane = lanes.find((l) => l.end < s - 1);
+      if (!lane) lanes.push((lane = { end: -Infinity, items: [] }));
+      lane.items.push(c);
+      lane.end = Math.max(lane.end, z);
+      laneOf.set(c.id, lane);
+    }
+    for (const c of list) {
+      const lane = laneOf.get(c.id);
+      if (!lane) flat ? rows.push({ item: c, depth, children: 0 }) : walk(c, depth);
+      else if (lane.items.length === 1) rows.push({ item: c, depth, children: 0 });
+      else if (!lane.shown) ((lane.shown = true), rows.push({ lane: lane.items, depth }));
+    }
+  };
+  const walk = (i, depth, prefix = null) => {
     if (!visible.has(i.id)) return;
     const children = (kids.get(i.id) || []).filter((c) => visible.has(c.id));
-    rows.push({ item: i, depth, children: children.length });
-    if (!st.closed.has(i.id)) children.forEach((c) => walk(c, depth + 1));
+    rows.push({ item: i, depth, children: children.length, prefix });
+    if (!st.closed.has(i.id)) place(children, depth + 1);
   };
   const live = scope.projectIds.filter((pid) => {
     const roots = kids.get(`root:${pid}`) || [];
     roots.forEach(mark);
-    return roots.some((r) => visible.has(r.id)) || (!shown && !st.undated);   // an empty project shows too (e.g. next car's), unless filtering
+    return roots.some((r) => visible.has(r.id)) || (!shown && !st.undated && !hiding);   // an empty project shows too (e.g. next car's), unless filtering
   });
   const projectRows = (pid, depth) => {
-    const roots = kids.get(`root:${pid}`) || [];
-    if (project) return roots.forEach((r) => walk(r, 0));
+    const roots = (kids.get(`root:${pid}`) || []).filter((r) => visible.has(r.id));
+    if (project) return place(roots, 0);
     const p = b.projectById.get(pid);
+    // a project with one thing in it (and nothing under that) is one row: "Battery Pack › Cell Selection"
+    if (st.merge && !st.closed.has(pid) && roots.length === 1 && !hasKids(roots[0])) return walk(roots[0], depth, { key: p.key, name: p.name });
     rows.push({ header: { kind: 'project', id: pid, key: p.key, name: p.name, pids: [pid], toggle: pid, late: lateIn([pid]) }, depth });
-    if (!st.closed.has(pid)) roots.forEach((r) => walk(r, depth + 1));
+    if (!st.closed.has(pid)) place(roots, depth + 1);
   };
 
   // ---- across projects: the levels above them (Car → CE division → subsystem), and where it opens
@@ -206,7 +312,14 @@ export async function renderTimeline(el, scope) {
   const levels = levelsUsed.filter((k) => !dropped.includes(k));
   const groupKey = (kind, id) => `${kind}:${id || 'none'}`;
   const emit = (list, at, depth) => {
-    if (at >= levels.length) return [...list].sort((a, z) => a.p.name.localeCompare(z.p.name)).forEach((n) => projectRows(n.pid, depth));
+    if (at >= levels.length) {
+      const by = (n) => {
+        const s = spanProject(n.pid);
+        return s ? toDay(s[st.sortBy === 'end' ? 1 : 0]) : Infinity;
+      };
+      const dated = st.sortBy === 'start' || st.sortBy === 'end' || st.sortBy === 'deps';
+      return [...list].sort((a, z) => (dated ? by(a) - by(z) : 0) || a.p.name.localeCompare(z.p.name)).forEach((n) => projectRows(n.pid, depth));
+    }
     const kind = levels[at];
     const L = LEVEL[kind];
     const groups = new Map();
@@ -220,8 +333,47 @@ export async function renderTimeline(el, scope) {
       if (!st.closed.has(key)) emit(ns, at + 1, depth + 1);
     }
   };
-  if (project) projectRows(project.id, 0);
+  // Rows → Group by something other than the structure: one row per piece of work (what has dates, or nothing under it)
+  const grouped = st.groupBy !== 'structure' && !!GROUP_BY[st.groupBy];
+  const GROUP_OF = {
+    owner: (i) => (i.owner_id ? [i.owner_id, personName(b, i.owner_id) || 'Someone'] : ['', 'No owner']),
+    type: (i) => [i.type_id, scope.cfgOf(i)?.typeById.get(i.type_id)?.name || 'Item'],
+    status: (i) => [i.category, CATEGORIES.find((c) => c[0] === i.category)?.[1] || i.category],
+    subsystem: (i) => {
+      const p = b.projectById.get(i.project_id);
+      const sub = i.subsystem_id || p?.subsystem_id;
+      const div = i.division_id || p?.division_id;
+      return sub ? [sub, b.subsystemById.get(sub)?.name || 'Subsystem'] : div ? [div, b.divisionById.get(div)?.name || 'Division'] : ['', 'No subsystem'];
+    },
+    none: () => ['', ''],
+  };
+  const groupRows = () => {
+    const pids = new Set(project ? [project.id] : inFocus.map((n) => n.pid));
+    const groups = new Map();
+    for (const i of items) {
+      if (!pids.has(i.project_id) || !visible.has(i.id) || (hasKids(i) && !own(i))) continue;
+      const [k, name] = GROUP_OF[st.groupBy](i);
+      (groups.get(k) || groups.set(k, { name, items: [] }).get(k)).items.push(i);
+    }
+    const catAt = (k) => CATEGORIES.findIndex((c) => c[0] === k);
+    const order = [...groups].sort(([ka, a], [kz, z]) => (!ka) - (!kz) || (st.groupBy === 'status' ? catAt(ka) - catAt(kz) : a.name.localeCompare(z.name)));
+    for (const [k, g] of order) {
+      if (st.groupBy === 'none') {
+        place(g.items, 0, true);
+        continue;
+      }
+      const key = `g:${st.groupBy}:${k || 'none'}`;
+      rows.push({ header: { kind: 'group', id: k, key, name: g.name, items: g.items, toggle: key, count: g.items.length,
+        late: g.items.filter((i) => i.category !== 'done' && i.due_date && i.due_date < today).length }, depth: 0 });
+      if (!st.closed.has(key)) place(g.items, 1, true);
+    }
+  };
+  if (grouped) groupRows();
+  else if (project) projectRows(project.id, 0);
   else emit(inFocus, 0, 0);
+  /** Every item on a row (a packed row has several). */
+  const rowItems = rows.flatMap((r) => (r.item ? [r.item] : r.lane || []));
+  const hiddenOutside = hiding ? items.filter((i) => (!shown || shown.has(i.id)) && !visible.has(i.id)).length : 0;
   // where I am: Everything › Electrical › Battery (each one zooms out to it)
   const crumbs = () => {
     if (project || !levelsUsed.some((k) => k !== 'car')) return '';
@@ -273,42 +425,24 @@ export async function renderTimeline(el, scope) {
     if (!legend.has(name)) legend.set(name, tone);
     return { name, tone, hex: TONE[tone] || TONE.blue };
   };
-  const col = new Map(rows.filter((r) => r.item).map((r) => [r.item.id, colorOf(r.item)]));
+  const col = new Map(rowItems.map((i) => [i.id, colorOf(i)]));
   const dim = (i) => (st.only && col.get(i.id)?.name !== st.only ? ' is-dim' : '');
 
-  // ---- summary spans: everything under an item (and under each project), from target dates, else the forecast
-  const own = (i) => {
-    const t = target(i);
-    const p = plan.byId.get(i.id);
-    const a = t.start || t.due || p?.start;
-    const z = t.due || t.start || p?.finish;
-    return a && z ? [a, z] : null;
-  };
-  const merge = (s, o) => (!o ? s : !s ? [...o] : [o[0] < s[0] ? o[0] : s[0], o[1] > s[1] ? o[1] : s[1]]);
-  const under = new Map();
-  const spanUnder = (i) => {
-    if (under.has(i.id)) return under.get(i.id);
-    under.set(i.id, null);
-    let s = null;
-    for (const c of kids.get(i.id) || []) s = merge(merge(s, own(c)), spanUnder(c));
-    under.set(i.id, s);
-    return s;
-  };
-  const spanProject = (pid) => (kids.get(`root:${pid}`) || []).reduce((s, r) => merge(merge(s, own(r)), spanUnder(r)), null);
-  const spanHeader = (h) => h.pids.reduce((s, pid) => merge(s, spanProject(pid)), null);
-
   // ---- the days shown, and how wide a day is
-  const days = [tday];
-  for (const { item: i } of rows.filter((r) => r.item)) {
+  const workDays = [];   // the work itself (not today, not team dates): what "Fit: everything shown" fits
+  for (const i of rowItems) {
     const p = plan.byId.get(i.id);
     const t = target(i);
-    days.push(...[t.start, t.due, st.plan.forecast && p?.start, st.plan.forecast && p?.finish, baseline?.[i.id]?.start, baseline?.[i.id]?.due].filter(Boolean).map(toDay));
+    workDays.push(...[t.start, t.due, st.plan.forecast && p?.start, st.plan.forecast && p?.finish, baseline?.[i.id]?.start, baseline?.[i.id]?.due].filter(Boolean).map(toDay));
   }
   for (const r of rows) {
     const s = r.header ? spanHeader(r.header) : r.item && r.children ? spanUnder(r.item) : null;
-    if (s) days.push(toDay(s[0]), toDay(s[1]));
+    if (s) workDays.push(toDay(s[0]), toDay(s[1]));
   }
-  const keysShown = st.show.team ? keyDates.filter((k) => k.kind !== 'season' && toDay(k.end_day || k.day) >= tday - 30 && toDay(k.day) <= tday + 240) : [];
+  const days = [tday, ...workDays];
+  // team dates near the work (or near today)
+  const near = [Math.min(tday, ...workDays) - 30, Math.max(tday, ...workDays) + 60];
+  const keysShown = st.show.team ? keyDates.filter((k) => k.kind !== 'season' && toDay(k.end_day || k.day) >= near[0] && toDay(k.day) <= near[1]) : [];
   for (const k of keysShown) days.push(toDay(k.day), toDay(k.end_day || k.day));
   const seasons = keyDates.filter((k) => k.kind === 'season').sort((a, z) => (a.day < z.day ? -1 : 1));
   let first = Math.min(...days) - 7;
@@ -316,15 +450,9 @@ export async function renderTimeline(el, scope) {
   const seasonRow = seasons.filter((k) => toDay(k.day) <= Math.max(first + 14, tday)).pop() || seasons[0] || null;
   const season = seasonRow ? toDay(seasonRow.day) : null;
   // Fit: the dates to fill the width with (the chart still reaches everything shown; it scrolls to the start).
-  const cycleSpan = () => {
-    const ids = cyclesInView(b);
-    const list = (ids ? b.programs.filter((g) => ids.includes(g.id)) : cyclesOf(b)).filter((g) => g.start_date && g.end_date);
-    return list.length ? [Math.min(...list.map((g) => toDay(g.start_date))), Math.max(...list.map((g) => toDay(g.end_date)))] : null;
-  };
-  const fitSpan = !st.fit ? null : typeof st.fit === 'object' ? [toDay(st.fit.from), toDay(st.fit.to)]
-    : st.fit === 'cycle' ? cycleSpan() || [first, last]
-    : st.fit === '3m' ? [tday - 7, tday + 91] : st.fit === '6m' ? [tday - 7, tday + 182] : st.fit === '12m' ? [tday - 14, tday + 365]
-    : [first, last];
+  // "Everything shown" is the work itself: today can be months before it (a tag at the edge says where).
+  const fitSpan = !st.fit ? null : st.fit === 'all' ? [workDays.length ? Math.min(...workDays) - 7 : first, last]
+    : fixedWindow ? [...fixedWindow] : [first, last];
   if (fitSpan) {
     first = Math.min(first, fitSpan[0]);
     last = Math.max(last, fitSpan[1]);
@@ -335,12 +463,38 @@ export async function renderTimeline(el, scope) {
   const labelW = Math.max(160, Math.min(520, Number(st.labelW) || 280));
   // The chart's width. This draws before it's on the page, so it's worked out from the page (and checked once it's there).
   const room = st.room || Math.max(320, (document.getElementById('app')?.clientWidth || el.clientWidth || 900) - labelW - 40);
-  if (fitSpan && (st.fit === 'all' || fitSpan[0] < first)) fitSpan[0] = first;   // "everything": from the week boundary
+  if (fitSpan) fitSpan[0] = fitSpan[0] < first ? first : fitSpan[0] - ((fitSpan[0] - weekday0) % 7 + 7) % 7;   // from a week boundary
   const px = fitSpan ? clampPx(room / (fitSpan[1] - fitSpan[0] + 1)) : clampPx(st.px);
   if ((last - first + 1) * px < room) last = first + Math.ceil(room / px) - 1;   // fill the width
   const x = (iso) => (toDay(iso) - first) * px;
   const width = Math.round((last - first + 1) * px);
   const { row: ROW, bar: BAR } = DENSITY[st.density] || DENSITY.comfortable;
+  // group headers are thinner than rows of work
+  const HROW = Math.round(ROW * 0.78);
+  const rowH = (r) => (r.header ? HROW : ROW);
+  const tops = [];
+  let height = 0;
+  for (const r of rows) (tops.push(height), (height += rowH(r)));
+  const rowAt = (y) => {
+    let lo = 0;
+    let hi = rows.length - 1;
+    while (lo <= hi) {
+      const m = (lo + hi) >> 1;
+      if (y < tops[m]) hi = m - 1;
+      else if (y >= tops[m] + rowH(rows[m])) lo = m + 1;
+      else return m;
+    }
+    return -1;
+  };
+  // car cycles: a band behind the chart for each one in view (or this project's), named in the header. One without an
+  // end date runs until the next one starts (or the end of the chart).
+  const allCycles = cyclesOf(b).filter((g) => g.start_date);
+  const cycleEnd = (g) => g.end_date || (allCycles[allCycles.indexOf(g) + 1] ? toISO(toDay(allCycles[allCycles.indexOf(g) + 1].start_date) - 1) : toISO(last));
+  const cyclesShown = !st.show.cycles ? [] : (project ? [cycleOfProject(b, project)].filter(Boolean)
+    : cyclesInView(b) ? allCycles.filter((g) => cyclesInView(b).includes(g.id)) : allCycles)
+    .filter((g) => g.start_date).map((g) => ({ ...g, end_date: cycleEnd(g) }))
+    .filter((g) => toDay(g.end_date) >= first && toDay(g.start_date) <= last)
+    .map((g) => ({ ...g, start_date: toISO(Math.max(first, toDay(g.start_date))), end_date: toISO(Math.min(last, toDay(g.end_date))), starts: toDay(g.start_date) >= first }));
   const cal = makeCalendar(settings);
   const snap = px >= 10 ? 1 : 7;   // dragging moves by days when they're wide enough, else by weeks
 
@@ -380,34 +534,81 @@ export async function renderTimeline(el, scope) {
           return `<span class="pm-g-wk is-day${date.getUTCDay() === 0 || date.getUTCDay() === 6 ? ' is-weekend' : ''}" style="left:${n * px}px;width:${px}px" title="${esc(date.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', timeZone: 'UTC' }))}">${date.getUTCDate()}</span>`;
         }).join('');
     }
-    const keys = keysShown.map((k) => `<span class="pm-g-keyhead is-${esc(k.kind)}" style="left:${x(k.day)}px" title="${esc(`${k.name}: ${fmtDate(k.day)}${k.end_day && k.end_day !== k.day ? ` – ${fmtDate(k.end_day)}` : ''}${k.note ? ` · ${k.note}` : ''}`)}">${esc(k.name)}</span>`).join('');
+    const keys = keysShown.map((k) => `<span class="pm-g-keyhead is-${esc(k.kind)}" style="left:${x(k.day)}px" title="${esc(`${k.name}: ${fmtDate(k.day)}${k.end_day && k.end_day !== k.day ? ` – ${fmtDate(k.end_day)}` : ''}${k.note ? ` · ${k.note}` : ''}`)}">${esc(k.name)}</span>`).join('')
+      + cyclesShown.map((g) => `<span class="pm-g-keyhead is-cycle" style="left:${x(g.start_date)}px" title="${esc(`${g.name}: ${fmtDate(g.start_date)} – ${fmtDate(g.end_date)}`)}">${esc(g.name)}</span>`).join('');
     return `<div class="pm-g-head" style="width:${width}px">${months}${weeks}${keys}</div>`;
   };
   const gridLines = () => (7 * px >= 10 ? weekStarts.map((d) => `<div class="pm-g-vl" style="left:${(d - first) * px}px"></div>`).join('') : '')
-    + monthStarts.slice(1).map((d) => `<div class="pm-g-vl is-month" style="left:${(d - first) * px}px"></div>`).join('')
+    + monthStarts.slice(1).map((d) => `<div class="pm-g-vl is-month${new Date(d * 864e5).getUTCMonth() === 0 ? ' is-year' : ''}" style="left:${(d - first) * px}px"></div>`).join('')
     + (px >= 10 ? Array.from({ length: last - first + 1 }, (_, n) => (cal.isWork(first + n) ? '' : `<div class="pm-g-off" style="left:${n * px}px;width:${px}px"></div>`)).join('') : '');
 
   // ---- bars
   const rowIndex = new Map();
-  rows.forEach((r, n) => r.item && rowIndex.set(r.item.id, n));
+  rows.forEach((r, n) => (r.item ? [r.item] : r.lane || []).forEach((i) => rowIndex.set(i.id, n)));
+  const shortDate = (iso) => new Date(toDay(iso) * 864e5).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+  const shortRange = (a, z) => (a === z ? shortDate(a) : `${shortDate(a)} – ${shortDate(z)}`);
+  /** What a bar's label says (Show → Labels on bars → says). */
+  const barWords = (i, a, z) => ({ name: i.title, dates: shortRange(a, z), both: `${i.title} · ${shortRange(a, z)}`,
+    owner: i.owner_id ? personName(b, i.owner_id) || 'Someone' : 'No owner', progress: `${i.category === 'done' ? 100 : Number(i.progress) || 0}%` })[st.barText] || i.title;
   const span = (i) => {
     const t = target(i);
     const p = plan.byId.get(i.id);
     return { start: t.start || t.due || p?.start, end: t.due || t.start || p?.finish, p, t };
   };
-  const summary = (s, top, title) => (s ? `<div class="pm-g-sum" style="top:${top}px;left:${x(s[0])}px;width:${(toDay(s[1]) - toDay(s[0]) + 1) * px}px" title="${esc(title)}: ${esc(rangeText(s[0], s[1]))}"></div>` : '');
+  /**
+   * A label beside a bar, milestone or summary (in its own row): to its right, or to its left when it would run off
+   * the chart. `room` caps it (a packed row: up to the next bar); with too little room there's no label (the tooltip has it).
+   */
+  const outLabel = (text, top, right, left, { h = ROW, cls = '', room = Infinity } = {}) => {
+    const w = text.length * 6.6 + 8;
+    const flip = room === Infinity && right + w > width && left - w >= 0;
+    if (room < 36) return '';
+    return `<span class="pm-g-barlabel is-out${cls}${flip ? ' is-left' : ''}" style="top:${top}px;height:${h}px;line-height:${h}px;left:${flip ? left : right}px${room < w ? `;max-width:${Math.floor(room)}px` : ''}">${esc(text)}</span>`;
+  };
+  /** A summary bar (a group, or what's under an item): its span, how far along it is, and late work in red; dates beside it. */
+  const summary = (s, top, title, info, side = null) => {
+    if (!s) return '';
+    const [l, w] = [x(s[0]), (toDay(s[1]) - toDay(s[0]) + 1) * px];
+    const words = `${shortRange(s[0], s[1])}${info ? ` · ${info.pct}% done` : ''}${info?.late ? ` · ${info.late} late` : ''}`;
+    return `<div class="pm-g-sum${info?.late ? ' is-late' : ''}" style="top:${top}px;left:${l}px;width:${w}px" title="${esc(`${title}: ${rangeText(s[0], s[1])}${info ? ` · ${info.pct}% done` : ''}${info?.late ? ` · ${info.late} late` : ''}`)}">${info && st.show.progress && info.pct ? `<span class="pm-g-sum-fill" style="width:${info.pct}%"></span>` : ''}</div>`
+      + (side && st.show.sums ? outLabel(words, side.top, l + w + 8, l - 8, { h: side.h, cls: ' is-sum' }) : '');
+  };
   const bar = (r, n) => {
-    const top = n * ROW;
-    if (r.header) return `<div class="pm-g-row is-group is-${r.header.kind}" style="top:${top}px;height:${ROW}px;width:${width}px"></div>${summary(spanHeader(r.header), top + ROW / 2 - 2, r.header.name)}`;
+    const top = tops[n];
+    const h = rowH(r);
+    if (r.header) {
+      return `<div class="pm-g-row is-group is-${r.header.kind}" data-ri="${n}" style="top:${top}px;height:${h}px;width:${width}px"></div>`
+        + summary(spanHeader(r.header), top + h / 2 - 3, r.header.name, headerInfo(r.header), { top, h });
+    }
+    if (r.lane) {
+      // a packed row: each bar's label stops where the next bar starts
+      const sorted = [...r.lane].sort((a, z) => toDay(own(a)[0]) - toDay(own(z)[0]));
+      return `<div class="pm-g-row is-lane" data-ri="${n}" style="top:${top}px;height:${h}px;width:${width}px"></div>`
+        + sorted.map((i, k) => marks(i, top, sorted[k + 1] ? x(own(sorted[k + 1])[0]) : Infinity, true)).join('');
+    }
     const i = r.item;
+    const { t } = span(i);
+    const drag = can(b, i.project_id, 'plan') && i.category !== 'done';
+    const draw = drag && !t.start && !t.due && !i.is_milestone;
+    let out = `<div class="pm-g-row${r.children ? ' is-group' : ''}${draw ? ' is-drawable' : ''}${dim(i)}" data-ri="${n}" ${draw ? `data-draw="${esc(i.id)}" title="Drag across this row to give ${esc(i.key)} its dates"` : ''} style="top:${top}px;height:${h}px;width:${width}px"></div>`;
+    const hasOwn = !!(t.start || t.due);
+    if (r.children) {
+      const u = spanUnder(i);
+      const info = infoOf((kids.get(i.id) || []).flatMap(leavesOf));
+      // its own bar shows the span already: a bracket under it only when the work under it runs outside it
+      if (!hasOwn) out += summary(u, top + ROW / 2 - 3, `Everything under ${i.key}`, info, { top, h: ROW });
+      else if (u && (u[0] < (t.start || t.due) || u[1] > (t.due || t.start))) out += summary(u, top + ROW - 6, `Everything under ${i.key}`, info);
+    }
+    return out + marks(i, top, Infinity, false, r.children > 0);
+  };
+  /** An item's bar (or milestone), and what goes with it: baseline, links to other projects, forecast, label. */
+  const marks = (i, top, until, packed, parent = false) => {
     const { p, t } = span(i);
     const c = col.get(i.id);
     const drag = can(b, i.project_id, 'plan') && i.category !== 'done';
-    const draw = drag && !t.start && !t.due && !i.is_milestone;
     const y = top + (ROW - BAR) / 2;
-    let out = `<div class="pm-g-row${r.children ? ' is-group' : ''}${draw ? ' is-drawable' : ''}${dim(i)}" ${draw ? `data-draw="${esc(i.id)}" title="Drag across this row to give ${esc(i.key)} its dates"` : ''} style="top:${top}px;height:${ROW}px;width:${width}px"></div>`;
-    const hasOwn = !!(t.start || t.due);
-    if (r.children) out += summary(spanUnder(i), hasOwn ? top + ROW - 6 : top + ROW / 2 - 2, `Everything under ${i.key}`);
+    let out = '';
+    const labels = st.show.labels || packed;   // a packed row's bars always say what they are
     const bl = baseline?.[i.id];
     if (bl && (bl.start || bl.due)) out += `<div class="pm-g-baseline" style="top:${top + ROW - 5}px;left:${x(bl.start || bl.due)}px;width:${(toDay(bl.due || bl.start) - toDay(bl.start || bl.due) + 1) * px}px" title="Baseline: ${esc(rangeText(bl.start || bl.due, bl.due || bl.start))}"></div>`;
     // dependencies on items in other projects: a tag where the other item ends (it waits on) or starts (waiting on this)
@@ -425,23 +626,29 @@ export async function renderTimeline(el, scope) {
       }
     }
     const crit = st.plan.critical && p?.critical ? ' is-critical' : '';
-    const tip = `${i.key} ${i.title}\n${t.start || t.due ? rangeText(t.start || t.due, t.due || t.start) : 'No dates yet'}${c ? `\n${c.name}` : ''}${st.plan.forecast && p ? `\nForecast: ${fmtDate(p.start)} – ${fmtDate(p.finish)}${p.slack === null ? '' : ` · slack ${p.slack} working day${p.slack === 1 ? '' : 's'}`}` : ''}${drag ? '\nDrag to move · click to edit' : ''}`;
+    const overdue = i.category !== 'done' && t.due && t.due < today;
+    const waits = deps.filter((d) => d.to_item === i.id).map((d) => (byId.get(d.from_item) || outsideById.get(d.from_item))?.key).filter(Boolean);
+    const facts = [CATEGORIES.find((q) => q[0] === i.category)?.[1], i.owner_id && personName(b, i.owner_id), Number(i.progress) && i.category !== 'done' ? `${Number(i.progress)}% done` : ''].filter(Boolean).join(' · ');
+    const tip = `${i.key} ${i.title}\n${t.start || t.due ? rangeText(t.start || t.due, t.due || t.start) : 'No dates yet'}${facts ? `\n${facts}` : ''}${overdue ? `\nOverdue by ${tday - toDay(t.due)} day${tday - toDay(t.due) === 1 ? '' : 's'}` : ''}${waits.length ? `\nWaits on ${waits.join(', ')}` : ''}${c ? `\n${c.name}` : ''}${st.plan.forecast && p ? `\nForecast: ${fmtDate(p.start)} – ${fmtDate(p.finish)}${p.slack === null ? '' : ` · slack ${p.slack} working day${p.slack === 1 ? '' : 's'}`}` : ''}${drag ? '\nDrag to move · click to edit' : ''}`;
     const common = `data-bar="${esc(i.id)}" ${drag ? 'data-drag' : ''} tabindex="0" role="button" aria-label="${esc(`${i.key} ${i.title}, ${t.start || t.due ? rangeText(t.start || t.due, t.due || t.start) : 'no dates'}`)}" title="${esc(tip)}"`;
     const link = st.show.deps && drag ? `<span class="pm-g-link" data-link-from="${esc(i.id)}" title="Drag onto another bar: it then waits on ${esc(i.key)}"></span>` : '';
     if (i.is_milestone) {
       const at = t.due || t.start || p?.finish;
-      if (at) out += `<div class="pm-g-ms is-${esc(i.category)}${crit}${dim(i)}${st.overrides[i.id] ? ' is-trying' : ''}" ${common} style="top:${top + (ROW - BAR) / 2}px;left:${x(at) + px / 2 - BAR / 2}px;width:${BAR}px;height:${BAR}px;--c:${c.hex}"></div>`
-        + (st.show.labels ? `<span class="pm-g-barlabel is-out" style="top:${top}px;line-height:${ROW}px;left:${x(at) + px / 2 + BAR / 2 + 6}px">${esc(i.title)}</span>` : '');
+      const right = at ? x(at) + px / 2 + BAR / 2 + 6 : 0;
+      if (at) out += `<div class="pm-g-ms is-${esc(i.category)}${crit}${dim(i)}${overdue ? ' is-overdue' : ''}${st.overrides[i.id] ? ' is-trying' : ''}" ${common} style="top:${top + (ROW - BAR) / 2}px;left:${x(at) + px / 2 - BAR / 2}px;width:${BAR}px;height:${BAR}px;--c:${c.hex}"></div>`
+        + (labels ? outLabel(barWords(i, at, at), top, right, x(at) + px / 2 - BAR / 2 - 6, { room: until - right - 4 }) : '');
     } else if (t.start || t.due) {
       const a = t.start || t.due;
       const z = t.due || t.start;
       const w = (toDay(z) - toDay(a) + 1) * px;
-      const fits = i.title.length * 6.6 + 16 < w;
-      out += `<div class="pm-g-bar is-${esc(i.category)}${crit}${dim(i)}${st.overrides[i.id] ? ' is-trying' : ''}${t.start && t.due ? '' : ' is-open'}" ${common} style="top:${y}px;left:${x(a)}px;width:${w}px;height:${BAR}px;--c:${c.hex}">
+      const words = barWords(i, a, z);
+      const fits = words.length * 6.6 + 16 < w;
+      const right = x(z) + px + 6;
+      out += `<div class="pm-g-bar is-${esc(i.category)}${crit}${dim(i)}${parent ? ' is-parent' : ''}${overdue ? ' is-overdue' : ''}${st.overrides[i.id] ? ' is-trying' : ''}${t.start && t.due ? '' : ' is-open'}" ${common} style="top:${y}px;left:${x(a)}px;width:${w}px;height:${BAR}px;--c:${c.hex}">
         ${st.show.progress && Number(i.progress) ? `<span class="pm-g-fill" style="width:${Number(i.progress)}%"></span>` : ''}
-        ${st.show.labels && fits ? `<span class="pm-g-barlabel">${esc(i.title)}</span>` : ''}
+        ${labels && fits ? `<span class="pm-g-barlabel">${esc(words)}</span>` : ''}
         ${drag ? '<span class="pm-g-h pm-g-h-l"></span><span class="pm-g-h pm-g-h-r"></span>' : ''}${link}</div>`
-        + (st.show.labels && !fits ? `<span class="pm-g-barlabel is-out" style="top:${top}px;line-height:${ROW}px;left:${x(z) + px + 6}px">${esc(i.title)}</span>` : '');
+        + (labels && !fits ? outLabel(words, top, right, x(a) - 6, { room: until - right - 4 }) : '');
     }
     // the forecast, where it differs from the target (or there is no target)
     if (st.plan.forecast && p && i.category !== 'done' && !i.is_milestone && (p.start !== t.start || p.finish !== t.due)) {
@@ -460,7 +667,7 @@ export async function renderTimeline(el, scope) {
       if (!sa.start || !sz.start) continue;
       const x1 = ['SS', 'SF'].includes(d.kind) ? x(sa.start) : x(sa.end) + px;
       const x2 = ['FF', 'SF'].includes(d.kind) ? x(sz.end) + px : x(sz.start);
-      const [y1, y2] = [a * ROW + ROW / 2, z * ROW + ROW / 2];
+      const [y1, y2] = [tops[a] + ROW / 2, tops[z] + ROW / 2];
       const out1 = ['SS', 'SF'].includes(d.kind) ? x1 - 8 : x1 + 8;
       const in2 = ['FF', 'SF'].includes(d.kind) ? x2 + 8 : x2 - 8;
       const crit = st.plan.critical && plan.byId.get(d.from_item)?.critical && plan.byId.get(d.to_item)?.critical;
@@ -491,19 +698,30 @@ export async function renderTimeline(el, scope) {
     return s ? `<span class="pm-g-chip ${s > 0 ? 'is-warn' : 'is-good'}" title="${s > 0 ? 'Later' : 'Earlier'} than the baseline by ${Math.abs(s)} day${Math.abs(s) === 1 ? '' : 's'}">${s > 0 ? '+' : '−'}${Math.abs(s)}d</span>` : '';
   };
   const slipped = baseline ? items.map((i) => ({ i, s: slipOf(i) })).filter((v) => v.s).sort((a, z) => z.s - a.s) : [];
-  const label = (r) => {
+  const divTone = (id) => TONE[PALETTE[Math.max(0, divOrder.findIndex((d) => d.id === id)) % PALETTE.length]];
+  const label = (r, n) => {
+    if (r.lane) {
+      return `<div class="pm-g-label is-lane" data-ri="${n}" style="height:${ROW}px;padding-left:${6 + r.depth * 18}px"><span class="pm-g-grip is-empty"></span><span class="pm-g-toggle"></span>
+        <span class="pm-g-name pm-g-lane">${r.lane.map((i) => `<button type="button" class="pm-g-lane-item${dim(i)}" data-details="${esc(i.id)}" title="${esc(`${i.key} ${i.title}`)}"><span class="pm-g-dot${i.is_milestone ? ' is-ms' : ''}" style="--c:${col.get(i.id).hex}"></span>${esc(i.title)}</button>`).join('')}</span>
+        <span class="pm-g-label-end"><span class="muted small" title="These don't overlap in time, so they share a row (Rows → Pack rows)">${r.lane.length} in a row</span></span></div>`;
+    }
     if (r.header) {
       const h = r.header;
       const pid = h.id;
       const open = !st.closed.has(h.toggle);
       const toggle = `<button type="button" class="pm-g-toggle" data-toggle="${esc(h.toggle)}" aria-expanded="${open}" aria-label="${open ? 'Hide' : 'Show'} ${esc(h.name)}">${open ? '▾' : '▸'}</button>`;
       const late = h.late ? `<span class="pm-g-chip is-warn" title="Items in ${esc(h.name)} past their due date">${h.late} late</span>` : '';
+      if (h.kind === 'group') {
+        return `<div class="pm-g-label is-group is-header is-level is-group-by" data-ri="${n}" style="height:${HROW}px;padding-left:${6 + r.depth * 18}px">${toggle}
+          <span class="pm-g-title">${esc(h.name)}</span>
+          <span class="pm-g-label-end">${late}<span class="muted small">${h.count} item${h.count === 1 ? '' : 's'}</span></span></div>`;
+      }
       if (h.kind !== 'project') {
-        return `<div class="pm-g-label is-group is-header is-level is-${h.kind}" style="height:${ROW}px;padding-left:${6 + r.depth * 18}px">${toggle}
+        return `<div class="pm-g-label is-group is-header is-level is-${h.kind}" data-ri="${n}" style="height:${HROW}px;padding-left:${6 + r.depth * 18}px${h.kind === 'division' ? `;--dc:${divTone(h.id)}` : ''}">${toggle}
           <button type="button" class="pm-g-title pm-g-level" data-focus="${h.kind}:${esc(h.id)}" title="Show only ${esc(h.name)}">${esc(h.name)}</button>
           <span class="pm-g-label-end">${late}<span class="muted small">${h.count} project${h.count === 1 ? '' : 's'}</span></span></div>`;
       }
-      return `<div class="pm-g-label is-group is-header" style="height:${ROW}px;padding-left:${6 + r.depth * 18}px">
+      return `<div class="pm-g-label is-group is-header" data-ri="${n}" style="height:${HROW}px;padding-left:${6 + r.depth * 18}px">
         ${toggle}
         <a class="pm-g-title" href="${projectHref(h.key, 'timeline')}">${esc(h.name)}</a>${st.closed.has(pid) ? late : ''}
         <span class="pm-g-label-end">${can(b, pid, 'create') ? `<button type="button" class="pm-g-more" data-add-root="${esc(pid)}" title="Add to ${esc(r.header.name)}" aria-label="Add to ${esc(r.header.name)}">+</button>` : ''}</span></div>`;
@@ -511,11 +729,11 @@ export async function renderTimeline(el, scope) {
     const i = r.item;
     const c = col.get(i.id);
     const mayEdit = can(b, i.project_id, 'edit');
-    return `<div class="pm-g-label${r.children ? ' is-group' : ''}${plan.byId.get(i.id)?.critical && st.plan.critical ? ' is-critical' : ''}${dim(i)}${st.selected === i.id ? ' is-selected' : ''}" data-row="${esc(i.id)}" style="height:${ROW}px;padding-left:${6 + r.depth * 18}px">
+    return `<div class="pm-g-label${r.children ? ' is-group' : ''}${plan.byId.get(i.id)?.critical && st.plan.critical ? ' is-critical' : ''}${dim(i)}${st.selected === i.id ? ' is-selected' : ''}" data-row="${esc(i.id)}" data-ri="${n}" style="height:${ROW}px;padding-left:${6 + r.depth * 18}px">
       ${mayEdit && i.category !== 'done' ? `<span class="pm-g-grip" data-grip="${esc(i.id)}" title="Drag onto another row: the middle puts it under that row, the top or bottom edge before or after it" aria-hidden="true">⋮⋮</span>` : '<span class="pm-g-grip is-empty"></span>'}
       ${pickBox(i)}${r.children ? `<button type="button" class="pm-g-toggle" data-toggle="${esc(i.id)}" aria-expanded="${!st.closed.has(i.id)}" aria-label="${st.closed.has(i.id) ? 'Show' : 'Hide'} what's under ${esc(i.key)}">${st.closed.has(i.id) ? '▸' : '▾'}</button>` : '<span class="pm-g-toggle"></span>'}
       <span class="pm-g-dot${i.is_milestone ? ' is-ms' : ''}" style="--c:${c.hex}" title="${esc(c.name)}"></span>
-      <span class="pm-g-name">${st.show.keys ? `<a class="pm-g-key" href="${itemHref(i.key)}">${esc(i.key)}</a>` : ''}<span class="pm-g-title${i.category === 'done' ? ' is-done' : ''}" ${mayEdit ? `data-rename="${esc(i.id)}" title="${esc(i.key)} ${esc(i.title)} (double-click to rename)"` : `title="${esc(i.key)} ${esc(i.title)}"`}>${esc(i.title)}</span></span>
+      <span class="pm-g-name">${r.prefix ? `<a class="pm-g-prefix" href="${projectHref(r.prefix.key, 'timeline')}" title="${esc(r.prefix.name)}: its only item is ${esc(i.title)}">${esc(r.prefix.name)}</a><span class="pm-g-crumb-sep" aria-hidden="true">›</span>` : ''}${st.show.keys ? `<a class="pm-g-key" href="${itemHref(i.key)}">${esc(i.key)}</a>` : ''}<span class="pm-g-title${i.category === 'done' ? ' is-done' : ''}" ${mayEdit ? `data-rename="${esc(i.id)}" title="${esc(i.key)} ${esc(i.title)} (double-click to rename)"` : `title="${esc(i.key)} ${esc(i.title)}"`}>${esc(i.title)}</span></span>
       ${slipChip(i)}${undated(i) && !st.undated ? '<span class="pm-g-chip" title="No start or due date yet: drag across the row to set them">no dates</span>' : ''}${(ordersFor.get(i.id) || []).length ? `<span class="pm-g-chip is-warn" title="${esc(ordersFor.get(i.id).map((w) => `${w.number} is ${w.status}, not ordered yet`).join('\n'))}">order ⚠</span>` : ''}
       <span class="pm-g-label-end">${st.show.owners ? avatar(b, i.owner_id) : ''}<button type="button" class="pm-g-more" data-menu="${esc(i.id)}" aria-label="More for ${esc(i.key)}" title="More">⋯</button></span></div>`;
   };
@@ -524,8 +742,16 @@ export async function renderTimeline(el, scope) {
   const filterCount = (filter ? 1 : 0) + (st.f.q ? 1 : 0) + (st.undated ? 1 : 0);
   const pop = (name, labelHtml, body) => `<details class="pm-pop" data-pop="${name}" ${st.pop === name ? 'open' : ''}><summary class="btn btn-sm">${labelHtml}</summary><div class="pm-pop-body">${body}</div></details>`;
   const check = (attr, k, label, on, hint = '') => `<label class="pm-pop-check" ${hint ? `title="${esc(hint)}"` : ''}><input type="checkbox" ${attr}="${k}" ${on ? 'checked' : ''}> ${esc(label)}</label>`;
+  const pick = (attr, map, v, label) => `<div class="pm-pop-row"><span>${esc(label)}</span><select ${attr} aria-label="${esc(label)}">${Object.entries(map).map(([k, l]) => `<option value="${k}" ${v === k ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></div>`;
   const showMenu = pop('show', 'Show ▾', `${Object.entries(SHOW).map(([k, l]) => check('data-show', k, l, st.show[k])).join('')}
+    ${pick('data-bar-text', BAR_TEXT, st.barText, 'Labels say')}
     <div class="pm-pop-row"><span>Rows</span><select data-density aria-label="Row size"><option value="comfortable" ${st.density === 'comfortable' ? 'selected' : ''}>Comfortable</option><option value="compact" ${st.density === 'compact' ? 'selected' : ''}>Compact</option></select></div>`);
+  const rowsMenu = pop('rows', `Rows${grouped || st.sortBy !== 'rank' || st.pack || hiding ? ' •' : ''} ▾`, `<p class="pm-pop-note">How the rows are arranged, top to bottom.</p>
+    ${pick('data-group-by', GROUP_BY, st.groupBy, 'Group by')}
+    ${pick('data-sort-by', SORT_BY, st.sortBy, 'Order')}
+    ${check('data-row-opt', 'pack', 'Pack rows', st.pack, 'Things side by side in time share a row, so the chart is shorter')}
+    ${!project && !grouped ? check('data-row-opt', 'merge', 'One row for a project with one item', st.merge, '"Battery Pack › Cell Selection" on one row instead of two') : ''}
+    <label class="pm-pop-check" title="${fixedWindow ? 'Only rows with something between the dates in Fit' : 'Pick dates under Fit first (e.g. Next 3 months)'}"><input type="checkbox" data-row-opt="hideOutside" ${st.hideOutside ? 'checked' : ''} ${fixedWindow ? '' : 'disabled'}> Hide rows outside the fitted dates</label>`);
   const planMenu = pop('plan', `Plan${trying || st.plan.forecast || st.plan.critical || st.plan.baseline || st.plan.whatIf ? ' •' : ''} ▾`, `
     ${check('data-plan', 'forecast', 'Forecast', st.plan.forecast, 'Dashed outlines: where the scheduling engine expects each item to really fall, from dependencies, working days and what has happened')}
     ${check('data-plan', 'critical', 'Critical path', st.plan.critical, 'Red: the chain of items with no slack, which decides the finish date')}
@@ -552,8 +778,9 @@ export async function renderTimeline(el, scope) {
       </div>
       ${fitMenu}
       <button type="button" class="btn btn-sm" data-today>Today</button>
-      ${!project && nodes.length ? `<div class="pm-seg" role="group" aria-label="Level">${LEVELS.map(([k, l]) => `<button type="button" data-level="${k}" class="${st.level === k ? 'is-on' : ''}" aria-pressed="${st.level === k}" title="Fold the rows down to ${l.toLowerCase()}">${l}</button>`).join('')}</div>` : ''}
+      ${!project && nodes.length && !grouped ? `<div class="pm-seg" role="group" aria-label="Level">${LEVELS.map(([k, l]) => `<button type="button" data-level="${k}" class="${st.level === k ? 'is-on' : ''}" aria-pressed="${st.level === k}" title="Fold the rows down to ${l.toLowerCase()}">${l}</button>`).join('')}</div>` : ''}
       <label class="pm-g-colorby">Color <select data-color-by aria-label="Color bars by">${Object.entries(COLOR_BY).map(([k, l]) => `<option value="${k}" ${st.colorBy === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+      ${rowsMenu}
       ${showMenu}
       <button type="button" class="btn btn-sm${st.filters || filterCount ? ' is-on' : ''}" data-filters aria-expanded="${st.filters}">Filter${filterCount ? ` · ${filterCount}` : ''}</button>
       ${planMenu}
@@ -567,12 +794,11 @@ export async function renderTimeline(el, scope) {
   // what a what-if changes downstream
   const moved = trying ? [...plan.byId].filter(([id, p]) => base.byId.get(id) && base.byId.get(id).finish !== p.finish && !st.overrides[id] && byId.has(id))
     .map(([id, p]) => ({ item: byId.get(id), from: base.byId.get(id).finish, to: p.finish })) : [];
-  const height = rows.length * ROW;
   const warnings = st.plan.forecast || st.plan.critical ? plan.warnings.filter((w) => byId.has(w.id)) : [];
   const legendHtml = [...legend].map(([name, tone]) => `<button type="button" class="pm-g-leg${st.only === name ? ' is-on' : ''}${st.only && st.only !== name ? ' is-off' : ''}" data-legend="${esc(name)}" title="${st.only === name ? 'Show everything' : `Highlight ${esc(name)}`}"><span class="pm-g-dot" style="--c:${TONE[tone]}"></span>${esc(name)}</button>`).join('');
   const seasonNote = season !== null ? `Weeks count from ${esc(seasonRow.name)} (${esc(fmtDate(seasonRow.day))})` : auth.can('projects.manage') ? 'Add a "Season start" team date (Plan → Team dates) to number the weeks' : '';
 
-  const again = () => scope.rerender();
+  const again = () => (persist(), scope.rerender());
   if (st.present) return renderPresent();
 
   el.innerHTML = `${toolbar}
@@ -587,10 +813,11 @@ export async function renderTimeline(el, scope) {
       <div class="pm-gantt">
         <div class="pm-g-left"><div class="pm-g-head pm-g-lhead"><span>Work package</span>
           <span class="pm-g-label-end"><button type="button" class="pm-g-more" data-collapse-all title="Collapse all" aria-label="Collapse all">⊟</button><button type="button" class="pm-g-more" data-expand-all title="Expand all" aria-label="Expand all">⊞</button></span></div>
-          ${rows.map(label).join('')}</div>
+          ${rows.map((r, n) => label(r, n)).join('')}</div>
         <div class="pm-g-resize" data-resize title="Drag to make the list wider or narrower" aria-hidden="true"></div>
         <div class="pm-g-right" data-scroll>${head()}
           <div class="pm-g-body" style="width:${width}px;height:${height}px">
+            ${cyclesShown.map((g, k) => `<div class="pm-g-cycle${k % 2 ? ' is-alt' : ''}${g.starts ? '' : ' is-cut'}" style="left:${x(g.start_date)}px;width:${(toDay(g.end_date) - toDay(g.start_date) + 1) * px}px;height:${height}px" title="${esc(`${g.name}: ${fmtDate(g.start_date)} – ${fmtDate(g.end_date)}`)}"></div>`).join('')}
             ${gridLines()}
             ${keysShown.map((k) => `<div class="pm-g-keydate is-${esc(k.kind)}" style="left:${x(k.day)}px;width:${Math.max((toDay(k.end_day || k.day) - toDay(k.day) + 1) * px, 2)}px;height:${height}px"></div>`).join('')}
             <div class="pm-g-today" style="left:${x(today) + px / 2}px;height:${height}px" title="Today"></div>
@@ -598,8 +825,9 @@ export async function renderTimeline(el, scope) {
             <svg class="pm-g-svg" width="${width}" height="${height}" aria-hidden="true"><defs>
               <marker id="pm-g-tip" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L8 4 L0 8 z"/></marker>
               <marker id="pm-g-tip-c" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L8 4 L0 8 z"/></marker></defs>${arrows()}</svg>
-          </div></div></div>
-      <div class="pm-g-legend">${legendHtml}${st.colorBy === 'type' && canEditKinds() ? '<button type="button" class="pm-g-leg pm-g-leg-add" data-new-kind title="Add a kind of work to every project (Calc, Test plan…)">+ New kind</button>' : ''}<span class="pm-g-spacer"></span><span class="muted small">${seasonNote}${st.plan.forecast ? `${seasonNote ? ' · ' : ''}Forecast finish: <strong>${esc(fmtDate(plan.finish))}</strong>` : ''}</span></div>
+          </div></div>
+        <button type="button" class="pm-g-offtoday" data-today hidden></button></div>
+      <div class="pm-g-legend">${legendHtml}${hiddenOutside ? `<button type="button" class="pm-g-leg pm-g-leg-add" data-show-outside title="Rows → Hide rows outside the fitted dates">${hiddenOutside} outside these dates · show them</button>` : ''}${st.colorBy === 'type' && canEditKinds() ? '<button type="button" class="pm-g-leg pm-g-leg-add" data-new-kind title="Add a kind of work to every project (Calc, Test plan…)">+ New kind</button>' : ''}<span class="pm-g-spacer"></span><span class="muted small">${seasonNote}${st.plan.forecast ? `${seasonNote ? ' · ' : ''}Forecast finish: <strong>${esc(fmtDate(plan.finish))}</strong>` : ''}</span></div>
       ${project && can(b, project.id, 'create') && !project.archived_at ? quickAdd(b, { project_id: project.id }, { placeholder: '+ Add an item (Enter; then drag across its row to give it dates)', cls: 'pm-qa-gantt' }) : ''}
       <div data-panel-slot></div></div>`
       : st.undated ? '<div class="empty"><p><strong>Every open item has dates.</strong></p></div>'
@@ -636,7 +864,24 @@ export async function renderTimeline(el, scope) {
     st.anchor = null;
     st.scroll = want;
     scroller.scrollLeft = want;
-    scroller.addEventListener('scroll', () => scroller.isConnected && (st.scroll = scroller.scrollLeft));
+    // today off the edge of what's on the screen: a tag there says how far, and goes to it
+    const offToday = el.querySelector('.pm-g-offtoday');
+    const markToday = () => {
+      if (!offToday || !scroller.clientWidth) return;
+      const tx = x(today) + px / 2;
+      const [l, r] = [scroller.scrollLeft, scroller.scrollLeft + scroller.clientWidth];
+      if (tx >= l && tx <= r) return void (offToday.hidden = true);
+      const n = Math.round((tx < l ? l - tx : tx - r) / px);
+      const far = n >= 60 ? `${Math.round(n / 30.4)} months` : n >= 14 ? `${Math.round(n / 7)} weeks` : `${n} day${n === 1 ? '' : 's'}`;
+      offToday.hidden = false;
+      offToday.classList.toggle('is-right', tx > r);
+      offToday.textContent = tx < l ? `◂ Today · ${far} before this` : `Today · ${far} after this ▸`;
+    };
+    scroller.addEventListener('scroll', () => {
+      if (!scroller.isConnected) return;
+      st.scroll = scroller.scrollLeft;
+      markToday();
+    }, { passive: true });
     // Ctrl / ⌘ + scroll (and a trackpad pinch) zooms around the mouse; it redraws once the wheel stops.
     let pending = 1;
     let wheelTimer = 0;
@@ -665,6 +910,7 @@ export async function renderTimeline(el, scope) {
       } else {
         st.room = real || st.room;
         scroller.scrollLeft = want;
+        markToday();
       }
     };
     requestAnimationFrame(check);
@@ -676,8 +922,22 @@ export async function renderTimeline(el, scope) {
       }
     };
   }
+  // the row under the mouse is highlighted across the list and the chart
+  const leftPane = el.querySelector('.pm-g-left');
+  const bodyPane = el.querySelector('.pm-g-body');
+  let hovered = -1;
+  const hover = (n) => {
+    if (n === hovered) return;
+    el.querySelectorAll('[data-ri].is-hover').forEach((x) => x.classList.remove('is-hover'));
+    hovered = n;
+    if (n >= 0) el.querySelectorAll(`[data-ri="${n}"]`).forEach((x) => x.classList.add('is-hover'));
+  };
+  leftPane?.addEventListener('mouseover', (e) => hover(Number(e.target.closest('[data-ri]')?.dataset.ri ?? -1)));
+  bodyPane?.addEventListener('mousemove', (e) => hover(rowAt(e.clientY - bodyPane.getBoundingClientRect().top)));
+  [leftPane, bodyPane].forEach((p) => p?.addEventListener('mouseleave', () => hover(-1)));
+
   if (st.filters) bindFilterBar(el, b, st.f, again, { fields: scope.fields, statuses: scope.statuses });
-  bindSelection(el, { b, items: () => rows.filter((r) => r.item).map((r) => r.item), cfgOf: scope.cfgOf, done: again, sprints: scope.cfg?.sprints || [] });
+  bindSelection(el, { b, items: () => rowItems, cfgOf: scope.cfgOf, done: again, sprints: scope.cfg?.sprints || [] });
   bindQuickAdd(el, { b, done: again });
   if (st.selected && byId.has(st.selected)) openPanel(byId.get(st.selected));
 
@@ -815,6 +1075,10 @@ export async function renderTimeline(el, scope) {
       if (d.plan === 'whatIf' && !t.checked && Object.keys(st.overrides).length) toast('The tried-out changes are still there: Apply or Discard them.');
     } else if (d.density !== undefined) st.density = t.value;
     else if (d.colorBy !== undefined) ((st.colorBy = t.value), (st.only = ''));
+    else if (d.barText !== undefined) st.barText = t.value;
+    else if (d.groupBy !== undefined) ((st.groupBy = t.value), (st.level = ''));
+    else if (d.sortBy !== undefined) st.sortBy = t.value;
+    else if (d.rowOpt) st[d.rowOpt] = t.checked;
     else if (d.baseline !== undefined) st.plan.baseline = t.value;
     else if (d.opt === 'undated') st.undated = t.checked;
     else if (d.scenario !== undefined) {
@@ -895,6 +1159,7 @@ export async function renderTimeline(el, scope) {
     }
     else if (d.today !== undefined) scroller && (scroller.scrollLeft = Math.max(0, x(today) - 160));
     else if (d.filters !== undefined) ((st.filters = !st.filters), again());
+    else if (d.showOutside !== undefined) ((st.hideOutside = false), again());
     else if (d.legend !== undefined) ((st.only = st.only === d.legend ? '' : d.legend), again());
     else if (d.collapseAll !== undefined) {
       for (const [k, list] of kids) if (!k.startsWith('root:') && list.length) st.closed.add(k);
@@ -1260,7 +1525,7 @@ export async function renderTimeline(el, scope) {
     const dark = siteDark();
     const C = { bg: v('--surface', dark ? '#081f3d' : '#ffffff'), panel: v('--surface-2', dark ? '#0d2b50' : '#f8fafc'), text: v('--text', dark ? '#f7f9ff' : '#1c2733'),
       muted: v('--muted', dark ? '#a8b8ce' : '#5d6d7e'), line: v('--border-soft', dark ? '#17375c' : '#edf1f5'), month: v('--border', dark ? '#23486f' : '#dde3ea') };
-    const list = rows.filter((r) => r.item || r.header);
+    const list = rows;
     const W = 1600;
     const pad = 48;
     const LW = 420;
@@ -1268,8 +1533,9 @@ export async function renderTimeline(el, scope) {
     const top0 = 150;
     const headH = 64;
     const cw = W - pad * 2 - LW;
-    const lo = Math.min(...[tday, ...list.flatMap((r) => (r.item ? [own(r.item)?.[0]] : spanHeader(r.header) ? [spanHeader(r.header)[0]] : [])).filter(Boolean).map(toDay)]);
-    const hi = Math.max(...[tday, ...list.flatMap((r) => (r.item ? [own(r.item)?.[1]] : spanHeader(r.header) ? [spanHeader(r.header)[1]] : [])).filter(Boolean).map(toDay)]);
+    const ends = (r, k) => (r.item ? [own(r.item)?.[k]] : r.lane ? r.lane.map((i) => own(i)?.[k]) : spanHeader(r.header) ? [spanHeader(r.header)[k]] : []);
+    const lo = Math.min(...[tday, ...list.flatMap((r) => ends(r, 0)).filter(Boolean).map(toDay)]);
+    const hi = Math.max(...[tday, ...list.flatMap((r) => ends(r, 1)).filter(Boolean).map(toDay)]);
     let f0 = lo - 3;
     f0 -= ((f0 - weekday0) % 7 + 7) % 7;
     const f1 = Math.max(hi + 4, f0 + 27);
@@ -1319,9 +1585,20 @@ export async function renderTimeline(el, scope) {
         if (s) out += `<rect x="${X(toDay(s[0]))}" y="${y + RH / 2 - 2}" width="${(toDay(s[1]) - toDay(s[0]) + 1) * ppx}" height="4" rx="2" fill="${C.muted}"/>`;
         return;
       }
+      if (r.lane) {
+        const names = r.lane.map((i) => i.title).join(' · ');
+        out += `<text x="${pad + 28 + r.depth * 18}" y="${y + RH / 2 + 6}" font-size="17" fill="${C.text}">${t(names.length > 44 ? `${names.slice(0, 43)}…` : names)}</text>`;
+        const bh = Math.round(RH * 0.52);
+        for (const i of r.lane) {
+          const s = own(i);
+          if (s) out += `<rect x="${X(toDay(s[0]))}" y="${y + (RH - bh) / 2}" width="${Math.max((toDay(s[1]) - toDay(s[0]) + 1) * ppx, 4)}" height="${bh}" rx="5" fill="${col.get(i.id).hex}" opacity="${i.category === 'done' ? 0.55 : 1}"/>`;
+        }
+        return;
+      }
       const i = r.item;
       const c = col.get(i.id);
-      const name = i.title.length > 44 ? `${i.title.slice(0, 43)}…` : i.title;
+      const full = r.prefix ? `${r.prefix.name} › ${i.title}` : i.title;
+      const name = full.length > 44 ? `${full.slice(0, 43)}…` : full;
       out += `<rect x="${pad + 12 + r.depth * 18}" y="${y + RH / 2 - 9}" width="5" height="18" rx="1" fill="${c.hex}"/>`
         + `<text x="${pad + 28 + r.depth * 18}" y="${y + RH / 2 + 6}" font-size="17" font-weight="${r.children ? 700 : 400}" fill="${C.text}">${t(name)}</text>`;
       const s = own(i);

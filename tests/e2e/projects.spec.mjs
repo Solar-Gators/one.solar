@@ -448,6 +448,21 @@ test.describe('projects', () => {
     await page.click('[data-zoom-px="0.9"]');
     await expect(page.locator('.pm-g-zoom .is-on')).toHaveText('Year');
     await expect(page.locator('.pm-g-right .pm-g-month').first()).toHaveText(/^20\d\d$/);   // years over months
+    // names that don't fit in their bar sit beside it, in the same row and inside the chart
+    await openPop(page, 'show');
+    await page.check('[data-show="labels"]');
+    await expect.poll(() => page.locator('.pm-g-right .pm-g-barlabel.is-out').count()).toBeGreaterThan(0);
+    const outside = await page.locator('.pm-g-right .pm-g-barlabel.is-out').evaluateAll((ls) => ls.map((l) => {
+      const r = l.getBoundingClientRect();
+      const box = l.offsetParent.getBoundingClientRect();
+      const row = parseFloat(getComputedStyle(l.offsetParent).getPropertyValue('--row')) || parseFloat(l.style.height);
+      return { inRow: r.height <= row + 1, inChart: r.left >= box.left - 1 && r.right <= box.left + l.offsetParent.scrollWidth + 1 };
+    }));
+    expect(outside.length).toBeGreaterThan(0);
+    expect(outside.filter((o) => !o.inRow || !o.inChart)).toEqual([]);
+    await openPop(page, 'show');
+    await page.uncheck('[data-show="labels"]');
+    await expect(page.locator('.pm-g-right .pm-g-barlabel')).toHaveCount(0);
     await expect.poll(async () => (await chart()).w).toBeGreaterThan(pane - 400);   // not the old 900-pixel guess
     await page.click('[data-zoom-step="1"]');
     await expect(page.locator('.pm-g-zoom .is-on')).toHaveCount(0);   // between presets
@@ -457,7 +472,7 @@ test.describe('projects', () => {
     await page.click('[data-pop=fit] summary');
     await page.click('[data-fit="all"]');
     await expect(page.locator('[data-pop=fit] summary')).toContainText('Everything shown');
-    await expect.poll(async () => { const c = await chart(); return c.full - c.w; }).toBeLessThanOrEqual(2);   // all of it, no scrolling
+    await expect.poll(async () => { const c = await chart(); return c.full - c.w - c.left; }).toBeLessThanOrEqual(2);   // the work, to its end, with no scrolling
     await page.click('[data-pop=fit] summary');
     await page.fill('[data-fit-from]', '2027-01-01');
     await page.fill('[data-fit-to]', '2027-03-31');
@@ -465,6 +480,30 @@ test.describe('projects', () => {
     await expect(page.locator('[data-pop=fit] summary')).toContainText('Fit:');
     await page.click('[data-zoom-px="18"]');   // back to Weeks for the tests after this one
     await expect(page.locator('.pm-g-zoom .is-on')).toHaveText('Weeks');
+
+    // Rows: group by status, order by start date, pack rows; the row under the mouse lights up on both sides
+    const rowCount = () => page.locator('.pm-g-left .pm-g-label').count();
+    const rowsBefore = await rowCount();
+    await openPop(page, 'rows');
+    await page.selectOption('[data-group-by]', 'status');
+    await expect(page.locator('.pm-g-label.is-group-by').first()).toBeVisible();
+    await openPop(page, 'rows');
+    await page.selectOption('[data-sort-by]', 'start');
+    await openPop(page, 'rows');
+    await page.check('[data-row-opt="pack"]');
+    await expect(page.locator('[data-pop=rows] summary')).toContainText('•');
+    expect(await rowCount()).toBeLessThanOrEqual(rowsBefore + 3);   // a header per status, fewer rows of work
+    await shot(page, 'timeline-rows');
+    await page.locator('.pm-g-left [data-ri="1"]').hover();
+    await expect(page.locator('.pm-g-body [data-ri="1"]')).toHaveClass(/is-hover/);
+    await openPop(page, 'rows');
+    await page.uncheck('[data-row-opt="pack"]');
+    await openPop(page, 'rows');
+    await page.selectOption('[data-sort-by]', 'rank');
+    await openPop(page, 'rows');
+    await page.selectOption('[data-group-by]', 'structure');
+    await expect(page.locator('.pm-g-label.is-group-by')).toHaveCount(0);
+    await expect.poll(rowCount).toBe(rowsBefore);
   });
 
   test('backlog, calendar and the board all show the same items; the board makes real workflow moves', async () => {
@@ -848,7 +887,9 @@ test.describe('projects', () => {
     }
     const parentOf = (title) => one(page, `select (select title from pm_items p where p.id = i.parent_id) parent from pm_items i where title = $1`, [title]);
     expect(await parentOf('Test runs')).toEqual({ parent: 'Wind tunnel campaign' });
-    await expect(page.locator('.pm-g-sum').first()).toBeVisible();   // the summary bar over what's under it
+    // its own dates hold what's under it: one outlined parent bar, no second bracket under it
+    await expect(page.locator('.pm-g-bar.is-parent')).toHaveCount(1);
+    await expect(page.locator('.pm-g-sum')).toHaveCount(0);
     await rowMenu(page, 'Test runs', '[data-outdent]');
     await expect(toast(page)).toContainText('moved out a level');
     expect(await parentOf('Test runs')).toEqual({ parent: null });
@@ -947,6 +988,9 @@ test.describe('projects', () => {
     await expect(page.locator('.pm-g-crumbs')).toContainText('Battery', { timeout: 30000 });
     await expect(page.locator('.pm-g-label.is-car', { hasText: 'Car 7' })).toBeVisible();
     await expect(page.locator('.pm-g-label.is-car', { hasText: 'Car 8' })).toBeVisible();
+    // each car cycle is a band behind the chart, named in the header (Car 7 has no end: it runs until Car 8 starts)
+    await expect(page.locator('.pm-g-keyhead.is-cycle', { hasText: 'Car 7' })).toBeVisible();
+    await expect(page.locator('.pm-g-cycle').first()).toBeAttached();
     await expect(page.locator('.pm-g-label.is-header', { hasText: 'Aero' })).toHaveCount(0);   // not in Battery
     await page.locator('.pm-g-crumbs [data-focus=""]').click();
     await expect(page.locator('.pm-g-crumbs [aria-current]')).toHaveText('Everything');
