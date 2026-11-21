@@ -178,8 +178,19 @@ car**. Every project belongs to one; projects made before there were car cycles 
 subsystem, each a row with one summary bar and how many of its items are late. It **opens on your subsystem** (your
 main one in People), else your division. The breadcrumbs above the chart (Everything › Electrical › Battery) zoom out
 or back in; click a level's name to show only it. **Level** in the toolbar folds the rows to Divisions, Subsystems,
-Projects or Work. A subsystem with one project shows just the project, and a project with nothing in it yet still
-shows (so next car's projects can be planned).
+Projects or Work; what's folded open or shut is remembered. A subsystem with one project shows just the project, a
+project with one item (and nothing under it) is one row ("Battery Pack › Cell Selection"; Rows can turn this off),
+and a project with nothing in it yet still shows (so next car's projects can be planned). Level rows are thinner
+than rows of work, and each division has a colored edge.
+
+**Reading the chart.** Each **car cycle** in view is a light band behind the chart, named in the header where it
+starts (one without an end date runs until the next one starts). **Summary bars** (a level, a project, or an item's
+work underneath) show their dates beside them, how far along the work under them is (done counts as 100%) and turn
+red when any of it is late. An item that has its own dates *and* work under it is an **outlined bar**; a bracket under
+it appears only when that work runs outside its dates. A bar past its due date and not done has a **red end**. Month
+lines are darker than week lines, and year lines darker still. The row under the mouse is highlighted on both sides,
+and a bar's tooltip has its dates, status, owner, progress, how overdue it is and what it waits on. When today is off
+the screen, a red tag at the edge says how far away it is; click it to go there.
 
 **The timeline (062): simple by default.** It looks like the team's roadmap slides: months over season weeks
 (01, 02, … counted from the latest **Season start** team date; calendar dates if there isn't one), a "Work package"
@@ -208,12 +219,19 @@ choices are remembered per project on their own device.
 - **Zoom:** **− / +**, the presets **Days / Weeks / Months / Quarters / Year**, **Ctrl + scroll** (or a trackpad pinch)
   around the mouse, or the **−** and **+** keys. The headers follow: months over days, months over weeks, or years
   over months. **Fit ▾** fits a span to the width: everything shown, this car cycle (when it has dates), the next 3, 6
-  or 12 months, or any from–to dates; it refits when the window changes size. **Today** scrolls back to today.
+  or 12 months, or any from–to dates; it refits when the window changes size. "Everything shown" fits the **work**,
+  so a plan that starts months from now isn't squeezed by the empty time before it. **Today** scrolls back to today.
   The zoom is remembered per project in this browser (the old Season choice became "Fit: everything shown").
 - **Color:** kind of work (default), status, subsystem, owner or priority. Kind colors are the work types' colors
   (Settings → Work types).
-- **Show:** dependency arrows, progress, labels on bars, item keys, owners, team dates; compact
-  or comfortable rows. Light or dark follows the site's own setting (the account menu), like every other page.
+- **Rows:** **Group by** what's under what (default), owner, kind of work, status, subsystem, or nothing (one list).
+  **Order** inside a group: as planned, by start date, by end date, or what waits on what (an item comes after what it
+  waits on). **Pack rows** puts things that don't overlap in time on one row, so the chart is shorter; the row's name
+  lists them (click one for its panel). **Hide rows outside the fitted dates** (after choosing dates under Fit) leaves
+  out what isn't in them; the legend says how many and shows them again.
+- **Show:** dependency arrows, progress, labels on bars (and what they say: name, dates, both, owner or progress),
+  dates on summary bars, item keys, owners, team dates, car cycles; compact or comfortable rows. A label that doesn't
+  fit in its bar goes beside it, or before it near the right edge. Light or dark follows the site's own setting.
 - **Filter:** the usual filters plus **Only undated**.
 - **Plan:** **Forecast** (dashed outlines and "late" markers), **Critical path** (red), **What-if mode** (dragging
   only tries changes out until "Apply"), a **Baseline** to compare against (each row then shows its slip, and
