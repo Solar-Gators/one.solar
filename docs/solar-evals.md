@@ -50,6 +50,16 @@ Click a box to change it: where it **sits**, its **eval type**, who it's **evalu
 - **Someone the chart doesn't place** (or whose evaluator position is empty right now) picks from the list as before. **Everyone who gets … evals** shows who evaluates each person, whose feedback goes in, and who isn't on the chart.
 - **Assigned** (053, in Setup) is the older switch for a type that keeps its own rules but uses the exceptions.
 
+## Guardrails: who gets each eval and who may write it (065)
+
+Set per eval type in **Setup**; the database enforces each one, so nobody gets around them by editing the page.
+
+- **Leave out people whose position has its own eval** (under Who is evaluated; on for the Member eval). Subsystem Leads, the Integration PM, the E-board titles and the CEs also hold Member, but the evaluation chart gives their position its own eval (Leadership), which already covers their member work. With this on they can't start the Member eval self-eval and nobody can start one about them. Turn it off if someone should get both.
+- **Except people in these positions** (under Who is evaluated and Who evaluates): tick positions to leave out of the rule above even when they fit it, for anything the switch above doesn't cover.
+- **Feedback isn't evaluating.** Someone the chart lists under **Feedback from** on a person's eval can't write that eval; they're told who does and are added as input when it's started. (E-board members give feedback on each other; the person the chart assigns writes the eval.)
+- **Only who's assigned** (shown when the type uses assignments or the chart): when on, someone nobody is assigned to can't be evaluated until an Admin or the President assigns an evaluator. Off, anyone on Who evaluates may, as before.
+- **Check these rules**: lists evals already started that don't fit the type's rules now (someone left out of it, an evaluator who isn't the one assigned, someone who only gives feedback), with **Open**, **Change evaluator** and **Delete…** on each. Nothing changes by itself; deleted evals can be put back. It checks the saved rules, so save first.
+
 ## Changing the evaluator (059)
 
 Picked the wrong CE? Whoever can **Assign evaluators** (Admin and the President) sees **Change…** next to the evaluator on Evaluations. On a self-eval it changes who it goes to, and an evaluation already started from it moves along while it's still a draft (the new evaluator carries on with what's written); on an evaluation it changes who writes it. It works even when the assignments or the chart say someone else. A finished or shared evaluation has to go back to a draft first. Each change is kept with who, when and why, and the new evaluator is told about a submitted self-eval.

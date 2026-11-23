@@ -419,6 +419,11 @@
   "returns": "uuid",
   "anon": false
  },
+ "eval_rule_check": {
+  "args": "p_type text",
+  "returns": "jsonb",
+  "anon": false
+ },
  "eval_rule_match": {
   "args": "p_rule jsonb, p_user uuid",
   "returns": "boolean",
