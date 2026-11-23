@@ -88,6 +88,15 @@ select.sel{border:1px solid var(--line);background:var(--panel);border-radius:8p
 .banner{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between;border:1px solid var(--line);
   border-left:4px solid var(--orange);background:var(--panel);border-radius:10px;padding:11px 14px;margin-bottom:14px;font-size:14px}
 .banner.note{border-left-color:var(--flag);background:var(--flag-bg)}
+.banner.preview{border:2px dashed var(--orange);border-left-width:6px;background:color-mix(in srgb,var(--orange) 8%,transparent)}
+#dSelf .banner{margin:0 0 10px}
+.orgpick{display:contents}
+.orgpick > div{min-width:0}
+.orgpick .fh{grid-column:1/-1}
+#sfOrg .orgpick{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
+#sfOrg .orgpick > div:not(.fh){display:flex;flex-direction:column}
+@media (max-width:520px){#sfOrg .orgpick{grid-template-columns:1fr}}
+.orgpick [data-org$="Other"]{margin-top:6px}
 .banner .bt{color:var(--ink-2)}
 .banner .bt b{color:var(--ink)}
 
@@ -657,7 +666,8 @@ svg.trend .grid{stroke:var(--line);stroke-width:1}
 
 <!-- New self-evaluation (any member) -->
 <dialog id="dSelf"><form class="dlg" method="dialog">
-  <h3>Fill out your self-evaluation</h3>
+  <h3 id="sfTitle">Fill out your self-evaluation</h3>
+  <p class="banner note" id="sfPreview" hidden><span class="bt"><b>Preview.</b> This is the window members see when they start. Nothing is saved or sent.</span></p>
   <p class="lead" id="sfLeadText">Answer a few questions about your semester. Only you can see it until you submit it. It saves as you go.</p>
   <div id="sfTypeRow"><label class="fl" for="sfType">Which eval</label>
   <select class="fi" id="sfType"></select></div>
@@ -666,8 +676,7 @@ svg.trend .grid{stroke:var(--line);stroke-width:1}
   <div class="fh" id="sfTrackH">Your evaluation uses this one's form.</div></div>
   <label class="fl" for="sfSem">Semester</label>
   <input class="fi" id="sfSem" required maxlength="40" autocomplete="off">
-  <label class="fl" for="sfSub">Subsystem</label>
-  <input class="fi" id="sfSub" maxlength="80" autocomplete="off" placeholder="e.g. BMS">
+  <div id="sfOrg"></div>
   <label class="fl" for="sfCe" id="sfCeL">Your CE</label>
   <select class="fi" id="sfCe" required></select>
   <div class="fh" id="sfCeH">You answer their questions. They're emailed when you submit, and fill out their own eval of you.</div>
@@ -839,18 +848,23 @@ async function loadSubsystems(){
 }
 /* 056: who is in which CE division and subsystem (Admin → Divisions & people, My account). [] before 056. */
 let personOrg = [], orgDivNames = new Map(), orgSubNames = new Map();
+/* The team's CE divisions and subsystems that are in use (not archived), in their set order: what people pick on an eval. */
+let orgDivs = [], orgSubs = [];
 async function loadPersonOrg(){
   try {
-    const [d, s, p] = await Promise.all([rows(sb.from("org_divisions").select("id, name")), rows(sb.from("org_subsystems").select("id, name")),
+    const [d, s, p] = await Promise.all([rows(sb.from("org_divisions").select("id, name, sort, archived_at")), rows(sb.from("org_subsystems").select("id, name, division_id, sort, archived_at")),
       rows(sb.from("person_org").select("user_id, division_id, subsystem_id, main"))]);
     orgDivNames = new Map(d.map(x => [x.id, x.name])); orgSubNames = new Map(s.map(x => [x.id, x.name])); personOrg = p;
-  } catch { personOrg = []; }
+    const order = (a, b) => ((a.sort ?? 100) - (b.sort ?? 100)) || a.name.localeCompare(b.name);
+    orgDivs = d.filter(x => !x.archived_at).sort(order);
+    orgSubs = s.filter(x => !x.archived_at && orgDivs.some(v => v.id === x.division_id)).sort(order);
+  } catch { personOrg = []; orgDivs = []; orgSubs = []; }
 }
 const placesOfUser = uid => personOrg.filter(r => r.user_id === uid).sort((a, b) => (b.main ? 1 : 0) - (a.main ? 1 : 0));
 const mainSubsystem = uid => { const r = placesOfUser(uid).find(x => x.subsystem_id); return r ? orgSubNames.get(r.subsystem_id) || "" : ""; };
 const mainDivision = uid => { const r = placesOfUser(uid)[0]; return r ? orgDivNames.get(r.division_id) || "" : ""; };
 /** Their main subsystem as the evals' Subsystem list spells it ("" if it isn't on that list). */
-const subsystemFor = uid => { const m = lc(mainSubsystem(uid)).trim(); return !m ? "" : subsystemList.length ? (subsystemList.find(x => lc(x).trim() === m) || "") : mainSubsystem(uid); };
+const subsystemFor = uid => { if (orgSubs.length) return mainSubsystem(uid); const m = lc(mainSubsystem(uid)).trim(); return !m ? "" : subsystemList.length ? (subsystemList.find(x => lc(x).trim() === m) || "") : mainSubsystem(uid); };
 const shareSubsystem = (a, b) => { const mine = new Set(placesOfUser(a).map(r => r.subsystem_id).filter(Boolean)); return placesOfUser(b).some(r => r.subsystem_id && mine.has(r.subsystem_id)); };
 /** The form variant named after someone's main division ("Electrical" → "Electrical CE"), if there is one. */
 function variantForDivision(kids, uid){
@@ -862,6 +876,13 @@ function variantForDivision(kids, uid){
 /** A Subsystem dropdown from that list. A saved value that isn't on the list (older evals) stays as a choice. */
 function subsystemControl(attrs, value, label = "Subsystem", required = false){
   value = String(value || "").trim();
+  if (orgSubs.length) {   // the team's subsystems (Admin → Divisions & people), under their divisions
+    const listed = orgSubs.some(x => x.name === value);
+    return `<select ${attrs} aria-label="${esc(label)}"${required ? " required" : ""}><option value="">Pick a subsystem</option>${orgDivs.map(d => {
+      const ss = orgSubs.filter(x => x.division_id === d.id);
+      return ss.length ? `<optgroup label="${esc(d.name)}">${ss.map(x => `<option${x.name === value ? " selected" : ""}>${esc(x.name)}</option>`).join("")}</optgroup>` : "";
+    }).join("")}${value && !listed ? `<option selected>${esc(value)}</option>` : ""}</select>`;
+  }
   if (!subsystemList.length) return `<input ${attrs} value="${esc(value)}" maxlength="80" aria-label="${esc(label)}"${required ? " required" : ""}>`;
   const list = value && !subsystemList.includes(value) ? [...subsystemList, value] : subsystemList;
   return `<select ${attrs} aria-label="${esc(label)}"${required ? " required" : ""}><option value="">Pick a subsystem</option>${
@@ -885,6 +906,59 @@ async function loadSetup(){
 const typeById = id => types.find(t => t.id === id);
 const activeTypes = () => types.filter(t => t.active);
 const S = e => e?.type_settings || typeById(e?.type_id)?.settings || DEFAULT_SETTINGS;   // an eval's own copy of its settings
+
+/* ---------- CE division and subsystem, picked from the team's lists (Admin → Divisions & people), with "Other" ----------
+   Eval types whose variants are something else (e.g. positions) keep using the variant as their division. */
+const OTHER = "__other__";
+const typeUsesDivisions = s => !!s && !(s.form?.variants && variantsOf(s.form.track).length && !/division/i.test(L(s, "variant")));
+const usesOrg = s => orgDivs.length > 0 && typeUsesDivisions(s);
+const sameName = (a, b) => lc(a || "").trim().replace(/\s+/g, " ") === lc(b || "").trim().replace(/\s+/g, " ");
+function orgSubOptions(divId, value, other){
+  const ss = orgSubs.filter(x => x.division_id === divId);
+  return `<option value="">${!divId ? "Pick your division first" : ss.length ? "Pick your subsystem" : "None in this division"}</option>`
+    + ss.map(x => `<option value="${esc(x.id)}"${sameName(x.name, value) ? " selected" : ""}>${esc(x.name)}</option>`).join("")
+    + (divId ? `<option value="${OTHER}"${other ? " selected" : ""}>Other (not listed)…</option>` : "");
+}
+/** Two dropdowns: CE division, then that division's subsystems. "Other" on either opens a box to type it. */
+function orgPickHTML(scope, division, subsystem, required){
+  const d = orgDivs.find(x => sameName(x.name, division));
+  const divOther = !d && !!String(division || "").trim();
+  const subListed = d && orgSubs.some(x => x.division_id === d.id && sameName(x.name, subsystem));
+  const subOther = !subListed && !!String(subsystem || "").trim() && (d || divOther);
+  const divKey = d ? d.id : divOther ? OTHER : "";
+  return `<div class="orgpick" data-orgpick="${scope}">
+    <div><label class="fl">CE division</label>
+      <select class="fi" data-org="div" aria-label="CE division"${required ? " required" : ""}><option value="">Pick your CE division</option>
+        ${orgDivs.map(x => `<option value="${esc(x.id)}"${x.id === divKey ? " selected" : ""}>${esc(x.name)}</option>`).join("")}
+        <option value="${OTHER}"${divOther ? " selected" : ""}>Other (not listed)…</option></select>
+      <input class="fi" data-org="divOther" maxlength="80" placeholder="Type your division" aria-label="Your division" value="${divOther ? esc(division) : ""}"${divOther ? (required ? " required" : "") : " hidden"}></div>
+    <div><label class="fl">Subsystem</label>
+      <select class="fi" data-org="sub" aria-label="Subsystem">${divKey === OTHER ? `<option value="">—</option><option value="${OTHER}" selected>Other (type it)…</option>` : orgSubOptions(divKey, subsystem, subOther)}</select>
+      <input class="fi" data-org="subOther" maxlength="80" placeholder="Type your subsystem" aria-label="Your subsystem" value="${subOther ? esc(subsystem) : ""}"${subOther || divKey === OTHER ? "" : " hidden"}></div>
+    <div class="fh">The division and subsystem you work in most. Not sure? Ask your subsystem lead. Pick "Other" only if yours isn't listed.</div></div>`;
+}
+/** What's picked: {division, subsystem} as names ("Other" gives what was typed). */
+function readOrg(root){
+  const g = k => root.querySelector(`[data-org="${k}"]`), dv = g("div").value, sv = g("sub").value;
+  return {division: dv === OTHER ? g("divOther").value.trim() : orgDivs.find(x => x.id === dv)?.name || "",
+    subsystem: sv === OTHER ? g("subOther").value.trim() : orgSubs.find(x => x.id === sv)?.name || ""};
+}
+/** Keeps the two dropdowns in step (a new division lists its subsystems; "Other" shows its box). True if t was one of them. */
+function orgPickChange(t){
+  const root = t.closest?.("[data-orgpick]"); if (!root || !t.dataset.org) return false;
+  const g = k => root.querySelector(`[data-org="${k}"]`), required = g("div").required;
+  if (t.dataset.org === "div") {
+    const other = t.value === OTHER;
+    g("divOther").hidden = !other; g("divOther").required = other && required;
+    g("sub").innerHTML = other ? `<option value="">—</option><option value="${OTHER}" selected>Other (type it)…</option>` : orgSubOptions(t.value, "", false);
+    g("subOther").hidden = !other;
+    if (other) g("divOther").focus();
+  } else if (t.dataset.org === "sub") {
+    g("subOther").hidden = t.value !== OTHER;
+    if (t.value === OTHER) g("subOther").focus();
+  }
+  return true;
+}
 const L = (s, k) => s?.labels?.[k] || DEFAULT_SETTINGS.labels[k];
 const lc = s => String(s || "").toLowerCase();
 const typeName = e => typeById(e?.type_id)?.name || "Member eval";
@@ -1177,6 +1251,8 @@ async function route(){
     if (!view.trackId) { section = "evals"; render(); return; }
     view.versionId = c && version(c)?.trackId === view.trackId ? c : null;
     if (view.mode !== "edit" || !draft || draft.trackId !== view.trackId) view.mode = "view";
+  } else if (a === "evals" && b === "preview" && !evalState?.row.preview) {   // a preview lives only on the page it was started on
+    location.hash = can("evals.types") ? "#/setup" : "#/evals"; return;
   } else if (a === "evals" && b) {
     await openEval(b);
     if (seq !== routeSeq) return;
@@ -1460,8 +1536,16 @@ const sumColor = name => name === "No division" ? "#94a3b8" : sumColorMap.get(St
 async function loadSummary(force=false){
   if (sumRows && !force) return;
   const cols = "id, kind, status, semester, division, subsystem, member_id, member_name, evaluator_id, rubric, ratings";
-  try { sumRows = await rows(sb.from("evals").select(cols + ", type_id, subject_id")).catch(() => rows(sb.from("evals").select(cols))); sumErr = ""; }
+  try { sumRows = (await rows(sb.from("evals").select(cols + ", type_id, subject_id")).catch(() => rows(sb.from("evals").select(cols)))).map(placeEval); sumErr = ""; }
   catch (e) { sumRows = []; sumErr = e.message || String(e); }
+}
+/** An eval that didn't say its CE division (older ones, or a type that didn't ask): its subsystem's division in
+    Admin → Divisions & people, else the person's own division there. Marked `placed` so the Summary can say so. */
+function placeEval(e){
+  if ((e.division || "").trim() || !orgDivs.length || !typeUsesDivisions(typeById(e.type_id || "member")?.settings)) return e;
+  const byName = [...new Set(orgSubs.filter(x => (e.subsystem || "").trim() && sameName(x.name, e.subsystem)).map(x => x.division_id))];
+  const div = byName.length === 1 ? orgDivNames.get(byName[0]) : mainDivision(e.subject_id || e.member_id);
+  return div ? {...e, division:div, placed:true} : e;
 }
 const sumFmt = v => v == null ? "—" : v.toFixed(2);
 const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
@@ -1590,7 +1674,10 @@ function sumMakeupHTML(allSems){
       <div class="kpi"><div class="k">CE divisions</div><div class="v">${mk.divisions.filter(d => d.name !== "No division").length}</div><div class="s">biggest: ${esc(mk.divisions[0].name)} (${mk.divisions[0].count})</div></div>
       <div class="kpi"><div class="k">Subsystems</div><div class="v">${subsCount}</div><div class="s">named on evals this semester</div></div>
     </div>
-    <section class="sum-card"><h3>CE divisions · ${esc(sem)}</h3><div class="sub">Each person once, in the division and subsystem from their eval this semester.</div>
+    <section class="sum-card"><h3>CE divisions · ${esc(sem)}</h3><div class="sub">Each person once, in the division and subsystem from their eval this semester.${(() => {
+      const n = new Set(sumRows.filter(e => e.placed && (e.type_id || "member") === sumView.type && (e.semester || "").trim() === sem).map(e => e.subject_id || e.member_id || e.id)).size;
+      return n ? ` For ${plural(n, "person")} whose eval didn't name a division, it comes from their subsystem's division (or their own) in Admin → Divisions & people.` : "";
+    })()}</div>
       <div class="mk-stack" role="img" aria-label="${esc(mk.divisions.map(d => `${d.name} ${d.count}`).join(", "))}">${mk.divisions.map(d => `<span style="flex:${d.count};background:${sumColor(d.name)}" title="${esc(`${d.name}: ${d.count} (${pct(d.count)}%)`)}">${d.count / mk.total >= 0.08 ? d.count : ""}</span>`).join("")}</div>
       <div class="mk-grid">${mk.divisions.map(d => {
         const max = Math.max(1, ...d.subsystems.map(x => x.count), d.noSubsystem);
@@ -1762,7 +1849,9 @@ function pagesHTML(r, opts){
     if (!live || b === "evaluator" || b === "input" || (b === "division" && ev.kind !== "self" && track(ev.template_id && version(ev.template_id)?.trackId)?.parent)) return `<span class="ln val">${esc(val)}</span>`;
     if (b === "review_date") return `<span class="ln"><input class="fin" type="date" data-bind="review_date" value="${esc(val)}" aria-label="${esc(f.label)}"></span>`;
     if (b === "member_name" && ev.subject_id) return `<span class="ln val">${esc(val)}</span>`;   // it's someone's account: their name
-    if (b === "subsystem" && subsystemList.length) return `<span class="ln">${subsystemControl('class="fin" data-bind="subsystem"', val, f.label)}</span>`;
+    if (b === "subsystem" && (subsystemList.length || orgSubs.length)) return `<span class="ln">${subsystemControl('class="fin" data-bind="subsystem"', val, f.label)}</span>`;
+    if (b === "division" && usesOrg(S(ev))) return `<span class="ln"><select class="fin" data-bind="division" aria-label="${esc(f.label)}"><option value="">—</option>${
+      orgDivs.map(d => `<option${sameName(d.name, val) ? " selected" : ""}>${esc(d.name)}</option>`).join("")}${val && !orgDivs.some(d => sameName(d.name, val)) ? `<option selected>${esc(val)}</option>` : ""}</select></span>`;
     return `<span class="ln"><input class="fin" ${b ? `data-bind="${b}"` : `data-field="${esc(f.label)}"`} value="${esc(val)}" maxlength="120" aria-label="${esc(f.label)}"></span>`;
   };
 
@@ -2472,11 +2561,12 @@ $("#dNew").addEventListener("close", async () => {
   if ($("#dNew").returnValue !== "ok") return;
   const ty = typeById($("#nType").value), v = version($("#nRubric").value);
   if (!v) { toast(`${ty.name} evals need a form with a saved version first (Forms tab).`, 6000); return; }
-  const t = track(v.trackId), subject = $("#nSubject").value;
+  const t = track(v.trackId), subject = $("#nSubject").value, s = ty.settings;
   lsSet("sg-evals-last-track", t.id); lsSet("sg-evals-last-type", ty.id);
   const p = {type_id:ty.id, template_id:v.id, semester:$("#nSem").value.trim(), division:variantName(t)};
   if (subject) p.subject_id = subject; else { p.member_name = $("#nName").value.trim(); p.member_email = $("#nEmail").value.trim(); }
   if (subject && subsystemFor(subject)) p.subsystem = subsystemFor(subject);   // 056: their main subsystem
+  if (subject && !p.division && usesOrg(s)) p.division = mainDivision(subject);   // and their CE division
   if (ty.id === "member" && !setupReady) delete p.type_id;
   try {
     const id = await call("eval_save", {p_id:null, p});
@@ -2485,15 +2575,19 @@ $("#dNew").addEventListener("close", async () => {
   } catch (e) { fail("Couldn't start the evaluation", e); }
 });
 
-/* ---------- starting your own self-eval ---------- */
-function openNewSelf(){
-  const list = subjectTypes();
+/* ---------- starting your own self-eval (or, from Setup, a preview of it as a member sees it: nothing is saved) ---------- */
+let selfPreview = null;   // the eval type being previewed, or null
+function openNewSelf(previewType = null){
+  const list = previewType ? [typeById(previewType)].filter(Boolean) : subjectTypes();
   if (!list.length) { toast("There's no self-eval for you to fill out right now.", 5000); return; }
+  selfPreview = previewType;
   const last = lsGet("sg-evals-self-type");
-  $("#sfType").innerHTML = typeOpts(list, list.some(t => t.id === last) ? last : list[0].id);
+  $("#sfType").innerHTML = typeOpts(list, previewType || (list.some(t => t.id === last) ? last : list[0].id));
   $("#sfTypeRow").hidden = list.length < 2;
+  $("#sfTitle").textContent = previewType ? "Preview: fill out your self-evaluation" : "Fill out your self-evaluation";
+  $("#sfPreview").hidden = !previewType;
   $("#sfSem").value = semesterNow();
-  $("#sfSub").outerHTML = subsystemControl('class="fi" id="sfSub" autocomplete="off" placeholder="e.g. BMS"', subsystemFor(me.id), "Subsystem");   // 056: yours, if set
+  $("#sfOrg").innerHTML = "";
   fillNewSelf();
   openDlg("#dSelf");
 }
@@ -2502,7 +2596,14 @@ function fillNewSelf(){
   // A variant without a version of its own yet uses the main form's latest.
   const choice = t => (latest(t.id) || latest(top))?.id || "";
   const showVariants = s.form.variants && kids.length;
-  $("#sfTrackRow").hidden = !showVariants;
+  // CE division and subsystem from the team's lists (yours from Admin → Divisions & people, if set); what's picked stays when the type changes
+  const was = $("#sfOrg [data-orgpick]") ? readOrg($("#sfOrg [data-orgpick]")) : $("#sfSub") ? {division:"", subsystem:$("#sfSub").value} : null;
+  const pre = was || {division:mainDivision(me.id), subsystem:subsystemFor(me.id)};
+  const org = usesOrg(s), sub = formHasBind(top, "subsystem");
+  $("#sfOrg").innerHTML = org ? orgPickHTML("dlg", pre.division, pre.subsystem, true)
+    : sub ? `<label class="fl" for="sfSub">Subsystem</label>${subsystemControl('class="fi" id="sfSub" autocomplete="off" placeholder="e.g. BMS"', pre.subsystem, "Subsystem", subsystemList.length > 0)}` : "";
+  // forms made per division: the division picked above picks the form, so there's no second "division" question
+  $("#sfTrackRow").hidden = !showVariants || (org && /division/i.test(L(s, "variant")));
   $("#sfTrackL").textContent = `Your ${lc(L(s, "variant"))}`;
   $("#sfTrack").innerHTML = kids.map(t => `<option value="${esc(t.id)}" data-v="${esc(choice(t))}">${esc(variantName(t))}</option>`).join("")
     + `<option value="${esc(top)}" data-v="${esc(choice(track(top) || {id:top}))}">Not sure / other (the main form)</option>`;
@@ -2510,11 +2611,8 @@ function fillNewSelf(){
   const chartT = chartForm($("#sfType").value, me.id);
   const divT = variantForDivision(kids, me.id)?.id;   // 056: the variant for your division
   $("#sfTrack").value = kids.some(k => k.id === chartT) ? chartT : divT ? divT : kids.some(k => k.id === lastT) ? lastT : (kids[0]?.id || top);
-  const sub = formHasBind(top, "subsystem");
-  $("#sfSub").hidden = $("#sfSub").previousElementSibling.hidden = !sub;
-  $("#sfSub").required = sub && subsystemList.length > 0;
   const fixed = s.evaluators.rule === "person";
-  $("#sfCeL").textContent = `Your ${ev}`; $("#sfCe").hidden = $("#sfCeL").hidden = fixed; $("#sfCe").required = !fixed;
+  $("#sfCeL").textContent = `Your ${ev}`; $("#sfCe").hidden = $("#sfCeL").hidden = fixed; $("#sfCe").required = !fixed && !selfPreview;
   const tyId = $("#sfType").value, mine = evaluatorsFor(tyId, s, me.id), assigned = typeAssigned(tyId) && assignedTo(tyId, me.id).length > 0;
   $("#sfCe").innerHTML = opt(mine, mine.length === 1 && assigned ? mine[0].id : "", `Pick your ${ev}`);
   $("#sfCeH").textContent = fixed ? `${personName(s.evaluators.value) || "Your evaluator"} evaluates you. They're told when you submit.`
@@ -2526,16 +2624,24 @@ function fillNewSelf(){
   $("#sfLead").innerHTML = opt(inputChoices(tyId, s, me.id, [me.id]), "", "—");
 }
 $("#sfType").addEventListener("change", fillNewSelf);
+$("#sfOrg").addEventListener("change", e => orgPickChange(e.target));
 $("#dSelf").addEventListener("close", async () => {
   if ($("#dSelf").returnValue !== "ok") return;
-  const ty = typeById($("#sfType").value), s = ty.settings, o = $("#sfTrack").selectedOptions[0];
-  const tid = (!$("#sfTrackRow").hidden && o?.dataset.v) || latest(s.form.track)?.id;
+  const ty = typeById($("#sfType").value), s = ty.settings, o = $("#sfTrack").selectedOptions[0], top = s.form.track, kids = variantsOf(top);
+  const org = $("#sfOrg [data-orgpick]") ? readOrg($("#sfOrg [data-orgpick]")) : null;
+  let tid = (!$("#sfTrackRow").hidden && o?.dataset.v) || latest(top)?.id;
+  if (org && $("#sfTrackRow").hidden && s.form.variants && kids.length) {
+    // the form for their division (or the one an Admin gave their position, 054), else the main form
+    const chartT = chartForm(ty.id, me.id), pick = kids.find(k => k.id === chartT) || kids.find(k => sameName(variantName(k), org.division)) || null;
+    tid = ((pick && latest(pick.id)) || latest(top))?.id;
+  }
   if (!tid) { toast(`${ty.name} evals need a form with a saved version first.`, 6000); return; }
   const t = (!$("#sfTrackRow").hidden && track($("#sfTrack").value)) || track(version(tid).trackId);
-  lsSet("sg-evals-self-track", $("#sfTrack").value); lsSet("sg-evals-self-type", ty.id);
-  const p = {type_id:ty.id, template_id:tid, semester:$("#sfSem").value.trim(), subsystem:$("#sfSub").hidden ? "" : $("#sfSub").value.trim(),
-    division:variantName(t), ce_id:$("#sfCe").hidden ? "" : $("#sfCe").value};
+  if (!selfPreview) { lsSet("sg-evals-self-track", $("#sfTrack").value); lsSet("sg-evals-self-type", ty.id); }
+  const p = {type_id:ty.id, template_id:tid, semester:$("#sfSem").value.trim(), subsystem:org ? org.subsystem : $("#sfSub") ? $("#sfSub").value.trim() : "",
+    division:org ? org.division : variantName(t), ce_id:$("#sfCe").hidden ? "" : $("#sfCe").value};
   if (!$("#sfLeadRow").hidden) p.input_ids = $("#sfLead").value ? [$("#sfLead").value] : [];
+  if (selfPreview) { startPreview(ty, tid, p); return; }
   if (ty.id === "member" && !setupReady) { delete p.type_id; p.lead_id = $("#sfLead").value; delete p.input_ids; }
   if (!p.ce_id) delete p.ce_id;
   try {
@@ -2544,6 +2650,24 @@ $("#dSelf").addEventListener("close", async () => {
     location.hash = "#/evals/" + id;
   } catch (e) { fail("Couldn't start your self-eval", e); }
 });
+/** The questions a self-eval of this type gets (what the database gives a new one), for the preview. */
+async function previewQuestions(s, ce){
+  if (s.questionnaire?.source === "questionnaire") return qnaire(s.questionnaire.id)?.questions || defaultQs;
+  if (!ce) return defaultQs;
+  return (await call("eval_questions_for", {p_ce:ce}).catch(() => null)) || defaultQs;
+}
+/** Preview as a member (Setup): a self-eval that lives only on this page. Nothing is saved, submitted or emailed. */
+async function startPreview(ty, tid, p){
+  const s = ty.settings, t = track(version(tid)?.trackId);
+  const ce = p.ce_id || (s.evaluators.rule === "person" ? s.evaluators.value : "");
+  const row = {id:"preview", preview:true, kind:"self", status:"draft", type_id:ty.id, type_settings:s, template_id:tid,
+    template_label:`${t?.name || ty.name} · ${version(tid)?.label || ""}`, evaluator_id:me.id, member_id:me.id, subject_id:me.id,
+    member_name:me.name, member_email:me.email, semester:p.semester, division:p.division || "", subsystem:p.subsystem || "", ce_id:ce || null,
+    input_ids:p.input_ids || [], answers:{}, ratings:{}, rubric:{questions:await previewQuestions(s, ce)}, updated_at:new Date().toISOString()};
+  evalState = {row, other:null, notes:[], dirty:false, saving:false, err:"", timer:null};
+  if (location.hash === "#/evals/preview") route(); else location.hash = "#/evals/preview";
+}
+const endPreview = () => { location.hash = can("evals.types") && evalState?.row.type_id ? `#/setup/${evalState.row.type_id}` : "#/evals"; };
 async function startReview(selfId){
   try { const id = await call("eval_start_review", {p_self:selfId}); await loadEvals(); location.hash = "#/evals/" + id; }
   catch (e) { fail("Couldn't start your eval", e); }
@@ -2713,10 +2837,12 @@ function renderSelf(){
   const meta = `<div class="meta">${statusBadge(e.status, "self")} · ${esc(typeName(e))} · ${esc(formLabel(e))} · ${mine ? "your self-evaluation" : `by <b>${esc(e.member_name)}</b>`}
      · ${esc(evL)} <b>${esc(personName(e.ce_id) || "not picked yet")}</b>${e.finalized_at ? ` · submitted ${fmtDate(e.finalized_at)}` : ""} <span class="savest" id="saveState"></span></div>`;
   let acts = `<a class="btn" href="#/evals">All evaluations</a>`;
-  if (mine && e.status === "draft") acts += `<button class="btn danger" data-act="evDelete">Delete draft</button><button class="btn primary" data-act="selfSubmit">Submit to ${e.ce_id ? ceName : `your ${esc(evL)}`}</button>`;
+  if (mine && e.status === "draft") acts += `${e.preview ? `<button class="btn" data-act="pvExit">End preview</button>` : `<button class="btn danger" data-act="evDelete">Delete draft</button>`}<button class="btn primary" data-act="selfSubmit">Submit to ${e.ce_id ? ceName : `your ${esc(evL)}`}</button>`;
   if (mine && e.status !== "draft" && !ce) acts += `<button class="btn" data-act="selfBack">Take back</button>`;
   acts += `<button class="btn" data-act="evPrint">Print / PDF</button>`;
   let h = toolbarHTML(mine ? "Your self-evaluation" : `${e.member_name || L(s, "subject")}'s self-evaluation`, meta, acts, "var(--orange)");
+  if (e.preview) h += `<div class="banner preview"><span class="bt"><b>Preview as a member.</b> This is what someone sees while they fill out their ${esc(typeName(e))} self-evaluation, with your name in it.
+    Type, pick and press anything: nothing is saved, submitted or emailed.</span><button class="btn" data-act="pvExit">Back to Setup</button></div>`;
   if (!mine && e.ce_id !== me.id && can("evals.all")) h += `<div class="banner note"><span class="bt">${TROUBLESHOOT_NOTE}</span></div>`;
   const qs = questionsOf(e), v = s.visibility.eval.subject;
   const after = v === "final" ? (s.meeting ? " You'll be told when their eval is finished, and about the meeting." : " You'll be told when their eval is finished, and can read it then.")
@@ -2737,11 +2863,13 @@ function renderSelf(){
 function selfFormHTML(e, live, qs){
   const s = S(e), top = s.form.track;
   const f = (label, val, ctl) => `<div><label class="fl">${esc(label)}</label>${live ? ctl : `<div class="hv">${esc(val)}</div>`}</div>`;
+  const org = usesOrg(s);
   const hdr = `<div class="hdr">
     ${f(L(s, "subject"), e.member_name, `<div class="hv">${esc(e.member_name)}</div>`)}
     ${f("Semester", e.semester, `<input class="fi" data-sf="semester" value="${esc(e.semester)}" maxlength="40" aria-label="Semester">`)}
-    ${s.form.variants && variantsOf(top).length ? f(L(s, "variant"), e.division || "—", `<div class="hv">${esc(e.division || "General")}</div>`) : ""}
-    ${formHasBind(top, "subsystem") ? f("Subsystem", e.subsystem, subsystemControl('class="fi" data-sf="subsystem"', e.subsystem)) : ""}
+    ${org ? (live ? orgPickHTML("sf", e.division, e.subsystem, false) : f("CE division", e.division || "—", "") + f("Subsystem", e.subsystem || "—", ""))
+      : `${s.form.variants && variantsOf(top).length ? f(L(s, "variant"), e.division || "—", `<div class="hv">${esc(e.division || "General")}</div>`) : ""}
+    ${formHasBind(top, "subsystem") ? f("Subsystem", e.subsystem, subsystemControl('class="fi" data-sf="subsystem"', e.subsystem)) : ""}`}
     ${f(`Your ${L(s, "evaluator")}`, personName(e.ce_id) || "—", s.evaluators.rule === "person" ? `<div class="hv">${esc(personName(e.ce_id) || personName(s.evaluators.value))}</div>`
       : `<select class="fi" data-sf="ce_id" aria-label="Your ${esc(L(s, "evaluator"))}">${opt(evaluatorChoices(e), e.ce_id, "—")}</select>`)}
   </div>`;
@@ -2757,6 +2885,7 @@ function selfFormHTML(e, live, qs){
 /* Picking another evaluator changes the questions (a draft follows its evaluator's list). */
 async function refreshQuestions(){
   const st = evalState; if (!st || st.row.kind !== "self") return;
+  if (st.row.preview) { st.row.rubric = {questions:await previewQuestions(S(st.row), st.row.ce_id)}; if (evalState === st) renderSelf(); return; }
   await flushEval();
   const fresh = (await rows(sb.from("evals").select("rubric").eq("id", st.row.id)))[0];
   if (fresh && evalState === st) { st.row.rubric = fresh.rubric; renderSelf(); }
@@ -2769,8 +2898,10 @@ async function submitSelf(on){
     const qs = questionsOf(r);
     const p = qs ? qs.filter(q => !(r.answers?.[q.id] || "").trim() && !/optional/i.test(q.hint || "")).map(q => `No answer yet for “${q.text}”`)
       : evalProblems(r).filter(x => !/need specific examples/.test(x));
+    if (usesOrg(s) && !(r.division || "").trim()) p.unshift("No CE division picked yet (at the top)");
     if (!confirm(`${p.length ? `Before you submit:\n\n• ${p.join("\n• ")}\n\n` : ""}Submit your self-eval to ${personName(r.ce_id)}?\n\n${answersWhen(s)} You can take it back until they start their eval.`)) return;
   }
+  if (r.preview) { toast(`Preview: nothing was submitted. A member's self-eval would now go to ${personName(r.ce_id) || "their " + evL}${s.notify.submitted ? ", who is emailed" : ""}.`, 6000); return; }
   try {
     await call("eval_self_submit", {p_id:r.id, p_submit:on});
     if (on) sendQueued();
@@ -3010,7 +3141,8 @@ function renderSetup(){
   const nEvals = isNew ? 0 : evals.filter(e => (e.type_id || "member") === t.id).length, warn = setupWarnings(d);
   const meta = `<div class="meta">${setupView.dirty ? "<b>Unsaved changes.</b> " : ""}${isNew ? "A new kind of eval. Nothing changes until you save it." : `Last saved ${fmtDate(t.updated_at)}${t.updated_by_name ? ` by ${esc(t.updated_by_name)}` : ""}.`}
     ${!isNew ? ` New evals use these settings; ones already started keep the settings they started with.` : ""}</div>`;
-  const acts = `${!isNew ? `<button class="btn" data-act="sHist">History</button><button class="btn" data-act="sApply"${setupView.dirty ? " disabled title=\"Save first\"" : ""}>Apply to evals in progress</button>
+  const acts = `${!isNew && t?.settings?.questionnaire?.on ? `<button class="btn" data-act="sPreview"${setupView.dirty ? ' disabled title="Save first: the preview uses the saved settings"' : ' title="Start a self-evaluation the way a member does, and fill it out. Nothing is saved."'}>Preview as a member</button>` : ""}
+    ${!isNew ? `<button class="btn" data-act="sHist">History</button><button class="btn" data-act="sApply"${setupView.dirty ? " disabled title=\"Save first\"" : ""}>Apply to evals in progress</button>
       <button class="btn danger" data-act="sDelete">${nEvals ? "Turn off" : "Delete"}</button>` : ""}
     ${setupView.dirty ? `<button class="btn" data-act="sDiscard">Discard changes</button>` : ""}
     <button class="btn primary" data-act="sSave"${setupView.dirty || isNew ? "" : " disabled"}>${isNew ? "Create eval type" : "Save"}</button>`;
@@ -3250,6 +3382,10 @@ function onEvalInput(ev){
   if (t.id === "inNote") { if (ev.type === "input") inputNoteSoon(t.value); return; }
   if (!evalLive()) return;
   const r = st.row;
+  if (orgPickChange(t) || t.closest?.("[data-orgpick]")) {   // CE division / subsystem at the top of a self-eval
+    if (!t.closest("[data-orgpick]") || (ev.type === "input" && t.tagName === "SELECT")) return;
+    Object.assign(r, readOrg(t.closest("[data-orgpick]"))); markDirty(); return;
+  }
   if (t.id === "inAdd") {
     if (ev.type !== "change" || !t.value) return;
     r.input_ids = [...(r.input_ids || []), t.value]; markDirty(); rerenderEval(); return;
@@ -3285,14 +3421,14 @@ function setRating(critId, v){
   const no = $(".nob", tr); if (no) { no.classList.toggle("on", next === "NO"); no.setAttribute("aria-pressed", next === "NO"); }
   markDirty();
 }
-function markDirty(){ const st = evalState; st.dirty = true; showSaveState(); clearTimeout(st.timer); st.timer = setTimeout(flushEval, 900); }
+function markDirty(){ const st = evalState; if (st.row.preview) { showSaveState(); return; } st.dirty = true; showSaveState(); clearTimeout(st.timer); st.timer = setTimeout(flushEval, 900); }
 async function flushEval(){
-  const st = evalState; if (!st || !st.dirty || st.row.missing) return;
+  const st = evalState; if (!st || !st.dirty || st.row.missing || st.row.preview) return;
   if (st.saving) { await st.saving; return flushEval(); }
   clearTimeout(st.timer); st.dirty = false;
   const r = st.row, ins = setupReady ? {input_ids:r.input_ids || []} : {lead_id:(r.input_ids || [])[0] || ""};
   st.saving = (r.kind === "self"
-    ? call("eval_self_save", {p_id:r.id, p:{semester:r.semester, subsystem:r.subsystem, ce_id:r.ce_id || "", ...ins, answers:r.answers}})
+    ? call("eval_self_save", {p_id:r.id, p:{semester:r.semester, division:r.division || "", subsystem:r.subsystem, ce_id:r.ce_id || "", ...ins, answers:r.answers}})
     : call("eval_save", {p_id:r.id, p:{member_name:r.member_name, member_email:r.member_email, semester:r.semester, division:r.division,
         subsystem:r.subsystem, ...ins, review_date:r.review_date || "", fields:r.fields, ratings:r.ratings, answers:r.answers}}))
     .then(() => { st.err = ""; r.updated_at = new Date().toISOString(); r.lead_id = (r.input_ids || [])[0] || null; })
@@ -3310,6 +3446,7 @@ function showSaveState(){
   const el = $("#saveState"), st = evalState; if (!el || !st) return;
   if (!st.savedInputs && st.row && !st.dirty) st.savedInputs = [...(st.row.input_ids || [])];
   el.className = "savest" + (st.err ? " bad" : "");
+  if (st.row?.preview) { el.textContent = "· Preview: nothing is saved"; return; }
   el.textContent = !evalLive() ? "" : st.err ? `· Not saved: ${st.err} (retrying)` : st.saving || st.dirty ? "· Saving…" : "· All changes saved";
 }
 window.addEventListener("beforeunload", e => {
@@ -3452,7 +3589,9 @@ document.addEventListener("click", e => {
     case "evRestore": restoreEval(d.id); break;
     case "evStatus": setEvalStatus(d.s); break;
     case "evShare": shareEval(); break;
-    case "evDelete": deleteEval(); break;
+    case "evDelete": if (evalState?.row.preview) endPreview(); else deleteEval(); break;
+    case "pvExit": endPreview(); break;
+    case "sPreview": openNewSelf(setupView.id); break;
     case "newSelf": openNewSelf(); break;
     case "evStart": startReview(d.id); break;
     case "selfSubmit": submitSelf(true); break;
