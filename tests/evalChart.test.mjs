@@ -113,7 +113,7 @@ await test('"Use the chart": Admin or the President switch an eval type over, an
   await by(pres, 'eval_chart_use', 'member', true);
   const s = (await one(`select settings from eval_types where id = 'member'`)).settings;
   assert.deepEqual(s.evaluators, { rule: 'chart', value: 'member', side: 'evaluator' });
-  assert.deepEqual(s.subjects, { rule: 'anyone' });                 // "anyone" stays
+  assert.deepEqual(s.subjects, { rule: 'anyone', except_others: 'member' });   // "anyone" stays (065: minus positions with their own eval)
   await by(pres, 'eval_chart_use', 'eboard', true);
   const e = (await one(`select settings from eval_types where id = 'eboard'`)).settings;
   assert.deepEqual(e.subjects, { rule: 'chart', value: 'eboard', side: 'subject' });
@@ -144,7 +144,7 @@ await test('leadership: the chart picks the evaluator and adds the feedback peop
   const tid = await template('leadership');
   const start = (uid, subject) => by(uid, 'eval_save', null, { type_id: 'eboard', template_id: tid, subject_id: subject });
   // The Treasurer: evaluated by the President, feedback from the CEs.
-  await rejects(start(ce1, tres), /Tara Treasurer is assigned to Pat President, not you/);
+  await rejects(start(ce1, tres), /You give feedback on Tara Treasurer's eval; you don't write it/);   // 065 (was "assigned to Pat President, not you")
   await rejects(start(eboardOnly, tres), /don't write/);              // E-board alone isn't on the chart
   const t = await start(pres, tres);
   const row = await one(`select input_ids, lead_id from evals where id = $1`, [t]);

@@ -88,6 +88,13 @@ select.sel{border:1px solid var(--line);background:var(--panel);border-radius:8p
 .banner{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between;border:1px solid var(--line);
   border-left:4px solid var(--orange);background:var(--panel);border-radius:10px;padding:11px 14px;margin-bottom:14px;font-size:14px}
 .banner.note{border-left-color:var(--flag);background:var(--flag-bg)}
+.except{margin-top:8px}
+.except summary{cursor:pointer;font-size:13px;color:var(--ink-2)}
+.except .exl{display:flex;flex-wrap:wrap;gap:2px 14px;margin:6px 0 2px}
+.except .exl .sw2{padding:2px 0}
+.ck-t td{vertical-align:top}
+.ck-a{white-space:nowrap}
+.ck-a .btn{margin:0 4px 4px 0}
 .banner.preview{border:2px dashed var(--orange);border-left-width:6px;background:color-mix(in srgb,var(--orange) 8%,transparent)}
 #dSelf .banner{margin:0 0 10px}
 .orgpick{display:contents}
@@ -965,8 +972,15 @@ const typeName = e => typeById(e?.type_id)?.name || "Member eval";
 const stageOk = (status, need) => need === "draft" ? true : need === "final" ? status === "final" || status === "shared" : need === "shared" ? status === "shared" : false;
 function userPerms(uid){ const rs = roleRows.filter(r => r.user_id === uid).map(r => r.role); return new Set(permRows.filter(p => rs.includes(p.role)).map(p => p.permission)); }
 /** Does this person fit a "who" rule? The database checks the same rule (eval_rule_match). */
+/** 065: the positions this person holds that the evaluation chart puts under another eval type (one that's on). */
+function otherPositions(typeId, uid){
+  const mine = new Set(roleRows.filter(r => r.user_id === uid).map(r => r.role));
+  return [...new Set(chart.filter(c => c.type_id !== typeId && mine.has(c.role) && typeById(c.type_id)?.active).map(c => c.role))];
+}
 function ruleMatch(rule, uid){
   if (!uid || !rule || !people.some(p => p.id === uid)) return false;
+  if ((rule.except || []).length && roleRows.some(r => r.user_id === uid && rule.except.includes(r.role))) return false;   // 065: left out
+  if (rule.except_others && otherPositions(rule.except_others === true ? setupView?.id : rule.except_others, uid).length) return false;
   switch (rule.rule) {
     case "anyone": return true;
     case "permission": return userPerms(uid).has(rule.value);
@@ -1004,12 +1018,21 @@ function evaluatorsFor(typeId, s, subject){
   const all = candidates(s.evaluators, [subject]);
   if (!typeAssigned(typeId)) return all;
   const a = assignedTo(typeId, subject);
-  return a.length ? all.filter(p => a.includes(p.id)) : all;
+  if (a.length) return all.filter(p => a.includes(p.id));
+  if ((typeById(typeId)?.settings || s).strict) return [];   // 065: "Only who's assigned"
+  const fb = feedbackFor(typeId, subject);                   // 065: they give feedback on it, they don't write it
+  return all.filter(p => !fb.includes(p.id));
 }
+/** 065: who gives feedback on `uid`'s eval of this type (their chart boxes' "feedback from"), not counting them. */
+const feedbackFor = (typeId, uid) => [...new Set(chartBoxes(typeId, uid).flatMap(c => (c.feedback || []).flatMap(holders)))].filter(id => id !== uid);
 const permLabel = k => permList.find(p => p.key === k)?.label || k;
 const roleLabel = k => roleList.find(r => r.key === k)?.label || k;
 /** "people whose role can “Fill out evals”", "Chief Engineers", "the Leads group", "Pres Ident". */
 function ruleText(rule){
+  const ex = (rule?.except || []).map(roleLabel);
+  return ruleText0(rule) + (ex.length ? `, except ${listText(ex)}` : "") + (rule?.except_others ? ", not counting people whose position has its own eval" : "");
+}
+function ruleText0(rule){
   switch (rule?.rule) {
     case "anyone": return "anyone with a one.solar account";
     case "permission": return `people whose role can “${permLabel(rule.value)}”`;
@@ -2536,8 +2559,9 @@ function fillNewEval(){
     || `<option value="">This kind of eval's form has no saved version yet</option>`;
   const pick = groups.find(g => g.t.id === lastTrack) || groups.find(g => g.t.parent) || groups[0];
   if (pick) $("#nRubric").value = pick.vs[0].id;
+  // 065: only people you may evaluate (assigned to you, not someone you only give feedback on)
   const anyone = s.subjects.rule === "anyone", who = candidates(s.subjects, [me.id])
-    .filter(p => !typeAssigned(ty.id) || !assignedTo(ty.id, p.id).length || assignedTo(ty.id, p.id).includes(me.id));
+    .filter(p => !typeAssigned(ty.id) || evaluatorsFor(ty.id, s, p.id).some(x => x.id === me.id));
   $("#nSubjectL").textContent = `Who it's for (${lc(subj)})`;
   $("#nSubject").innerHTML = (anyone ? `<option value="">Type their name instead</option>` : `<option value="">Pick the ${esc(lc(subj))}</option>`) + opt(who, "");
   $("#nPick").hidden = !who.length && anyone;
@@ -2614,10 +2638,11 @@ function fillNewSelf(){
   const fixed = s.evaluators.rule === "person";
   $("#sfCeL").textContent = `Your ${ev}`; $("#sfCe").hidden = $("#sfCeL").hidden = fixed; $("#sfCe").required = !fixed && !selfPreview;
   const tyId = $("#sfType").value, mine = evaluatorsFor(tyId, s, me.id), assigned = typeAssigned(tyId) && assignedTo(tyId, me.id).length > 0;
-  $("#sfCe").innerHTML = opt(mine, mine.length === 1 && assigned ? mine[0].id : "", `Pick your ${ev}`);
+  $("#sfCe").innerHTML = opt(mine, mine.length === 1 && assigned ? mine[0].id : "", mine.length ? `Pick your ${ev}` : `Nobody to pick yet`);
   $("#sfCeH").textContent = fixed ? `${personName(s.evaluators.value) || "Your evaluator"} evaluates you. They're told when you submit.`
     : (assigned ? `Assigned by an Admin or the President${mine.length > 1 ? `: pick one of them` : ""}. ` : "")
       + `You answer ${s.questionnaire.source === "evaluator" ? "their" : "the"} questions. They're told when you submit, and write their own eval of you.`;
+  if (!fixed && !mine.length) $("#sfCeH").textContent = `Nobody is assigned as your ${ev} yet. Ask an Admin or the President to assign one.`;
   const canPick = s.input.on && s.input.pickedBy !== "evaluator";
   $("#sfLeadRow").hidden = !canPick;
   $("#sfLeadL").textContent = `Your ${lc(inp)} (optional)`;
@@ -3042,6 +3067,25 @@ const NOTIFY = [["submitted", "Self-eval submitted", "The evaluator, when someon
   ["shared", "Eval shared", "The person evaluated, when the eval is shared with them."]];
 const getPath = (o, path) => path.split(".").reduce((x, k) => x?.[k], o);
 
+/* 065: evals already started that break this type's rules now, with the tools to fix each one (059). */
+function ruleCheckHTML(){
+  const ck = setupView.check?.type === setupView.id ? setupView.check : null, rows = ck?.rows || [];
+  const st = r => r.kind === "self" ? SELF_STATUS[r.status] || r.status : STATUS[r.status] || r.status;
+  return `<div class="scard" id="ruleCheck"><h3>Check these rules</h3>
+    <p class="sd">Evals already started that don't fit this type's rules now: someone who's left out of it, an evaluator who isn't the one assigned, or someone who only gives feedback. Nothing changes by itself: change the evaluator or delete it (it can be put back).</p>
+    <div class="row"><button class="btn" data-act="sCheck"${setupView.dirty ? ' disabled title="Save first: it checks the saved rules"' : ""}>${ck ? "Check again" : "Check evals already started"}</button>
+      ${ck ? `<span class="fh">${ck.err ? `Couldn't check: ${esc(ck.err)}` : rows.length ? `${rows.length} found.` : "None: every eval of this type fits its rules."}</span>` : ""}</div>
+    ${rows.length ? `<div class="tablewrap"><table class="list ck-t"><thead><tr><th>Eval</th><th>What doesn't fit</th><th></th></tr></thead><tbody>${rows.map(r => `<tr>
+      <td><b>${esc(r.subject)}</b><div class="muted-s">${r.kind === "self" ? "Self-eval" : "Eval"}${r.writer ? ` ${r.kind === "self" ? "to" : "by"} ${esc(r.writer)}` : ""}${r.semester ? ` · ${esc(r.semester)}` : ""} · ${esc(st(r))}</div></td>
+      <td>${r.problems.map(esc).join("<br>")}</td>
+      <td class="ck-a"><a class="btn" href="#/evals/${esc(r.id)}">Open</a>${can("evals.assign") ? `<button class="btn" data-act="chgEvaluator" data-id="${esc(r.id)}">Change evaluator</button><button class="btn danger" data-act="evRemove" data-id="${esc(r.id)}">Delete…</button>` : ""}</td></tr>`).join("")}</tbody></table></div>` : ""}</div>`;
+}
+async function runRuleCheck(){
+  const id = setupView.id;
+  try { const rows = await call("eval_rule_check", {p_type:id}); setupView.check = {type:id, rows:rows || []}; }
+  catch (e) { setupView.check = {type:id, rows:[], err:e.message || String(e)}; }
+  if (section === "setup" && setupView.id === id) { const y = window.scrollY; renderSetup(); window.scrollTo({top:y}); }
+}
 function openSetup(id){
   if (id === setupView.id && setupView.draft) return;
   if (setupView.dirty && !confirm("Throw away your unsaved changes to this eval type?")) { history.replaceState(null, "", "#/setup/" + (setupView.id || "")); return; }
@@ -3082,7 +3126,15 @@ function ruleHTML(path, rule, opts = {}){
   if (r.rule === "person") second = sel(people.map(p => [p.id, p.full_name || p.email]), r.value, "Pick the person");
   const n = r.rule === "none" ? 0 : candidates(r).length;
   return `<div class="rule"><select class="fi" data-sp="${path}.rule" aria-label="Who">${kinds.map(([k, l]) => `<option value="${k}"${k === r.rule ? " selected" : ""}>${esc(l)}</option>`).join("")}</select>${second}</div>
-    ${r.rule === "none" ? "" : `<div class="fh">${n} ${n === 1 ? "person" : "people"} right now${n && n <= 6 ? `: ${esc(listText(candidates(r).map(p => p.full_name || p.email)))}` : ""}.</div>`}`;
+    ${r.rule === "none" ? "" : `<div class="fh">${n} ${n === 1 ? "person" : "people"} right now${n && n <= 6 ? `: ${esc(listText(candidates(r).map(p => p.full_name || p.email)))}` : ""}.</div>`}
+    ${opts.except && r.rule !== "person" && r.rule !== "none" ? exceptHTML(path, r, opts.except) : ""}`;
+}
+/** 065: positions left out of a "who" rule, even when they fit it (e.g. Subsystem Leads, who get the Leadership eval). */
+function exceptHTML(path, r, hint){
+  const ex = r.except || [], list = roleList.filter(x => x.key !== "guest" && x.key !== "alumni");
+  return `<details class="except"${ex.length ? " open" : ""}><summary>Except people in these positions${ex.length ? `: <b>${esc(listText(ex.map(roleLabel)))}</b>` : ""}</summary>
+    <div class="exl">${list.map(x => `<label class="sw2"><input type="checkbox" data-except="${path}" value="${esc(x.key)}"${ex.includes(x.key) ? " checked" : ""}> ${esc(x.label)}</label>`).join("")}</div>
+    <div class="fh">${esc(typeof hint === "string" ? hint : "Someone in any of these is left out, even if they fit the rule above.")}</div></details>`;
 }
 const srow = (label, body, hint = "") => `<div class="srow"><div class="sl">${label}</div><div>${body}${hint ? `<div class="fh">${hint}</div>` : ""}</div></div>`;
 const chk = (path, on, text, dis = false) => `<label class="sw2"><input type="checkbox" data-sp="${path}"${on ? " checked" : ""}${dis ? " disabled" : ""}> ${text}</label>`;
@@ -3165,16 +3217,24 @@ function renderSetup(){
       ${srow("Someone giving input", `<input class="fi" data-sp="settings.labels.input" value="${L2("input")}" maxlength="40">`)}
       ${srow("A variant of the form", `<input class="fi" data-sp="settings.labels.variant" value="${L2("variant")}" maxlength="40">`, "e.g. Division, or Position.")}</div>
     <div class="scard"><h3>Who evaluates whom</h3><p class="sd">Use a permission, a one.solar position, a group (Setup → Groups), or one person. Nobody needs a new position just for evals.</p>
-      ${srow(`Who is evaluated (${L2("subject")})`, ruleHTML("settings.subjects", s.subjects, {chart:true}))}
-      ${srow(`Who evaluates (${L2("evaluator")})`, ruleHTML("settings.evaluators", s.evaluators, {chart:true}), s.evaluators.rule === "chart" ? `Set it on the <a href="#/assign">Evaluation chart</a> tab.` : s.evaluators.rule === "person" ? "Self-evals go straight to them." : "People pick theirs on their self-eval; evaluators can also start an eval themselves.")}
+      ${srow(`Who is evaluated (${L2("subject")})`, ruleHTML("settings.subjects", s.subjects, {chart:true, except:"Someone in any of these doesn't get this eval, even if they fit the rule above: they can't start its self-eval, and nobody can start one about them. E.g. leave Subsystem Leads out of the Member eval when they get the Leadership eval."}))}
+      ${s.subjects.rule !== "none" && s.subjects.rule !== "person" ? srow("Their own eval comes first", chk("settings.subjects.except_others", !!s.subjects.except_others, "Leave out people whose position has its own eval"),
+        (() => { const pos = [...new Set(chart.filter(c => c.type_id !== setupView.id && typeById(c.type_id)?.active).map(c => roleLabel(c.role)))];
+          return `${s.subjects.except_others ? "On: someone who also holds a position the evaluation chart puts under another eval doesn't get this one (that eval already covers it)."
+            : "Off: someone who fits the rule above gets this eval even if their position has its own."}${pos.length ? ` Positions with their own eval now: ${esc(listText(pos))}.` : " Nothing on the evaluation chart uses another eval yet."}`; })()) : ""}
+      ${srow(`Who evaluates (${L2("evaluator")})`, ruleHTML("settings.evaluators", s.evaluators, {chart:true, except:"Someone in any of these can't write this eval or be picked as the evaluator, even if they fit the rule above."}), s.evaluators.rule === "chart" ? `Set it on the <a href="#/assign">Evaluation chart</a> tab.` : s.evaluators.rule === "person" ? "Self-evals go straight to them." : "People pick theirs on their self-eval; evaluators can also start an eval themselves.")}
       ${s.evaluators.rule === "person" || s.evaluators.rule === "chart" ? "" : srow("Assigned", chk("settings.assigned", !!s.assigned, "An Admin or the President says who evaluates whom"),
         s.assigned ? `Set it on the <a href="#/assign/${esc(setupView.id || "")}">Assignments</a> tab (anyone whose role can “Assign evaluators”). Someone with no assignment picks from the list above; assigned people still need to be on it.`
                    : "Off: people pick their own from the list above.")}
+      ${s.assigned || s.evaluators.rule === "chart" ? srow("Only who's assigned", chk("settings.strict", !!s.strict, "Nobody else can start one"),
+        `${s.strict ? "Someone nobody is assigned to can't be evaluated (or pick an evaluator) until an Admin or the President assigns one."
+          : "Off: someone nobody is assigned to can be evaluated by anyone on “Who evaluates”."} Either way, people who only give feedback on someone's eval (the chart's “Feedback from”) can't write it: they're added as input when the evaluator starts it.`) : ""}
       ${srow(`Input from (${L2("input")})`, `${chk("settings.input.on", s.input.on, "Someone else gives input")}
         ${s.input.on ? `<div style="margin-top:8px">${ruleHTML("settings.input", s.input)}</div>
         <div class="rule" style="margin-top:8px"><label class="sw2" style="padding:0">Up to <input class="fi" type="number" min="1" max="10" data-sp="settings.input.max" value="${s.input.max}" style="width:70px"> people,</label>
           ${pick("settings.input.pickedBy", [["either", `picked by the ${lc(L(s, "subject"))} or the ${lc(L(s, "evaluator"))}`], ["subject", `picked by the ${lc(L(s, "subject"))}`], ["evaluator", `picked by the ${lc(L(s, "evaluator"))}`]], s.input.pickedBy, "Picked by")}</div>
         ${chk("settings.input.notes", s.input.notes, `They can leave private notes for the ${lc(L(s, "evaluator"))} while it's a draft`)}` : ""}`)}</div>
+    ${isNew ? "" : ruleCheckHTML()}
     <div class="scard"><h3>The form</h3>
       ${srow("Form", pick("settings.form.track", formOpts, s.form.track, "Form"), `Build and change forms in <a href="#/rubrics/${esc(s.form.track)}">Forms</a>. Each eval keeps a copy of the version it started on.`)}
       ${hasVariants ? srow(L2("variant"), chk("settings.form.variants", s.form.variants, `People pick a ${lc(L(s, "variant"))} (${esc(listText(variantsOf(s.form.track).map(x => x.name)))})`), s.form.variants ? "" : "Everyone uses the main form.") : ""}
@@ -3222,6 +3282,12 @@ function setupChange(e){
   if (t.id === "sCopy") { lsSet("sg-evals-setup-copy", t.value); const name = setupView.draft.name, desc = setupView.draft.description;
     setupView.draft.settings = fillSettings(clone(typeById(t.value).settings)); setupView.draft.name = name; setupView.draft.description = desc; setupView.dirty = true; renderSetup(); return; }
   if (t.dataset.gadd) { groupAdd(t); return; }
+  if (t.dataset.except) {   // 065: a position left out of a "who" rule
+    const r = getPath(setupView.draft, t.dataset.except), set = new Set(r.except || []);
+    if (t.checked) set.add(t.value); else set.delete(t.value);
+    if (set.size) r.except = [...set]; else delete r.except;
+    setupView.dirty = true; const y = window.scrollY; renderSetup(); window.scrollTo({top:y}); return;
+  }
   if (t.dataset.also) {
     const s = setupView.draft.settings, set = new Set(s.form.also || []);
     if (t.checked) set.add(t.dataset.also); else set.delete(t.dataset.also);
@@ -3608,6 +3674,7 @@ document.addEventListener("click", e => {
     case "sSave": openTypeSave(); break;
     case "sDiscard": if (confirm("Throw away your unsaved changes?")) { const id = setupView.id; setupView = {id:null, draft:null, dirty:false}; if (id === "new") location.hash = "#/setup"; else { openSetup(id); render(); } } break;
     case "sHist": openTypeHistory(); break;
+    case "sCheck": runRuleCheck(); break;
     case "sLoad": { const x = window._thist?.[+d.i]; if (x) { $("#dTHist").close(); setupView.draft = {name:x.name, description:x.description, active:x.active, settings:fillSettings(clone(x.settings))}; setupView.dirty = true; renderSetup(); toast("Loaded. Save to make it current again."); } break; }
     case "sApply": applyType(); break;
     case "sRetry": loadSetup().then(() => { setupView = {id:null, draft:null, dirty:false}; route(); }); break;
