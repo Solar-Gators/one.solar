@@ -1562,13 +1562,28 @@ async function loadSummary(force=false){
   try { sumRows = (await rows(sb.from("evals").select(cols + ", type_id, subject_id")).catch(() => rows(sb.from("evals").select(cols)))).map(placeEval); sumErr = ""; }
   catch (e) { sumRows = []; sumErr = e.message || String(e); }
 }
-/** An eval that didn't say its CE division (older ones, or a type that didn't ask): its subsystem's division in
-    Admin → Divisions & people, else the person's own division there. Marked `placed` so the Summary can say so. */
+/** Where the Summary puts each eval: the person's division and subsystem in Admin → Divisions & people (their main
+    place there), so it matches Admin. Someone not listed there keeps what their eval says, read loosely: spelling
+    and punctuation don't matter ("Aero-Structures" = "Aero / Structures"), and a division's name typed as the
+    subsystem ("Electrical") counts as that division. `admin` / `placed` let the page say which. */
+const orgKey = s => lc(s || "").replace(/&/g, "and").replace(/[^a-z0-9]+/g, "");
 function placeEval(e){
-  if ((e.division || "").trim() || !orgDivs.length || !typeUsesDivisions(typeById(e.type_id || "member")?.settings)) return e;
-  const byName = [...new Set(orgSubs.filter(x => (e.subsystem || "").trim() && sameName(x.name, e.subsystem)).map(x => x.division_id))];
-  const div = byName.length === 1 ? orgDivNames.get(byName[0]) : mainDivision(e.subject_id || e.member_id);
-  return div ? {...e, division:div, placed:true} : e;
+  if (!orgDivs.length || !typeUsesDivisions(typeById(e.type_id || "member")?.settings)) return e;
+  const who = e.subject_id || e.member_id || (e.kind === "self" ? e.evaluator_id : null);
+  const p = who && placesOfUser(who)[0];
+  if (p && orgDivNames.get(p.division_id))
+    return {...e, division:orgDivNames.get(p.division_id), subsystem:p.subsystem_id ? orgSubNames.get(p.subsystem_id) || "" : "", admin:true};
+  const dk = orgKey(e.division), sk = orgKey(e.subsystem);
+  let div = dk ? orgDivs.find(d => orgKey(d.name) === dk) : null;
+  let sub = null;
+  if (!dk && sk) {
+    div = orgDivs.find(d => orgKey(d.name) === sk);                       // a division's name typed as the subsystem
+    if (!div) { const m = orgSubs.filter(x => orgKey(x.name) === sk); if (new Set(m.map(x => x.division_id)).size === 1) sub = m[0]; }
+    else sub = orgSubs.find(x => x.division_id === div.id && orgKey(x.name) === sk) || null;
+    if (sub && !div) div = orgDivs.find(d => d.id === sub.division_id);
+  } else if (div && sk) sub = orgSubs.find(x => x.division_id === div.id && orgKey(x.name) === sk) || null;
+  if (!div) return dk ? e : {...e, unlisted:true};
+  return {...e, division:div.name, subsystem:sub ? sub.name : div && orgKey(div.name) === sk ? "" : e.subsystem, placed:!dk || !!sub, unlisted:true};
 }
 const sumFmt = v => v == null ? "—" : v.toFixed(2);
 const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
@@ -1695,11 +1710,12 @@ function sumMakeupHTML(allSems){
     h += `<div class="kpis">
       <div class="kpi"><div class="k">People · ${esc(sem)}</div><div class="v">${mk.total}</div><div class="s">with an eval of this type this semester</div></div>
       <div class="kpi"><div class="k">CE divisions</div><div class="v">${mk.divisions.filter(d => d.name !== "No division").length}</div><div class="s">biggest: ${esc(mk.divisions[0].name)} (${mk.divisions[0].count})</div></div>
-      <div class="kpi"><div class="k">Subsystems</div><div class="v">${subsCount}</div><div class="s">named on evals this semester</div></div>
+      <div class="kpi"><div class="k">Subsystems</div><div class="v">${subsCount}</div><div class="s">with people this semester</div></div>
     </div>
-    <section class="sum-card"><h3>CE divisions · ${esc(sem)}</h3><div class="sub">Each person once, in the division and subsystem from their eval this semester.${(() => {
-      const n = new Set(sumRows.filter(e => e.placed && (e.type_id || "member") === sumView.type && (e.semester || "").trim() === sem).map(e => e.subject_id || e.member_id || e.id)).size;
-      return n ? ` For ${plural(n, "person")} whose eval didn't name a division, it comes from their subsystem's division (or their own) in Admin → Divisions & people.` : "";
+    <section class="sum-card"><h3>CE divisions · ${esc(sem)}</h3><div class="sub">Each person once, in their division and subsystem in <a href="${esc(appUrl("admin/#/admin/people"))}">Admin → Divisions &amp; people</a>.${(() => {
+      const rows = sumRows.filter(e => e.unlisted && (e.type_id || "member") === sumView.type && (e.semester || "").trim() === sem);
+      const names = [...new Map(rows.map(e => [e.subject_id || e.member_id || e.id, (e.member_name || "").trim() || "someone"])).values()].sort((a, b) => a.localeCompare(b));
+      return names.length ? ` <b>${names.length} ${names.length === 1 ? "person" : "people"} ${names.length === 1 ? "isn't" : "aren't"} listed there yet</b>, so they're placed from what their eval says: ${esc(listText(names.slice(0, 12)))}${names.length > 12 ? ` and ${names.length - 12} more` : ""}. Add them in Admin to place them for sure.` : "";
     })()}</div>
       <div class="mk-stack" role="img" aria-label="${esc(mk.divisions.map(d => `${d.name} ${d.count}`).join(", "))}">${mk.divisions.map(d => `<span style="flex:${d.count};background:${sumColor(d.name)}" title="${esc(`${d.name}: ${d.count} (${pct(d.count)}%)`)}">${d.count / mk.total >= 0.08 ? d.count : ""}</span>`).join("")}</div>
       <div class="mk-grid">${mk.divisions.map(d => {

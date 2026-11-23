@@ -98,7 +98,7 @@ test.describe('eval divisions and the member preview', () => {
     await expect.poll(async () => (await sql(page, `select division from evals where kind = 'self' and member_name = $1`, [MEMBER.name]))[0].division).toBe('Business');
   });
 
-  test('Summary: an eval that never named a division is placed by its subsystem', async () => {
+  test('Summary: people are placed as in Admin → Divisions & people; anyone not listed there, from their eval read loosely', async () => {
     await signOut(page);
     await open(page, '/orders/', '#auth-form');
     await page.fill('#l-email', ADMIN.email);
@@ -110,10 +110,35 @@ test.describe('eval divisions and the member preview', () => {
       insert into evals (template_id, template_label, rubric, member_name, semester, division, subsystem, evaluator_id, ratings, status, kind, type_id, type_settings, finalized_at)
       select t.id, 'Member eval · ' || t.label, t.rubric, 'Old Eval', 'Fall 2026', '', 'bms', (select id from profiles where email = '${ADMIN.email}'),
              '{}'::jsonb, 'final', 'ce', 'member', (select settings from eval_types where id = 'member'), now() from t`);
+    // an older eval with a division's name typed as the subsystem, spelled differently
+    await sql(page, `
+      with t as (select id, label, rubric from eval_templates where track_id = 'master' order by created_at desc limit 1)
+      insert into evals (template_id, template_label, rubric, member_name, semester, division, subsystem, evaluator_id, ratings, status, kind, type_id, type_settings, finalized_at)
+      select t.id, 'Member eval · ' || t.label, t.rubric, 'Typed Division', 'Fall 2026', '', 'Aero-Structures', (select id from profiles where email = '${ADMIN.email}'),
+             '{}'::jsonb, 'final', 'ce', 'member', (select settings from eval_types where id = 'member'), now() from t`);
+    // Max's eval says "Business", but Admin → Divisions & people has them in Electrical → Telemetry: Admin wins
+    await sql(page, `
+      with t as (select id, label, rubric from eval_templates where track_id = 'master' order by created_at desc limit 1)
+      insert into evals (template_id, template_label, rubric, member_name, subject_id, semester, division, subsystem, evaluator_id, ratings, status, kind, type_id, type_settings, finalized_at)
+      select t.id, 'Member eval · ' || t.label, t.rubric, 'Max Member', (select id from profiles where email = '${MEMBER.email}'), 'Fall 2026', 'Business', 'Sales',
+             (select id from profiles where email = '${ADMIN.email}'), '{}'::jsonb, 'final', 'ce', 'member', (select settings from eval_types where id = 'member'), now() from t`);
+    await sql(page, `delete from person_org where user_id = (select id from profiles where email = $1)`, [MEMBER.email]);
+    await sql(page, `insert into person_org (user_id, division_id, subsystem_id, main)
+      select p.id, d.id, s.id, true from profiles p, org_divisions d join org_subsystems s on s.division_id = d.id
+      where p.email = $1 and d.name = 'Electrical' and s.name = 'Telemetry'`, [MEMBER.email]);
     await open(page, '/evals/?fake#/summary', '.sum');
     await page.click('[data-act="sumTab"][data-k="makeup"]');
     await page.selectOption('[data-act="sumSem"]', 'Fall 2026');
-    await expect(page.locator('.mk-div', { hasText: 'Electrical' })).toBeVisible();
-    await expect(page.locator('.sum-card .sub').first()).toContainText("didn't name a division");
+    const elec = page.locator('.mk-div', { hasText: 'Electrical' });
+    await expect(elec).toContainText('Telemetry');
+    await expect(elec).toContainText('BMS');
+    await expect(page.locator('.mk-div', { hasText: 'Business' })).toHaveCount(0);
+    await expect(page.locator('.mk-div', { hasText: 'Aero / Structures' })).toBeVisible();
+    await expect(page.locator('.mk-div', { hasText: 'No division' })).toHaveCount(0);
+    const note = page.locator('.sum-card .sub').first();
+    await expect(note).toContainText("aren't listed there yet");
+    await expect(note).toContainText('Old Eval');
+    await expect(note).not.toContainText('Max Member');
+    await shot(page, 'evals-summary-admin');
   });
 });
