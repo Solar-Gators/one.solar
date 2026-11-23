@@ -227,6 +227,10 @@ body.signed-out .footer { display: none; }
 .auth-card { padding: 28px; }
 .auth-card h1 { margin-bottom: 18px; }
 .auth-brand { color: var(--orange); font-weight: 700; font-size: 13px; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 6px; }
+.auth-tips { margin: 0 0 16px; padding-left: 18px; color: var(--muted); line-height: 1.5; }
+.auth-tips li { margin: 4px 0; }
+.auth-tips b { color: var(--text, inherit); }
+.auth-resend { margin: -4px 0 14px; }
 .auth-links { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-top: 16px; font-size: 13px; color: var(--muted); }
 .auth-foot { text-align: center; }
 .link-btn { background: none; border: 0; padding: 0; font: inherit; color: var(--blue); cursor: pointer; text-decoration: underline; }
