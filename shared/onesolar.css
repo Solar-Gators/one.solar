@@ -145,14 +145,18 @@ p { margin: 0 0 10px; }
 .table tfoot td { border-top: 1px solid var(--border); background: var(--surface-2); }
 .table a.mono { text-decoration: none; }
 .table tr.clickable { cursor: pointer; }
-.table tr.clickable:hover td { background: #fff7f1; }
+.table tr.clickable:hover td { background: var(--row-hover); }
 .cell-title { font-weight: 500; }
 
 .toolbar { display: flex; gap: 10px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
 .toolbar input[type="search"] { flex: 1; min-width: 220px; max-width: 380px; }
 .toolbar select { width: auto; }
 
-.empty { padding: 36px 16px; text-align: center; color: var(--muted); background: var(--surface); border: 1px dashed var(--border); border-radius: var(--radius); }
+/* One empty state: a quiet box on its own; inside a card it's just a line of text */
+.empty { padding: 24px 16px; margin: 0 0 12px; text-align: center; color: var(--muted); background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); }
+.card .empty { border: 0; background: none; padding: 10px 0 4px; margin: 0; text-align: left; }
+.empty h3 { font-size: var(--fs-md); margin: 0 0 4px; color: var(--text); }
+.empty p { margin: 0 0 10px; }
 
 /* ---- Badges ------------------------------------------------------------- */
 
@@ -406,6 +410,8 @@ button.account-link::after { content: "▾"; font-size: 10px; color: var(--muted
   --shadow-pop: 0 8px 24px rgba(11, 37, 69, .14);
   --topbar-bg: #fff;
   --nav-active: #e8eef8;
+  --row-hover: #f5f8fc;      /* a table row under the pointer */
+  --row-selected: #e8eef8;   /* the row you clicked / picked */
 }
 :root[data-theme="dark"] {
   --shadow: 0 1px 2px #00000040, 0 4px 14px #00000033;
@@ -413,6 +419,8 @@ button.account-link::after { content: "▾"; font-size: 10px; color: var(--muted
   --shadow-pop: var(--d-shadow);
   --topbar-bg: #06182f;
   --nav-active: var(--d-active);
+  --row-hover: #10294a;
+  --row-selected: #10294a;
 }
 body { font-family: var(--font); }
 .mono { font-family: var(--font-mono); }
@@ -448,7 +456,6 @@ dialog::backdrop { background: #0b254566; }
 [data-theme="dark"] .btn-danger { background: #2e0f16; border-color: #7a2a33; color: #ff9d9d; }
 [data-theme="dark"] .btn-danger:hover { background: #3d141c; }
 [data-theme="dark"] .icon-btn:hover:not(:disabled) { background: #3d141c; }
-[data-theme="dark"] .table tr.clickable:hover td { background: #10294a; }
 [data-theme="dark"] .alert.flash { box-shadow: var(--d-shadow); }
 [data-theme="dark"] dialog::backdrop { background: #000000a0; }
 /* Apps without page links in the top bar (Finances, Sponsors, Admin): the account menu still goes right. */

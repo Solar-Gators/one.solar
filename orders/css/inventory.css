@@ -16,7 +16,7 @@
 
 /* Tiles are links */
 a.inv-tile { text-decoration: none; color: inherit; }
-a.inv-tile:hover { border-color: var(--orange); }
+a.inv-tile:hover { background: var(--surface-2); }
 .inv-tile.is-bad strong { color: var(--red); }
 
 /* Item summary and big buttons (a scanned label lands here, often on a phone) */

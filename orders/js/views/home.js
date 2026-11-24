@@ -61,9 +61,9 @@ export async function renderHome(el, { config }) {
         <p class="home-lead">${introText('home', 'Request parts for the team and follow them through approval, ordering and delivery.')}</p>
       </div>
       <div class="home-actions">
-        <a class="btn btn-primary btn-lg" href="#/new">+ New Request</a>
-        <a class="btn btn-lg" href="#/requests">All requests</a>
+        <a class="btn" href="#/requests">All requests</a>
       </div>
+
     </section>
 
     <div class="home-grid">
@@ -104,12 +104,10 @@ export async function renderHome(el, { config }) {
       </div>
 
       ${(() => {
-        // New people see the steps; once you've made a few requests they fold away.
+        // The steps stay folded under their heading; open it to read them.
         const body = `<ol class="steps">${steps.map(([t, d]) => `<li><strong>${esc(t)}</strong><span>${esc(d)}</span></li>`).join('')}</ol>
           <p class="muted small">${hasHelp(config) ? 'Questions? Read the <a href="#/help">Help page</a>. ' : ''}You can come back here any time by clicking the logo.</p>`;
-        return recent.length >= 3
-          ? `<section class="card home-steps is-folded"><details><summary><h2>How ordering works</h2></summary>${body}</details></section>`
-          : `<section class="card home-steps"><h2>How ordering works</h2>${body}</section>`;
+        return `<section class="card home-steps is-folded"><details><summary><h2>How ordering works</h2></summary>${body}</details></section>`;
       })()}
     </div>`;
 }

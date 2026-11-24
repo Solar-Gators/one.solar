@@ -13,7 +13,8 @@ import { startVersionCheck } from '../../shared/version-check.js';
 import { startErrorReporter, openReportDialog } from '../../shared/error-reporter.js';
 import { rememberBrand, appUrl, isSafeNext } from '../../shared/onesolar.js';
 import { rejoinedFlag } from './views/admin.js';
-import { STATUS, STATUSES, EDITABLE_STATUSES, esc, errorBox, setCurrentSeason, setAppearance, renderRichText, fitTables } from './ui.js';
+import { STATUS, STATUSES, EDITABLE_STATUSES, esc, errorBox, setCurrentSeason, setAppearance, renderRichText, fitTables, adminSideNav } from './ui.js';
+
 
 const app = document.getElementById('app');
 mountAppSwitcher(); // ⊞ next to the logo: jump to any other one.solar app (Ctrl + K)
@@ -55,7 +56,6 @@ async function reloadConfig() {
   setNotificationsOn(config.notifications.enabled);
   setAppearance(config.appearance, { defaultPriority: config.defaultPriority });
   applyBranding();
-  document.getElementById('footer').textContent = `${config.teamName} · ${config.season} season`;
 }
 
 /**
@@ -323,6 +323,7 @@ async function main() {
   bindMenu();
   updateChrome();
   fitTables(app);
+  adminSideNav(app);
   startVersionCheck(supabase); // "one.solar was updated. Reload." / "being updated" (shared/version-check.js)
   const render = startRouter({ config, reloadConfig }, { onRender: () => (closeMenus(), updateChrome(), refreshNavCounts(), refreshDiagnosticsBadge()) });
 }

@@ -169,9 +169,11 @@ a.pm-project:hover { border-color: var(--orange); }
 }
 
 /* Settings */
-.pm-subtabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
-.pm-subtabs a { padding: 6px 12px; border: 1px solid var(--border); border-radius: 999px; text-decoration: none; color: var(--muted); font-weight: 600; font-size: 13.5px; }
-.pm-subtabs a[aria-current="page"] { background: var(--navy); border-color: var(--navy); color: var(--surface); }
+/* Same segmented control as the other apps' view switches */
+.pm-subtabs { display: inline-flex; flex-wrap: wrap; gap: 2px; padding: 2px; margin-bottom: 14px; border: 1px solid var(--border); border-radius: var(--r); background: var(--surface-2); }
+.pm-subtabs a { padding: 4px 10px; border: 0; border-radius: var(--r-sm); text-decoration: none; color: var(--muted); font-weight: 600; font-size: 13px; }
+.pm-subtabs a:hover { color: var(--navy); background: var(--surface); }
+.pm-subtabs a[aria-current="page"] { background: var(--surface); color: var(--navy); box-shadow: 0 1px 2px #0b254522, 0 0 0 1px var(--border); }
 .pm-settings .card h2 { font-size: 17px; }
 .pm-caps td, .pm-caps th { text-align: center; }
 .pm-caps td:first-child, .pm-caps th:first-child { text-align: left; min-width: 220px; }
