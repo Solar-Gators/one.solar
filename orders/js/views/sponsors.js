@@ -17,7 +17,7 @@
  */
 import { api } from '../api.js';
 import { auth } from '../auth.js';
-import { esc, fmtMoney, fmtDate, fmtDateTime, errorBox, setFlash, takeFlash, renderRichText, askText, introText } from '../ui.js';
+import { esc, fmtMoney, fmtDate, fmtDateTime, errorBox, setFlash, takeFlash, renderRichText, askText, introText, about } from '../ui.js';
 import { guardLeaving, releaseGuard } from '../leaveGuard.js';
 import { renderAttachments } from '../attachments.js';
 import { readItemFile } from '../itemImport.js';
@@ -626,10 +626,10 @@ function openImport(box, { config, cards, cars, rerender, onDone }) {
   const drawPick = (err) => {
     box.innerHTML = `<section class="card">
       <h2>Import sponsors from a spreadsheet</h2>
-      <p class="muted small">An Excel (.xlsx) or CSV list of sponsors, e.g. an earlier car's sponsor list or this year's outreach tracker.
+      <p class="muted small">An Excel (.xlsx) or CSV list of sponsors. You'll see the list before anything is added.</p>
+      ${about(`<p>For example an earlier car's sponsor list or this year's outreach tracker.
         Every sheet with a <strong>Sponsor name</strong> or <strong>Company</strong> column is read. Columns like amount, level, what they gave,
-        contacts, team member, system, status and notes are recognised; anything else is kept in the card's "About this sponsor".
-        You'll see the list before anything is added.</p>
+        contacts, team member, system, status and notes are recognised; anything else is kept in the card's "About this sponsor".</p>`, 'What it reads', 'sponsors-import')}
       <div class="field"><label for="imp-file">Spreadsheet</label><input type="file" id="imp-file" accept=".xlsx,.csv,.tsv,.txt"></div>
       <div id="imp-errors">${err ? errorBox(err) : ''}</div>
       <div class="form-actions"><button type="button" class="btn btn-ghost" id="imp-cancel">Cancel</button></div>

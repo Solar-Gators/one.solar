@@ -138,8 +138,9 @@ export async function renderWorkflow(el, { config, rerender, reloadConfig }) {
     <div id="wf-errors"></div>
     <section class="card">
       <div class="card-head"><h2>Approval rules</h2><button type="button" class="btn btn-sm" id="add-rule">+ Add rule</button></div>
-      <p class="muted small">When a request is submitted, the rules are checked from the top; the <strong>first one that matches</strong> decides who approves it.
-        If none match, any Chief Engineer can approve. Examples: small orders approved automatically, Battery orders go to the Battery lead, anything over $1,000 needs two CEs.</p>
+      <p class="muted small">The <strong>first rule that matches</strong> a submitted request decides who approves it.</p>
+      ${about(`<p>Rules are checked from the top. If none match, any Chief Engineer can approve.
+        Examples: small orders approved automatically, Battery orders go to the Battery lead, anything over $1,000 needs two CEs.</p>`, 'How this works', 'admin-approval-rules')}
       <div id="rules"></div>
     </section>
     <div class="form-actions sticky-actions">

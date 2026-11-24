@@ -4,7 +4,7 @@
  * every list go through the same row-level security as the rest of Projects, so a shared dashboard shows each
  * person only their projects. Progress is shown three ways, and each number says how it was worked out.
  */
-import { esc, fmtDate, fmtDateTime } from '../../ui.js';
+import { esc, fmtDate, fmtDateTime, about } from '../../ui.js';
 import { pm } from '../../projects/api.js';
 import { progressOf, attention, workload, PRIORITIES, relDay } from '../../projects/core.js';
 import { schedule, todayISO } from '../../projects/schedule.js';
@@ -64,7 +64,8 @@ export async function renderDashboards(el, { config, params, rerender }) {
           ${w.rows.filter((r) => r.items).map((r) => `<tr class="${r.id ? '' : 'pm-unassigned'}"><td>${r.id ? `${avatar(b, r.id)} ${esc(personName(b, r.id))}` : '<strong>No owner</strong>'}</td><td><a href="#/projects/list">${r.items}</a>${r.unestimated ? ` <span class="muted small">(${r.unestimated} not estimated)</span>` : ''}</td>
             <td class="${r.late ? 'is-late' : ''}">${r.late ? `${r.late} h` : ''}</td>${w.weeks.map((wk) => cell(r, wk)).join('')}<td>${r.undated ? `${r.undated} h` : ''}</td><td><strong>${Math.round(r.total * 10) / 10} h</strong></td><td>${r.hours ?? '<span class="muted">—</span>'}</td></tr>`).join('')
             || '<tr><td colspan="12" class="muted">No open items in scope.</td></tr>'}</tbody></table></div>
-        <p class="hint">A red week means more estimated hours are due that week than the person says they have (Inbox → "What I get notified about" → hours a week). Items without an estimate count as 0 hours and are listed as "not estimated".</p></section>
+        <p class="hint">A red week means more estimated hours are due that week than the person says they have.</p>
+        ${about('<p>Each person sets their hours a week in Inbox → "What I get notified about". Items without an estimate count as 0 hours and are listed as "not estimated".</p>', 'How this works', 'projects-workload')}</section>
       <section class="card"><h2>Estimated open work by subsystem</h2>${bySub.size ? `<ul class="pm-hbars">${[...bySub].sort((x, y) => y[1] - x[1]).map(([id, h]) => `<li><span>${esc(b.subsystemById.get(id)?.name || b.divisionById.get(id)?.name || 'No subsystem')}</span>
         <span class="pm-hbar" style="--w:${Math.round((h / most) * 100)}%"></span><span>${Math.round(h)} h</span></li>`).join('')}</ul>` : none('Nothing open.')}</section>`;
     return bindScope();

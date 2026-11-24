@@ -593,10 +593,7 @@ th.sorted .sort-ind { opacity: 1; color: var(--orange-dark); }
 }
 
 /* "How this works" notes that open on click */
-.about { margin: 0 0 14px; font-size: 13px; }
-.about summary { cursor: pointer; color: var(--blue); font-weight: 600; width: max-content; max-width: 100%; }
-.about > div { margin-top: 8px; padding: 10px 12px; border: 1px solid #cbdcfb; border-radius: 8px; background: #eef4ff; color: #1e3a78; }
-.about p:last-child { margin-bottom: 0; }
+/* .about ("How this works") lives in shared/onesolar.css */
 
 /* Save bars: an inactive Save looks inactive, Reset sits on the left */
 .btn-primary:disabled { background: #e3e8ee; border-color: #e3e8ee; color: #7b8a9b; opacity: 1; }
@@ -1342,7 +1339,6 @@ a.step-link:hover { text-decoration: underline; }
 [data-theme="dark"] .announcement-success { background: #0b2e1f; border-color: #236b45; color: #9fe3b9; }
 [data-theme="dark"] .alert-info,
 [data-theme="dark"] .announcement-info,
-[data-theme="dark"] .about > div { background: #0c2547; border-color: #2c5687; color: #b9d2ff; }
 [data-theme="dark"] .alert-warning,
 [data-theme="dark"] .announcement-warning { background: #2a2108; border-color: #6b5212; color: #ffd98a; }
 [data-theme="dark"] .alert.flash { box-shadow: var(--d-shadow); }
