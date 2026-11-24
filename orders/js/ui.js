@@ -530,6 +530,46 @@ export function fitTables(root) {
 }
 
 /**
+ * Admin pages: the group's pages (adminHeader's .admin-subnav, with its "where this applies" line) go in a column
+ * on the left and the page itself on the right, instead of two rows of pills above it. Every Admin view renders
+ * adminHeader() + its content into the page, so this moves them once each time that happens (before the browser
+ * draws, so nothing jumps). Phones (720px and below) keep the "jump to" menu; the column stacks at 760px.
+ */
+export function adminSideNav(root) {
+  const watched = new WeakSet();
+  const pageObserver = new MutationObserver((records) => wrap(records[0].target));
+  function wrap(page) {
+    const top = page?.querySelector(':scope > .admin-top');
+
+    const sub = top?.querySelector(':scope > .admin-subnav');
+    if (!sub) return;
+    const grid = document.createElement('div');
+    grid.className = 'admin-layout';
+    const side = document.createElement('aside');
+    side.className = 'admin-side';
+    const main = document.createElement('div');
+    main.className = 'admin-main';
+    const scope = top.querySelector(':scope > .admin-scope');
+    if (scope) side.append(scope);
+    side.append(sub);
+    let n = top.nextSibling;
+    while (n) { const next = n.nextSibling; main.append(n); n = next; }
+    grid.append(side, main);
+    top.after(grid);
+    top.classList.add('has-side');
+  }
+  // The router puts each page in its own <div> inside root; a view may redraw that <div> later (after a save).
+  function watch() {
+    for (const page of root.children) {
+      if (!watched.has(page)) { watched.add(page); pageObserver.observe(page, { childList: true }); }
+      wrap(page);
+    }
+  }
+  new MutationObserver(watch).observe(root, { childList: true });
+  watch();
+}
+
+/**
  * Ask for a line (or a few lines) of text in a one.solar dialog, instead of the browser's prompt()
  * (which looks out of place, especially on phones). Resolves with the trimmed text, or null if cancelled.
  *   const name = await askText({ title: 'New sponsor', label: 'Sponsor or donor name', ok: 'Add sponsor' });
