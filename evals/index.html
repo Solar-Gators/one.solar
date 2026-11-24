@@ -79,10 +79,6 @@ main{padding:20px 24px 60px;min-width:0}
 .tb-t .meta{font-size:13px;color:var(--muted);margin-top:4px;max-width:80ch}
 .tb-t .meta b{color:var(--ink-2)}
 .tb-a{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
-/* Buttons are the shared .btn; "primary", "danger" and "sm" are this page's names for .btn-primary, .btn-danger, .btn-sm. */
-.btn.primary{background:var(--orange);border-color:var(--orange);color:#fff}
-.btn.primary:hover{background:var(--orange-dark);border-color:var(--orange-dark)}
-.btn.danger{color:var(--red)}
 select.sel{border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:8px 10px;font-size:13.5px;font-weight:700;max-width:100%}
 
 .banner{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between;border:1px solid var(--line);
@@ -107,10 +103,7 @@ select.sel{border:1px solid var(--line);background:var(--panel);border-radius:8p
 .banner .bt{color:var(--ink-2)}
 .banner .bt b{color:var(--ink)}
 
-.empty{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-lg);padding:24px 16px;text-align:center;margin:0 0 12px}
-.scard .empty,.sum-card .empty{border:0;background:none;padding:10px 0 4px;margin:0;text-align:left}
-.empty h3{font-size:var(--fs-md);margin:0 0 4px;color:var(--ink)}
-.empty p{color:var(--muted);margin:0 0 10px}
+.sum-card .empty{border:0;background:none;padding:10px 0 4px;margin:0;text-align:left}
 .empty .row{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
 
 /* ---------- compare ---------- */
@@ -135,9 +128,6 @@ dialog::backdrop{background:rgba(10,20,30,.45)}
 .dlg h3{font-size:18px;font-weight:700;margin-bottom:4px}
 .dlg .lead{color:var(--muted);font-size:13.5px;margin:0 0 14px}
 .fl{display:block;font-size:11.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin:12px 0 5px}
-.fi{width:100%;border:1px solid var(--line);background:var(--panel-2);border-radius:var(--r);min-height:var(--h-control);padding:5px 10px;font-size:var(--fs-base);outline:none}
-textarea.fi{padding:6px 10px}
-.fi:focus{border-color:var(--accent)}
 .fh{font-size:12.3px;color:var(--muted);margin-top:4px}
 .dlg-a{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:18px}
 .hist{list-style:none;margin:0;padding:0;max-height:60vh;overflow:auto}
@@ -151,9 +141,6 @@ ol.steps{margin:6px 0 0;padding-left:20px;font-size:13.4px;color:var(--ink-2)}
 ol.steps li{margin-bottom:4px}
 code{font-family:ui-monospace,Consolas,monospace;font-size:12.5px;background:var(--panel-2);border:1px solid var(--line);border-radius:4px;padding:0 4px}
 
-#toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(20px);opacity:0;pointer-events:none;
-  background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-size:14px;font-weight:700;transition:.2s;z-index:50;max-width:calc(100vw - 32px)}
-#toast.on{opacity:1;transform:translateX(-50%)}
 
 /* =========================================================
    THE PAPER (matches the master PDF; always light)
@@ -240,7 +227,6 @@ table.rub td.lv::after{content:"";position:absolute;top:calc(9*var(--u));right:c
 .box .bh{display:flex;gap:6px;align-items:center;justify-content:space-between}
 
 /* ---------- header tabs, account ---------- */
-.btn.sm{min-height:var(--h-control-sm);padding:3px 10px;font-size:13px}
 .layout.nosb{grid-template-columns:minmax(0,1fr)}
 .layout.nosb aside.side{display:none}
 .layout.nosb main{max-width:1180px;width:100%;margin:0 auto}
@@ -256,11 +242,7 @@ table.rub td.lv::after{content:"";position:absolute;top:calc(9*var(--u));right:c
 .filters{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;margin-bottom:12px}
 .filters .fi{max-width:320px;flex:1 1 220px;padding:8px 11px}
 .chk2{display:inline-flex;gap:7px;align-items:center;font-size:13.5px;color:var(--ink-2);cursor:pointer}
-.tablewrap{overflow-x:auto;background:var(--panel);border:1px solid var(--line);border-radius:var(--r-lg)}
-table.list{width:100%;border-collapse:collapse;font-size:14px;min-width:720px}
-table.list th{text-align:left;font-size:var(--fs-xs);font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);padding:8px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
-table.list td{padding:8px 12px;border-bottom:1px solid var(--line);vertical-align:middle}
-table.list tbody tr:last-child td{border-bottom:0}
+table.list{font-size:14px;min-width:720px}
 table.list tbody tr[data-act]{cursor:pointer}
 table.list tbody tr[data-act]:hover td,table.list tbody tr[data-act]:focus-visible td{background:var(--panel-2)}
 table.list tbody tr:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
@@ -380,7 +362,7 @@ table.rub td.lv.on::after{background:var(--navy);border-color:var(--navy);box-sh
 
 /* ---------- Setup: eval types and groups (036) ---------- */
 .setup{max-width:960px}
-.scard{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-lg);padding:14px 16px 8px;margin-bottom:12px}
+.scard{padding-bottom:8px}
 .scard h3{font-size:15px;font-weight:700;color:var(--navy);margin:0 0 2px}
 .scard .sd{color:var(--muted);font-size:13px;margin:0 0 6px}
 .srow{display:grid;grid-template-columns:minmax(140px,230px) minmax(0,1fr);gap:4px 16px;align-items:start;padding:10px 0;border-top:1px solid var(--line)}
@@ -477,7 +459,7 @@ table.list.asg-t{min-width:0}
 @page{size:letter landscape;margin:0}
 @media print{
   html,body{background:#fff!important}
-  .topbar,aside.side,.tb,.banner,.ptools,.cmp,.rv,.inbox,.empty,#toast,dialog,.ed{display:none!important}
+  .topbar,aside.side,.tb,.banner,.ptools,.cmp,.rv,.inbox,.empty,.os-toast,dialog,.ed{display:none!important}
   .qa{box-shadow:none;border:0;max-width:none}
   .layout{display:block}
   main{padding:0}
@@ -595,7 +577,7 @@ svg.trend .grid{stroke:var(--line);stroke-width:1}
   <label class="fl" for="sNote">What changed, and why</label>
   <textarea class="fi" id="sNote" rows="3" maxlength="600" placeholder="So the next CE knows what you changed and why."></textarea>
   <ul class="savewarn" id="sWarn" hidden></ul>
-  <div class="dlg-a"><button class="btn" value="cancel" formnovalidate>Cancel</button><button class="btn primary" value="ok">Save version</button></div>
+  <div class="dlg-a"><button class="btn" value="cancel" formnovalidate>Cancel</button><button class="btn btn-primary" value="ok">Save version</button></div>
 </form></dialog>
 
 <!-- Rubric history -->
@@ -614,7 +596,7 @@ svg.trend .grid{stroke:var(--line);stroke-width:1}
   <input class="fi" id="tName" required maxlength="50" placeholder="e.g. CE eval, or Strategy CE" autocomplete="off">
   <label class="fl" for="tColor">Colour</label>
   <input class="fi" id="tColor" type="color" value="#5d6d7e" style="height:42px;padding:4px">
-  <div class="dlg-a"><button class="btn" value="cancel" formnovalidate>Cancel</button><button class="btn primary" value="ok">Save</button></div>
+  <div class="dlg-a"><button class="btn" value="cancel" formnovalidate>Cancel</button><button class="btn btn-primary" value="ok">Save</button></div>
 </form></dialog>
 
 <!-- 059: change who an eval's evaluator is (Assign evaluators) -->
@@ -626,7 +608,7 @@ svg.trend .grid{stroke:var(--line);stroke-width:1}
   <label class="fl" for="evNote">Why (kept with the change)</label>
   <input class="fi" id="evNote" maxlength="500" placeholder="e.g. Picked the wrong CE">
   <p class="fh" id="evHint"></p>
-  <div class="dlg-a"><button class="btn" value="cancel" formnovalidate>Cancel</button><button class="btn primary" value="ok">Change it</button></div>
+  <div class="dlg-a"><button class="btn" value="cancel" formnovalidate>Cancel</button><button class="btn btn-primary" value="ok">Change it</button></div>
 </form></dialog>
 
 <dialog id="dRemove"><form class="dlg" method="dialog">
@@ -636,7 +618,7 @@ svg.trend .grid{stroke:var(--line);stroke-width:1}
   <label class="fl" for="rmNote">Why (kept with it)</label>
   <input class="fi" id="rmNote" maxlength="500" placeholder="e.g. Made with the wrong type, a duplicate">
   <p class="fh">It's gone for everyone, at any stage. A copy is kept under "Deleted evals" at the bottom of Evaluations, where it can be put back.</p>
-  <div class="dlg-a"><button class="btn" value="cancel" formnovalidate>Cancel</button><button class="btn danger" value="ok">Delete it</button></div>
+  <div class="dlg-a"><button class="btn" value="cancel" formnovalidate>Cancel</button><button class="btn btn-danger" value="ok">Delete it</button></div>
 </form></dialog>
 
 <!-- Start a rubric version from another one -->
@@ -645,7 +627,7 @@ svg.trend .grid{stroke:var(--line);stroke-width:1}
   <p class="lead">Your new version begins as a copy of the one you pick. The one you copy is not changed.</p>
   <label class="fl" for="pSel">Copy</label>
   <select class="fi" id="pSel"></select>
-  <div class="dlg-a"><button class="btn" value="cancel" formnovalidate>Cancel</button><button class="btn primary" value="ok">Start</button></div>
+  <div class="dlg-a"><button class="btn" value="cancel" formnovalidate>Cancel</button><button class="btn btn-primary" value="ok">Start</button></div>
 </form></dialog>
 
 <!-- New evaluation -->
@@ -667,7 +649,7 @@ svg.trend .grid{stroke:var(--line);stroke-width:1}
   <div class="fh">Needed only if they should read the finished eval. They'll read it by signing in to one.solar with this email.</div></div>
   <label class="fl" for="nSem">Semester</label>
   <input class="fi" id="nSem" required maxlength="40" autocomplete="off">
-  <div class="dlg-a"><button class="btn" value="cancel" formnovalidate>Cancel</button><button class="btn primary" value="ok">Start</button></div>
+  <div class="dlg-a"><button class="btn" value="cancel" formnovalidate>Cancel</button><button class="btn btn-primary" value="ok">Start</button></div>
 </form></dialog>
 
 <!-- New self-evaluation (any member) -->
@@ -688,7 +670,7 @@ svg.trend .grid{stroke:var(--line);stroke-width:1}
   <div class="fh" id="sfCeH">You answer their questions. They're emailed when you submit, and fill out their own eval of you.</div>
   <div id="sfLeadRow"><label class="fl" for="sfLead" id="sfLeadL">Your subsystem lead (optional)</label>
   <select class="fi" id="sfLead"></select></div>
-  <div class="dlg-a"><button class="btn" value="cancel" formnovalidate>Cancel</button><button class="btn primary" value="ok">Start</button></div>
+  <div class="dlg-a"><button class="btn" value="cancel" formnovalidate>Cancel</button><button class="btn btn-primary" value="ok">Start</button></div>
 </form></dialog>
 
 <!-- Schedule the eval meeting (CE) -->
@@ -699,8 +681,8 @@ svg.trend .grid{stroke:var(--line);stroke-width:1}
   <input class="fi" id="mAt" type="datetime-local" required>
   <label class="fl" for="mPlace">Where (optional)</label>
   <input class="fi" id="mPlace" maxlength="200" autocomplete="off" placeholder="e.g. MAE-B lab, or a Teams link">
-  <div class="dlg-a"><button class="btn danger" value="clear" formnovalidate id="mClear">Remove meeting</button><span style="flex:1"></span>
-    <button class="btn" value="cancel" formnovalidate>Cancel</button><button class="btn primary" value="ok">Save and email them</button></div>
+  <div class="dlg-a"><button class="btn btn-danger" value="clear" formnovalidate id="mClear">Remove meeting</button><span style="flex:1"></span>
+    <button class="btn" value="cancel" formnovalidate>Cancel</button><button class="btn btn-primary" value="ok">Save and email them</button></div>
 </form></dialog>
 
 <!-- Save an eval type (Setup) -->
@@ -709,7 +691,7 @@ svg.trend .grid{stroke:var(--line);stroke-width:1}
   <p class="lead" id="tsLead">New evals of this type use these settings. Evals already started keep theirs until you use “Apply to evals in progress”.</p>
   <label class="fl" for="tsNote">What changed, and why (optional)</label>
   <textarea class="fi" id="tsNote" rows="3" maxlength="600" placeholder="So whoever sets this up next knows why."></textarea>
-  <div class="dlg-a"><button class="btn" value="cancel" formnovalidate>Cancel</button><button class="btn primary" value="ok">Save</button></div>
+  <div class="dlg-a"><button class="btn" value="cancel" formnovalidate>Cancel</button><button class="btn btn-primary" value="ok">Save</button></div>
 </form></dialog>
 
 <!-- An eval type's history (Setup) -->
@@ -720,7 +702,6 @@ svg.trend .grid{stroke:var(--line);stroke-width:1}
   <div class="dlg-a"><button class="btn" data-close>Close</button></div>
 </div></dialog>
 
-<div id="toast" role="status"></div>
 
 <script type="module">
 /* =========================================================
@@ -747,6 +728,7 @@ import { startVersionCheck } from "../shared/version-check.js";
 import { startErrorReporter } from "../shared/error-reporter.js";
 import { mountAppSwitcher, mountPalette } from "../shared/app-switcher.js";
 import { howItWorks as helpBox } from "../shared/help.js";
+import { toast as sharedToast } from "../shared/toast.js";
 
 import { summarize, teamMakeup, bySemester, change } from "./summary.js";
 mountAppSwitcher(); // ⊞ next to the logo: jump to any other one.solar app; Ctrl/⌘ + K searches everything
@@ -778,8 +760,8 @@ const fmtDate = iso => iso ? new Date(iso).toLocaleDateString(undefined, {year:"
 const norm = s => String(s || "").replace(/\s+/g, " ").trim();
 const differ = (a, b) => norm(a) !== norm(b);
 const PLAIN = (() => { const d = document.createElement("div"); d.contentEditable = "plaintext-only"; return d.contentEditable === "plaintext-only"; })();
-let toastT;
-function toast(msg, ms=3400){ const t = $("#toast"); t.textContent = msg; t.classList.add("on"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("on"), ms); }
+// The notice at the bottom of the screen is the one every app uses (shared/toast.js); errors stay longer.
+function toast(msg, _ms = 0, kind = "ok"){ sharedToast(msg, kind); }   // the old 2nd argument (how long) is worked out from the length now
 function openDlg(sel){ const d = $(sel); d.returnValue = ""; d.showModal(); }
 $$("dialog [data-close]").forEach(b => b.addEventListener("click", () => b.closest("dialog").close()));
 
@@ -789,7 +771,7 @@ async function call(fn, args){
   return data;
 }
 async function rows(q){ const { data, error } = await q; if (error) throw new Error(error.message); return data || []; }
-const fail = (what, e) => { console.error(e); toast(`${what}: ${e.message || e}`, 6000); };
+const fail = (what, e) => { console.error(e); toast(`${what}: ${e.message || e}`, 0, "bad"); };
 
 function semesterNow(){
   const d = new Date(), m = d.getMonth(), y = d.getFullYear();
@@ -1076,7 +1058,7 @@ function showSignIn(msg=""){
       <label class="fl" for="siPass">Password</label><input class="fi" id="siPass" type="password" autocomplete="current-password" required>
       <div class="dlg-a" style="justify-content:space-between;align-items:center">
         <a href="${SIGN_UP_URL}" class="linkbtn">No account, or forgot your password?</a>
-        <button class="btn primary" id="siGo">Sign in</button></div>
+        <button class="btn btn-primary" id="siGo">Sign in</button></div>
     </form>`;
   $("#fSignIn").addEventListener("submit", async e => {
     e.preventDefault(); $("#siGo").disabled = true;
@@ -1127,11 +1109,11 @@ async function showGuest(){
   $("#main").innerHTML = me && me.former
     ? `<div class="empty"><h3>Your one.solar access has ended</h3>
     <p>You're listed as a former member, so Solar Evals isn't available to you anymore. If that's a mistake, ask an Admin to reactivate you.</p>
-    <div class="row"><a class="btn primary" href="../">one.solar home</a><button class="btn" id="guestCheck">Check again</button></div></div>`
+    <div class="row"><a class="btn btn-primary" href="../">one.solar home</a><button class="btn" id="guestCheck">Check again</button></div></div>`
     : `<div class="empty"><h3>You're signed up. Almost in!</h3>
     <p>Someone on the team needs to accept you before you can use Solar Evals. Ask ${askWho} to accept you on the one.solar home screen.</p>
     <p class="${confirmed ? "" : "warn"}" data-email-confirmed="${confirmed}">${confirmed ? "✓ Email address confirmed." : "✗ Email address not confirmed yet. Click the link in the email we sent you; nobody can accept you until you do."}</p>
-    <div class="row"><a class="btn primary" href="../">one.solar home</a><button class="btn" id="guestCheck">Check again</button></div></div>`;
+    <div class="row"><a class="btn btn-primary" href="../">one.solar home</a><button class="btn" id="guestCheck">Check again</button></div></div>`;
   $("#guestCheck").onclick = async () => {
     const { data:{ session } } = await sb.auth.getSession();
     me = null; if (session) boot(session);
@@ -1394,7 +1376,7 @@ function chartEditorHTML(){
     `<label class="ch-chk"><input type="checkbox" data-ch-list="${key}" value="${esc(p.key)}"${list.includes(p.key) ? " checked" : ""}> ${esc(p.label)}</label>`).join("")}</div>`;
   const forms = db.tracks.filter(t => !t.removed).slice().sort((a, b) => (a.parent ? 1 : 0) - (b.parent ? 1 : 0) || a.name.localeCompare(b.name));
   const free = positions.filter(p => !chartBoxOf(p.key));
-  return `<div class="scard ch-edit" id="chEditor"><h3>${chartEdit.isNew ? "Add a position" : `Edit: ${esc(roleLabel(role))}`}</h3>
+  return `<div class="card scard ch-edit" id="chEditor"><h3>${chartEdit.isNew ? "Add a position" : `Edit: ${esc(roleLabel(role))}`}</h3>
     ${chartEdit.isNew ? srow("Position", `<select class="fi" data-ch="role"><option value="">Pick a position…</option>${free.map(p => `<option value="${esc(p.key)}"${p.key === role ? " selected" : ""}>${esc(p.label)}</option>`).join("")}</select>`,
       `Not there? Add it in Admin → Roles & permissions → New position.`) : ""}
     ${srow("Sits under", `<select class="fi" data-ch="reports_to"><option value="">The top of the chart</option>${chart.filter(c => c.role !== role && !below.has(c.role)).map(c =>
@@ -1406,13 +1388,13 @@ function chartEditorHTML(){
     ${srow("Form", `<select class="fi" data-ch="form_id"><option value="">They pick (or the type's form)</option>${forms.map(t =>
       `<option value="${esc(t.id)}"${t.id === d.form_id ? " selected" : ""}>${esc(t.parent ? `${track(t.parent)?.name || ""} · ${t.name}` : t.name)}</option>`).join("")}</select>`, "Picked for them when their eval or self-eval starts.")}
     ${srow("Note", `<textarea class="fi" data-ch="note" rows="2" maxlength="400" placeholder="Shown on the box, e.g. how the President is evaluated.">${esc(d.note || "")}</textarea>`)}
-    <div class="ch-acts">${chartEdit.isNew ? "" : `<button class="btn danger" data-act="chRemove">Take off the chart</button>`}<span style="flex:1"></span>
-      <button class="btn" data-act="chCancel">Cancel</button><button class="btn primary" data-act="chSave"${role ? "" : " disabled"}>Save</button></div></div>`;
+    <div class="ch-acts">${chartEdit.isNew ? "" : `<button class="btn btn-danger" data-act="chRemove">Take off the chart</button>`}<span style="flex:1"></span>
+      <button class="btn" data-act="chCancel">Cancel</button><button class="btn btn-primary" data-act="chSave"${role ? "" : " disabled"}>Save</button></div></div>`;
 }
 
 function chartUseHTML(){
   const mayUse = can("evals.assign") || can("evals.types");
-  return `<div class="scard"><h3>Which evals use the chart</h3><p class="sd">On: who evaluates whom (and, unless anyone can be evaluated, who gets this eval) comes from the chart. Off: the rules in Setup, as before. Turning it off puts back the rules it had.</p>
+  return `<div class="card scard"><h3>Which evals use the chart</h3><p class="sd">On: who evaluates whom (and, unless anyone can be evaluated, who gets this eval) comes from the chart. Off: the rules in Setup, as before. Turning it off puts back the rules it had.</p>
     ${types.filter(t => t.active || usesChart(t.id)).map(t => srow(esc(t.name), `<label class="sw2"><input type="checkbox" data-ch-use="${esc(t.id)}"${usesChart(t.id) ? " checked" : ""}${mayUse ? "" : " disabled"}> Use the chart</label>`,
       usesChart(t.id) ? `${chart.filter(c => c.type_id === t.id).length} position${chart.filter(c => c.type_id === t.id).length === 1 ? "" : "s"} on the chart get this eval.` : "")).join("")}</div>`;
 }
@@ -1473,7 +1455,7 @@ function renderAssign(){
   const rs = assignments.filter(a => a.type_id === ty.id);
   let h = toolbarHTML("Evaluation chart", `<div class="meta">Who evaluates whom, and whose feedback goes in. Only people whose role can “Assign evaluators” change it; everyone sees the result when they start an eval.</div>`, "", "var(--orange)");
   h += `<div class="setup ch-page">`;
-  h += `<div class="scard"><h3>The chart</h3><p class="sd">Click a box to change it. Boxes are one.solar positions: give people their positions in Admin → Users.</p>${chartTreeHTML()}${chartEditorHTML()}</div>`;
+  h += `<div class="card scard"><h3>The chart</h3><p class="sd">Click a box to change it. Boxes are one.solar positions: give people their positions in Admin → Users.</p>${chartTreeHTML()}${chartEditorHTML()}</div>`;
   h += chartUseHTML();
   h += `<h3 class="ch-h">Exceptions, and who's covered</h3>`;
   h += `<div class="sum-bar" style="margin-bottom:12px"><label class="sum-ctl">Eval type <select class="sel" data-act="asgType">${types.map(t =>
@@ -1490,9 +1472,9 @@ function renderAssign(){
   for (const a of rs) bySubject.set(keyOf(a), (bySubject.get(keyOf(a)) || []).concat(a));
   const order = [...bySubject.keys()].sort((x, y) => (x[0] === y[0] ? 0 : x.startsWith("role") ? -1 : 1)
     || (x.startsWith("role") ? roleLabel(x.slice(5)) : personName(x.slice(7))).localeCompare(y.startsWith("role") ? roleLabel(y.slice(5)) : personName(y.slice(7))));
-  h += `<div class="scard"><h3>Exceptions for one person</h3><p class="sd">For someone the chart gets wrong: “Kim, evaluated by Cy”. Their own rows replace what the chart says for them.
+  h += `<div class="card scard"><h3>Exceptions for one person</h3><p class="sd">For someone the chart gets wrong: “Kim, evaluated by Cy”. Their own rows replace what the chart says for them.
     Several evaluators for one ${esc(subj)}: they pick one of them.</p>`;
-  h += order.length ? `<div class="tablewrap"><table class="list asg-t"><thead><tr><th>Who is evaluated</th><th>Evaluated by</th></tr></thead><tbody>${order.map(k => {
+  h += order.length ? `<div class="table-wrap tablewrap"><table class="table list asg-t"><thead><tr><th>Who is evaluated</th><th>Evaluated by</th></tr></thead><tbody>${order.map(k => {
     const list = bySubject.get(k), a0 = list[0];
     return `<tr><td><b>${asgWho(a0.subject_kind, a0.subject_value)}</b></td><td>${list.map(a =>
       `<span class="asg-chip">${asgWho(a.evaluator_kind, a.evaluator_value)}<button type="button" class="asg-x" data-act="asgDel" data-id="${esc(a.id)}" aria-label="Remove" title="Remove">×</button></span>`).join("")}</td></tr>`;
@@ -1500,7 +1482,7 @@ function renderAssign(){
   h += `<div class="asg-add" id="asgAdd"><select class="fi" data-asg-kind="subj" aria-label="Who is evaluated">${asgOptions(asgView.subj, `Who is evaluated…`)}</select>
     <span class="asg-m">evaluated by</span>
     <select class="fi" data-asg-kind="eval" aria-label="Evaluated by">${asgOptions(asgView.eval, `Evaluated by…`)}</select>
-    <button class="btn primary" data-act="asgAdd"${asgView.subj && asgView.eval ? "" : " disabled"}>Add</button></div></div>`;
+    <button class="btn btn-primary" data-act="asgAdd"${asgView.subj && asgView.eval ? "" : " disabled"}>Add</button></div></div>`;
 
   // Everyone this type evaluates: who they get, or that they pick.
   const subjects = candidates(s.subjects).filter(p => onTeam(p.id));
@@ -1514,10 +1496,10 @@ function renderAssign(){
         ${(() => { const fb = (typeAssigned(ty.id) ? chartBoxes(ty.id, p.id) : []).flatMap(c => (c.feedback || []).flatMap(holders)).filter((x, i, arr) => x !== p.id && arr.indexOf(x) === i && !a.includes(x));
           return fb.length ? `<div class="asg-m asg-s">Feedback from ${esc(listText(fb.map(personName).filter(Boolean)))}</div>` : ""; })()}
         ${off.length ? `<div class="asg-warn">${esc(listText(off.map(personName)))} ${off.length === 1 ? "isn't" : "aren't"} on the “Who evaluates” list for ${esc(ty.name)}, so can't be picked.</div>` : ""}</td>
-      <td><button class="btn sm" data-act="asgPerson" data-id="${esc(p.id)}">Assign…</button></td></tr>`;
+      <td><button class="btn btn-sm" data-act="asgPerson" data-id="${esc(p.id)}">Assign…</button></td></tr>`;
   }).join("");
-  h += `<div class="scard"><h3>Everyone who gets ${esc(ty.name.replace(/\s*evals?$/i, "") || ty.name)} evals</h3><p class="sd">${subjects.length} ${subjects.length === 1 ? "person" : "people"}${missing ? `; ${missing} not assigned yet` : ", all assigned"}.</p>
-    ${subjects.length ? `<div class="tablewrap"><table class="list asg-t"><thead><tr><th>${esc(L(s, "subject"))}</th><th>Evaluated by</th><th></th></tr></thead><tbody>${body}</tbody></table></div>` : `<p class="asg-m">Nobody fits “Who is evaluated” right now.</p>`}</div>`;
+  h += `<div class="card scard"><h3>Everyone who gets ${esc(ty.name.replace(/\s*evals?$/i, "") || ty.name)} evals</h3><p class="sd">${subjects.length} ${subjects.length === 1 ? "person" : "people"}${missing ? `; ${missing} not assigned yet` : ", all assigned"}.</p>
+    ${subjects.length ? `<div class="table-wrap tablewrap"><table class="table list asg-t"><thead><tr><th>${esc(L(s, "subject"))}</th><th>Evaluated by</th><th></th></tr></thead><tbody>${body}</tbody></table></div>` : `<p class="asg-m">Nobody fits “Who is evaluated” right now.</p>`}</div>`;
   m.innerHTML = h + `</div>`;
 }
 async function asgAdd(){
@@ -1782,7 +1764,7 @@ function draftBanner(t){
   if (!draft || draft.trackId !== t.id) return "";
   const b = version(draft.baseId);
   return `<div class="banner"><span class="bt">You have an <b>unsaved draft</b> here${b ? ` (started from ${esc(vName(b))})` : ""}.</span>
-    <span class="tb-a"><button class="btn" data-act="discard">Discard</button><button class="btn primary" data-act="resume">Keep editing</button></span></div>`;
+    <span class="tb-a"><button class="btn" data-act="discard">Discard</button><button class="btn btn-primary" data-act="resume">Keep editing</button></span></div>`;
 }
 
 function renderRubric(){
@@ -1792,7 +1774,7 @@ function renderRubric(){
   view.mode = "view";
   const v = shownVersion(), vs = versionsOf(t.id), isLatest = v && v === vs[vs.length - 1];
   const parent = t.parent && track(t.parent), pl = parent && latest(parent.id);
-  const removeBtn = edit && !usedBy(t.id).length && !(t.id === "master") ? `<button class="btn danger" data-act="removeForm">Remove ${t.parent ? "variant" : "form"}</button>` : "";
+  const removeBtn = edit && !usedBy(t.id).length && !(t.id === "master") ? `<button class="btn btn-danger" data-act="removeForm">Remove ${t.parent ? "variant" : "form"}</button>` : "";
   let h = "";
   if (!v) {
     h += toolbarHTML(t, `<div class="meta">No one has saved a version of this ${t.parent ? "variant" : "form"} yet.</div>`,
@@ -1801,11 +1783,11 @@ function renderRubric(){
     h += !edit ? `<div class="empty"><h3>No ${esc(t.name)} version yet</h3><p>${parent ? `Evals for it use the ${esc(parent.name)} main form until someone saves a version.` : "It can't be used until someone saves a first version."}</p></div>`
       : parent && pl ? `<div class="empty"><h3>Start the first ${esc(t.name)} version</h3>
         <p>It begins as a copy of the ${esc(parent.name)} main form. Change what's specific to ${esc(t.name)}, then save it.</p>
-        <div class="row"><button class="btn primary" data-act="startFrom" data-id="${esc(pl.id)}">Start from ${esc(parent.name)} ${esc(pl.label)}</button>
+        <div class="row"><button class="btn btn-primary" data-act="startFrom" data-id="${esc(pl.id)}">Start from ${esc(parent.name)} ${esc(pl.label)}</button>
         <button class="btn" data-act="startOther">Start from another version</button></div></div>`
       : `<div class="empty"><h3>Start the first version of ${esc(t.name)}</h3>
         <p>Start from a blank page, or from a copy of any form you already have. Add pages, rating rows, written questions and header fields, then save it.</p>
-        <div class="row"><button class="btn primary" data-act="startBlank">Start from a blank form</button>
+        <div class="row"><button class="btn btn-primary" data-act="startBlank">Start from a blank form</button>
         <button class="btn" data-act="startOther">Start from a copy of another form</button></div></div>`;
     m.innerHTML = h; return;
   }
@@ -1816,7 +1798,7 @@ function renderRubric(){
   const sel = `<select class="sel" data-act="pickVersion" aria-label="Version">${vs.slice().reverse().map(x =>
      `<option value="${esc(x.id)}"${x === v ? " selected" : ""}>${esc(x.label)}${x === vs[vs.length - 1] ? " (latest)" : ""}${x.savedAt ? " · " + fmtDate(x.savedAt) : ""}</option>`).join("")}</select>`;
   const acts = `${sel}
-     ${edit ? `<button class="btn primary" data-act="startFrom" data-id="${esc(v.id)}">${isLatest ? "Make a new version" : "New version from this one"}</button>` : ""}
+     ${edit ? `<button class="btn btn-primary" data-act="startFrom" data-id="${esc(v.id)}">${isLatest ? "Make a new version" : "New version from this one"}</button>` : ""}
      <button class="btn" data-act="history">History</button>
      <button class="btn" data-act="compare">Compare</button>
      <button class="btn" data-act="print">Print blank form</button>
@@ -1843,7 +1825,7 @@ function editHTML(t){
   const meta = `<div class="meta"><b>Draft</b>, not saved yet${b ? ` · started from ${esc(vName(b))}` : " · started from a blank form"}. Click any text on the pages to change it.</div>`;
   const acts = `<button class="btn" data-act="discard">Discard draft</button>
     ${b ? `<button class="btn" data-act="cmpDraft">Compare with ${esc(b.label)}</button>` : ""}
-    <button class="btn primary" data-act="openSave">Save as new version</button>`;
+    <button class="btn btn-primary" data-act="openSave">Save as new version</button>`;
   // The whole form: its rating scale, N/O, pages, and undo.
   const bar = `<div class="edbar">
     <span class="grp"><b>Rating scale</b> ${n} levels
@@ -1965,7 +1947,7 @@ function pagesHTML(r, opts){
         <button class="btn" data-act="movePage" data-pi="${pi}" data-d="-1"${pi ? "" : " disabled"} title="Move this page earlier">↑ Page</button>
         <button class="btn" data-act="movePage" data-pi="${pi}" data-d="1"${pi < n - 1 ? "" : " disabled"} title="Move this page later">↓ Page</button>
         <button class="btn" data-act="dupPage" data-pi="${pi}">Copy page</button>
-        <button class="btn danger" data-act="delPage" data-pi="${pi}"${n > 1 ? "" : " disabled"}>Delete page</button>
+        <button class="btn btn-danger" data-act="delPage" data-pi="${pi}"${n > 1 ? "" : " disabled"}>Delete page</button>
         ${pl ? `<button class="btn" data-act="resetPage" data-pi="${pi}" title="Replace this page with the latest main form's version of it">Reset page to ${esc(track(parent).name)} ${esc(pl.label)}</button>` : ""}</span>` : ""}</div>`;
     return `${ptools}<section class="page" data-page="${pi}">
       <div class="ph"><div class="ph-l"><div class="bar"></div><div>${E("title", r.title, "Title", "h1")}${E(`pages.${pi}.subtitle`, p.subtitle, "Subtitle", "div", "psub")}</div></div>
@@ -2284,7 +2266,7 @@ function openHistory(){
       ${v.note ? `<div class="hn">${esc(v.note)}</div>` : ""}</div>
       <div class="ha"><button class="btn" data-act="histView" data-id="${esc(v.id)}">View</button>
       ${prev || based ? `<button class="btn" data-act="histCmp" data-a="${esc((prev || based).id)}" data-b="${esc(v.id)}">What changed</button>` : ""}
-      ${can("evals.templates") && v.id !== MASTER_SEED ? `<button class="btn danger" data-act="histRemove" data-id="${esc(v.id)}" title="Take out a version saved by mistake">Remove</button>` : ""}</div></li>`;
+      ${can("evals.templates") && v.id !== MASTER_SEED ? `<button class="btn btn-danger" data-act="histRemove" data-id="${esc(v.id)}" title="Take out a version saved by mistake">Remove</button>` : ""}</div></li>`;
   }).join("");
   openDlg("#dHist");
 }
@@ -2423,7 +2405,7 @@ async function loadDeleted(){
   if (!box) return;
   try {
     const list = await rows(sb.from("eval_deletions").select("id, kind, status, type_id, semester, subject_name, evaluator_name, note, deleted_by_name, deleted_at, restored_at, restored_by_name").order("deleted_at", {ascending:false}).limit(100));
-    box.innerHTML = list.length ? `<div class="tablewrap"><table class="list"><thead><tr><th>Who</th><th>Kind</th><th>Semester</th><th>Evaluator</th><th>Deleted</th><th>Why</th><th></th></tr></thead><tbody>
+    box.innerHTML = list.length ? `<div class="table-wrap tablewrap"><table class="table list"><thead><tr><th>Who</th><th>Kind</th><th>Semester</th><th>Evaluator</th><th>Deleted</th><th>Why</th><th></th></tr></thead><tbody>
       ${list.map(r => `<tr><td><b>${esc(r.subject_name || "Unnamed")}</b> <span class="savest">${r.kind === "self" ? "self-eval" : "evaluation"}</span></td><td>${esc(typeById(r.type_id)?.name || r.type_id || "")}</td><td>${esc(r.semester || "")}</td>
         <td>${esc(r.evaluator_name)}</td><td>${fmtDate(r.deleted_at)} · ${esc(r.deleted_by_name)}</td><td>${esc(r.note)}</td>
         <td>${r.restored_at ? `<span class="savest">Put back ${fmtDate(r.restored_at)}${r.restored_by_name ? ` · ${esc(r.restored_by_name)}` : ""}</span>` : `<button class="btn" data-act="evRestore" data-id="${esc(r.id)}">Put back</button>`}</td></tr>`).join("")}
@@ -2454,13 +2436,13 @@ function inboxHTML(){
   if (!inbox.length) return "";
   const waiting = inbox.filter(r => !r.ce_eval_id || r.ce_status === "draft").length, several = new Set(inbox.map(r => r.type_id)).size > 1;
   return `<section class="inbox"><h3>Self-evals sent to you${waiting ? ` · ${waiting} waiting for your eval` : ""}</h3>
-    <div class="tablewrap"><table class="list"><thead><tr><th>Who</th>${several ? "<th>Kind</th>" : ""}<th>Semester</th><th>Details</th><th>Submitted</th><th>Your eval</th><th>Meeting</th><th></th></tr></thead><tbody>
+    <div class="table-wrap tablewrap"><table class="table list"><thead><tr><th>Who</th>${several ? "<th>Kind</th>" : ""}<th>Semester</th><th>Details</th><th>Submitted</th><th>Your eval</th><th>Meeting</th><th></th></tr></thead><tbody>
     ${inbox.map(r => `<tr>
       <td><b>${esc(r.member_name || "Unnamed")}</b></td>${several ? `<td>${esc(r.type_name)}</td>` : ""}<td>${esc(r.semester)}</td>
       <td>${esc([r.division, r.subsystem].filter(Boolean).join(" · "))}</td><td>${fmtDate(r.submitted_at)}</td>
       <td>${r.ce_eval_id ? statusBadge(r.ce_status) : '<span class="st draft">Not started</span>'}</td>
       <td>${r.meeting_at ? esc(fmtWhen(r.meeting_at)) : '<span class="savest">—</span>'}</td>
-      <td>${r.ce_eval_id ? `<a class="btn" href="#/evals/${esc(r.ce_eval_id)}">Open your eval</a>` : `<button class="btn primary" data-act="evStart" data-id="${esc(r.self_id)}">Start your eval</button>`}</td></tr>`).join("")}
+      <td>${r.ce_eval_id ? `<a class="btn" href="#/evals/${esc(r.ce_eval_id)}">Open your eval</a>` : `<button class="btn btn-primary" data-act="evStart" data-id="${esc(r.self_id)}">Start your eval</button>`}</td></tr>`).join("")}
     </tbody></table></div></section>`;
 }
 
@@ -2476,15 +2458,15 @@ function renderList(){
     .filter(e => !(e.kind === "self" && evals.some(x => x.kind !== "self" && x.self_eval_id === e.id)));
   const hasSelf = e => e.kind !== "self" && e.self_eval_id && evals.some(x => x.id === e.self_eval_id);
   const who = "Evals you write, your own, ones you're asked to give input on, and the others your position lets you see.";
-  const acts = (subject ? `<button class="btn${writer ? "" : " primary"}" data-act="newSelf">${writer ? "My self-eval" : "Fill out my self-eval"}</button>` : "")
-    + (writer ? `<button class="btn primary" data-act="newEval">New evaluation</button>` : "");
+  const acts = (subject ? `<button class="btn${writer ? "" : " btn-primary"}" data-act="newSelf">${writer ? "My self-eval" : "Fill out my self-eval"}</button>` : "")
+    + (writer ? `<button class="btn btn-primary" data-act="newEval">New evaluation</button>` : "");
   let h = toolbarHTML("Evaluations", `<div class="meta">${who}</div>`, acts, "var(--orange)") + inboxHTML();
   if (!setupReady && can("evals.types")) h += `<div class="banner"><span class="bt">The database doesn't have the eval-types update yet (036_eval_types.sql), so only the Member eval works. Run it in Supabase.</span></div>`;
   if (!evals.length) {
     h += writer ? `<div class="empty"><h3>No evaluations yet</h3><p>Self-evals sent to you show up above. You can also start an eval yourself; it's a draft until you mark it finished.</p>
-        <div class="row"><button class="btn primary" data-act="newEval">New evaluation</button></div></div>`
+        <div class="row"><button class="btn btn-primary" data-act="newEval">New evaluation</button></div></div>`
       : subject ? `<div class="empty"><h3>Start with your self-evaluation</h3><p>Answer a few questions about your semester and submit them. Your evaluator writes their eval of you next, and you'll be told when it's ready.</p>
-        <div class="row"><button class="btn primary" data-act="newSelf">Fill out my self-eval</button></div></div>`
+        <div class="row"><button class="btn btn-primary" data-act="newSelf">Fill out my self-eval</button></div></div>`
       : `<div class="empty"><h3>Nothing here yet</h3><p>Evals you're allowed to see, or asked to give input on, will show up here.</p></div>`;
     m.innerHTML = h + deletedHTML(); bindDeleted(); return;
   }
@@ -2495,7 +2477,7 @@ function renderList(){
       <select class="sel" id="fSt" aria-label="Status"><option value="">Any status</option>${Object.entries(STATUS).map(([k, v]) => `<option value="${k}"${k === filt.status ? " selected" : ""}>${v}</option>`).join("")}</select>
       ${writer ? `<label class="chk2"><input type="checkbox" id="fMine"${filt.mine ? " checked" : ""}> Only ones I wrote</label>` : ""}
     </div>
-    <div class="tablewrap"><table class="list"><thead><tr><th>Who</th>${several ? "<th>Kind</th>" : ""}<th>Semester</th><th>Details</th><th>Input from</th><th>Evaluator</th><th>Status</th><th>Updated</th></tr></thead><tbody>
+    <div class="table-wrap tablewrap"><table class="table list"><thead><tr><th>Who</th>${several ? "<th>Kind</th>" : ""}<th>Semester</th><th>Details</th><th>Input from</th><th>Evaluator</th><th>Status</th><th>Updated</th></tr></thead><tbody>
     ${shown.map(e => `<tr data-act="openEval" data-id="${esc(e.id)}" tabindex="0">
         <td><b>${esc(e.member_name || "Unnamed")}</b>${e.member_id === me.id || e.subject_id === me.id ? ' <span class="badge">You</span>' : ""}${(e.input_ids || []).includes(me.id) ? ' <span class="badge">Your input</span>' : ""}</td>
         ${several ? `<td>${esc(typeName(e))}</td>` : ""}
@@ -2827,11 +2809,11 @@ function renderEval(){
      · updated ${fmtDate(e.updated_at)}${e.shared_at ? ` · shared ${fmtDate(e.shared_at)}` : ""} <span class="savest" id="saveState"></span></div>`;
   let acts = `<a class="btn" href="#/evals">All evaluations</a>`;
   if (mine) {
-    if (e.status === "draft") acts += `<button class="btn danger" data-act="evDelete">Delete draft</button><button class="btn primary" data-act="evStatus" data-s="final">Mark finished</button>`;
+    if (e.status === "draft") acts += `<button class="btn btn-danger" data-act="evDelete">Delete draft</button><button class="btn btn-primary" data-act="evStatus" data-s="final">Mark finished</button>`;
     if (e.status === "final") {
       acts += `<button class="btn" data-act="evStatus" data-s="draft">Back to draft</button>`;
-      if (s.meeting) acts += `<button class="btn${shareable ? "" : " primary"}" data-act="evMeet">${e.meeting_at ? "Change meeting" : "Schedule meeting"}</button>`;
-      if (shareable) acts += `<button class="btn primary" data-act="evShare">${s.meeting ? "Meeting done: share" : "Share"} with ${who}</button>`;
+      if (s.meeting) acts += `<button class="btn${shareable ? "" : " btn-primary"}" data-act="evMeet">${e.meeting_at ? "Change meeting" : "Schedule meeting"}</button>`;
+      if (shareable) acts += `<button class="btn btn-primary" data-act="evShare">${s.meeting ? "Meeting done: share" : "Share"} with ${who}</button>`;
     }
     if (e.status === "shared") acts += `<button class="btn" data-act="evStatus" data-s="final">Stop sharing</button>`;
   }
@@ -2886,7 +2868,7 @@ function renderSelf(){
   const meta = `<div class="meta">${statusBadge(e.status, "self")} · ${esc(typeName(e))} · ${esc(formLabel(e))} · ${mine ? "your self-evaluation" : `by <b>${esc(e.member_name)}</b>`}
      · ${esc(evL)} <b>${esc(personName(e.ce_id) || "not picked yet")}</b>${e.finalized_at ? ` · submitted ${fmtDate(e.finalized_at)}` : ""} <span class="savest" id="saveState"></span></div>`;
   let acts = `<a class="btn" href="#/evals">All evaluations</a>`;
-  if (mine && e.status === "draft") acts += `${e.preview ? `<button class="btn" data-act="pvExit">End preview</button>` : `<button class="btn danger" data-act="evDelete">Delete draft</button>`}<button class="btn primary" data-act="selfSubmit">Submit to ${e.ce_id ? ceName : `your ${esc(evL)}`}</button>`;
+  if (mine && e.status === "draft") acts += `${e.preview ? `<button class="btn" data-act="pvExit">End preview</button>` : `<button class="btn btn-danger" data-act="evDelete">Delete draft</button>`}<button class="btn btn-primary" data-act="selfSubmit">Submit to ${e.ce_id ? ceName : `your ${esc(evL)}`}</button>`;
   if (mine && e.status !== "draft" && !ce) acts += `<button class="btn" data-act="selfBack">Take back</button>`;
   acts += `<button class="btn" data-act="evPrint">Print / PDF</button>`;
   let h = toolbarHTML(mine ? "Your self-evaluation" : `${e.member_name || L(s, "subject")}'s self-evaluation`, meta, acts, "var(--orange)");
@@ -2999,8 +2981,8 @@ function renderQuestions(){
         People who pick you as their evaluator answer these, in eval types whose questions come from the evaluator.</div>`
     : `<div class="meta">${qDirty ? "<b>Unsaved changes.</b> " : ""}${shared ? `Saved ${fmtDate(shared.updated_at)}${shared.updated_by_name ? ` by ${esc(shared.updated_by_name)}` : ""}. ` : ""}
         ${used.length ? `Used by <b>${esc(listText(used))}</b>.` : `A shared list of questions. Pick it for an eval type in ${can("evals.types") ? `<a href="#/setup">Setup</a>` : "Setup"}.`}</div>`;
-  const acts = !editable ? "" : `${shared && can("evals.templates") ? `<button class="btn danger" data-act="qRemove"${used.length ? ` disabled title="Used by ${esc(listText(used))}"` : ""}>Remove</button>` : ""}
-    ${qDirty ? `<button class="btn" data-act="qDiscard">Discard changes</button>` : ""}<button class="btn primary" data-act="qSave"${qDirty || isNew ? "" : " disabled"}>${isNew ? "Create questionnaire" : "Save questions"}</button>`;
+  const acts = !editable ? "" : `${shared && can("evals.templates") ? `<button class="btn btn-danger" data-act="qRemove"${used.length ? ` disabled title="Used by ${esc(listText(used))}"` : ""}>Remove</button>` : ""}
+    ${qDirty ? `<button class="btn" data-act="qDiscard">Discard changes</button>` : ""}<button class="btn btn-primary" data-act="qSave"${qDirty || isNew ? "" : " disabled"}>${isNew ? "Create questionnaire" : "Save questions"}</button>`;
   let h = `<div class="qpick">${picks.map(p => `<button class="btn${p.k === qSel ? " on" : ""}" data-act="qTab" data-k="${esc(p.k)}">${esc(p.n)}</button>`).join("")}</div>`;
   h += toolbarHTML(mineTab ? "Your self-eval questions" : isNew ? "New questionnaire" : shared.name, meta, acts, "var(--orange)");
   h += `<div class="banner note"><span class="bt">A draft self-eval always shows the latest questions. Once someone submits, theirs keeps the questions they answered, so changing these later doesn't affect it.</span></div>`;
@@ -3010,7 +2992,7 @@ function renderQuestions(){
       <input class="fi" data-qhint="${i}" value="${esc(q.hint || "")}" maxlength="200" placeholder="Hint under it (optional), e.g. “Optional” or “A sentence or two”" aria-label="Hint for question ${i + 1}"></div>
       <div class="qb"><button class="btn" data-act="qMove" data-i="${i}" data-d="-1" title="Move up"${i ? "" : " disabled"}>↑</button>
         <button class="btn" data-act="qMove" data-i="${i}" data-d="1" title="Move down"${i < qDraft.length - 1 ? "" : " disabled"}>↓</button>
-        <button class="btn danger" data-act="qDel" data-i="${i}" title="Remove"${qDraft.length > 1 ? "" : " disabled"}>✕</button></div></div>`
+        <button class="btn btn-danger" data-act="qDel" data-i="${i}" title="Remove"${qDraft.length > 1 ? "" : " disabled"}>✕</button></div></div>`
       : `<div class="qrow"><div class="qi">${i + 1}.</div><div style="padding-top:8px">${esc(q.text)}${q.hint ? `<div class="fh">${esc(q.hint)}</div>` : ""}</div><div></div></div>`).join("")}
     ${editable ? `<button class="btn" data-act="qNew"${qDraft.length >= 20 ? " disabled" : ""}>+ Add a question</button>` : ""}</div>`;
   if (editable) {
@@ -3095,14 +3077,14 @@ const getPath = (o, path) => path.split(".").reduce((x, k) => x?.[k], o);
 function ruleCheckHTML(){
   const ck = setupView.check?.type === setupView.id ? setupView.check : null, rows = ck?.rows || [];
   const st = r => r.kind === "self" ? SELF_STATUS[r.status] || r.status : STATUS[r.status] || r.status;
-  return `<div class="scard" id="ruleCheck"><h3>Check these rules</h3>
+  return `<div class="card scard" id="ruleCheck"><h3>Check these rules</h3>
     <p class="sd">Evals already started that don't fit this type's rules now: someone who's left out of it, an evaluator who isn't the one assigned, or someone who only gives feedback. Nothing changes by itself: change the evaluator or delete it (it can be put back).</p>
     <div class="row"><button class="btn" data-act="sCheck"${setupView.dirty ? ' disabled title="Save first: it checks the saved rules"' : ""}>${ck ? "Check again" : "Check evals already started"}</button>
       ${ck ? `<span class="fh">${ck.err ? `Couldn't check: ${esc(ck.err)}` : rows.length ? `${rows.length} found.` : "None: every eval of this type fits its rules."}</span>` : ""}</div>
-    ${rows.length ? `<div class="tablewrap"><table class="list ck-t"><thead><tr><th>Eval</th><th>What doesn't fit</th><th></th></tr></thead><tbody>${rows.map(r => `<tr>
+    ${rows.length ? `<div class="table-wrap tablewrap"><table class="table list ck-t"><thead><tr><th>Eval</th><th>What doesn't fit</th><th></th></tr></thead><tbody>${rows.map(r => `<tr>
       <td><b>${esc(r.subject)}</b><div class="muted-s">${r.kind === "self" ? "Self-eval" : "Eval"}${r.writer ? ` ${r.kind === "self" ? "to" : "by"} ${esc(r.writer)}` : ""}${r.semester ? ` · ${esc(r.semester)}` : ""} · ${esc(st(r))}</div></td>
       <td>${r.problems.map(esc).join("<br>")}</td>
-      <td class="ck-a"><a class="btn" href="#/evals/${esc(r.id)}">Open</a>${can("evals.assign") ? `<button class="btn" data-act="chgEvaluator" data-id="${esc(r.id)}">Change evaluator</button><button class="btn danger" data-act="evRemove" data-id="${esc(r.id)}">Delete…</button>` : ""}</td></tr>`).join("")}</tbody></table></div>` : ""}</div>`;
+      <td class="ck-a"><a class="btn" href="#/evals/${esc(r.id)}">Open</a>${can("evals.assign") ? `<button class="btn" data-act="chgEvaluator" data-id="${esc(r.id)}">Change evaluator</button><button class="btn btn-danger" data-act="evRemove" data-id="${esc(r.id)}">Delete…</button>` : ""}</td></tr>`).join("")}</tbody></table></div>` : ""}</div>`;
 }
 async function runRuleCheck(){
   const id = setupView.id;
@@ -3211,7 +3193,7 @@ const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
 function renderSetup(){
   const m = $("#main");
   if (!setupReady) { m.innerHTML = toolbarHTML("Setup", "", "", "var(--orange)") + `<div class="empty"><h3>Setup couldn't load</h3><p>${setupError ? `The database said: <b>${esc(setupError)}</b>.` : ""}
-      If 036_eval_types.sql hasn't been run in Supabase, run it. If it has, reload this page.</p><div class="row"><button class="btn primary" data-act="sRetry">Try again</button></div></div>`; return; }
+      If 036_eval_types.sql hasn't been run in Supabase, run it. If it has, reload this page.</p><div class="row"><button class="btn btn-primary" data-act="sRetry">Try again</button></div></div>`; return; }
   if (setupView.id === "groups") { renderGroups(); return; }
   const d = setupView.draft, s = d.settings, v = s.visibility, isNew = setupView.id === "new", t = typeById(setupView.id);
   const nEvals = isNew ? 0 : evals.filter(e => (e.type_id || "member") === t.id).length, warn = setupWarnings(d);
@@ -3219,9 +3201,9 @@ function renderSetup(){
     ${!isNew ? ` New evals use these settings; ones already started keep the settings they started with.` : ""}</div>`;
   const acts = `${!isNew && t?.settings?.questionnaire?.on ? `<button class="btn" data-act="sPreview"${setupView.dirty ? ' disabled title="Save first: the preview uses the saved settings"' : ' title="Start a self-evaluation the way a member does, and fill it out. Nothing is saved."'}>Preview as a member</button>` : ""}
     ${!isNew ? `<button class="btn" data-act="sHist">History</button><button class="btn" data-act="sApply"${setupView.dirty ? " disabled title=\"Save first\"" : ""}>Apply to evals in progress</button>
-      <button class="btn danger" data-act="sDelete">${nEvals ? "Turn off" : "Delete"}</button>` : ""}
+      <button class="btn btn-danger" data-act="sDelete">${nEvals ? "Turn off" : "Delete"}</button>` : ""}
     ${setupView.dirty ? `<button class="btn" data-act="sDiscard">Discard changes</button>` : ""}
-    <button class="btn primary" data-act="sSave"${setupView.dirty || isNew ? "" : " disabled"}>${isNew ? "Create eval type" : "Save"}</button>`;
+    <button class="btn btn-primary" data-act="sSave"${setupView.dirty || isNew ? "" : " disabled"}>${isNew ? "Create eval type" : "Save"}</button>`;
   const formOpts = forms().flatMap(f => [[f.id, `${f.name} (main form)`], ...variantsOf(f.id).map(x => [x.id, `${f.name} · ${x.name} only`])]);
   const hasVariants = track(s.form.track) && !track(s.form.track).parent && variantsOf(s.form.track).length;
   const L2 = k => esc(L(s, k));
@@ -3231,18 +3213,18 @@ function renderSetup(){
   h += helpBox(`<ol>${howItWorks(d).map(x => `<li>${x}</li>`).join("")}</ol>`, { id: "evals-setup-howto", open: true,
     summary: `How ${/^[aeiou]/i.test(d.name.trim()) ? "an" : "a"} ${/\beval$/i.test(d.name.trim()) ? d.name.trim() : `${d.name.trim() || "new"} eval`} goes` });
   h += `<div class="setup">
-    ${isNew ? `<div class="scard"><h3>Start from</h3><p class="sd">Copy the settings of an eval type you already have, then change what's different.</p>
+    ${isNew ? `<div class="card scard"><h3>Start from</h3><p class="sd">Copy the settings of an eval type you already have, then change what's different.</p>
       ${srow("Copy", `<select class="fi" id="sCopy">${types.map(x => `<option value="${esc(x.id)}"${x.id === lsGet("sg-evals-setup-copy") ? " selected" : ""}>${esc(x.name)}</option>`).join("")}</select>`)}</div>` : ""}
-    <div class="scard"><h3>The basics</h3>
+    <div class="card scard"><h3>The basics</h3>
       ${srow("Name", `<input class="fi" data-sp="name" value="${esc(d.name)}" maxlength="60" placeholder="e.g. Leadership eval" autocomplete="off">`)}
       ${srow("Description", `<textarea class="fi" data-sp="description" rows="2" maxlength="600" placeholder="Shown when someone starts one.">${esc(d.description)}</textarea>`)}
       ${srow("Turned on", chk("active", d.active, "People can start new evals of this type"), !d.active ? "Evals already written keep working." : "")}</div>
-    <div class="scard"><h3>What to call people</h3><p class="sd">Used in buttons, messages and emails, e.g. “Your President”, “Notes from the Leads”.</p>
+    <div class="card scard"><h3>What to call people</h3><p class="sd">Used in buttons, messages and emails, e.g. “Your President”, “Notes from the Leads”.</p>
       ${srow("The person evaluated", `<input class="fi" data-sp="settings.labels.subject" value="${L2("subject")}" maxlength="40">`)}
       ${srow("The evaluator", `<input class="fi" data-sp="settings.labels.evaluator" value="${L2("evaluator")}" maxlength="40">`)}
       ${srow("Someone giving input", `<input class="fi" data-sp="settings.labels.input" value="${L2("input")}" maxlength="40">`)}
       ${srow("A variant of the form", `<input class="fi" data-sp="settings.labels.variant" value="${L2("variant")}" maxlength="40">`, "e.g. Division, or Position.")}</div>
-    <div class="scard"><h3>Who evaluates whom</h3><p class="sd">Use a permission, a one.solar position, a group (Setup → Groups), or one person. Nobody needs a new position just for evals.</p>
+    <div class="card scard"><h3>Who evaluates whom</h3><p class="sd">Use a permission, a one.solar position, a group (Setup → Groups), or one person. Nobody needs a new position just for evals.</p>
       ${srow(`Who is evaluated (${L2("subject")})`, ruleHTML("settings.subjects", s.subjects, {chart:true, except:"Someone in any of these doesn't get this eval, even if they fit the rule above: they can't start its self-eval, and nobody can start one about them. E.g. leave Subsystem Leads out of the Member eval when they get the Leadership eval."}))}
       ${s.subjects.rule !== "none" && s.subjects.rule !== "person" ? srow("Their own eval comes first", chk("settings.subjects.except_others", !!s.subjects.except_others, "Leave out people whose position has its own eval"),
         (() => { const pos = [...new Set(chart.filter(c => c.type_id !== setupView.id && typeById(c.type_id)?.active).map(c => roleLabel(c.role)))];
@@ -3261,20 +3243,20 @@ function renderSetup(){
           ${pick("settings.input.pickedBy", [["either", `picked by the ${lc(L(s, "subject"))} or the ${lc(L(s, "evaluator"))}`], ["subject", `picked by the ${lc(L(s, "subject"))}`], ["evaluator", `picked by the ${lc(L(s, "evaluator"))}`]], s.input.pickedBy, "Picked by")}</div>
         ${chk("settings.input.notes", s.input.notes, `They can leave private notes for the ${lc(L(s, "evaluator"))} while it's a draft`)}` : ""}`)}</div>
     ${isNew ? "" : ruleCheckHTML()}
-    <div class="scard"><h3>The form</h3>
+    <div class="card scard"><h3>The form</h3>
       ${srow("Form", pick("settings.form.track", formOpts, s.form.track, "Form"), `Build and change forms in <a href="#/rubrics/${esc(s.form.track)}">Forms</a>. Each eval keeps a copy of the version it started on.`)}
       ${hasVariants ? srow(L2("variant"), chk("settings.form.variants", s.form.variants, `People pick a ${lc(L(s, "variant"))} (${esc(listText(variantsOf(s.form.track).map(x => x.name)))})`), s.form.variants ? "" : "Everyone uses the main form.") : ""}
       ${srow("Other forms they can pick", alsoHTML(s), "Whoever starts an eval picks the form then: the one above or any of these (and their variants).")}</div>
-    <div class="scard"><h3>Self-eval questionnaire</h3>
+    <div class="card scard"><h3>Self-eval questionnaire</h3>
       ${srow("Self-eval", chk("settings.questionnaire.on", s.questionnaire.on, `The ${lc(L(s, "subject"))} answers questions first`), s.questionnaire.on ? "" : `The ${lc(L(s, "evaluator"))} starts the eval directly.`)}
       ${s.questionnaire.on ? srow("Questions", `${pick("settings.questionnaire.source", [["evaluator", `Each ${lc(L(s, "evaluator"))}'s own questions`], ["questionnaire", "A shared questionnaire"]], s.questionnaire.source, "Questions")}
         ${s.questionnaire.source === "questionnaire" ? `<div style="margin-top:8px">${pick("settings.questionnaire.id", [["", qnaires.length ? "Pick one" : "None yet: make one in Questionnaires"], ...qnaires.map(q => [q.id, q.name])], s.questionnaire.id || "", "Questionnaire")}</div>` : ""}`,
         s.questionnaire.source === "evaluator" ? "Evaluators set theirs in Questionnaires → Your own questions; until then the defaults are used." : `Edit them in <a href="#/questions">Questionnaires</a>.`) : ""}</div>
-    <div class="scard"><h3>Steps</h3>
+    <div class="card scard"><h3>Steps</h3>
       ${srow("Meeting", chk("settings.meeting", s.meeting, `The ${lc(L(s, "evaluator"))} schedules a meeting once the eval is finished`))}
       ${srow("Comments", chk("settings.comments", s.comments, `The ${lc(L(s, "subject"))} can add comments once they can read it`, v.eval.subject === "never" && !s.comments))}</div>
-    <div class="scard"><h3>Who sees what, and when</h3><p class="sd">The writer always sees their own. The database enforces this, from each eval's own copy of these settings.</p>
-      <div class="tablewrap" style="box-shadow:none"><table class="vis"><thead><tr><th>Who</th><th>The self-eval answers</th><th>The eval</th></tr></thead><tbody>
+    <div class="card scard"><h3>Who sees what, and when</h3><p class="sd">The writer always sees their own. The database enforces this, from each eval's own copy of these settings.</p>
+      <div class="table-wrap tablewrap" style="box-shadow:none"><table class="vis"><thead><tr><th>Who</th><th>The self-eval answers</th><th>The eval</th></tr></thead><tbody>
         <tr><td>${L2("subject")}</td><td class="fixed">Their own: always</td><td>${pick("settings.visibility.eval.subject", EVAL_LEVELS.subject, v.eval.subject, "When")}</td></tr>
         <tr><td>${L2("evaluator")}</td><td>${s.questionnaire.on ? pick("settings.visibility.answers.evaluator", ANS_LEVELS, v.answers.evaluator, "When") : '<span class="fixed">No self-eval</span>'}</td><td class="fixed">They write it</td></tr>
         <tr><td>${L2("input")}</td><td>${s.input.on && s.questionnaire.on ? pick("settings.visibility.answers.input", ANS_LEVELS, v.answers.input, "When") : '<span class="fixed">—</span>'}</td><td>${s.input.on ? pick("settings.visibility.eval.input", EVAL_LEVELS.input, v.eval.input, "When") : '<span class="fixed">No input</span>'}</td></tr>
@@ -3283,7 +3265,7 @@ function renderSetup(){
       </tbody></table></div>
       ${srow("“Also” is", ruleHTML("settings.visibility.extraWho", v.extraWho, {none:"Nobody"}), "e.g. the e-board position, or a group of advisors.")}
       <div class="fh" style="padding:0 0 8px">“See all evals” is a permission in Admin → Roles (evals.view).</div></div>
-    <div class="scard"><h3>Emails</h3><p class="sd">Sent only if notifications are on in Admin, and each person can still turn them off for themselves.</p>
+    <div class="card scard"><h3>Emails</h3><p class="sd">Sent only if notifications are on in Admin, and each person can still turn them off for themselves.</p>
       ${NOTIFY.map(([k, l, hint]) => srow(l, chk(`settings.notify.${k}`, s.notify[k], hint))).join("")}</div>
   </div>`;
   m.innerHTML = h;
@@ -3406,15 +3388,15 @@ function renderGroups(){
   const card = (id, g) => {
     const d = groupDrafts[id] || (groupDrafts[id] = {name:g?.name || "", members:[...(g?.members || [])], dirty:!g});
     const used = g ? groupUse(g.id) : [];
-    return `<div class="scard gcard" data-g="${esc(id)}"><div class="rule"><input class="fi" id="g-name-${esc(id)}" data-gname="${esc(id)}" value="${esc(d.name)}" maxlength="60" placeholder="Group name, e.g. Subsystem leads" style="flex:1 1 240px;font-weight:700"></div>
+    return `<div class="card scard gcard" data-g="${esc(id)}"><div class="rule"><input class="fi" id="g-name-${esc(id)}" data-gname="${esc(id)}" value="${esc(d.name)}" maxlength="60" placeholder="Group name, e.g. Subsystem leads" style="flex:1 1 240px;font-weight:700"></div>
       <div class="chips">${d.members.map(m => `<span class="chip">${esc(personName(m) || "A former member")}<button type="button" data-act="gDel" data-g="${esc(id)}" data-id="${esc(m)}" aria-label="Remove">×</button></span>`).join("") || '<span class="savest">Nobody yet.</span>'}
         <select class="sel" data-gadd="${esc(id)}" aria-label="Add someone"><option value="">+ Add someone</option>${opt(people.filter(p => !d.members.includes(p.id)), "")}</select></div>
       <div class="dlg-a" style="margin:0 0 6px;justify-content:space-between;align-items:center"><span class="fh">${used.length ? `Used by ${esc(listText(used))}.` : g ? "Not used by any eval type yet." : "New group."}</span>
-        <span class="tb-a">${g ? `<button class="btn danger" data-act="gRemove" data-g="${esc(id)}"${used.length ? ` disabled title="Used by ${esc(listText(used))}"` : ""}>Delete</button>` : `<button class="btn" data-act="gCancel">Cancel</button>`}
-        <button class="btn primary" data-act="gSave" data-g="${esc(id)}"${d.dirty ? "" : " disabled"}>Save</button></span></div></div>`;
+        <span class="tb-a">${g ? `<button class="btn btn-danger" data-act="gRemove" data-g="${esc(id)}"${used.length ? ` disabled title="Used by ${esc(listText(used))}"` : ""}>Delete</button>` : `<button class="btn" data-act="gCancel">Cancel</button>`}
+        <button class="btn btn-primary" data-act="gSave" data-g="${esc(id)}"${d.dirty ? "" : " disabled"}>Save</button></span></div></div>`;
   };
   $("#main").innerHTML = toolbarHTML("Groups", `<div class="meta">Named lists of people for “who evaluates whom”, e.g. the leads who give input on a CE's eval. Changing a group changes who fits, right away.</div>`,
-      `<button class="btn primary" data-act="gNew"${groupDrafts.new ? " disabled" : ""}>+ New group</button>`, "var(--navy)")
+      `<button class="btn btn-primary" data-act="gNew"${groupDrafts.new ? " disabled" : ""}>+ New group</button>`, "var(--navy)")
     + `<div class="setup">${groupDrafts.new ? card("new", null) : ""}${groups.map(g => card(g.id, g)).join("") || (groupDrafts.new ? "" : `<div class="empty"><h3>No groups yet</h3><p>Make one when a position isn't enough, e.g. “Leads” or “Advisors”.</p></div>`)}</div>`;
 }
 function groupInput(t){
@@ -3527,7 +3509,7 @@ async function flushEval(){
     .catch(e => {
       st.err = e.message;
       // A refused list of input-givers would block every later save: put it back as it was.
-      if (/input|pick up to|can't be picked|picks the/i.test(e.message)) { r.input_ids = st.savedInputs || []; st.err = ""; toast(e.message, 6000); st.dirty = true; st.timer = setTimeout(flushEval, 300); rerenderEval(); return; }
+      if (/input|pick up to|can't be picked|picks the/i.test(e.message)) { r.input_ids = st.savedInputs || []; st.err = ""; toast(e.message, 0, "bad"); st.dirty = true; st.timer = setTimeout(flushEval, 300); rerenderEval(); return; }
       st.dirty = true; st.timer = setTimeout(flushEval, 8000);
     })
     .finally(() => { st.saving = false; if (!st.err) st.savedInputs = [...(r.input_ids || [])]; showSaveState(); });

@@ -64,7 +64,7 @@ test.describe('eval divisions and the member preview', () => {
     await shot(page, 'evals-preview-form');
     page.once('dialog', (d) => d.accept());
     await page.locator('[data-act="selfSubmit"]').click();
-    if (await page.locator('.toast, #toast').first().isVisible().catch(() => false)) await expect(page.locator('.toast, #toast').first()).toContainText(/Preview|Pick/);
+    if (await page.locator('.os-toast').first().isVisible().catch(() => false)) await expect(page.locator('.os-toast').first()).toContainText(/Preview|Pick/);
     expect((await sql(page, `select count(*)::int n from evals`))[0].n).toBe(before);   // nothing was saved
 
     await page.locator('.banner.preview [data-act="pvExit"]').click();
