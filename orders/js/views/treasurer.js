@@ -12,6 +12,7 @@ import { stepOf } from '../ledger.js';
 import { budgetSummary, workflowSettings } from '../workflow.js';
 import { listColumns, listSort } from '../listColumns.js';
 import { rememberedSort } from './listSortState.js';
+import { bindPeek } from '../peek.js';
 
 export async function renderTreasurer(el, { config, rerender }) {
   const all = await api.listRequests([STATUS.APPROVED, STATUS.ORDERED]);
@@ -76,6 +77,7 @@ export async function renderTreasurer(el, { config, rerender }) {
     const sort = rememberedSort(name, listSort(name, config), columns);
     const draw = () => (box.innerHTML = requestTable(rows, columns, empty, sort));
     bindSorting(box, sort, columns, draw);
+    bindPeek(box, { ctx: { config, rerender } });   // a click opens the request beside the list
     draw();
   }
   bindRowLinks(el);
