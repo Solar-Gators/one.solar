@@ -107,3 +107,24 @@ test('The same list toolbar on Finances purchases, Sponsors and Events', async (
   await expect(page.locator('.list-bar [data-list-count]')).toContainText('events');
   expect(problems).toEqual([]);
 });
+
+test('Queue: approve a request from the peek panel, and the queue updates when it closes', async ({ page }) => {
+  const problems = await watch(page);
+  await signUp(page, { ...LEAD, name: 'Quinn Queue', email: 'quinn-queue@ufl.edu' }, ['admin', 'ce']);
+  const season = `(select value ->> 'season' from app_settings where key = 'general')`;
+  for (const [n, t] of [['SG27-931', 'Queue peek A'], ['SG27-932', 'Queue peek B']]) {
+    await sql(page, `insert into requests (request_number, title, status, season, requester) values ($1, $2, 'Submitted', ${season}, 'Someone Else')`, [n, t]);
+  }
+  await open(page, '/orders/#/approvals', 'tr[data-href]');
+  await expect(page.locator('tr[data-href]')).toHaveCount(2);
+  await page.locator('tr[data-href]').first().click();
+  const peek = page.locator('aside.peek');
+  await expect(peek.locator('.peek-body')).toContainText(/Queue peek [AB]/);
+  await peek.getByRole('button', { name: 'Approve', exact: true }).click();
+  await expect(page.locator('.os-toast').filter({ hasText: 'approved' })).toBeVisible();
+  await expect(page).toHaveURL(/#\/approvals$/);
+  await page.keyboard.press('Escape');
+  await expect(peek).toHaveCount(0);
+  await expect(page.locator('tr[data-href]')).toHaveCount(1);
+  expect(problems).toEqual([]);
+});

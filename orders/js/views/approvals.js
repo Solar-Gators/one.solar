@@ -9,8 +9,9 @@ import { STATUS, fmtMoney, requestTable, bindRowLinks, bindSorting, takeFlash, i
 import { listColumns, listSort } from '../listColumns.js';
 import { rememberedSort } from './listSortState.js';
 import { waitingOnMe } from '../workflow.js';
+import { bindPeek } from '../peek.js';
 
-export async function renderApprovals(el, { config }) {
+export async function renderApprovals(el, { config, rerender }) {
   const rows = await api.listRequests(STATUS.SUBMITTED);
   const total = rows.reduce((s, r) => s + r.total, 0);
   const mine = rows.filter(waitingOnMe);
@@ -39,6 +40,8 @@ export async function renderApprovals(el, { config }) {
   if (split) lists.push([el.querySelector('#queue-others'), others, '']);
   const draw = () => lists.forEach(([box, list, empty]) => (box.innerHTML = requestTable(list, columns, empty, sort)));
   for (const [box] of lists) bindSorting(box, sort, columns, draw); // one sort for both lists
+  // a click opens the request beside the queue, to approve it and go on to the next (↓)
+  for (const [box] of lists) bindPeek(box, { ctx: { config, rerender } });
   draw();
   bindRowLinks(el);
 }
