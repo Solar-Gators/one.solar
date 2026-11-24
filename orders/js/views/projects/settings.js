@@ -7,7 +7,7 @@ import { esc, fmtDateTime } from '../../ui.js';
 import { pm } from '../../projects/api.js';
 import { CAPS, TONES, FIELD_TYPES, BUILTIN_FIELDS, PRIORITIES, DOC_CATEGORIES, fieldLabel, layoutFor, filterText, starterRules } from '../../projects/core.js';
 import { checkFormula, FORMULA_FUNCTIONS, FORMULA_BUILTINS } from '../../projects/formula.js';
-import { can, formDialog, attempt, toast, invalidate, loadConfig, peopleOptions, personName, avatar, bindOrgPickers, typeBadge, formSections, conditionDialog, projectHref, OPTIONAL_TABS, infoTip } from './kit.js';
+import { can, formDialog, attempt, toast, invalidate, loadConfig, peopleField, personName, avatar, bindOrgPickers, typeBadge, formSections, conditionDialog, projectHref, OPTIONAL_TABS, infoTip } from './kit.js';
 import { renderWorkflows, actionsEditor } from './workflowEditor.js';
 import { applyConfigDialog, download } from './templates.js';
 
@@ -49,7 +49,7 @@ async function details(el, { b, project, cfg, rerender }) {
         <div class="field"><label>Key</label><output class="pm-formula">${esc(project.key)}</output><div class="hint">Can't change: it's in every item's name.</div></div>
         <div class="field span-4"><label for="pd-desc">About this project</label><textarea id="pd-desc" name="description" rows="3">${esc(project.description)}</textarea></div>
         <div class="field span-2"><label for="pd-program">Car cycle</label><select id="pd-program" name="program">${opt('', 'None', !project.program_id)}${b.programs.filter((g) => !g.archived_at || g.id === project.program_id).map((g) => opt(g.id, g.name, g.id === project.program_id)).join('')}</select></div>
-        <div class="field span-2"><label for="pd-lead">Project manager</label><select id="pd-lead" name="lead">${peopleOptions(b, project.lead_id, 'Nobody')}</select></div>
+        <div class="field span-2"><label for="pd-lead">Project manager</label>${peopleField('lead', 'pd-lead', b, project.lead_id, { blank: 'Nobody' })}</div>
         <div class="field span-2"><label for="pd-div">Owning CE division</label><select id="pd-div" name="division" data-division>${opt('', '—', !project.division_id)}${b.divisions.filter((d) => !d.archived_at || d.id === project.division_id).map((d) => opt(d.id, d.name, d.id === project.division_id)).join('')}</select></div>
         <div class="field span-2"><label for="pd-sub">Owning subsystem</label><select id="pd-sub" name="subsystem" data-subsystem>${opt('', '—', !project.subsystem_id)}${b.subsystems.filter((s) => !s.archived_at || s.id === project.subsystem_id).map((s) => `<option value="${esc(s.id)}" data-div="${esc(s.division_id)}" ${s.id === project.subsystem_id ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</select></div>
         <div class="field span-2"><label for="pd-vehicle">Vehicle (optional)</label><input id="pd-vehicle" name="vehicle" type="text" maxlength="80" value="${esc(project.vehicle)}"></div></div>
@@ -113,7 +113,7 @@ async function people(el, { b, project, cfg, reload }) {
       <div class="table-wrap"><table class="pm-table"><thead><tr><th>Person</th><th>Role in this project</th><th></th></tr></thead><tbody>${cfg.members.map((m) => `<tr data-user="${esc(m.user_id)}">
         <td>${avatar(b, m.user_id)} ${esc(personName(b, m.user_id))}</td><td><select data-role aria-label="Role of ${esc(personName(b, m.user_id))}">${roleOpts(m.role_id)}</select></td>
         <td><button type="button" class="btn btn-sm btn-ghost" data-remove>Remove</button></td></tr>`).join('')}</tbody></table></div>
-      <form data-add class="pm-filters" style="margin-top:10px"><select name="user" required aria-label="Person to add"><option value="">Add someone…</option>${outside.map((p) => opt(p.id, p.full_name || p.email)).join('')}</select>
+      <form data-add class="pm-filters" style="margin-top:10px">${peopleField('user', 'pm-add-member', b, null, { blank: 'Add someone…', required: true, among: outside.map((p) => p.id) })}
         <select name="role" aria-label="Their role">${roleOpts(cfg.roles.find((r) => r.key === 'contributor')?.id)}</select><button type="submit" class="btn">Add</button></form>
       <p class="hint">You can only hand out roles that can do no more than your own.</p></section>
     <section class="card"><h2>Roles</h2><p class="muted">What each role can do in this project. Change them, or make your own.</p>

@@ -770,3 +770,40 @@ li.pm-add-under-row { list-style: none; padding: 4px 0 4px 28px; }
 /* C8: a page under another settings tab */
 .pm-back-line { margin: 0 0 8px; font-size: 14px; }
 /* C9: Boards, Kinds of work and Templates sit under the top bar's shared "More ▾" (data-fold="always", shared/nav-more.js) */
+
+/* ---- The item page (Jira-style): every field changes in place; status is one dropdown; one Activity list ---- */
+.pm-item-side { position: sticky; top: 76px; max-height: calc(100vh - 92px); overflow: auto; }
+.pm-fv { display: block; min-height: 26px; margin: -3px -6px; padding: 3px 6px; border: 1px solid transparent; border-radius: 6px; cursor: text; }
+.pm-fv:hover, .pm-fv:focus-visible { border-color: var(--border); background: var(--surface-2); }
+.pm-fv:focus-visible { outline: 2px solid var(--orange); outline-offset: 1px; }
+.pm-fv-block { margin: 0 -6px; }
+.pm-fv-add { color: var(--muted); font-size: 13px; }
+.pm-ief { display: grid; gap: 6px; margin: 2px 0; }
+.pm-ief .field { margin: 0; }
+.pm-ief .field > label:not(.pm-check) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.pm-ief textarea { min-height: 90px; }
+.pm-ief-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.pm-status-btn .pm-ie { border-color: var(--border); background: var(--surface); padding: 4px 8px; border-radius: 8px; font-weight: 600; }
+.pm-status-btn .pm-ie:hover { background: var(--surface-2); }
+.pm-caret { color: var(--muted); font-size: 11px; }
+.pm-watch { font-variant-numeric: tabular-nums; }
+.pm-watch.is-on { color: var(--blue); }
+.pm-key-copy { cursor: pointer; font: inherit; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .82em; }
+.pm-key-copy:hover { border-color: var(--border); color: var(--text); }
+.pm-activity-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+.pm-activity-head h2 { margin: 0; }
+.pm-seg button.is-on .muted { color: inherit; opacity: .8; }
+.pm-activity-card .pm-comment-form { margin-bottom: 8px; }
+.pm-feed { list-style: none; margin: 0; padding: 0; }
+.pm-feed > li { padding: 10px 0; border-bottom: 1px solid var(--border-soft); }
+.pm-feed > li:last-child { border-bottom: 0; }
+.pm-feed > li.is-removed { color: var(--muted); font-style: italic; }
+.pm-feed blockquote { margin: 4px 0 0; }
+@media (max-width: 900px) { .pm-item-side { position: static; max-height: none; overflow: visible; } }
+/* choosing people: the names chosen, and a button that opens "Find a person" (kit.js peopleField) */
+.pm-people { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; position: relative; min-height: 32px; }
+.pm-person-one { font-weight: 500; }
+.pm-person-chip { display: inline-flex; align-items: center; gap: 2px; padding: 2px 2px 2px 10px; border-radius: 999px; font-size: 13px; background: var(--st-neutral-bg); color: var(--st-neutral-fg); border: 1px solid var(--st-neutral-bd); }
+.pm-person-chip button { border: 0; background: none; color: inherit; cursor: pointer; padding: 0 6px; font-size: 15px; line-height: 1; opacity: .7; }
+.pm-person-chip button:hover { opacity: 1; }
+.pm-person-value { position: absolute; left: 0; bottom: 0; width: 1px; height: 1px; padding: 0; border: 0; opacity: 0; pointer-events: none; }

@@ -20,6 +20,15 @@ const MEMBER = { name: 'Mia Member', email: 'pm-member@ufl.edu', password: TEST_
 const GUEST = { name: 'Gus Guest', email: 'pm-guest@ufl.edu', password: TEST_PASS };
 
 const dialog = (page) => page.locator('dialog[open]');
+/** On an item's page: open the status dropdown and pick a move (by the move's name, shown beside the status). */
+const move = async (page, name) => {
+  await page.reload();   // the page refreshes itself after a change; start from the fresh one
+  await expect(page.locator('.pm-status-btn [data-ie="status"]')).toBeVisible();
+  await page.waitForTimeout(400);
+  await page.locator('.pm-status-btn [data-ie="status"]').click();
+  await page.locator('.pm-pick-opt', { hasText: name }).click();
+};
+const moves = (page) => page.locator('.pm-pick-opt');
 const toast = (page) => page.locator('.pm-toast');
 async function signIn(page, who) {
   await signOut(page);
@@ -211,7 +220,9 @@ test.describe('projects', () => {
   test('the Admin adds a project manager and a contributor; the manager sets up a board with its own columns', async () => {
     await open(page, '/projects/#/projects/p/BAT/settings/people', '[data-add]');
     for (const [who, role] of [[MANAGER, 'Project Manager'], [MEMBER, 'Contributor']]) {
-      await page.locator('[data-add] [name=user]').selectOption({ label: who.name });
+      await page.locator('[data-add] .pm-person-add').click();   // only people not in the project yet
+      await page.locator('.pm-pick-q').fill(who.name);
+      await page.locator('.pm-pick-opt', { hasText: who.name }).click();
       await page.locator('[data-add] [name=role]').selectOption({ label: role });
       await page.locator('[data-add] [type=submit]').click();
       await expect(page.locator('.pm-settings table').first()).toContainText(who.name);
@@ -263,29 +274,45 @@ test.describe('projects', () => {
     const direct = await rpc(page, 'pm_create_item', { p_op: crypto.randomUUID(), p: { project_id: type.project_id, type_id: type.id, title: 'No chemistry' } });
     expect(direct.error).toMatch(/Fill in: Chemistry/);
 
-    await open(page, `/projects/#/projects/item/${itemKey}`, '[data-edit]');
+    await open(page, `/projects/#/projects/item/${itemKey}`, '.pm-item-side');
     await expect(page.locator('.pm-item-side')).toContainText('NMC');
     await expect(page.locator('.pm-item-side')).toContainText('26'); // 416 / 16, the calculated field
-    await tap(page, '[data-edit]');
-    await dialog(page).locator('[name="f:description"]').fill('Lay out **16 modules** of 26 cells.\n- thermal gaps\n- busbar routing');
-    await dialog(page).locator('[name="f:due_date"]').fill('2030-03-01');
-    await dialog(page).locator('[name="f:cf.cell_count"]').fill('0');
-    await save(page);
-    await expect(dialog(page)).toBeVisible(); // the field's own minimum stops it in the browser…
+    await expect(page.locator('[data-edit]')).toHaveCount(0); // no Edit pop-up: everything changes where it shows
+    // the description: click Edit beside it, type, Ctrl+Enter
+    await page.locator('[data-edit-desc]').first().click();
+    await page.locator('[data-desc] textarea').fill('Lay out **16 modules** of 26 cells.\n- thermal gaps\n- busbar routing');
+    await page.locator('[data-desc] textarea').press('Control+Enter');
+    await expect(page.locator('[data-desc] .pm-rich strong').first()).toHaveText('16 modules');
+    // the due date: click it, type a day
+    await page.locator('[data-row="due_date"] [data-ie="due"]').click();
+    await page.locator('.pm-pick-date input').fill('2030-03-01');   // picking a day saves it
+    await expect(page.locator('[data-row="due_date"]')).toContainText('2030');
+    // a custom field: click its value, type, Enter
+    await page.locator('[data-edit-field="cf.cell_count"]').click();
+    await page.locator('.pm-ief [name="f:cf.cell_count"]').fill('0');
+    await page.locator('.pm-ief [name="f:cf.cell_count"]').press('Enter');
+    await expect(page.locator('.pm-ief')).toBeVisible(); // the field's own minimum stops it in the browser…
     const low = await rpc(page, 'pm_update_item', { p_id: (await one(page, 'select id from pm_items where key = $1', [itemKey])).id, p_version: null, p: { custom: { cell_count: 0 } } });
     expect(low.error).toMatch(/can't be less than 1/); // …and the database refuses it for anyone who skips the page
-    await dialog(page).locator('[name="f:cf.cell_count"]').fill('432');
-    await save(page);
-    await expect(page.locator('.pm-rich strong').first()).toHaveText('16 modules');
+    await page.locator('.pm-ief [name="f:cf.cell_count"]').fill('432');
+    await page.locator('.pm-ief [name="f:cf.cell_count"]').press('Enter');
+    await expect(page.locator('.pm-ief')).toHaveCount(0);
     await expect(page.locator('.pm-item-side')).toContainText('27');
-    await expect(page.locator('.pm-history')).toContainText('Changed');
+    expect((await one(page, `select custom->>'chemistry' c from pm_items where key = $1`, [itemKey])).c).toBe('NMC'); // the other custom fields are kept
+    // a list field saves as soon as it's picked
+    await page.locator('[data-edit-field="cf.chemistry"]').click();
+    await page.locator('.pm-ief [name="f:cf.chemistry"]').selectOption('LFP');
+    await expect(page.locator('[data-row="cf.chemistry"]')).toContainText('LFP');
+    await page.locator('[data-activity-tab="history"]').click();
+    await expect(page.locator('[data-feed]')).toContainText('Changed');
+    await page.locator('[data-activity-tab="comments"]').click();
     // checklist and a comment that mentions the manager
     await page.locator('[data-check-add] input').fill('Check clearances');
     await page.locator('[data-check-add] input').press('Enter');
     await expect(page.locator('.pm-checklist')).toContainText('Check clearances');
     await page.locator('[data-comment] textarea').fill(`@${MANAGER.name} can you look at the gaps?`);
     await page.locator('[data-comment] [type=submit]').click();
-    await expect(page.locator('.pm-comments .pm-mention')).toHaveText(`@${MANAGER.name}`);
+    await expect(page.locator('[data-feed] .pm-mention')).toHaveText(`@${MANAGER.name}`);
     await shot(page, 'item');
   });
 
@@ -295,20 +322,22 @@ test.describe('projects', () => {
     // straight to "Release" from Draft: the database says no, whoever asks and however
     let res = await rpc(page, 'pm_transition', { p_id: id, p_transition: tr.Release, p: { comment: 'ship it' } });
     expect(res.error).toMatch(/is now "Draft", so "Release" doesn't apply/);
-    await expect(page.locator('[data-do-move]')).toHaveText(['Start design', 'Reopen'].filter((n) => n !== 'Reopen')); // only what the workflow offers from Draft
-    await page.locator('[data-do-move]', { hasText: 'Start design' }).click();
+    await page.locator('.pm-status-btn [data-ie="status"]').click();
+    await expect(moves(page)).toHaveCount(1); // only what the workflow offers from Draft
+    await moves(page).filter({ hasText: 'Start design' }).click();
     await expect(toast(page)).toContainText('is now "In Design"');
     // "Send for review" needs an owner: the move asks for it (new items start with their creator as owner, so take it off first)
     await sql(page, `update pm_items set owner_id = null where id = $1`, [id]);
-    await open(page, `/projects/#/projects/item/${itemKey}`, '[data-do-move]');
-    await expect(page.locator('[data-do-move]', { hasText: 'Send for review' })).toBeVisible();
-    await page.locator('[data-do-move]', { hasText: 'Send for review' }).click();
+    await open(page, `/projects/#/projects/item/${itemKey}`, '.pm-status-btn');
+    await move(page, 'Send for review');
     await expect(dialog(page).locator('[data-field="owner"]')).toContainText('*');
-    await dialog(page).locator('[name="f:owner"]').selectOption({ label: MEMBER.name });
+    await dialog(page).locator('[data-field="owner"] .pm-person-add').click();   // the same "Find a person" picker as everywhere
+    await page.locator('.pm-pick-q').fill(MEMBER.name);
+    await page.locator('.pm-pick-opt', { hasText: MEMBER.name }).click();
     await save(page, 'Send for review');
     await expect(toast(page)).toContainText('is now "In Review"');
     // "Approve" needs someone who may approve: the member's move waits
-    await page.locator('[data-do-move]', { hasText: 'Approve' }).click();
+    await move(page, 'Approve');
     await expect(toast(page)).toContainText('Asked for approval');
     await expect(page.locator('.pm-approval')).toContainText('Waiting for approval');
     expect((await one(page, `select s.name from pm_items i join pm_statuses s on s.id = i.status_id where i.id = $1`, [id])).name).toBe('In Review');
@@ -330,7 +359,9 @@ test.describe('projects', () => {
     // "Release" is for managers and administrators: the member is refused by the database, the manager isn't
     await signIn(page, MEMBER);
     await open(page, `/projects/#/projects/item/${itemKey}`, '.pm-item');
-    await expect(page.locator('[data-do-move]', { hasText: 'Release' })).toHaveCount(0);
+    await page.locator('.pm-status-btn [data-ie="status"]').click();
+    await expect(moves(page).filter({ hasText: 'Release' })).toHaveCount(0);
+    await page.keyboard.press('Escape');
     res = await rpc(page, 'pm_transition', { p_id: id, p_transition: tr.Release, p: { comment: 'ship it' } });
     expect(res.error).toMatch(/Only Project .* can make the move "Release"/);
     res = await rpc(page, 'pm_update_item', { p_id: id, p_version: null, p: { status_id: (await one(page, `select id from pm_statuses where name = 'Released'`)).id } });
@@ -683,8 +714,8 @@ test.describe('projects', () => {
 
     const key = (await one(page, `select key from pm_items where title = 'Module design'`)).key;
     await sql(page, `update pm_items set owner_id = (select id from profiles where email = $1) where key = $2`, [MEMBER.email, key]);
-    await open(page, `/projects/#/projects/item/${key}`, '[data-do-move]');
-    await page.locator('[data-do-move]', { hasText: 'Send for review' }).click();
+    await open(page, `/projects/#/projects/item/${key}`, '.pm-status-btn');
+    await move(page, 'Send for review');
     await expect(toast(page)).toContainText('is now "In Review"');
     await expect(page.locator('.pm-item-side')).toContainText('in-review');
     await open(page, '/projects/#/projects/p/BAT/settings/rules', '[data-new-rule]');
@@ -847,8 +878,11 @@ test.describe('projects', () => {
   test('share with alumni (052): a project manager shares a draft; the hub\'s editor sees where it came from; a project is shared and unshared', async () => {
     // The project manager can edit the item but not the alumni hub: it goes to the hub as a draft.
     await signIn(page, MANAGER);
-    await open(page, `/projects/#/projects/item/${itemKey}`, '[data-alumni-card]');
-    await tap(page, '[data-alumni-share="1"]');
+    await open(page, `/projects/#/projects/item/${itemKey}`, '.pm-item');
+    await expect(page.locator('[data-alumni-card]')).toHaveCount(0);   // not shared yet: it's in the ⋯ menu
+    await page.locator('.pm-more > summary').click();
+    page.once('dialog', (d) => d.accept());
+    await page.locator('[data-share-alumni]').click();
     await expect(toast(page)).toContainText('Shared with alumni');
     await expect(page.locator('[data-alumni-card]')).toContainText('a draft (not public yet)');
     await expect(page.locator('[data-alumni-card] a')).toHaveCount(0);   // drafts aren't on the hub for them

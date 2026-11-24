@@ -104,5 +104,5 @@ async function changeStatus(btn, { b, item, cfg, root, after }) {
   if (!res || res.pending) Object.assign(item, before);
   else if (res.id) Object.assign(item, res);
   redrawItem(root, b, cfg, item);
-  if (res && !res.pending) after?.(item, ['status_id']);
+  if (res) after?.(item, ['status_id']);   // a move waiting for approval changes the page too (the approval note)
 }
