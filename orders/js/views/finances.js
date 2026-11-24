@@ -262,7 +262,7 @@ function drawPurchases(box, s) {
       <select id="ledger-category" aria-label="Category"><option value="">All categories</option>${categories.map((c) => `<option ${c === view.category ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select>
       <select id="ledger-sort" aria-label="Sort">${SORTS.map(([k, l]) => `<option value="${k}" ${k === view.sort ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>
       <span class="muted small" id="ledger-count"></span>
-      ${canEdit ? '<button type="button" class="btn btn-sm btn-primary toolbar-end" id="ledger-add">+ Add a purchase</button>' : ''}
+      ${canEdit ? '<button type="button" class="btn btn-sm btn-primary toolbar-end" id="ledger-add" data-shortcut="create">+ Add a purchase</button>' : ''}
     </div>
     <div class="table-wrap sheet-wrap">
       <table class="table ledger-table stack-mobile" data-fit>

@@ -1324,6 +1324,11 @@
   "returns": "void",
   "anon": false
  },
+ "search_everything": {
+  "args": "p_q text, p_limit integer",
+  "returns": "jsonb",
+  "anon": false
+ },
  "set_budgets": {
   "args": "p_budgets jsonb",
   "returns": "void",

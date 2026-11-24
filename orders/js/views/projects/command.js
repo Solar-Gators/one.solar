@@ -8,6 +8,8 @@
 import { esc } from '../../ui.js';
 import { pm } from '../../projects/api.js';
 import { loadBase, loadConfig, createItemDialog, itemHref, projectHref, can, formDialog } from './kit.js';
+import { claimPaletteKey, openPalette } from '../../../../shared/command-palette.js';
+
 
 const PAGES = [
   ['My work', '#/projects', 'm'], ['All projects', '#/projects/all', 'p'], ['Inbox', '#/projects/inbox', 'i'], ['Boards', '#/projects/boards', 'b'],
@@ -40,7 +42,9 @@ let hovered = null;
 export function installCommands() {
   if (installed) return;
   installed = true;
-  document.addEventListener('mouseover', (e) => (hovered = e.target.closest?.('[data-item], [data-card], .pm-g-label[data-row]') || hovered));
+  claimPaletteKey(inProjects);   // Ctrl+K here is this command bar; it offers the one.solar-wide search too
+  document.addEventListener('mouseover',
+ (e) => (hovered = e.target.closest?.('[data-item], [data-card], .pm-g-label[data-row]') || hovered));
   let g = 0;
   document.addEventListener('keydown', (e) => {
     if (!inProjects()) return;
@@ -152,6 +156,7 @@ export async function openCommandBar({ mode = 'all', title = 'Go to or do anythi
           ...(here ? TABS.filter(([l]) => has(`${here.name} ${here.key} ${l}`)).map(([l, tab]) => ({ group: here.name, label: l, hint: here.key, href: projectHref(here.key, tab) })) : []),
           ...PAGES.filter(([l]) => has(l)).map(([l, href, k]) => ({ group: 'Go to', label: l, hint: `G ${k.toUpperCase()}`, href })),
           ...projects.slice(0, needle ? 8 : 6).map((p) => ({ group: 'Projects', label: p.name, hint: p.key, href: projectHref(p.key) })),
+          ...(needle ? [{ group: 'Everywhere', label: `Search all of one.solar for “${q.value.trim()}”`, hint: 'Requests, parts, sponsors…', act: () => openPalette(q.value.trim()) }] : []),
         ];
       }
       at = Math.min(at, Math.max(rows.length - 1, 0));

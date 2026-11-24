@@ -52,10 +52,20 @@ The old addresses (`/Orders-Form/…`, `/Custom-Apps/…`) still work: those rep
   Sign out. GatorWire is a built file: `npm run gatorwire` adds the one.solar top bar and light colours to each new build
   (see [docs/gatorwire.md](docs/gatorwire.md)).
 
-- **The app switcher.** ⊞ next to the logo (or **Ctrl + K** / **⌘ K**) opens a grid of every app you can use, with a
-  search box, so you can jump between apps without going home. It lists the cards the home screen last showed you
-  (admins' links and order included). [`shared/app-switcher.js`](shared/app-switcher.js); one line per app:
-  `mountAppSwitcher()`.
+- **The app switcher.** ⊞ next to the logo opens a grid of every app you can use, with a search box, so you can jump
+  between apps without going home. It lists the cards the home screen last showed you (admins' links and order
+  included). [`shared/app-switcher.js`](shared/app-switcher.js); one line per app: `mountAppSwitcher()`.
+- **The command palette.** **Ctrl + K** / **⌘ K** in every app (and on the home screen): type to go to any page or
+  app, start something ("New request", "Add an inventory item", "Admin: Users"…, only what you're allowed to do), or
+  find a request (by number or title), inventory item, sponsor, project, work item or event. The search is one
+  database function, `search_everything` (migration 066), that runs as you, so it only finds what you could open.
+  [`shared/command-palette.js`](shared/command-palette.js), mounted by `mountAppSwitcher({ supabase })`; the Orders
+  family's actions are in [`orders/js/commands.js`](orders/js/commands.js) (`registerCommands([...])`). Projects keeps
+  its own Ctrl + K bar, which ends with "Search all of one.solar".
+- **Keyboard shortcuts**, the same in every app: **C** new (the page's button marked `data-shortcut="create"`),
+  **/** search this page, **J** / **K** move through a list's rows and **Enter** opens one, **?** lists them
+  ([`orders/js/shortcuts.js`](orders/js/shortcuts.js); Projects has these and more).
+
 
 ### Adding an app
 ```bash
@@ -78,7 +88,7 @@ Signed in, it shows the apps your position can use: Sponsors needs **See / Edit 
 tidiness: each app's database rules decide who sees what, and anyone can type an app's address.
 
 **For everyone.** ☆ on a card makes it a favourite: favourites go to the top (kept in that browser). With seven or
-more cards there's a search box (**/** or **Ctrl + K** jumps to it, **Enter** opens the first match).
+more cards there's a search box (**/** jumps to it, **Enter** opens the first match; **Ctrl + K** searches everything).
 
 **✎ Edit home screen** (admins with **Customize lists & appearance**), with no code:
 - **+ Add a link**: a card for any other site (`https://…`), a shared drive folder, or a new app's folder (`parts/`),

@@ -1,11 +1,15 @@
 /**
- * one.solar: the app switcher (⊞ next to the logo in every app's top bar, or Ctrl/⌘ + K).
+ * one.solar: the app switcher (⊞ next to the logo in every app's top bar). Ctrl/⌘ + K opens the command
+ * palette (command-palette.js), which this mounts too and which lists the same apps.
+
  * Opens a small grid of the apps you can use, with a search box, so you can jump between apps
  * without going back to the home screen.
  *
  *   import { mountAppSwitcher } from '../shared/app-switcher.js';
  *   mountAppSwitcher();                 // puts the button after the top bar's .brand
  *   mountAppSwitcher({ after: el });    // or after another element
+ *   mountAppSwitcher({ supabase });     // apps with a database: the palette also finds requests, parts…
+
  *
  * The list is the cards the home screen last showed you (it saves them in this browser,
  * localStorage "onesolar:apps"), so admins' links, names and order show up here too. Before
@@ -14,6 +18,8 @@
  */
 import { appUrl, ROOT } from './onesolar.js';
 import { fitTopbarNav } from './nav-more.js';
+import { mountCommandPalette, openPalette, PALETTE_KEY } from './command-palette.js';
+
 
 const KEY = 'onesolar:apps';
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -69,7 +75,8 @@ const CSS = `
 .os-switch-icon{font-size:24px;line-height:1}
 .os-switch-none{grid-column:1/-1;margin:8px;color:#5d6d7e;text-align:center}
 .os-switch-foot{display:flex;justify-content:space-between;gap:8px;margin-top:8px;padding-top:8px;border-top:1px solid #dde3ea;font-size:12px;color:#5d6d7e}
-.os-switch-foot a{color:#d85a10;font-weight:600;text-decoration:none}
+.os-switch-foot a,.os-switch-k{color:#d85a10;font-weight:600;text-decoration:none}
+.os-switch-k{border:0;background:none;padding:0;font:inherit;font-weight:600;cursor:pointer;min-height:0}
 .os-switch-foot a:hover{text-decoration:underline}
 .os-switch + .account-menu{margin-left:auto}
 [data-theme=dark] .os-switch-btn{color:#a8b8ce}
@@ -79,18 +86,27 @@ const CSS = `
 [data-theme=dark] .os-switch-grid a:hover,[data-theme=dark] .os-switch-grid a:focus-visible{background:#0d2b50}
 [data-theme=dark] .os-switch-grid a.on{background:#2a1a12;color:#ff9a6b}
 [data-theme=dark] .os-switch-foot{border-color:#23486f;color:#a8b8ce}
-[data-theme=dark] .os-switch-foot a{color:#ff9a6b}
+[data-theme=dark] .os-switch-foot a,[data-theme=dark] .os-switch-k{color:#ff9a6b}
 @media(max-width:960px){.topbar .os-switch{order:1}}
 .os-nav-apps{display:none!important}
 @media(max-width:420px){.topbar-inner:has(.menu-btn) > .os-switch{display:contents}.topbar-inner:has(.menu-btn) .os-switch-btn{display:none}.topbar-inner:has(.menu-btn) .os-nav-apps{display:flex!important}}
-@media(max-width:640px){.os-switch-pop{position:fixed;top:64px;left:12px;right:12px;width:auto}.os-switch-foot span{display:none}}
+@media(max-width:640px){.os-switch-pop{position:fixed;top:64px;left:12px;right:12px;width:auto}}
 `;
 
 let mounted = false;
+const paletteApps = async () => (await apps()).map((a) => ({ name: a.name, icon: a.icon, url: urlOf(a.href), external: external(a.href) }));
 
-export function mountAppSwitcher({ after = document.querySelector('.topbar .brand, .os-brand, .brand') } = {}) {
+/** The Ctrl/⌘ + K palette without the ⊞ button (the home screen), or to hand it a database client later. */
+export function mountPalette({ supabase = null } = {}) {
+  mountCommandPalette({ supabase, apps: paletteApps });
+}
+
+
+export function mountAppSwitcher({ after = document.querySelector('.topbar .brand, .os-brand, .brand'), supabase = null } = {}) {
   if (mounted || !after) return;
   mounted = true;
+  mountPalette({ supabase });
+
   fitTopbarNav();   // the page links stay on one line: what doesn't fit goes into "More ▾"
   const style = document.createElement('style');
   style.textContent = CSS;
@@ -99,11 +115,13 @@ export function mountAppSwitcher({ after = document.querySelector('.topbar .bran
   const wrap = document.createElement('div');
   wrap.className = 'os-switch';
   wrap.innerHTML = `<button type="button" class="os-switch-btn" aria-haspopup="true" aria-expanded="false" aria-controls="os-switch-pop"
-      title="All apps (Ctrl + K)" aria-label="Switch app">⊞</button>
+      title="All apps" aria-label="Switch app">⊞</button>
+
     <div class="os-switch-pop" id="os-switch-pop" role="dialog" aria-label="Switch app" hidden>
       <input type="search" placeholder="Find an app…" aria-label="Find an app" autocomplete="off" spellcheck="false">
       <div class="os-switch-grid"></div>
-      <div class="os-switch-foot"><a href="${esc(appUrl(''))}">All apps · one.solar home</a><span>Ctrl + K</span></div>
+      <div class="os-switch-foot"><a href="${esc(appUrl(''))}">All apps · one.solar home</a><button type="button" class="os-switch-k" title="Search everything">Search · ${esc(PALETTE_KEY)}</button></div>
+
     </div>`;
   after.after(wrap);
   // Narrow phones with a folding Menu (Orders, Finances, Sponsors, Admin): no room for ⊞ next to the
@@ -126,11 +144,9 @@ export function mountAppSwitcher({ after = document.querySelector('.topbar .bran
   const pop = wrap.querySelector('.os-switch-pop');
   const box = pop.querySelector('input');
   const grid = pop.querySelector('.os-switch-grid');
-  if (/Mac|iPhone|iPad/.test(navigator.platform)) {
-    btn.title = 'All apps (⌘ K)';
-    pop.querySelector('.os-switch-foot span').textContent = '⌘ K';
-  }
+  pop.querySelector('.os-switch-k').onclick = () => { open(false); openPalette(); };
   let list = [];
+
 
   const draw = () => {
     const q = box.value.trim().toLowerCase();
@@ -176,8 +192,7 @@ export function mountAppSwitcher({ after = document.querySelector('.topbar .bran
   addEventListener('hashchange', () => open(false)); // moving to another page of the same app
   document.addEventListener('keydown', (e) => {
     if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'k') {
-      e.preventDefault();
-      open(pop.hidden);
+      if (!pop.hidden) open(false);   // the palette opens instead (command-palette.js)
     } else if (e.key === 'Escape' && !pop.hidden) {
       open(false);
       btn.focus();

@@ -749,9 +749,11 @@ import { SUPABASE_URL, SUPABASE_ANON_KEY, appUrl, signInUrl } from "../shared/on
 import { renderAccount, roleLabelOf } from "../shared/account-menu.js";
 import { startVersionCheck } from "../shared/version-check.js";
 import { startErrorReporter } from "../shared/error-reporter.js";
-import { mountAppSwitcher } from "../shared/app-switcher.js";
+import { mountAppSwitcher, mountPalette } from "../shared/app-switcher.js";
+
 import { summarize, teamMakeup, bySemester, change } from "./summary.js";
-mountAppSwitcher(); // ⊞ next to the logo: jump to any other one.solar app (Ctrl + K)
+mountAppSwitcher(); // ⊞ next to the logo: jump to any other one.solar app; Ctrl/⌘ + K searches everything
+
 const ORDERS_URL = appUrl("orders/");
 // The shared sign-in page (new accounts, password resets) comes back here afterwards.
 const SIGN_UP_URL = signInUrl(location.pathname);
@@ -763,6 +765,7 @@ const FAKE = ["localhost", "127.0.0.1"].includes(location.hostname) && new URLSe
 const sb = FAKE ? (await import("../tools/fake-supabase.js")).supabase : createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 startVersionCheck(sb);
 startErrorReporter(sb, "evals");
+mountPalette({ supabase: sb }); // the Ctrl/⌘ + K palette also finds requests, parts, sponsors… (066)
 
 /* =========================================================
    SMALL HELPERS
