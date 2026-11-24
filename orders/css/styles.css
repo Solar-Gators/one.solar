@@ -642,7 +642,11 @@ th.sorted .sort-ind { opacity: 1; color: var(--orange-dark); }
   .table.stack-mobile.perm-table td { width: 100%; }
   .table.stack-mobile td > input[type="text"], .table.stack-mobile td > select, .table.stack-mobile td > textarea { flex: 1; min-width: 0; max-width: 62%; }
   .table.stack-mobile td.cell-primary input[type="text"] { max-width: none; }
-  .table.stack-mobile .role-chips { justify-content: flex-end; }
+  /* Roles: the label on its own line, then the boxes in two even columns */
+  .table.stack-mobile td:has(> .role-chips) { display: block; text-align: left; }
+  .table.stack-mobile td:has(> .role-chips)::before { display: block; margin-bottom: 6px; }
+  .table.stack-mobile .role-chips { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .table.stack-mobile .role-chips .role-chip { min-width: 0; }
   .table.stack-mobile tr.rules-row td::before { content: none; }
   .table.stack-mobile.fields-table td.field-end:empty { display: none; }
 
@@ -652,10 +656,9 @@ th.sorted .sort-ind { opacity: 1; color: var(--orange-dark); }
   .table.request-cards td::before { display: block; font-size: 10.5px; }
   .table.request-cards td.cell-primary { grid-column: 1 / -1; padding-bottom: 2px; }
   .table.request-cards td.num { text-align: left; }
-  /* Status sits beside the title instead of at the bottom */
-  .table.request-cards tbody tr { position: relative; }
-  .table.request-cards tbody tr:has(td[data-col="status"]) td.cell-primary { padding-right: 130px; }
-  .table.request-cards td[data-col="status"] { position: absolute; top: 12px; right: 14px; width: auto; max-width: 125px; text-align: right; }
+  /* Status (and its step tag) on its own line under the title, so it never covers a label */
+  .table.request-cards td.cell-primary { order: -2; }
+  .table.request-cards td[data-col="status"] { order: -1; grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 4px; padding-bottom: 4px; }
   .table.request-cards td[data-col="status"]::before { content: none; }
 
   /* Status / priority / dropdown colors: name + preview, then the inputs */
@@ -1471,7 +1474,9 @@ a.step-link:hover { text-decoration: underline; }
 .table.stack-mobile.is-stacked td > select,
 .table.stack-mobile.is-stacked td > textarea { flex: 1; min-width: 0; max-width: 62%; }
 .table.stack-mobile.is-stacked td.cell-primary input[type="text"] { max-width: none; }
-.table.stack-mobile.is-stacked .role-chips { justify-content: flex-end; }
+.table.stack-mobile.is-stacked td:has(> .role-chips) { display: block; text-align: left; }
+.table.stack-mobile.is-stacked td:has(> .role-chips)::before { display: block; margin-bottom: 6px; }
+.table.stack-mobile.is-stacked .role-chips { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
 .table.stack-mobile.is-stacked tr.rules-row td::before { content: none; }
 .table.stack-mobile.is-stacked.fields-table td.field-end:empty { display: none; }
 .table.request-cards.is-stacked tbody tr { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 6px 16px; }
@@ -1479,9 +1484,8 @@ a.step-link:hover { text-decoration: underline; }
 .table.request-cards.is-stacked td::before { display: block; font-size: 10.5px; }
 .table.request-cards.is-stacked td.cell-primary { grid-column: 1 / -1; padding-bottom: 2px; }
 .table.request-cards.is-stacked td.num { text-align: left; }
-.table.request-cards.is-stacked tbody tr { position: relative; }
-.table.request-cards.is-stacked tbody tr:has(td[data-col="status"]) td.cell-primary { padding-right: 130px; }
-.table.request-cards.is-stacked td[data-col="status"] { position: absolute; top: 12px; right: 14px; width: auto; max-width: 125px; text-align: right; }
+.table.request-cards.is-stacked td.cell-primary { order: -2; }
+.table.request-cards.is-stacked td[data-col="status"] { order: -1; grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 4px; padding-bottom: 4px; }
 .table.request-cards.is-stacked td[data-col="status"]::before { content: none; }
 .table.stack-form.is-stacked tfoot tr.shipping-row { flex-wrap: wrap; gap: 6px; align-items: center; }
 .table.stack-form.is-stacked tfoot tr.shipping-row #ship-label { flex: 1 1 100%; text-align: left; }

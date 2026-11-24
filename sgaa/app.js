@@ -11,6 +11,7 @@
 import { signInUrl, appUrl } from '../shared/onesolar.js';
 import { renderAccount } from '../shared/account-menu.js';
 import { mountAppSwitcher } from '../shared/app-switcher.js';
+import { fitTopbarNav } from '../shared/nav-more.js';
 import { howItWorks } from '../shared/help.js';
 import { startErrorReporter } from '../shared/error-reporter.js';
 import { startVersionCheck } from '../shared/version-check.js';
@@ -22,6 +23,7 @@ const sb = (await import(FAKE ? '../tools/fake-supabase.js' : '../orders/js/supa
 startVersionCheck(sb);
 startErrorReporter(sb, 'sgaa');
 mountAppSwitcher();
+fitTopbarNav(document.querySelector('#sgaa-nav'), { media: 'all' });   // tabs that don't fit go into "More ▾"
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const main = $('#main');

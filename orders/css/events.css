@@ -88,11 +88,13 @@
 }
 
 /* Stats */
-.ev-stats-filters label { display: inline-flex; align-items: center; gap: 6px; font-size: 13.5px; color: var(--muted); }
-.ev-stats-filters input[type="date"] { width: auto; }
+.ev-stats-filters .ev-sem { display: inline-flex; align-items: center; gap: 6px; font-size: 13.5px; color: var(--muted); }
+.ev-stats-pop { min-width: 300px; max-height: 70vh; overflow: auto; }
+.ev-stats-pop .pm-check { display: flex; grid-template-columns: none; align-items: center; gap: 6px; color: var(--text); }
+.ev-stats-filters input[type="date"] { width: 100%; }
 .ev-stats-filters input[type="number"] { width: 70px; }
-.ev-cat-filter { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; flex-basis: 100%; }
-.ev-cat-filter > span { font-size: 13.5px; color: var(--muted); }
+.ev-cat-filter { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; }
+.ev-cat-filter > span { font-size: var(--fs-sm); color: var(--muted); flex-basis: 100%; }
 .ev-table-tools { display: flex; gap: 8px; align-items: center; justify-content: flex-end; margin-bottom: 8px; }
 .ev-table-tools > span { margin-right: auto; }
 .ev-note { margin: 0 0 8px; }

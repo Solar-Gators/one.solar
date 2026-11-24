@@ -12,6 +12,7 @@ import { semesterOf, semestersIn, toCsv, whenText } from '../../events/core.js';
 import { peopleStats, eventsTable, groupStats, personHistory, countedEvents, pct } from '../../events/stats.js';
 import { loadBase, needsDatabase, header, eventHref, categoryChip, standingChip, placeOf, remember, downloadFile, downloadXlsx, fileDate, attempt } from './kit.js';
 
+let closeBound = false;
 const TABS = [['people', 'People'], ['events', 'Events'], ['groups', 'Divisions & subsystems']];
 
 async function loadAll() {
@@ -33,11 +34,21 @@ function filtersOf(events) {
   };
 }
 
+/** How many filters (besides the semester) are narrowing the numbers: shown on the Filter ▾ button. */
+function activeFilters(f, tab) {
+  return [f.from, f.to, ...(tab !== 'events' ? [f.division, f.subsystem, f.role] : []), f.categories.length, !f.noIsExcused].filter(Boolean).length;
+}
+const filterLabel = (on) => `Filter${on ? ` · ${on}` : ''} <span aria-hidden="true">▾</span>`;
+
+// The semester stays in view; everything else is in the same Filter ▾ menu as the other lists (shared/onesolar.css .list-filter).
 function filterBar(b, f, events, tab) {
   const sems = semestersIn(events);
   const opt = (v, l, on) => `<option value="${esc(v)}" ${on ? 'selected' : ''}>${esc(l)}</option>`;
-  return `<form class="ev-filters ev-stats-filters" data-filters>
-    <label>Semester <select name="semester">${opt('', 'All time', !f.semester)}${sems.map((s) => opt(s, s, s === f.semester)).join('')}</select></label>
+  const on = activeFilters(f, tab);
+  return `<form class="list-bar ev-stats-filters" data-filters>
+    <label class="ev-sem">Semester <select name="semester" class="list-bar-select">${opt('', 'All time', !f.semester)}${sems.map((s) => opt(s, s, s === f.semester)).join('')}</select></label>
+    <details class="list-filter"><summary class="btn btn-sm${on ? ' is-on' : ''}" data-filter-sum>${filterLabel(on)}</summary>
+    <div class="list-filter-pop ev-stats-pop">
     <label>From <input type="date" name="from" value="${esc(f.from)}"></label>
     <label>To <input type="date" name="to" value="${esc(f.to)}"></label>
     ${tab !== 'events' ? `<label>Division <select name="division">${opt('', 'All', !f.division)}${b.divisions.filter((d) => !d.archived_at).map((d) => opt(d.id, d.name, d.id === f.division)).join('')}</select></label>
@@ -48,7 +59,8 @@ function filterBar(b, f, events, tab) {
     <label class="pm-check"><input type="checkbox" name="noIsExcused" ${f.noIsExcused ? 'checked' : ''}> "Can't make it" counts as excused</label>
     ${tab === 'groups' ? `<label>By <select name="by">${opt('division', 'Division', f.by === 'division')}${opt('subsystem', 'Subsystem', f.by === 'subsystem')}</select></label>
       <label>Threshold <input type="number" name="threshold" min="0" max="100" step="5" value="${esc(f.threshold)}"> %</label>` : ''}
-    <button type="button" class="btn btn-ghost btn-sm" data-reset>Reset</button>
+    <button type="button" class="link-btn" data-reset>Reset all filters</button>
+    </div></details>
   </form>`;
 }
 function readFilters(form, f) {
@@ -151,8 +163,18 @@ export async function renderEventStats(el, ctx) {
     form.addEventListener('change', () => {
       readFilters(form, f);
       keep();
+      const on = activeFilters(f, tab);
+      const sum = form.querySelector('[data-filter-sum]');
+      sum.innerHTML = filterLabel(on);
+      sum.classList.toggle('is-on', !!on);
       draw();
     });
+    const menu = form.querySelector('.list-filter');
+    menu.addEventListener('keydown', (x) => { if (x.key === 'Escape') { menu.open = false; menu.querySelector('summary').focus(); } });
+    if (!closeBound) {
+      closeBound = true;   // a click elsewhere closes the menu (once for the page, however often the bar redraws)
+      document.addEventListener('click', (x) => document.querySelectorAll('.ev-stats-filters details.list-filter[open]').forEach((d) => { if (!d.contains(x.target)) d.open = false; }));
+    }
     form.querySelector('[data-reset]').addEventListener('click', () => {
       remember.set('stats', {});
       Object.assign(f, filtersOf(data.events));

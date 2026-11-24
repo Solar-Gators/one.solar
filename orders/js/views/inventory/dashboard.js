@@ -26,7 +26,7 @@ export async function renderInvDashboard(el, ctx) {
   el.innerHTML = `${takeFlash()}<div data-made></div>${header('Inventory', `${items.length} item${items.length === 1 ? '' : 's'} · about ${fmtMoney(value)} on the shelves`,
     `<a class="btn" href="#/inventory/scan">Scan a label</a>${can.receive() ? '<a class="btn btn-primary" href="#/inventory/receive">Receive</a>' : ''}`)}
     <form class="inv-find" data-find role="search">
-      <input type="search" name="q" placeholder="Find an item: name, SKU, part number…" aria-label="Find an item" autocomplete="off">
+      <input type="search" name="q" placeholder="Find an item…" title="Search by name, SKU or part number" aria-label="Find an item by name, SKU or part number" autocomplete="off">
       <button class="btn" type="submit">Find</button>
     </form>
     <div class="fin-tiles">
