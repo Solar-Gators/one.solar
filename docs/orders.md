@@ -155,13 +155,13 @@ Changed your mind? Open a submitted request and click **Withdraw request** to tu
 
 ### Sponsors (Business Coordinator)
 **Sponsors** (its own app, `/one.solar/sponsors/`) tracks sponsorships and donations on a board, and keeps every season for future teams.
-- **Board:** one column per stage: Prospect → Contacted → In talks → Committed → Received → Thanked, plus Not this year. Drag cards between columns (on a phone, use the small menu on each card). Each column shows its count and total. **Board settings** renames, adds or reorders stages, and sets the list of types (Sponsorship, Donation, In-kind…).
+- **Board:** one column per stage: Prospect → Contacted → In talks → Committed → Received → Thanked, plus Not this year. Drag cards between columns (on a phone, use the small menu on each card). Each column shows its count and total. **⚙ Settings** renames, adds or reorders stages, and sets the list of types (Sponsorship, Donation, In-kind…).
 - **Cards:** sponsor name, type, amount, season, lead, follow-up date, tags (e.g. aerospace, local, alumni), contact name / email / phone, website, plus two write-ups:
   - **About this sponsor:** who they are, what they gave, what they asked for in return.
   - **Tips for next time:** how we found them, who to ask, when to ask, what worked.
 - **Watchers:** anyone who can see the board can watch a card; the coordinator can add others. Watchers get an email / Teams message when the card moves or someone adds a note (Admin → one.solar → Notifications → "Sponsor card updated").
 - **Notes & history:** add notes after each call or email; moves, edits and money received are logged automatically, with who and when.
-- **Money received:** when a card reaches a "money received" stage, its amount is added once to the Finances sheet chosen in Board settings (e.g. **Income**), so the **Funds overview** updates on its own.
+- **Money received:** when a card reaches a "money received" stage, its amount is added once to the Finances sheet chosen in ⚙ Settings (e.g. **Income**), so the **Funds overview** updates on its own.
 - **Follow-ups:** a card's follow-up date shows up on Home ("Follow up with…") for its lead and watchers.
 - **Cars:** each card can say which car it was for (Sunrider, Flare, Blaze…). **All sponsors** has a car filter and a Car column; new cards get the car of the season's other cards. (Needs `026_sponsor_history.sql`.)
 - **Import from spreadsheet…:** brings in an old sponsor list or outreach tracker (.xlsx or .csv). Every sheet with a **Sponsor name** or **Company** column is read. Amount, level, what they gave, contacts, team member, system, category, outreach status, outcome and notes are recognised: level, system and category become tags; notes become **Tips for next time**; the rest (address, team member, why it matters…) goes in **About this sponsor**, and unknown columns are kept there too. Pick the car, the season (optional) and the stage (**Thanked** for a past car; a tracker's **Outreach status** / **Outcome** sets each row's stage: Email sent → Contacted, Declined → Not this year). The preview has a checkbox per row; totals, "Mitsuba?"-style questions and name-only rows start unticked. Imported cards have no watchers and never add money to Finances. Importing the same file again skips sponsors already there (same name, car and season). The spreadsheets themselves aren't stored. A team member's name becomes the card's lead only if exactly one person on the site has that name. **Renew** on an earlier car's card (no season) brings it to this season's board.
@@ -239,7 +239,7 @@ On a phone, one menu lists every page, grouped the same way. Each page appears o
   - You see a preview before anything is saved, with a checkbox per request. Orders already on the site (same person, day and total) start unticked, so you can re-import an updated copy of the sheet to add just the new rows.
 
 **Other apps** (settings kept in each app)
-- **Sponsors:** **Board settings** (the board's stages, sponsor types, and which Finances funding line received money goes to) and **Tags** (rename or merge tags), both on the Sponsors board.
+- **Sponsors:** **⚙ Settings** (the board's stages, sponsor types, and which Finances funding line received money goes to) and **Tags** (rename or merge tags), both on the Sponsors board.
 - **Finances:** **Edit steps…** (the department's purchasing steps) on Purchases, and the **Budget** and **Custom sheets** tabs.
 - **Solar Evals:** the **Rubrics** and **Questions** tabs.
 - **CE Scope Map** (✎ Edit, then Save file) and **GatorWire** (the Share button).

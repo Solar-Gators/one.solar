@@ -6,7 +6,7 @@ Semester reviews, filled out online instead of on paper. Sign in with your **[on
 
 Everything below is set up on the page, not in code: the forms, the questionnaires, and the whole flow for each kind of eval.
 
-## Kinds of eval (Setup tab)
+## Kinds of eval (Settings tab)
 
 People with **Set up Solar Evals** (`evals.types`, Admin and E-board by default) see **Setup**. Each **eval type** is the whole rundown for one kind of eval:
 
@@ -76,7 +76,7 @@ Someone made an eval by mistake (the wrong type, the wrong person, a duplicate)?
 
 **Picking the CE division and subsystem.** A self-eval asks for the **CE division** and then that division's **subsystem**, both from the team's lists in Admin → Divisions & people (archived ones aren't offered), already filled in with the person's own if they're set. **Other (not listed)…** on either opens a box to type it in. The division is required to start; both can be changed at the top of the form while it's a draft. When a type's form has a variant per division, the division picked also picks that form, so nobody is asked twice. Eval types whose variants are something else (e.g. leadership positions) still pick the variant. An evaluator's eval shows the same lists. On the Summary, everyone is placed by their division and subsystem in Admin → Divisions & people, so it matches Admin whatever their eval says. Someone not listed there is placed from their eval, read loosely ("Aero-Structures" counts as "Aero / Structures"; a division typed as the subsystem, like "Electrical", counts as that division), and Team makeup names them so they can be added in Admin. Keep Admin → Divisions & people up to date: it's the list everyone picks from.
 
-**Preview as a member.** On the Setup tab, **Preview as a member** (for types with a self-eval) opens the start window exactly as a member sees it, then the self-eval form with your name in it. Type, pick and press anything: nothing is saved, submitted or emailed, and the dashed banner says so. **Back to Setup** (or End preview) leaves it. Save changes to the type first; the preview uses the saved settings.
+**Preview as a member.** On the Settings tab, **Preview as a member** (for types with a self-eval) opens the start window exactly as a member sees it, then the self-eval form with your name in it. Type, pick and press anything: nothing is saved, submitted or emailed, and the dashed banner says so. **Back to Setup** (or End preview) leaves it. Save changes to the type first; the preview uses the saved settings.
 
 ## Forms
 

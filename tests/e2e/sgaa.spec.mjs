@@ -137,7 +137,7 @@ test('alumni accounts: join with any email, approval, Graduated, switching email
   await page.click(`tr:has-text("${GRAD.email}") [data-graduate]`);
   await page.fill('#ask-text', 'Spring 2027');
   await page.click('.ask-dialog [type=submit]');
-  await expect(page.locator('#app .flash')).toContainText(`${GRAD.name} is now an alum`);
+  await expect(page.locator('.os-toast')).toContainText(`${GRAD.name} is now an alum`);
   await expect(page.locator(`tr:has-text("${GRAD.email}")`)).toContainText('Alum');
   await expect(page.locator(`tr:has-text("${ALUM.email}")`)).toContainText('Alum');
 
@@ -149,7 +149,7 @@ test('alumni accounts: join with any email, approval, Graduated, switching email
   await expect(page.locator('#email .alert-warning')).toContainText('Switch to a personal email');
   await page.fill('#a-email', 'gina.grad@gmail.com');
   await page.click('#email-form [type=submit]');
-  await expect(page.locator('#app .flash')).toContainText('Your email is now gina.grad@gmail.com');
+  await expect(page.locator('.os-toast')).toContainText('Your email is now gina.grad@gmail.com');
   expect(await page.evaluate(() => window.fakeSql(`select email from profiles where full_name = 'Gina Grad'`))).toEqual([{ email: 'gina.grad@gmail.com' }]);
   await open(page, '/sgaa/?fake', '.hero h1');
   await expect(page.locator('.email-banner')).toHaveCount(0);

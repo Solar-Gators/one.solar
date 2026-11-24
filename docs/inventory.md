@@ -16,14 +16,14 @@ What the shop has, where it is, who used it and for what. Address: **`/inventory
 | **Activity** | Every stock change, filtered by item, location, kind and dates; Undo; Excel download. |
 | **Counts** | Start a count (a location and what's inside it, a category, a count class, or only what's due), type what's on the shelf, add anything found, submit, apply. |
 | **Reports** | What was used, by CE division → subsystem, item, person, project and month, for a date range; Excel download. |
-| **Setup** | Locations, categories, CE divisions & subsystems, settings, and importing a spreadsheet. |
+| **Settings** | Locations, categories, CE divisions & subsystems, settings, and importing a spreadsheet. |
 | **Scan** | Scan a QR label with the camera (browsers with the built-in barcode reader, e.g. Chrome on Android) or type a SKU / location code. Any phone camera app also opens a label directly. |
 
 **What it's for.** Every use, put-back and direct-to-subsystem receipt says which **CE division** (and, if it's for
 one, which **subsystem**) it was for, or **General shop**. People's last choice is remembered. Each use counts once
 in the reports: in its subsystem, as "whole division", or as General shop. Renaming a division or subsystem keeps
 history right (each entry keeps the name it had); moving a subsystem to another division keeps earlier use with
-the division it was recorded under. The list is edited in Inventory → Setup or **Admin → CE divisions & subsystems**
+the division it was recorded under. The list is edited in Inventory → Settings or **Admin → CE divisions & subsystems**
 ("Copy from Solar Evals" fills it from the CE tracks the first time).
 
 **History is permanent.** Nothing is edited or deleted: Undo adds an entry that puts stock back. You can undo your
@@ -97,9 +97,9 @@ When a Projects item links a part and says how many it needs, that many are **re
    Or run it yourself in the SQL editor if the integration is off. It's one transaction: all or nothing.
 3. Check: the yellow "database needs an update" banner is gone for Admins; open `/inventory/`; the home screen shows the Inventory card
    to people with an Inventory permission.
-4. First setup (an inventory manager or Admin): Setup → **CE divisions & subsystems** (or "Copy from Solar Evals"),
+4. First setup (an inventory manager or Admin): Settings → **CE divisions & subsystems** (or "Copy from Solar Evals"),
    **Locations** (shop → cabinets → shelves/bins), **Categories**, then add items or **Import a spreadsheet**, then
-   print labels (Items → Print labels, Setup → Locations → Print all labels).
+   print labels (Items → Print labels, Settings → Locations → Print all labels).
 5. Give people the **Inventory manager** role in Admin → Users if someone other than Admins runs the shop.
 
 Nothing else needs configuring: no new secrets, Edge Functions, buckets or GitHub settings.

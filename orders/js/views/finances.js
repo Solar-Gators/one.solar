@@ -14,6 +14,7 @@ import { api } from '../api.js';
 import { auth } from '../auth.js';
 import { esc, fmtMoney, fmtDate, errorBox, setFlash, takeFlash, renderRichText, askText, selfApprovedTag, statusLabel, introText } from '../ui.js';
 import { mountRecentlyDeleted } from '../recentlyDeleted.js';
+import { toast } from '../../../shared/toast.js';
 import { requestFields, fieldOptions } from '../formFields.js';
 import { workflowSettings, hasBudgets } from '../workflow.js';
 import { loadExcelJS } from '../excel.js';
@@ -366,10 +367,12 @@ function drawPurchases(box, s) {
         onChange: () => {},
       });
     } else if (btn.hasAttribute('data-delete')) {
-      if (!confirm(`Delete "${l.description || 'this purchase'}"? You can restore it from Recently deleted for 90 days.`)) return;
       try {
         await api.deletePurchase(l.purchaseId);
         await rerender();
+        toast(`Deleted "${l.description || 'a purchase'}".`, 'ok', {
+          undo: () => api.undoDelete('purchase', l.purchaseId).then(rerender).catch((err) => toast(err.message, 'bad')),
+        });
       } catch (err) {
         showError(err);
       }
@@ -675,9 +678,12 @@ function drawFunding(box, s) {
         await rerender();
         [...document.querySelectorAll('.funds-table [data-k="name"]')].pop()?.select();
       } else if (btn.dataset.deleteFund) {
-        if (!confirm('Delete this funding source?')) return;
-        await api.deleteFund(btn.dataset.deleteFund);
+        const id = btn.dataset.deleteFund;
+        await api.deleteFund(id);
         await rerender();
+        toast('Deleted the funding source.', 'ok', {
+          undo: () => api.undoDelete('fund', id).then(rerender).catch((err) => toast(err.message, 'bad')),
+        });
       }
     } catch (err) {
       showError(err);

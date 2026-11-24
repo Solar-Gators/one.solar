@@ -1,5 +1,5 @@
 /**
- * Events → Categories & questions ("Create events"): the team's event categories (Town hall, Testing day…) and
+ * Events → Settings ("Create events"): the team's event categories (Town hall, Testing day…) and
  * the saved sets of sign-in questions.
  */
 import { esc, COLOR_TONES } from '../../ui.js';
@@ -15,7 +15,7 @@ export async function renderEventSetup(el, ctx) {
   const [b, templates] = await Promise.all([loadBase({ fresh: true }), ev.templates()]);
   const may = mayCreate();
   const cats = [...b.categories].sort((a, z) => (!!a.archived_at - !!z.archived_at) || a.sort - z.sort);
-  el.innerHTML = `${header('Categories & questions', 'The kinds of events the stats can be filtered by, and sign-in questions to reuse.')}
+  el.innerHTML = `${header('Settings', 'Event categories (the stats can be filtered by them) and sign-in questions to reuse.')}
     <section class="card"><div class="card-head"><h2>Categories</h2>${may ? '<button type="button" class="btn btn-sm" data-add-cat>+ Add a category</button>' : ''}</div>
       <ul class="ev-setup-list">${cats.map((c) => `<li class="${c.archived_at ? 'is-archived' : ''}" data-cat="${esc(c.id)}">
         <span class="chip-tone tone-${esc(c.color)}">${esc(c.name)}</span>${c.archived_at ? ' <span class="muted small">(retired)</span>' : ''}

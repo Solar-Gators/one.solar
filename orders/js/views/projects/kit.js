@@ -150,24 +150,9 @@ export function projectTop(b, project, active, actions = '') {
 /** Safe formatting for descriptions and comments (everything escaped first), with @mentions marked. */
 export const rich = (text) => renderRichText(text).replace(/(^|[\s>(])@([A-Z][\w'.-]*(?: [A-Z][\w'.-]*)?)/g, '$1<span class="pm-mention">@$2</span>');
 
-/**
- * A short notice at the bottom of the screen ("Saved", "Moved to In Review"). With { undo }, it has an Undo
- * button and stays a little longer; Undo runs undo() once.
- */
-export function toast(message, kind = 'ok', { undo = null } = {}) {
-  document.querySelector('.pm-toast')?.remove();
-  const el = Object.assign(document.createElement('div'), { className: `pm-toast is-${kind}${undo ? ' has-undo' : ''}` });
-  el.setAttribute('role', kind === 'bad' ? 'alert' : 'status');
-  el.innerHTML = `<span>${esc(message)}</span>${undo ? '<button type="button" class="pm-toast-undo">Undo</button>' : ''}<button type="button" class="pm-toast-x" aria-label="Close">×</button>`;
-  document.body.append(el);
-  const timer = setTimeout(() => el.remove(), undo ? 9000 : kind === 'ok' ? 3200 : 8000);
-  el.querySelector('.pm-toast-x').onclick = () => (clearTimeout(timer), el.remove());
-  el.querySelector('.pm-toast-undo')?.addEventListener('click', () => {
-    clearTimeout(timer);
-    el.remove();
-    undo();
-  }, { once: true });
-}
+/** A short notice at the bottom of the screen, with optional Undo: the one every app uses (shared/toast.js). */
+export { toast } from '../../../../shared/toast.js';
+import { toast } from '../../../../shared/toast.js';
 /** An error in plain words: what happened and what to do, without database codes. */
 export function friendly(err, item = null) {
   const m = String(err?.message || err || '');

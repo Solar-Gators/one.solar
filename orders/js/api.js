@@ -506,6 +506,14 @@ export const api = {
   async restoreDeletedRecord(id) {
     return unwrap(await supabase.rpc('restore_deleted_record', { p_id: id }));
   },
+  /** Undo a delete right after it (the toast's Undo): restores the newest "Recently deleted" copy of that record. */
+  async undoDelete(kind, recordId) {
+    const { data, error } = await supabase.from('deleted_records').select('id')
+      .eq('kind', kind).eq('record_id', recordId).is('restored_at', null).order('deleted_at', { ascending: false }).limit(1);
+    if (error) throw error;
+    if (!data?.length) throw new Error('It isn\'t in Recently deleted any more.');
+    return this.restoreDeletedRecord(data[0].id);
+  },
 
   /** The requester: pull a submitted request back to Draft. */
   async withdrawRequest(id) {

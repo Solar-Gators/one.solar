@@ -225,6 +225,22 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--o
 .icon-btn:hover:not(:disabled) { background: #fde4e2; color: var(--red); }
 .icon-btn:disabled { opacity: .3; cursor: not-allowed; }
 
+/* ---- Toast: "Saved", "Deleted · Undo" at the bottom of the screen (shared/toast.js) ---- */
+
+.os-toast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 1000; display: flex; gap: 12px; align-items: center;
+  max-width: min(640px, calc(100vw - 32px)); padding: 9px 10px 9px 16px; border-radius: var(--r-lg); background: #0b2545; color: #fff;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, .25); font-size: var(--fs-base); animation: os-toast-in .18s ease-out; }
+.os-toast.is-bad { background: #b42318; }
+.os-toast-undo { border: 1px solid rgba(255, 255, 255, .45); background: transparent; color: #fff; border-radius: var(--r); padding: 4px 12px; min-height: 0;
+  font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; }
+.os-toast-undo:hover { background: rgba(255, 255, 255, .12); }
+.os-toast-x { border: 0; background: none; color: #fff; font-size: 18px; line-height: 1; cursor: pointer; opacity: .7; padding: 0 4px; min-height: 0; }
+.os-toast-x:hover { opacity: 1; }
+[data-theme="dark"] .os-toast:not(.is-bad) { background: #1f3a5f; border: 1px solid rgba(255, 255, 255, .18); }
+@keyframes os-toast-in { from { opacity: 0; transform: translate(-50%, 8px); } }
+@media (prefers-reduced-motion: reduce) { .os-toast { animation: none; } }
+@media print { .os-toast { display: none !important; } }
+
 /* ---- Alerts ------------------------------------------------------------- */
 
 .alert { padding: 10px 12px; border-radius: var(--r-lg); margin-bottom: 16px; border: 1px solid; }

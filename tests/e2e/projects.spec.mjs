@@ -107,7 +107,7 @@ test.describe('projects', () => {
     await save(page, 'Create project');
     await expect(page.locator('h1')).toContainText('Battery Engineering');
     await expect(page.locator('.pm-key').first()).toHaveText('BAT');
-    await expect(page.locator('.flash')).toContainText('Project Administrator');
+    await expect(page.locator('.os-toast')).toContainText('Project Administrator');
     await expect(page.locator('.pm-tabs')).toContainText('Settings');
   });
 
@@ -981,7 +981,7 @@ test.describe('projects', () => {
     const newKey = await dialog(page).locator('.pm-copy-row', { hasText: 'BAT' }).first().locator('[data-key-for]').inputValue();
     expect(newKey).toBe('BAT8');
     await save(page, 'Start it');
-    await expect(page.locator('.alert', { hasText: 'Car 8 is ready with 1 project' })).toBeVisible();
+    await expect(page.locator('.os-toast', { hasText: 'Car 8 is ready with 1 project' })).toBeVisible();
     expect(await one(page, `select g.name car, (select count(*)::int from pm_items i where i.project_id = p.id) items from pm_projects p join pm_programs g on g.id = p.program_id where p.key = 'BAT8'`))
       .toEqual({ car: 'Car 8', items: 0 });
     // the switcher: it now shows Car 8 (just started); Car 7 is still the current car
