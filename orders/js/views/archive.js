@@ -7,9 +7,10 @@
 import { api } from '../api.js';
 import { auth } from '../auth.js';
 import { esc, fmtMoney, fmtDate, introText, pageTabs } from '../ui.js';
+import { listBar, bindListBar, rememberedFilters, setListCount } from '../listBar.js';
 
 // Filters persist while moving around the app.
-const filters = { q: '', season: '', subteam: '', status: '' };
+const filters = { q: '', values: null };   // kept while navigating around the app; the filters are also remembered (listBar.js)
 const PAGE = 200;
 
 /** One archive row per item of a past-season request, shaped like an imported sheet row (drafts left out). */
@@ -56,11 +57,15 @@ export async function renderArchive(el, { config }) {
     return;
   }
 
-  const options = (list, selected, all) =>
-    `<option value="">${all}</option>` +
-    list.map((v) => `<option value="${esc(v)}" ${v === selected ? 'selected' : ''}>${esc(v)}</option>`).join('');
   const distinct = (key) => [...new Set(rows.map((r) => r[key]).filter(Boolean))].sort((a, b) => a.localeCompare(b));
 
+  const opts = (list) => list.map((v) => [v, v]);
+  const barFilters = [
+    { key: 'season', label: 'Season', all: 'All seasons', options: opts(seasons) },
+    { key: 'subteam', label: 'Subteam', all: 'All subteams', options: opts(distinct('subteam')) },
+    { key: 'status', label: 'Status', all: 'Any status', options: opts(distinct('status')) },
+  ];
+  const values = filters.values ||= rememberedFilters('archive', barFilters);
   el.innerHTML = `
     ${pageTabs('requests', 'archive')}
     <div class="page-header">
@@ -69,12 +74,7 @@ export async function renderArchive(el, { config }) {
         <p class="subtitle">${introText('archive', `Orders from past seasons (${seasons.map(esc).join(', ')}). Imported spreadsheet rows show every original column; requests made on this site open their full page.`)}</p>
       </div>
     </div>
-    <div class="toolbar">
-      <input type="search" id="q" placeholder="Search anything: item, vendor, part #, person, ticket…" value="${esc(filters.q)}" aria-label="Search the archive">
-      <select id="season" aria-label="Season">${options(seasons, filters.season, 'All seasons')}</select>
-      <select id="subteam" aria-label="Subteam">${options(distinct('subteam'), filters.subteam, 'All subteams')}</select>
-      <select id="status" aria-label="Order status">${options(distinct('status'), filters.status, 'Any status')}</select>
-    </div>
+    ${listBar({ q: filters.q, placeholder: 'Search anything: item, vendor, part #, person, ticket…', filters: barFilters, values })}
     <p class="muted small" id="summary"></p>
     <div id="results"></div>`;
 
@@ -98,13 +98,14 @@ export async function renderArchive(el, { config }) {
     const words = filters.q.toLowerCase().split(/\s+/).filter(Boolean);
     const hits = rows.filter(
       (r) =>
-        (!filters.season || r.season === filters.season) &&
-        (!filters.subteam || r.subteam === filters.subteam) &&
-        (!filters.status || r.status === filters.status) &&
+        (!values.season || r.season === values.season) &&
+        (!values.subteam || r.subteam === values.subteam) &&
+        (!values.status || r.status === values.status) &&
         words.every((w) => r._search.includes(w))
     );
     const total = hits.reduce((s, r) => s + (Number(r.cost) || 0), 0);
-    el.querySelector('#summary').textContent = `${hits.length} of ${rows.length} rows · ${fmtMoney(total)} gross cost`;
+    setListCount(el, hits.length, rows.length, 'rows');
+    el.querySelector('#summary').textContent = `${fmtMoney(total)} gross cost`;
 
     const shown = hits.slice(0, limit);
     el.querySelector('#results').innerHTML = hits.length
@@ -158,13 +159,8 @@ export async function renderArchive(el, { config }) {
       toggle(tr);
     }
   });
-  for (const key of ['q', 'season', 'subteam', 'status']) {
-    el.querySelector(`#${key}`).addEventListener('input', (e) => {
-      filters[key] = e.target.value;
-      limit = PAGE;
-      apply();
-    });
-  }
+  el.querySelector('[data-list-q]').addEventListener('input', (e) => ((filters.q = e.target.value), (limit = PAGE), apply()));
+  bindListBar(el, { id: 'archive', filters: barFilters, values, onChange: () => ((limit = PAGE), apply()) });
 
   apply();
 }

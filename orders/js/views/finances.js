@@ -22,6 +22,7 @@ import { cellText } from '../sheetImport.js';
 import { STEPS, STANDARD_STEPS, STEP_TONES, COMMITTED, CATEGORY_NOTES, stepOf, stepChoices, isStandardStep, DEPTS, ledgerLines, budgetTable, fundingTotals, readFinancialsSheet } from '../ledger.js';
 import { openAttachmentsDialog } from '../attachments.js';
 import { renderSheets } from './financeSheets.js';
+import { listBar, bindListBar, rememberedFilters } from '../listBar.js';
 
 const TABS = [['purchases', 'Purchases'], ['budget', 'Budget'], ['funding', 'Funding'], ['notes', 'Notes'], ['sheets', 'Custom sheets']];
 const SORTS = [['newest', 'Newest first'], ['oldest', 'Oldest first'], ['status', 'By status'], ['category', 'By category'], ['cost', 'Highest cost']];
@@ -251,20 +252,19 @@ function drawPurchases(box, s) {
     box.querySelector('#ledger-body').innerHTML = list.length
       ? list.map(row).join('')
       : `<tr><td colspan="9" class="muted sheet-empty">${lines.length ? 'Nothing matches.' : 'No purchases yet this season. Approved requests show up here on their own.'}</td></tr>`;
-    box.querySelector('#ledger-count').textContent = `${list.length} of ${lines.length} · ${fmtMoney(total)} (not counting cancelled)`;
+    box.querySelector('[data-list-count]').textContent = `${list.length === lines.length ? lines.length : `${list.length} of ${lines.length}`} · ${fmtMoney(total)}`;
+    box.querySelector('[data-list-count]').title = 'Total not counting cancelled';
   };
 
+  const filters = [{ key: 'category', label: 'Category', all: 'All categories', options: categories.map((c) => [c, c]) }];
+  if (!view.remembered) Object.assign(view, rememberedFilters('finances-purchases', filters), { remembered: true });
   const counts = Object.fromEntries(STEPS.map((x) => [x.key, lines.filter((l) => l.status === x.key).length]));
   box.innerHTML = `
     <div class="step-strip">${STEPS.filter((x) => !x.hidden || counts[x.key]).map((x) => `<button type="button" class="step-pill step-${esc(x.tone)} ${view.status === x.key ? 'is-on' : ''}" data-step="${esc(x.key)}" title="${esc(x.hint)}">
       ${esc(x.label)} <strong>${counts[x.key]}</strong></button>`).join('')}${canEdit && v >= 25 ? '<button type="button" class="btn btn-sm btn-ghost" id="edit-steps" title="Rename, recolor, hide or add steps">Edit steps…</button>' : ''}</div>
-    <div class="toolbar">
-      <input type="search" id="ledger-q" placeholder="Search description, order #, notes…" value="${esc(view.q)}" aria-label="Search purchases">
-      <select id="ledger-category" aria-label="Category"><option value="">All categories</option>${categories.map((c) => `<option ${c === view.category ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select>
-      <select id="ledger-sort" aria-label="Sort">${SORTS.map(([k, l]) => `<option value="${k}" ${k === view.sort ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>
-      <span class="muted small" id="ledger-count"></span>
-      ${canEdit ? '<button type="button" class="btn btn-sm btn-primary toolbar-end" id="ledger-add" data-shortcut="create">+ Add a purchase</button>' : ''}
-    </div>
+    ${listBar({ q: view.q, placeholder: 'Search description, order #, notes…', filters, values: view, searchAttr: 'id="ledger-q" data-list-q',
+      extra: `<select id="ledger-sort" class="list-bar-select" aria-label="Sort">${SORTS.map(([k, l]) => `<option value="${k}" ${k === view.sort ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>`,
+      end: canEdit ? '<button type="button" class="btn btn-sm btn-primary" id="ledger-add" data-shortcut="create">+ Add a purchase</button>' : '' })}
     <div class="table-wrap sheet-wrap">
       <table class="table ledger-table stack-mobile" data-fit>
         <thead><tr><th>Status</th><th>Description</th><th class="num">Cost</th><th>M/E</th><th>Category</th><th>Order #</th><th>Date</th><th>Notes</th><th></th></tr></thead>
@@ -277,6 +277,7 @@ function drawPurchases(box, s) {
     <datalist id="fin-depts">${DEPTS.map(([k, l]) => `<option value="${k}">${esc(l)}</option>`).join('')}</datalist>
     <datalist id="fin-categories">${categories.map((c) => `<option value="${esc(c)}">`).join('')}</datalist>`;
 
+  bindListBar(box, { id: 'finances-purchases', filters, values: view, onChange: draw });
   const lineOf = (node) => lines.find((l) => l.key === node.closest('tr[data-line]')?.dataset.line);
   const save = async (l, fields) => {
     try {
@@ -292,7 +293,6 @@ function drawPurchases(box, s) {
 
   box.addEventListener('change', async (e) => {
     const t = e.target;
-    if (t.id === 'ledger-category') return (view.category = t.value), draw();
     if (t.id === 'ledger-sort') return (view.sort = t.value), draw();
     const f = t.dataset.f;
     const l = f && lineOf(t);

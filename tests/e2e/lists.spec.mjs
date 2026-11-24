@@ -81,3 +81,29 @@ test('Inventory items: Filter menu keeps its filters in the address, and a row p
   await expect(page.locator('aside.peek')).toHaveCount(0);
   expect(problems).toEqual([]);
 });
+
+test('The same list toolbar on Finances purchases, Sponsors and Events', async ({ page }) => {
+  const problems = await watch(page);
+  await signUp(page, { name: 'Tia Toolbar', email: 'tia-toolbar@ufl.edu', password: 'fake-only-toolbar-pass-1' }, ['admin', 'treasurer']);
+
+  // Finances → Purchases: search, Filter ▾ (Category), sort and "+ Add a purchase" in one bar
+  await open(page, '/finances/', '#ledger-add');
+  await expect(page.locator('.list-bar #ledger-q')).toBeVisible();
+  await expect(page.locator('.list-bar #ledger-sort')).toBeVisible();
+  await expect(page.locator('.list-bar [data-list-count]')).toContainText('$');
+
+  // Sponsors: Whose sits in the Filter menu and shows as a chip
+  await open(page, '/sponsors/', '.list-bar');
+  const bar = page.locator('.list-bar');
+  await bar.locator('.list-filter > summary').click();
+  await bar.locator('select[data-filter="who"]').selectOption('mine');
+  await expect(bar.locator('.list-chip')).toContainText("I'm leading");
+  await bar.locator('.list-chip button').click();
+  await expect(bar.locator('.list-chip')).toHaveCount(0);
+
+  // Events → All events: Upcoming / Past / Everything stays in view next to the Filter menu
+  await open(page, '/events/#/events/all', '.list-bar');
+  await expect(page.locator('.list-bar .pm-seg [data-when="upcoming"]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('.list-bar [data-list-count]')).toContainText('events');
+  expect(problems).toEqual([]);
+});

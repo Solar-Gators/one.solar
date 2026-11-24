@@ -3,6 +3,7 @@
  * how many were invited and came. Upcoming / past / everything, by category, by name.
  */
 import { esc, takeFlash } from '../../ui.js';
+import { listBar, bindListBar, rememberedFilters, setListCount } from '../../listBar.js';
 import { ev } from '../../events/api.js';
 import { phase, whenText } from '../../events/core.js';
 import { eventStats, pct } from '../../events/stats.js';
@@ -13,15 +14,14 @@ export async function renderEventList(el, ctx) {
   if (missing) return (el.innerHTML = missing);
   const [b, events, invitees, rsvps, attendance] = await Promise.all([loadBase(), ev.events(), ev.invitees(), ev.rsvps(), ev.attendance()]);
   const data = { events, invitees, rsvps, attendance, org: b.org, divisions: b.divisions, subsystems: b.subsystems };
-  const state = { when: remember.get('listWhen', 'upcoming'), category: '', q: '' };
+  const filters = [{ key: 'category', label: 'Category', all: 'Every category', options: b.categories.filter((c) => !c.archived_at).map((c) => [c.id, c.name]) }];
+  const values = rememberedFilters('events', filters);
+  const state = { when: remember.get('listWhen', 'upcoming'), q: '' };
+  const seg = `<div class="pm-seg" role="group" aria-label="When">${[['upcoming', 'Upcoming'], ['past', 'Past'], ['all', 'Everything']]
+    .map(([k, l]) => `<button type="button" data-when="${k}" class="${state.when === k ? 'is-on' : ''}" aria-pressed="${state.when === k}">${l}</button>`).join('')}</div>`;
 
   el.innerHTML = `${takeFlash()}${header('All events', 'Every event you can see, with who came.')}
-    <div class="ev-filters">
-      <div class="pm-seg" role="group" aria-label="When">${[['upcoming', 'Upcoming'], ['past', 'Past'], ['all', 'Everything']]
-        .map(([k, l]) => `<button type="button" data-when="${k}" class="${state.when === k ? 'is-on' : ''}" aria-pressed="${state.when === k}">${l}</button>`).join('')}</div>
-      <select data-category aria-label="Category"><option value="">Every category</option>${b.categories.filter((c) => !c.archived_at).map((c) => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('')}</select>
-      <input type="search" data-find placeholder="Find an event…" aria-label="Find an event">
-    </div>
+    ${listBar({ placeholder: 'Find an event…', filters, values, extra: seg })}
     <section class="card" data-list></section>`;
 
   const draw = () => {
@@ -30,9 +30,11 @@ export async function renderEventList(el, ctx) {
       const p = phase(e, now);
       if (state.when === 'upcoming' && !(p === 'upcoming' || p === 'now' || (p === 'cancelled' && new Date(e.starts_at) > now))) return false;
       if (state.when === 'past' && (p === 'upcoming' || p === 'now' || (p === 'cancelled' && new Date(e.starts_at) > now))) return false;
-      if (state.category && e.category_id !== state.category) return false;
+      if (values.category && e.category_id !== values.category) return false;
       return !state.q || e.title.toLowerCase().includes(state.q);
-    }).sort((a, z) => (state.when === 'upcoming' ? (a.starts_at < z.starts_at ? -1 : 1) : (a.starts_at < z.starts_at ? 1 : -1)));
+    });
+    setListCount(el, list.length, events.length, 'events');
+    list.sort((a, z) => (state.when === 'upcoming' ? (a.starts_at < z.starts_at ? -1 : 1) : (a.starts_at < z.starts_at ? 1 : -1)));
     el.querySelector('[data-list]').innerHTML = list.length ? `<div class="table-wrap"><table class="table" data-fit><thead><tr>
       <th>When</th><th>Event</th><th>Category</th><th>Host</th><th class="num">Invited</th><th class="num">Came</th><th class="num">Turnout</th><th>Status</th></tr></thead><tbody>
       ${list.map((e) => {
@@ -59,7 +61,7 @@ export async function renderEventList(el, ctx) {
     const row = x.target.closest('tr[data-href]');
     if (row && !x.target.closest('a, button')) location.hash = row.dataset.href;
   });
-  el.querySelector('[data-category]').addEventListener('change', (x) => ((state.category = x.target.value), draw()));
-  el.querySelector('[data-find]').addEventListener('input', (x) => ((state.q = x.target.value.trim().toLowerCase()), draw()));
+  el.querySelector('[data-list-q]').addEventListener('input', (x) => ((state.q = x.target.value.trim().toLowerCase()), draw()));
+  bindListBar(el, { id: 'events', filters, values, onChange: draw });
   draw();
 }

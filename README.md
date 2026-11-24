@@ -67,8 +67,9 @@ The old addresses (`/Orders-Form/…`, `/Custom-Apps/…`) still work: those rep
   on the next page). Deleting a sponsor card, a purchase or a funding source happens at once, with **Undo** on the
   toast (it restores from Recently deleted, 047) instead of an "are you sure?" box.
 - **One list toolbar.** Lists have the same bar: search, one **Filter ▾** menu, the filters in use as chips (× takes
-  one off), and the count on the right ([`orders/js/listBar.js`](orders/js/listBar.js)). Orders → Requests remembers
-  its filters in this browser; Inventory → Items keeps them in the address, so a filtered list can be shared.
+  one off), and the count on the right ([`orders/js/listBar.js`](orders/js/listBar.js)). It is on Orders → Requests and Archive,
+  Finances → Purchases, Sponsors and Events → All events (Projects keeps its own filter bar with saved views). Most
+  lists remember their filters in this browser; Inventory → Items keeps them in the address, so a filtered list can be shared.
 - **Peek.** On Orders → Requests and Inventory → Items, a click on a row opens it in a panel beside the list
   ([`orders/js/peek.js`](orders/js/peek.js)): ↑ / ↓ go to the previous / next row, Esc closes, "Open full page" goes to
   it. Ctrl / ⌘ / Shift-click, Enter on a picked row, and phones still open the full page.
