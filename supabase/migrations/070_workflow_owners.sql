@@ -1,3 +1,5 @@
+select public.migration_begin(70);
+
 -- 070: workflows that are easier to own.
 --  * Project Managers may change workflows (the "workflows" ability), in new projects, in the starting templates and in
 --    every existing project's Project Manager role.
