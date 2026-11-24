@@ -168,21 +168,6 @@ a.pm-project:hover { border-color: var(--orange); }
   .pm-work-act { justify-content: flex-start; }
 }
 
-/* Projects has seven menu links: fold them into "Menu" up to 1340px (other apps fold at 960px), so the top bar stays one line. */
-@media (min-width: 961px) and (max-width: 1340px) {
-  body[data-app="projects"] .topbar-inner { flex-wrap: wrap; }
-  body[data-app="projects"] .brand { order: 1; flex: 1; }
-  body[data-app="projects"] .new-cta { order: 2; }
-  body[data-app="projects"] .account-menu { order: 2; }
-  body[data-app="projects"] .menu-btn { display: inline-flex; order: 3; flex: none; min-height: 40px; min-width: 40px; justify-content: center; }
-  body[data-app="projects"] .nav {
-    order: 4; display: none; flex: none; flex-direction: column; flex-wrap: nowrap; gap: 2px;
-    width: 100%; margin: 0; padding: 6px 0 4px; border-top: 1px solid var(--border-soft);
-  }
-  body[data-app="projects"].nav-open .nav { display: flex; }
-  body[data-app="projects"] .nav a { padding: 10px 12px; font-size: 15px; }
-}
-
 /* Settings */
 .pm-subtabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
 .pm-subtabs a { padding: 6px 12px; border: 1px solid var(--border); border-radius: 999px; text-decoration: none; color: var(--muted); font-weight: 600; font-size: 13.5px; }

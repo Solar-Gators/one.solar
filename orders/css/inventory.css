@@ -127,17 +127,3 @@ tr.is-bad td { background: color-mix(in srgb, var(--red) 8%, transparent); }
   .inv-spec input:nth-child(2) { grid-column: 1; }
 }
 
-/* Inventory has seven menu links: fold them into "Menu" up to 1200px (other apps fold at 960px), so the top bar stays one line. */
-@media (min-width: 961px) and (max-width: 1200px) {
-  body[data-app="inventory"] .topbar-inner { flex-wrap: wrap; }
-  body[data-app="inventory"] .brand { order: 1; flex: 1; }
-  body[data-app="inventory"] .new-cta { order: 2; }
-  body[data-app="inventory"] .account-menu { order: 2; }
-  body[data-app="inventory"] .menu-btn { display: inline-flex; order: 3; flex: none; min-height: 40px; min-width: 40px; justify-content: center; }
-  body[data-app="inventory"] .nav {
-    order: 4; display: none; flex: none; flex-direction: column; flex-wrap: nowrap; gap: 2px;
-    width: 100%; margin: 0; padding: 6px 0 4px; border-top: 1px solid var(--border-soft);
-  }
-  body[data-app="inventory"].nav-open .nav { display: flex; }
-  body[data-app="inventory"] .nav a { padding: 10px 12px; font-size: 15px; }
-}
