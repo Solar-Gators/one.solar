@@ -16,20 +16,45 @@ export const viewsFor = (all, kind, projectId) => all.filter((v) => v.kind === k
 export const pickView = (views, wanted, me) =>
   views.find((v) => v.id === wanted) || (wanted === 'none' ? null : views.find((v) => v.is_default && v.owner_id === me) || views.find((v) => v.is_default && v.sharing !== 'private') || null);
 
-const SHARING = { private: 'Just me', project: 'Everyone in this project', team: 'The whole team', people: 'People I pick' };
-const mayChange = (b, v) => v.owner_id === b.me || (v.sharing === 'project' && can(b, v.project_id, 'boards')) || auth.can('projects.manage');
+const SHARING = { private: 'Just me', project: 'Everyone in this project', team: 'The whole team', people: 'People I pick', ready: 'Ready-made' };
+const mayChange = (b, v) => !v.ready && (v.owner_id === b.me || (v.sharing === 'project' && can(b, v.project_id, 'boards')) || auth.can('projects.manage'));
+
+/**
+ * Ready-made searches for the List (the common ones, like Jira's default filters). Built in: they can't be changed or
+ * deleted, but "Save as…" keeps a copy to change. recentKeys: the items opened lately on this device.
+ */
+export function readySearches(recentKeys = []) {
+  const r = (id, name, f, sort = 'updated', dir = 'desc') => ({ id: `ready:${id}`, name, ready: true, sharing: 'ready',
+    config: { filter_state: { q: '', owner: '', category: '', priority: '', type: '', more: null, ...f }, sort, dir } });
+  return [
+    r('mine', 'My open items', { owner: 'me', category: 'open' }, 'due', 'asc'),
+    r('reported', 'Reported by me', { more: { f: 'reporter', v: 'me' } }),
+    r('open', 'Everything open', { category: 'open' }, 'rank', 'asc'),
+    r('done', 'Done', { category: 'done' }),
+    r('updated', 'Changed in the last 7 days', { more: { f: 'updated', op: 'last', v: 7 } }),
+    r('finished', 'Finished in the last 14 days', { category: 'done', more: { f: 'completed', op: 'last', v: 14 } }),
+    r('worked', 'Worked on by me (last 30 days)', { more: { f: 'worked_on' } }),
+    r('viewed', 'Recently viewed', { more: { f: 'key', op: 'in', v: recentKeys.length ? recentKeys : ['-'] } }),
+  ];
+}
 
 export function viewPicker(b, views, current, { noun = 'view', dirty = false } = {}) {
-  const mine = views.filter((v) => v.owner_id === b.me && v.sharing === 'private');
-  const shared = views.filter((v) => !(v.owner_id === b.me && v.sharing === 'private'));
+  const ready = views.filter((v) => v.ready);
+  const mine = views.filter((v) => !v.ready && v.owner_id === b.me && v.sharing === 'private');
+  const shared = views.filter((v) => !v.ready && !(v.owner_id === b.me && v.sharing === 'private'));
   const o = (v) => `<option value="${esc(v.id)}" ${current?.id === v.id ? 'selected' : ''}>${esc(v.name)}${v.is_default ? ' ★' : ''}</option>`;
+  const who = current ? `${SHARING[current.sharing]}${current.owner_id && current.owner_id !== b.me ? ` · by ${b.personById.get(current.owner_id)?.full_name || 'someone'}` : ''}` : '';
+  const may = current && mayChange(b, current);
   return `<div class="pm-views" data-views>
-    <select data-view-pick aria-label="Saved ${esc(noun)}s"><option value="none">Standard ${esc(noun)}</option>
+    <select data-view-pick aria-label="Saved ${esc(noun)}s" title="${esc(who)}"><option value="none">Standard ${esc(noun)}</option>
+      ${ready.length ? `<optgroup label="Ready-made">${ready.map(o).join('')}</optgroup>` : ''}
       ${mine.length ? `<optgroup label="Mine">${mine.map(o).join('')}</optgroup>` : ''}${shared.length ? `<optgroup label="Shared">${shared.map(o).join('')}</optgroup>` : ''}</select>
-    ${current && mayChange(b, current) ? `<button type="button" class="btn btn-sm${dirty ? ' btn-primary' : ''}" data-view-save title="Save the changes to &quot;${esc(current.name)}&quot;">Save</button>` : ''}
-    <button type="button" class="btn btn-sm" data-view-new>Save as…</button>
-    ${current && mayChange(b, current) ? `<button type="button" class="btn btn-sm btn-ghost" data-view-delete aria-label="Delete this ${esc(noun)}">Delete</button>` : ''}
-    ${current ? `<span class="muted small">${esc(SHARING[current.sharing])}${current.owner_id && current.owner_id !== b.me ? ` · by ${esc(b.personById.get(current.owner_id)?.full_name || 'someone')}` : ''}</span>` : ''}
+    ${may && dirty ? `<button type="button" class="btn btn-sm btn-primary" data-view-save title="Save the changes to &quot;${esc(current.name)}&quot;">Save</button>` : ''}
+    <details class="pm-pop pm-dots"><summary class="btn btn-sm" aria-label="Saved ${esc(noun)} options" title="Save or share this ${esc(noun)}">${!current && dirty ? 'Save…' : '▾'}</summary><div class="pm-more-pop">
+      ${current ? `<p class="muted small pm-pop-note">${esc(who)}</p>` : ''}
+      ${may ? `<button type="button" data-view-save>Save changes to "${esc(current.name)}"</button>` : ''}
+      <button type="button" data-view-new>Save as a new ${esc(noun)}…</button>
+      ${may ? `<button type="button" data-view-delete>Delete "${esc(current.name)}"</button>` : ''}</div></details>
   </div>`;
 }
 

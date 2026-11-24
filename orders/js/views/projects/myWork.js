@@ -1,6 +1,7 @@
 /**
  * Projects → My work: what's on my plate, without needing to know how any project is set up. Overdue and due
  * soon first, what's blocked and why, what's waiting for my approval, and a quick way to move each item along.
+ * At the bottom: what I've worked on lately (changed in the last 30 days) and what I've opened lately on this device.
  */
 import { esc, fmtDate } from '../../ui.js';
 import { pm } from '../../projects/api.js';
@@ -11,19 +12,24 @@ import { askText } from '../../ui.js';
 import { bindInline } from './inline.js';
 import { bindSelection, pickBox } from './select.js';
 import { quickAdd, bindQuickAdd } from './quick.js';
+import { recentItems } from './command.js';
 
-const view = { group: 'when', show: 'open' };
+const view = { group: 'when', show: 'open', other: 'watching' };
 
 export async function renderMyWork(el, { config, rerender }) {
   const missing = needsDatabase(config);
   if (missing) return void (el.innerHTML = missing);
   const b = await loadBase();
-  const [{ items: mine }, { items: watching }, approvals] = await Promise.all([
+  const viewedKeys = recentItems().map((r) => r.key);
+  const [{ items: mine }, { items: watching }, approvals, { items: workedOn }, { items: viewedRaw }] = await Promise.all([
     pm.search({ filter: { f: 'mine' }, limit: 500, sort: 'due' }),
     pm.search({ filter: { all: [{ f: 'watching' }, { not: { f: 'mine' } }, { f: 'category', op: 'ne', v: 'done' }] }, limit: 50, sort: 'updated', dir: 'desc' }),
     pm.approvals(),
+    pm.search({ filter: { f: 'worked_on' }, limit: 30, sort: 'updated', dir: 'desc' }).catch(() => ({ items: [] })),
+    viewedKeys.length ? pm.search({ filter: { f: 'key', op: 'in', v: viewedKeys }, limit: 8 }).catch(() => ({ items: [] })) : { items: [] },
   ]);
-  const projectIds = [...new Set([...mine, ...watching].map((i) => i.project_id).concat(approvals.map((a) => a.project_id)))];
+  const viewed = viewedRaw.sort((a, c) => viewedKeys.indexOf(a.key) - viewedKeys.indexOf(c.key));
+  const projectIds = [...new Set([...mine, ...watching, ...workedOn, ...viewed].map((i) => i.project_id).concat(approvals.map((a) => a.project_id)))];
   const { cfgOf, per } = await shapesFor(b, projectIds);
   const toApprove = approvals.filter((a) => can(b, a.project_id, 'approve') && a.requested_by !== b.me);
   const asked = approvals.filter((a) => a.requested_by === b.me);
@@ -76,15 +82,19 @@ export async function renderMyWork(el, { config, rerender }) {
       <label class="inline-field">Group by <select id="mw-group"><option value="when" ${view.group === 'when' ? 'selected' : ''}>What needs you first</option>
         <option value="project" ${view.group === 'project' ? 'selected' : ''}>Project</option><option value="status" ${view.group === 'status' ? 'selected' : ''}>Status</option></select></label>
       <a class="btn btn-sm" href="#/projects/list">Search all work</a>
-      ${done.length ? '<button type="button" class="btn btn-sm" id="mw-summary" title="A plain list of what you finished, to paste into a self-evaluation or a report">Copy what I finished</button>' : ''}
     </div>
     ${quickAdd(b, {}, { placeholder: '+ Add something to do (it\'s yours; Enter to add)', label: 'Add an item for yourself', cls: 'pm-qa-mine' })}
     ${toApprove.length ? `<section class="card pm-work-group is-warn"><h2>Waiting for your approval <span class="muted">${toApprove.length}</span></h2><ul class="pm-work-list">${toApprove.map((a) => approvalRow(a, true)).join('')}</ul></section>` : ''}
     ${sections.map(block).join('') || (open.length ? '' : emptyState(b))}
     ${asked.length ? `<section class="card pm-work-group"><h2>You asked for approval <span class="muted">${asked.length}</span></h2><ul class="pm-work-list">${asked.map((a) => approvalRow(a, false)).join('')}</ul></section>` : ''}
-    ${watching.length ? `<details class="card pm-work-group"><summary><h2>Watching <span class="muted">${watching.length}</span></h2></summary><ul class="pm-work-list">${watching.map(row).join('')}</ul></details>` : ''}
-    ${done.length ? `<details class="card pm-work-group"><summary><h2>Finished in the last two weeks <span class="muted">${done.length}</span></h2></summary><ul class="pm-work-list">${done.map(row).join('')}</ul></details>` : ''}`;
+    ${otherWork([['watching', 'Watching', watching, ''], ['worked', 'Worked on', workedOn, 'Items you changed, moved or commented on in the last 30 days, latest first.'],
+      ['viewed', 'Viewed', viewed, 'Opened lately on this device.'], ['finished', 'Finished', done, 'Finished in the last two weeks.']], row)}`;
 
+  el.querySelectorAll('[data-mw-tab]').forEach((t) => (t.onclick = () => {
+    view.other = t.dataset.mwTab;
+    el.querySelectorAll('[data-mw-tab]').forEach((x) => x.setAttribute('aria-selected', String(x === t)));
+    el.querySelectorAll('[data-mw-pane]').forEach((p) => (p.hidden = p.dataset.mwPane !== view.other));
+  }));
   el.querySelector('#mw-group').onchange = (e) => {
     view.group = e.target.value;
     rerender();
@@ -95,7 +105,7 @@ export async function renderMyWork(el, { config, rerender }) {
     await navigator.clipboard.writeText(text).then(() => toast('Copied. Paste it wherever you describe your work.'), () => toast('Couldn\'t copy.', 'bad'));
   });
   // change in place; a finished item stays where it is until the page is opened again (so it doesn't jump away)
-  const all = [...mine, ...watching];
+  const all = [...mine, ...watching, ...workedOn, ...viewed];
   bindInline(el, { b, itemOf: (id) => all.find((i) => i.id === id), cfgOf });
   bindSelection(el, { b, items: () => all, cfgOf, done: rerender });
   bindQuickAdd(el, { b, done: rerender });
@@ -120,4 +130,18 @@ function emptyState(b) {
     <p>When someone makes you the owner of an item, or adds you as a collaborator, it shows here. You can also add something for yourself above.</p>
     ${near.length ? `<p>${esc(where)}'s projects:</p><p class="pm-empty-links">${near.map((p) => `<a class="btn btn-sm" href="${projectHref(p.key)}">${esc(p.name)}</a>`).join(' ')}</p>` : ''}
     <p><a class="btn btn-primary" href="#/projects/all">Look at the projects</a> <button type="button" class="btn btn-ghost" data-shortcuts>Keyboard shortcuts</button></p></div>`;
+}
+
+/**
+ * C7: what isn't yours to do right now, in one card: Watching, Worked on, Viewed, Finished (tabs; the last one
+ * picked stays picked). "Copy what I finished" sits on the Finished tab.
+ */
+function otherWork(tabs, row) {
+  const shown = tabs.filter(([, , list]) => list.length);
+  if (!shown.length) return '';
+  const on = shown.some(([k]) => k === view.other) ? view.other : shown[0][0];
+  return `<section class="card pm-work-group pm-other-work"><span role="tablist" class="pm-seg" aria-label="Other work">${shown.map(([k, l, list]) => `<button type="button" role="tab" data-mw-tab="${k}" aria-selected="${k === on}">${esc(l)} <span class="muted">${list.length}</span></button>`).join('')}</span>
+    ${shown.map(([k, , list, note]) => `<div data-mw-pane="${k}" ${k === on ? '' : 'hidden'}>${note ? `<p class="muted small">${esc(note)}</p>` : ''}
+      ${k === 'finished' ? '<p><button type="button" class="btn btn-sm" id="mw-summary" title="A plain list of what you finished, to paste into a self-evaluation or a report">Copy what I finished</button></p>' : ''}
+      <ul class="pm-work-list">${list.map(row).join('')}</ul></div>`).join('')}</section>`;
 }

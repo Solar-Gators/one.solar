@@ -460,7 +460,7 @@ export async function renderTimeline(el, scope) {
   // start on a week boundary (the season's weekday, else Monday) so week columns line up
   const weekday0 = season ?? (tday - ((new Date(tday * 864e5).getUTCDay() + 6) % 7));
   first -= ((first - weekday0) % 7 + 7) % 7;
-  const labelW = Math.max(160, Math.min(520, Number(st.labelW) || 280));
+  const labelW = Math.max(160, Math.min(520, Number(st.labelW) || 340));   // C5: wider to start with (still draggable)
   // The chart's width. This draws before it's on the page, so it's worked out from the page (and checked once it's there).
   const room = st.room || Math.max(320, (document.getElementById('app')?.clientWidth || el.clientWidth || 900) - labelW - 40);
   if (fitSpan) fitSpan[0] = fitSpan[0] < first ? first : fitSpan[0] - ((fitSpan[0] - weekday0) % 7 + 7) % 7;   // from a week boundary
@@ -495,6 +495,9 @@ export async function renderTimeline(el, scope) {
     .filter((g) => g.start_date).map((g) => ({ ...g, end_date: cycleEnd(g) }))
     .filter((g) => toDay(g.end_date) >= first && toDay(g.start_date) <= last)
     .map((g) => ({ ...g, start_date: toISO(Math.max(first, toDay(g.start_date))), end_date: toISO(Math.min(last, toDay(g.end_date))), starts: toDay(g.start_date) >= first }));
+  // V4: the project's phases (Settings → Details), shaded behind the chart and named in the header
+  const phasesShown = (settings.phases || []).filter((ph) => ph.start && ph.end && toDay(ph.end) >= first && toDay(ph.start) <= last)
+    .map((ph) => ({ ...ph, s: Math.max(first, toDay(ph.start)), e: Math.min(last, toDay(ph.end)), c: TONE[ph.tone] || TONE.blue }));
   const cal = makeCalendar(settings);
   const snap = px >= 10 ? 1 : 7;   // dragging moves by days when they're wide enough, else by weeks
 
@@ -535,7 +538,8 @@ export async function renderTimeline(el, scope) {
         }).join('');
     }
     const keys = keysShown.map((k) => `<span class="pm-g-keyhead is-${esc(k.kind)}" style="left:${x(k.day)}px" title="${esc(`${k.name}: ${fmtDate(k.day)}${k.end_day && k.end_day !== k.day ? ` – ${fmtDate(k.end_day)}` : ''}${k.note ? ` · ${k.note}` : ''}`)}">${esc(k.name)}</span>`).join('')
-      + cyclesShown.map((g) => `<span class="pm-g-keyhead is-cycle" style="left:${x(g.start_date)}px" title="${esc(`${g.name}: ${fmtDate(g.start_date)} – ${fmtDate(g.end_date)}`)}">${esc(g.name)}</span>`).join('');
+      + phasesShown.map((ph) => `<span class="pm-g-keyhead is-phase" data-stick="${(ph.s - first) * px},${(ph.e - first + 1) * px}" style="--c:${ph.c};left:${(ph.s - first) * px}px" title="${esc(`${ph.name}: ${fmtDate(ph.start)} – ${fmtDate(ph.end)}`)}">${esc(ph.name)}</span>`).join('')
+      + cyclesShown.map((g) => `<span class="pm-g-keyhead is-cycle" data-stick="${x(g.start_date)},${x(g.end_date) + px}" style="left:${x(g.start_date)}px" title="${esc(`${g.name}: ${fmtDate(g.start_date)} – ${fmtDate(g.end_date)}`)}">${esc(g.name)}</span>`).join('');
     return `<div class="pm-g-head" style="width:${width}px">${months}${weeks}${keys}</div>`;
   };
   const gridLines = () => (7 * px >= 10 ? weekStarts.map((d) => `<div class="pm-g-vl" style="left:${(d - first) * px}px"></div>`).join('') : '')
@@ -733,8 +737,8 @@ export async function renderTimeline(el, scope) {
       ${mayEdit && i.category !== 'done' ? `<span class="pm-g-grip" data-grip="${esc(i.id)}" title="Drag onto another row: the middle puts it under that row, the top or bottom edge before or after it" aria-hidden="true">⋮⋮</span>` : '<span class="pm-g-grip is-empty"></span>'}
       ${pickBox(i)}${r.children ? `<button type="button" class="pm-g-toggle" data-toggle="${esc(i.id)}" aria-expanded="${!st.closed.has(i.id)}" aria-label="${st.closed.has(i.id) ? 'Show' : 'Hide'} what's under ${esc(i.key)}">${st.closed.has(i.id) ? '▸' : '▾'}</button>` : '<span class="pm-g-toggle"></span>'}
       <span class="pm-g-dot${i.is_milestone ? ' is-ms' : ''}" style="--c:${c.hex}" title="${esc(c.name)}"></span>
-      <span class="pm-g-name">${r.prefix ? `<a class="pm-g-prefix" href="${projectHref(r.prefix.key, 'timeline')}" title="${esc(r.prefix.name)}: its only item is ${esc(i.title)}">${esc(r.prefix.name)}</a><span class="pm-g-crumb-sep" aria-hidden="true">›</span>` : ''}${st.show.keys ? `<a class="pm-g-key" href="${itemHref(i.key)}">${esc(i.key)}</a>` : ''}<span class="pm-g-title${i.category === 'done' ? ' is-done' : ''}" ${mayEdit ? `data-rename="${esc(i.id)}" title="${esc(i.key)} ${esc(i.title)} (double-click to rename)"` : `title="${esc(i.key)} ${esc(i.title)}"`}>${esc(i.title)}</span></span>
-      ${slipChip(i)}${undated(i) && !st.undated ? '<span class="pm-g-chip" title="No start or due date yet: drag across the row to set them">no dates</span>' : ''}${(ordersFor.get(i.id) || []).length ? `<span class="pm-g-chip is-warn" title="${esc(ordersFor.get(i.id).map((w) => `${w.number} is ${w.status}, not ordered yet`).join('\n'))}">order ⚠</span>` : ''}
+      <span class="pm-g-name">${r.prefix ? `<a class="pm-g-prefix" href="${projectHref(r.prefix.key, 'timeline')}" title="${esc(r.prefix.name)}: its only item is ${esc(i.title)}">${esc(r.prefix.name)}</a><span class="pm-g-crumb-sep" aria-hidden="true">›</span>` : ''}${st.show.keys ? `<a class="pm-g-key" href="${itemHref(i.key)}">${esc(i.key)}</a>` : ''}<span class="pm-g-title${i.category === 'done' ? ' is-done' : ''}" ${mayEdit ? `data-rename="${esc(i.id)}" title="${esc(i.key)} ${esc(i.title)}${undated(i) ? ' (no dates yet: drag across its row)' : ''} (double-click to rename)"` : `title="${esc(i.key)} ${esc(i.title)}"`}>${esc(i.title)}</span></span>
+      ${slipChip(i)}${(ordersFor.get(i.id) || []).length ? `<span class="pm-g-chip is-warn" title="${esc(ordersFor.get(i.id).map((w) => `${w.number} is ${w.status}, not ordered yet`).join('\n'))}">order ⚠</span>` : ''}
       <span class="pm-g-label-end">${st.show.owners ? avatar(b, i.owner_id) : ''}<button type="button" class="pm-g-more" data-menu="${esc(i.id)}" aria-label="More for ${esc(i.key)}" title="More">⋯</button></span></div>`;
   };
 
@@ -743,7 +747,8 @@ export async function renderTimeline(el, scope) {
   const pop = (name, labelHtml, body) => `<details class="pm-pop" data-pop="${name}" ${st.pop === name ? 'open' : ''}><summary class="btn btn-sm">${labelHtml}</summary><div class="pm-pop-body">${body}</div></details>`;
   const check = (attr, k, label, on, hint = '') => `<label class="pm-pop-check" ${hint ? `title="${esc(hint)}"` : ''}><input type="checkbox" ${attr}="${k}" ${on ? 'checked' : ''}> ${esc(label)}</label>`;
   const pick = (attr, map, v, label) => `<div class="pm-pop-row"><span>${esc(label)}</span><select ${attr} aria-label="${esc(label)}">${Object.entries(map).map(([k, l]) => `<option value="${k}" ${v === k ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></div>`;
-  const showMenu = pop('show', 'Show ▾', `${Object.entries(SHOW).map(([k, l]) => check('data-show', k, l, st.show[k])).join('')}
+  const showMenu = pop('show', 'Show ▾', `${pick('data-color-by', COLOR_BY, st.colorBy, 'Color by')}
+    ${Object.entries(SHOW).map(([k, l]) => check('data-show', k, l, st.show[k])).join('')}
     ${pick('data-bar-text', BAR_TEXT, st.barText, 'Labels say')}
     <div class="pm-pop-row"><span>Rows</span><select data-density aria-label="Row size"><option value="comfortable" ${st.density === 'comfortable' ? 'selected' : ''}>Comfortable</option><option value="compact" ${st.density === 'compact' ? 'selected' : ''}>Compact</option></select></div>`);
   const rowsMenu = pop('rows', `Rows${grouped || st.sortBy !== 'rank' || st.pack || hiding ? ' •' : ''} ▾`, `<p class="pm-pop-note">How the rows are arranged, top to bottom.</p>
@@ -773,19 +778,17 @@ export async function renderTimeline(el, scope) {
   const toolbar = `<div class="pm-g-toolbar">
       <div class="pm-g-zoom" role="group" aria-label="Zoom">
         <button type="button" class="btn btn-sm" data-zoom-step="-1" title="Zoom out (Ctrl + scroll, a pinch, or the − key)" aria-label="Zoom out" ${px <= PX_MIN ? 'disabled' : ''}>−</button>
-        <div class="pm-seg">${ZOOMS.map(([k, l, p]) => `<button type="button" data-zoom-px="${p}" class="${zoomName === k ? 'is-on' : ''}" aria-pressed="${zoomName === k}" title="${esc(ZOOM_TIPS[k])}">${l}</button>`).join('')}</div>
+        <select data-zoom-pick aria-label="Zoom" title="Zoom (Ctrl + scroll or a pinch works too)">${zoomName ? '' : `<option value="" selected>${st.fit ? 'Fitted' : 'Custom'}</option>`}${ZOOMS.map(([k, l, p]) => `<option value="${p}" ${zoomName === k ? 'selected' : ''} title="${esc(ZOOM_TIPS[k])}">${l}</option>`).join('')}</select>
         <button type="button" class="btn btn-sm" data-zoom-step="1" title="Zoom in (Ctrl + scroll, a pinch, or the + key)" aria-label="Zoom in" ${px >= PX_MAX ? 'disabled' : ''}>+</button>
       </div>
-      ${fitMenu}
-      <button type="button" class="btn btn-sm" data-today>Today</button>
+      <span class="pm-g-when"><button type="button" class="btn btn-sm" data-today>Today</button>${fitMenu}</span>
       ${!project && nodes.length && !grouped ? `<div class="pm-seg" role="group" aria-label="Level">${LEVELS.map(([k, l]) => `<button type="button" data-level="${k}" class="${st.level === k ? 'is-on' : ''}" aria-pressed="${st.level === k}" title="Fold the rows down to ${l.toLowerCase()}">${l}</button>`).join('')}</div>` : ''}
-      <label class="pm-g-colorby">Color <select data-color-by aria-label="Color bars by">${Object.entries(COLOR_BY).map(([k, l]) => `<option value="${k}" ${st.colorBy === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
       ${rowsMenu}
       ${showMenu}
       <button type="button" class="btn btn-sm${st.filters || filterCount ? ' is-on' : ''}" data-filters aria-expanded="${st.filters}">Filter${filterCount ? ` · ${filterCount}` : ''}</button>
       ${planMenu}
       <span class="pm-g-spacer"></span>
-      ${rows.length ? '<button type="button" class="btn btn-sm" data-present>Present</button>' : ''}
+      ${rows.length ? pop('more', '⋯', '<button type="button" class="pm-pop-item" data-present>Present (full screen, PNG, print)</button>') : ''}
       ${project && can(b, project.id, 'create') ? `<button type="button" class="btn btn-sm btn-primary" data-add-root="${esc(project.id)}">+ Add</button>` : ''}
       ${!project && canCreateProjects() ? '<button type="button" class="btn btn-sm btn-primary" data-new-project>+ New project</button>' : ''}</div>
     ${st.filters ? `<div class="pm-g-filters">${filterBar(b, st.f, { types: scope.types })}
@@ -809,7 +812,7 @@ export async function renderTimeline(el, scope) {
     ${crumbs()}
     ${total > all.length ? `<p class="alert alert-info">Showing the first ${all.length} of ${total} items.</p>` : ''}
     ${plan.loop.length ? `<p class="alert alert-error">Some items depend on each other in a loop, so they can't be scheduled: ${plan.loop.map((id) => esc(byId.get(id)?.key || '')).join(', ')}.</p>` : ''}
-    ${rows.length ? `<div class="pm-gantt-wrap" style="--label-w:${labelW}px;--row:${ROW}px">
+    ${rows.length ? `<div class="pm-gantt-wrap${st.density === 'compact' ? ' is-compact' : ''}" style="--label-w:${labelW}px;--row:${ROW}px">
       <div class="pm-gantt">
         <div class="pm-g-left"><div class="pm-g-head pm-g-lhead"><span>Work package</span>
           <span class="pm-g-label-end"><button type="button" class="pm-g-more" data-collapse-all title="Collapse all" aria-label="Collapse all">⊟</button><button type="button" class="pm-g-more" data-expand-all title="Expand all" aria-label="Expand all">⊞</button></span></div>
@@ -817,6 +820,7 @@ export async function renderTimeline(el, scope) {
         <div class="pm-g-resize" data-resize title="Drag to make the list wider or narrower" aria-hidden="true"></div>
         <div class="pm-g-right" data-scroll>${head()}
           <div class="pm-g-body" style="width:${width}px;height:${height}px">
+            ${phasesShown.map((ph) => `<div class="pm-g-phase" style="--c:${ph.c};left:${(ph.s - first) * px}px;width:${(ph.e - ph.s + 1) * px}px;height:${height}px"></div>`).join('')}
             ${cyclesShown.map((g, k) => `<div class="pm-g-cycle${k % 2 ? ' is-alt' : ''}${g.starts ? '' : ' is-cut'}" style="left:${x(g.start_date)}px;width:${(toDay(g.end_date) - toDay(g.start_date) + 1) * px}px;height:${height}px" title="${esc(`${g.name}: ${fmtDate(g.start_date)} – ${fmtDate(g.end_date)}`)}"></div>`).join('')}
             ${gridLines()}
             ${keysShown.map((k) => `<div class="pm-g-keydate is-${esc(k.kind)}" style="left:${x(k.day)}px;width:${Math.max((toDay(k.end_day || k.day) - toDay(k.day) + 1) * px, 2)}px;height:${height}px"></div>`).join('')}
@@ -877,11 +881,19 @@ export async function renderTimeline(el, scope) {
       offToday.classList.toggle('is-right', tx > r);
       offToday.textContent = tx < l ? `◂ Today · ${far} before this` : `Today · ${far} after this ▸`;
     };
+    // C5: a phase or car cycle that started off to the left keeps its name at the left edge until it ends
+    const sticks = [...scroller.querySelectorAll('[data-stick]')].map((n) => [n, ...n.dataset.stick.split(',').map(Number)]);
+    const stick = () => sticks.forEach(([n, s, e]) => {
+      const l = scroller.scrollLeft;
+      n.style.transform = l > s && l < e - n.offsetWidth ? `translateX(${l - s}px)` : '';
+    });
     scroller.addEventListener('scroll', () => {
       if (!scroller.isConnected) return;
       st.scroll = scroller.scrollLeft;
       markToday();
+      stick();
     }, { passive: true });
+    requestAnimationFrame(stick);
     // Ctrl / ⌘ + scroll (and a trackpad pinch) zooms around the mouse; it redraws once the wheel stops.
     let pending = 1;
     let wheelTimer = 0;
@@ -1075,6 +1087,7 @@ export async function renderTimeline(el, scope) {
       if (d.plan === 'whatIf' && !t.checked && Object.keys(st.overrides).length) toast('The tried-out changes are still there: Apply or Discard them.');
     } else if (d.density !== undefined) st.density = t.value;
     else if (d.colorBy !== undefined) ((st.colorBy = t.value), (st.only = ''));
+    else if (d.zoomPick !== undefined) return void (t.value && setZoom(Number(t.value)));
     else if (d.barText !== undefined) st.barText = t.value;
     else if (d.groupBy !== undefined) ((st.groupBy = t.value), (st.level = ''));
     else if (d.sortBy !== undefined) st.sortBy = t.value;

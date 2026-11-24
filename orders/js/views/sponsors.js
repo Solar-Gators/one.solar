@@ -26,6 +26,7 @@ import { groupSponsors, sponsorKey, tagLookalikes } from '../sponsorGroups.js';
 import { mountRecentlyDeleted } from '../recentlyDeleted.js';
 import { loadExcelJS } from '../excel.js';
 import { bindKanbanDnd } from '../kanbanDnd.js';
+import { projectsCard } from '../related.js';
 
 const STAGE_KINDS = [
   ['open', 'Working on it'],
@@ -1037,6 +1038,7 @@ export async function renderSponsorCard(el, { config, params, rerender }) {
       </div>
 
       <aside class="detail-side">
+        <div data-projects-card></div>
         ${outreach && (others.length || editable) ? `<section class="card">
           <h2>This sponsor over the years</h2>
           ${others.length
@@ -1081,6 +1083,7 @@ export async function renderSponsorCard(el, { config, params, rerender }) {
       </aside>
     </div>`;
 
+  projectsCard(el.querySelector('[data-projects-card]'), 'sponsor', card.id);   // V2
   renderAttachments(el.querySelector('#card-files'), {
     kind: 'sponsor', ownerId: card.id, canEdit: editable, framed: true,
     hint: 'Add a logo, agreement or link',

@@ -889,6 +889,16 @@
   "returns": "uuid",
   "anon": false
  },
+ "os_link_describe": {
+  "args": "p_kind text, p_ids uuid[]",
+  "returns": "jsonb",
+  "anon": false
+ },
+ "os_link_search": {
+  "args": "p_kind text, p_q text",
+  "returns": "jsonb",
+  "anon": false
+ },
  "person_org_fill_from_evals": {
   "args": "",
   "returns": "integer",

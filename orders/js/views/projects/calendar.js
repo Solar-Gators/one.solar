@@ -1,7 +1,8 @@
 /**
  * Projects → Calendar: deadlines, milestones, starts and project events by month, by week, or as an agenda.
  * Every entry opens its item. Someone who may edit an item can change its due date by dragging it to another
- * day (or with "Change date" in the agenda); that is an ordinary edit, checked like any other.
+ * day (or with "Change date" in the agenda); that is an ordinary edit, checked like any other. Open items with no
+ * due date yet are listed beside the month and week (V6), to drag onto a day or give a date with "Pick a date".
  */
 import { esc, fmtDate } from '../../ui.js';
 import { pm } from '../../projects/api.js';
@@ -33,13 +34,16 @@ export async function renderCalendar(el, scope) {
   const [fromISO, toISO_] = [toISO(from), toISO(to)];
   const user = filterOf(st.f);
   const inRange = (f) => ({ all: [{ f, op: 'gte', v: fromISO }, { f, op: 'lte', v: toISO_ }] });
-  const [{ items }, events, keyDates] = await Promise.all([
+  const side = st.mode !== 'agenda';   // V6: open items with no due date, beside the month and week
+  const [{ items }, events, keyDates, undated] = await Promise.all([
     pm.searchAll({ project: project?.id, projects: scope.only, q: st.f.q, sort: 'due',
       filter: { all: [...(user ? [user] : []), { any: [inRange('due'), inRange('start'), ...(st.work ? [{ all: [{ f: 'start', op: 'lte', v: toISO_ }, { f: 'due', op: 'gte', v: fromISO }] }] : [])] }] } }, 2000),
     pm.calendarEvents(scope.projectIds),
     pm.keyDates().catch(() => []),   // 061: the team's dates
+    side ? pm.searchAll({ project: project?.id, projects: scope.only, q: st.f.q,   // in backlog order
+      filter: { all: [...(user ? [user] : []), { f: 'due', op: 'empty' }, { f: 'category', op: 'ne', v: 'done' }] } }, 500).then((r) => r.items).catch(() => []) : [],
   ]);
-  const byId = new Map(items.map((i) => [i.id, i]));
+  const byId = new Map([...items, ...undated].map((i) => [i.id, i]));
   const isMs = (i) => !!scope.cfgOf(i)?.typeById.get(i.type_id)?.is_milestone;
   const mayMove = (i) => i.category !== 'done' && (can(b, i.project_id, 'edit') || can(b, i.project_id, 'plan') || i.owner_id === b.me);
 
@@ -93,6 +97,15 @@ export async function renderCalendar(el, scope) {
     const weeks = (to - from + 1) / 7;
     body = `<div class="pm-cal is-${st.mode}"><div class="pm-cal-dow">${DOW.map((d) => `<span>${d}</span>`).join('')}</div>
       ${Array.from({ length: weeks }, (_, w) => `<div class="pm-cal-week">${Array.from({ length: 7 }, (_, d) => cell(from + w * 7 + d, st.mode === 'month' ? at.getUTCMonth() : undefined)).join('')}</div>`).join('')}</div>`;
+    // V6: what has no date yet, to drag onto a day (or "Pick a date")
+    const shown = st.allUndated ? undated : undated.slice(0, 30);
+    body = `<div class="pm-cal-wrap">${body}<details class="pm-cal-side" data-undated ${st.sideOpen ?? matchMedia('(min-width: 861px)').matches ? 'open' : ''}>
+      <summary><strong>No date yet</strong> <span class="muted">${undated.length >= 500 ? '500+' : undated.length}</span></summary>
+      ${undated.length ? `<ul class="pm-cal-undated">${shown.map((i) => `<li><a class="pm-cal-chip is-due" href="${itemHref(i.key)}" data-card="${esc(i.id)}" ${mayMove(i) ? 'draggable="true"' : ''} title="${esc(`${i.key} ${i.title}`)}">${esc(i.key)} ${esc(i.title)}</a>
+        ${mayMove(i) ? `<button type="button" class="btn btn-sm btn-ghost" data-redate="${esc(i.id)}">Pick a date</button>` : ''}</li>`).join('')}</ul>
+        ${undated.length > shown.length ? `<button type="button" class="pm-cal-more" data-all-undated>Show all ${undated.length}</button>` : ''}`
+        : '<p class="muted small">Every open item has a due date.</p>'}
+      <p class="hint">Drag one onto a day to make it due then.</p></details></div>`;
   }
   const title = st.mode === 'month' ? at.toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' })
     : `${fmtDate(fromISO)} – ${fmtDate(toISO_)}`;
@@ -102,9 +115,9 @@ export async function renderCalendar(el, scope) {
         <button type="button" class="btn btn-sm" data-step="-1" aria-label="Earlier">←</button><button type="button" class="btn btn-sm" data-step="0">Today</button><button type="button" class="btn btn-sm" data-step="1" aria-label="Later">→</button>
         <strong class="pm-cal-title">${esc(title)}</strong></div>
       <div class="card-actions"><span role="tablist" class="pm-seg">${[['month', 'Month'], ['week', 'Week'], ['agenda', 'Agenda']].map(([k, l]) => `<button type="button" role="tab" data-mode="${k}" aria-selected="${st.mode === k}">${l}</button>`).join('')}</span>
-        <label class="pm-check" title="Also show items on every day between their start and due date"><input type="checkbox" data-work ${st.work ? 'checked' : ''}> Scheduled work</label>
         ${planIn.length ? '<button type="button" class="btn btn-sm" data-new-event>New event</button>' : ''}</div></div>
-    ${filterBar(b, st.f, { types: scope.types })}
+    <div class="pm-toolbar pm-tbar">${filterBar(b, st.f, { types: scope.types })}
+      <div class="card-actions"><label class="pm-check" title="Also show items on every day between their start and due date"><input type="checkbox" data-work ${st.work ? 'checked' : ''}> Show scheduled work</label></div></div>
     ${body}
     <p class="hint">⚑ milestone · ▶ start · plain: due · 📅 project event. Drag a deadline to another day to change it (or use Agenda → "Change date").</p>`;
 
@@ -113,9 +126,9 @@ export async function renderCalendar(el, scope) {
   const redate = async (id, iso) => {
     const i = byId.get(id);
     if (!i || i.due_date === iso) return;
-    // keep its length: the start moves with the deadline
-    const shift = toDay(iso) - toDay(i.due_date);
-    const patch = { due_date: iso, ...(i.start_date ? { start_date: toISO(toDay(i.start_date) + shift) } : {}) };
+    // keep its length: the start moves with the deadline (an item with no due date yet only gets one)
+    const shift = i.due_date ? toDay(iso) - toDay(i.due_date) : 0;
+    const patch = { due_date: iso, ...(i.start_date && i.due_date ? { start_date: toISO(toDay(i.start_date) + shift) } : {}) };
     if (await attempt(() => pm.updateItem(id, null, patch), `${i.key} is now due ${fmtDate(iso)}.`)) again();
   };
   el.addEventListener('dragstart', (e) => {
@@ -129,12 +142,14 @@ export async function renderCalendar(el, scope) {
     if (zone && id) (e.preventDefault(), redate(id, zone.dataset.drop));
   });
   el.addEventListener('change', (e) => e.target.matches('[data-work]') && ((st.work = e.target.checked), again()));
+  el.querySelector('[data-undated]')?.addEventListener('toggle', (e) => (st.sideOpen = e.target.open));
   el.addEventListener('click', async (e) => {
     const t = e.target.closest('button');
     if (!t) return;
     const d = t.dataset;
     if (d.mode) ((st.mode = d.mode), again());
     else if (d.goto) ((st.at = d.goto), (st.mode = 'week'), again());
+    else if (d.allUndated !== undefined) ((st.allUndated = true), again());
     else if (d.step !== undefined) {
       const n = Number(d.step);
       if (!n) st.at = today;
@@ -144,8 +159,8 @@ export async function renderCalendar(el, scope) {
     } else if (d.redate) {
       const i = byId.get(d.redate);
       const res = await formDialog({ title: `Due date of ${esc(i.key)}`, submit: 'Save',
-        body: `<p class="muted">${esc(i.title)}</p><div class="field"><label for="rd-date">Due</label><input id="rd-date" name="date" type="date" required value="${esc(i.due_date)}"></div>
-          ${i.start_date ? '<p class="hint">Its start date moves by the same number of days.</p>' : ''}`,
+        body: `<p class="muted">${esc(i.title)}</p><div class="field"><label for="rd-date">Due</label><input id="rd-date" name="date" type="date" required value="${esc(i.due_date || '')}"></div>
+          ${i.start_date && i.due_date ? '<p class="hint">Its start date moves by the same number of days.</p>' : ''}`,
         onSubmit: (f) => f.elements.date.value });
       if (res) redate(i.id, res);
     } else if (d.newEvent !== undefined || d.event) {

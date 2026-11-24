@@ -8,7 +8,8 @@ import assert from 'node:assert/strict';
 import { schedule, makeCalendar, toDay, toISO, durationOf, proposeDates, occurrences } from '../orders/js/projects/schedule.js';
 import { recognise, resourceIcon, guessCategory } from '../orders/js/projects/links.js';
 import { evalFormula, checkFormula, formulaRefs } from '../orders/js/projects/formula.js';
-import { layoutFor, movesFor, moveTo, moveNeeds, boardColumns, rankBetween, progressOf, attention, workload, findMentions, filterText, fieldLabel } from '../orders/js/projects/core.js';
+import { linkFromUrl, exactFirst } from '../orders/js/linkParse.js';
+import { layoutFor, movesFor, moveTo, moveNeeds, boardColumns, rankBetween, progressOf, attention, workload, findMentions, filterText, fieldLabel, unreachableStatuses } from '../orders/js/projects/core.js';
 
 let passed = 0;
 function test(name, fn) {
@@ -339,6 +340,36 @@ test('workload by week, mentions, and filters in words', () => {
   assert.deepEqual(findMentions('no one here', people), []);
   assert.equal(filterText({ all: [{ f: 'mine' }, { any: [{ f: 'priority', v: 'urgent' }, { f: 'due', op: 'within', v: 7 }] }, { f: 'cf.chem', op: 'in', v: ['NMC', 'LFP'] }] }),
     '(mine and (priority is urgent or due in the next 7 days) and chem is NMC or LFP)');
+});
+
+test('069: the new conditions read in words, and the workflow check finds statuses nothing leads to', () => {
+  assert.equal(filterText({ all: [{ f: 'children_done' }, { f: 'been_in', op: 'eq', v: 'Review' }, { f: 'been_in', op: 'ne', v: 'Fab' }, { f: 'parent_status', op: 'eq', v: 'Build' }] }),
+    '(everything under it done and has been in Review and has never been in Fab and parent status is Build)');
+  assert.equal(filterText({ f: 'children_done', v: false }), 'not everything under it done');
+  const st = ['a', 'b', 'c', 'd'].map((id) => ({ id, name: id.toUpperCase() }));
+  assert.deepEqual(unreachableStatuses(st, [{ from_status: 'a', to_status: 'b' }, { from_status: 'b', to_status: 'c' }, { from_status: 'd', to_status: 'a' }]).map((s) => s.id), ['d'],
+    'D only has moves out of it');
+  assert.deepEqual(unreachableStatuses(st, [{ from_status: null, to_status: 'd' }, { from_status: 'd', to_status: 'c' }]).map((s) => s.id), ['b'], '"from any status" reaches D, and D reaches C');
+  assert.deepEqual(unreachableStatuses(st, []).map((s) => s.id), ['b', 'c', 'd']);
+  assert.deepEqual(unreachableStatuses([], []), []);
+});
+
+test('069: a pasted one.solar link becomes the record it points at', () => {
+  const id = '61111aef-9515-4aae-b0c1-e3055c4ef00f';
+  assert.deepEqual(linkFromUrl(`https://one.solar/events/#/events/e/${id}`), { kind: 'event', id });
+  assert.deepEqual(linkFromUrl(`http://localhost:5191/sponsors/#/sponsors/${id.toUpperCase()}`), { kind: 'sponsor', id });
+  assert.deepEqual(linkFromUrl(`https://one.solar/inventory/#/inventory/items/${id}`), { kind: 'inventory', id });
+  assert.deepEqual(linkFromUrl('https://one.solar/orders/#/requests/sg27-900'), { kind: 'order', code: 'SG27-900' });
+  assert.deepEqual(linkFromUrl('  https://one.solar/projects/#/projects/item/BPBAT-12 '), { kind: 'item', code: 'BPBAT-12' });
+  assert.equal(linkFromUrl('BPBAT-12'), null, 'a number on its own is a search');
+  assert.equal(linkFromUrl('https://example.com/page'), null);
+  assert.equal(linkFromUrl('https://one.solar/projects/#/projects/p/BPBAT'), null, 'a project page isn\'t a record');
+});
+
+test('069: in the link picker an exact number match comes first', () => {
+  const rows = [{ code: 'SG27-9001' }, { code: 'SG27-900' }, { code: 'SG27-90' }];
+  assert.deepEqual(exactFirst(rows, 'sg27-900').map((r) => r.code), ['SG27-900', 'SG27-9001', 'SG27-90']);
+  assert.deepEqual(exactFirst(rows, 'nickel').map((r) => r.code), rows.map((r) => r.code), 'order kept when nothing matches exactly');
 });
 
 console.log(`\n${passed} projects module tests passed${process.exitCode ? ', some failed' : ''}`);

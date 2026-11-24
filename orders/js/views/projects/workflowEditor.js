@@ -9,7 +9,7 @@
  */
 import { esc, fmtDateTime } from '../../ui.js';
 import { pm } from '../../projects/api.js';
-import { CATEGORIES, TONES, REQUIRABLE, newId, fieldLabel, filterText } from '../../projects/core.js';
+import { CATEGORIES, TONES, REQUIRABLE, newId, fieldLabel, filterText, unreachableStatuses } from '../../projects/core.js';
 import { formDialog, toast, conditionDialog, personName, invalidate, loadConfig } from './kit.js';
 import { guardLeaving, releaseGuard } from '../../leaveGuard.js';
 
@@ -21,7 +21,7 @@ export function actionsEditor(b, cfg, actions) {
   const who = (v, extra = []) => [...extra, ['owner', 'The item\'s owner'], ['reporter', 'Whoever created it'], ['lead', 'The project manager'], ['actor', 'Whoever triggered the rule'],
     ...b.people.map((p) => [p.id, p.full_name || p.email])].map(([k, l]) => `<option value="${esc(k)}" ${v === k ? 'selected' : ''}>${esc(l)}</option>`).join('');
   const TYPES = [['notify', 'Send a notice'], ['comment', 'Add a comment'], ['set_status', 'Move it to a status'], ['assign', 'Assign it'], ['set_field', 'Set a field'], ['add_label', 'Add a label'],
-    ['add_watcher', 'Add a watcher'], ['create_item', 'Create an item']];
+    ['add_watcher', 'Add a watcher'], ['create_item', 'Create an item'], ['move_parent', 'Move its parent (once everything under it is done)'], ['move_children', 'Move the open items under it']];
   const settable = [['priority', 'Priority'], ['due_date', 'Due date'], ['start_date', 'Start date'], ['blocked', 'Blocked'], ['progress', 'Progress %'], ['estimate_hours', 'Estimate (hours)'],
     ...cfg.fields.filter((f) => !f.archived_at && f.type !== 'formula').map((f) => [`cf.${f.key}`, f.name])];
   const params = (a, n) => {
@@ -29,7 +29,7 @@ export function actionsEditor(b, cfg, actions) {
     switch (a.type) {
       case 'notify': return `<select ${at('to')} aria-label="Who">${who(a.to || 'owner', [['watchers', 'Everyone on the item']])}</select><input type="text" ${at('message')} value="${esc(a.message || '')}" placeholder="Message. {key}, {title}, {status}, {owner}, {due} are filled in" aria-label="Message">`;
       case 'comment': return `<input type="text" ${at('text')} value="${esc(a.text || '')}" placeholder="Comment text. {key}, {title}, {owner}… are filled in" aria-label="Comment">`;
-      case 'set_status': return `<select ${at('status')} aria-label="Status">${cfg.statuses.map((s) => `<option value="${esc(s.id)}" ${a.status === s.id ? 'selected' : ''}>${esc(s.name)}${cfg.workflows.length > 1 ? ` (${esc(cfg.workflows.find((w) => w.id === s.workflow_id)?.name || '')})` : ''}</option>`).join('')}</select>`;
+      case 'set_status': case 'move_parent': case 'move_children': return `<select ${at('status')} aria-label="Status">${cfg.statuses.map((s) => `<option value="${esc(s.id)}" ${a.status === s.id ? 'selected' : ''}>${esc(s.name)}${cfg.workflows.length > 1 ? ` (${esc(cfg.workflows.find((w) => w.id === s.workflow_id)?.name || '')})` : ''}</option>`).join('')}</select>`;
       case 'assign': return `<select ${at('user')} aria-label="Who">${who(a.user || 'lead', [['none', 'Nobody (clear the owner)']])}</select>`;
       case 'add_watcher': return `<select ${at('user')} aria-label="Who">${who(a.user || 'lead')}</select>`;
       case 'add_label': return `<input type="text" ${at('label')} maxlength="40" value="${esc(a.label || '')}" placeholder="Label" aria-label="Label">`;
@@ -50,7 +50,7 @@ export function actionsEditor(b, cfg, actions) {
       ${params(a, n)}<button type="button" class="btn btn-sm btn-ghost" data-del-action="${n}" aria-label="Remove action">✕</button></div>`).join('')}
     <button type="button" class="btn btn-sm" data-add-action>+ Action</button>`;
   const defaults = (type) => ({ notify: { to: 'owner', message: '' }, comment: { text: '' }, set_status: { status: cfg.statuses[0]?.id }, assign: { user: 'lead' }, add_watcher: { user: 'lead' },
-    add_label: { label: '' }, set_field: { field: 'priority', value: 'high' }, create_item: { type_id: cfg.types.find((t) => !t.archived_at)?.id, title: '', owner: 'none' } }[type]);
+    add_label: { label: '' }, move_parent: { status: (cfg.statuses.find((s) => s.category === 'done') || cfg.statuses[0])?.id }, move_children: { status: (cfg.statuses.find((s) => s.category === 'done') || cfg.statuses[0])?.id }, set_field: { field: 'priority', value: 'high' }, create_item: { type_id: cfg.types.find((t) => !t.archived_at)?.id, title: '', owner: 'none' } }[type]);
   return {
     html: () => `<div data-actions>${html()}</div>`,
     bind(root) {
@@ -261,6 +261,8 @@ export async function renderWorkflows(el, scope) {
     } catch (err) {
       return toast(err.message, 'bad');
     }
+    // 069: a status no chain of moves gets to (new items start in the first one)
+    for (const st of unreachableStatuses(m.statuses, m.transitions)) preview.warnings.push(`No move leads to "${st.name}", so items can never get there.`);
     const stuck = preview.removed.filter((r) => r.items > 0);
     const res = await formDialog({ title: 'Save this workflow?', submit: 'Save as a new version',
       body: `<p>${wf ? `${preview.items} item${preview.items === 1 ? '' : 's'} use this workflow.` : 'A new workflow. Pick it on a work-item type to use it.'}</p>

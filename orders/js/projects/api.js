@@ -128,25 +128,11 @@ export const pm = {
   rollup: () => call('pm_rollup'),
   /** 060: the Orders requests linked to this project's items, with totals. */
   projectSpend: (projectId) => call('pm_project_spend', { p_project: projectId }),
-  /** 060: the project items an Orders request is linked to (the ones I can see). */
-  itemsForRequest: async (requestId) => unwrap(await supabase.from('pm_refs').select('item_id, pm_items(key, title, project_id)').eq('kind', 'order').eq('ref_id', requestId)),
-  // other one.solar apps, read with the person's own access (Projects never changes them)
-  requestsByIds: async (ids) => (ids.length ? unwrap(await supabase.from('requests').select('id, request_number, title, status').in('id', ids)) : []),
-  findRequests: async (q) => {
-    const recent = unwrap(await supabase.from('requests').select('id, request_number, title, status').order('created_at', { ascending: false }).limit(1000));
-    const s = q.toLowerCase();
-    return recent.filter((r) => `${r.request_number} ${r.title}`.toLowerCase().includes(s)).slice(0, 12);
-  },
+  // other one.solar apps: linked records are described through the link registry (../related.js, 068)
   inventoryByIds: async (ids) => {
     if (!ids.length) return [];
     const res = await supabase.rpc('inventory_overview');
     return res.error ? [] : (res.data.items || []).filter((i) => ids.includes(i.id));
-  },
-  findInventory: async (q) => {
-    const res = await supabase.rpc('inventory_overview');
-    if (res.error) throw toError(res.error);
-    const s = q.toLowerCase();
-    return (res.data.items || []).filter((i) => `${i.sku} ${i.name}`.toLowerCase().includes(s)).slice(0, 12);
   },
 
   // ---- projects and their configuration ----

@@ -5,14 +5,15 @@
  */
 import { esc, fmtDateTime } from '../../ui.js';
 import { pm } from '../../projects/api.js';
-import { CAPS, TONES, FIELD_TYPES, BUILTIN_FIELDS, PRIORITIES, DOC_CATEGORIES, fieldLabel, layoutFor, filterText } from '../../projects/core.js';
+import { CAPS, TONES, FIELD_TYPES, BUILTIN_FIELDS, PRIORITIES, DOC_CATEGORIES, fieldLabel, layoutFor, filterText, starterRules } from '../../projects/core.js';
 import { checkFormula, FORMULA_FUNCTIONS, FORMULA_BUILTINS } from '../../projects/formula.js';
-import { can, formDialog, attempt, toast, invalidate, loadConfig, peopleOptions, personName, avatar, bindOrgPickers, typeBadge, formSections, conditionDialog, projectHref } from './kit.js';
+import { can, formDialog, attempt, toast, invalidate, loadConfig, peopleOptions, personName, avatar, bindOrgPickers, typeBadge, formSections, conditionDialog, projectHref, OPTIONAL_TABS, infoTip } from './kit.js';
 import { renderWorkflows, actionsEditor } from './workflowEditor.js';
 import { applyConfigDialog, download } from './templates.js';
 
-const TABS = [['details', 'Details', 'configure'], ['people', 'People & roles', 'members'], ['types', 'Work types', 'configure'], ['workflows', 'Workflows', 'workflows'],
-  ['fields', 'Fields', 'configure'], ['forms', 'Forms', 'configure'], ['rules', 'Rules', 'automations'], ['templates', 'Templates', 'configure']];
+// C8: the last item says which tab a page sits under; pages with one aren't tabs of their own (their links still work)
+const TABS = [['details', 'Details', 'configure'], ['people', 'People & roles', 'members'], ['types', 'Work types & fields', 'configure'], ['workflows', 'Workflows', 'workflows'],
+  ['fields', 'Fields', 'configure', 'types'], ['forms', 'Forms', 'configure', 'types'], ['rules', 'Rules', 'automations'], ['templates', 'Templates', 'configure', 'details']];
 const opt = (v, l, on) => `<option value="${esc(v)}" ${on ? 'selected' : ''}>${esc(l)}</option>`;
 const TRIGGERS = [['created', 'An item is created'], ['updated', 'An item is changed'], ['status', 'An item changes status'], ['assigned', 'An item gets a new owner'], ['comment', 'Someone comments'],
   ['dependency_done', 'Everything it was waiting on is finished'], ['milestone', 'A milestone is reached'], ['due_soon', 'An item is due soon'], ['overdue', 'An item is overdue'], ['schedule', 'On a schedule']];
@@ -23,13 +24,22 @@ export async function renderSettings(el, scope) {
   if (!tabs.length) return void (el.innerHTML = '<div class="empty"><p><strong>Your role in this project can\'t change its settings.</strong></p><p>Ask the project manager.</p></div>');
   const tab = tabs.find(([k]) => k === scope.params.sub) ? scope.params.sub : tabs[0][0];
   const base = projectHref(project.key, 'settings');
-  el.innerHTML = `<div class="pm-settings"><nav class="pm-subtabs" aria-label="Settings">${tabs.map(([k, l]) => `<a href="${base}/${k}" ${k === tab ? 'aria-current="page"' : ''}>${l}</a>`).join('')}</nav><div data-pane></div></div>`;
+  const under = tabs.find(([k]) => k === tab)[3];
+  const back = under && tabs.find(([k]) => k === under);
+  el.innerHTML = `<div class="pm-settings"><nav class="pm-subtabs" aria-label="Settings">${tabs.filter((t) => !t[3]).map(([k, l]) => `<a href="${base}/${k}" ${k === (under || tab) ? 'aria-current="page"' : ''}>${l}</a>`).join('')}</nav>
+    ${back ? `<p class="pm-back-line"><a href="${base}/${back[0]}">← ${esc(back[1])}</a></p>` : ''}<div data-pane></div></div>`;
   const pane = el.querySelector('[data-pane]');
   const s = { ...scope, base, reload: async () => (invalidate(project.id), await loadConfig(b, project.id), scope.rerender()) };
   return ({ details, people, types, workflows: renderWorkflows, fields, forms, rules, templates })[tab](pane, s);
 }
 
 // ---- Details -----------------------------------------------------------------------------------------
+/** V4: one phase in Settings → Details: name, from, to, color. */
+const phaseRow = (ph) => `<div class="pm-phase-row"><input type="text" data-ph="name" maxlength="40" value="${esc(ph.name || '')}" placeholder="Design" aria-label="Phase name">
+  <input type="date" data-ph="start" value="${esc(ph.start || '')}" aria-label="Starts"><input type="date" data-ph="end" value="${esc(ph.end || '')}" aria-label="Ends">
+  <select data-ph="tone" aria-label="Color">${TONES.map((t) => `<option value="${t}" ${(ph.tone || 'blue') === t ? 'selected' : ''}>${t}</option>`).join('')}</select>
+  <button type="button" class="btn btn-sm btn-ghost" data-del-phase aria-label="Remove this phase">✕</button></div>`;
+
 async function details(el, { b, project, cfg, rerender }) {
   const st = project.settings;
   const days = st.working_days?.length ? st.working_days.map(Number) : [1, 2, 3, 4, 5];
@@ -55,21 +65,39 @@ async function details(el, { b, project, cfg, rerender }) {
         <div class="field" style="margin-top:8px"><label for="pd-off">Days off (one date per line, e.g. 2027-03-15)</label><textarea id="pd-off" name="holidays" rows="3" placeholder="2027-03-15">${esc((st.holidays || []).join('\n'))}</textarea></div></fieldset>
       <fieldset class="pm-section"><legend>Planning</legend><label class="pm-check"><input type="checkbox" name="sprints" ${st.sprints ? 'checked' : ''}> Plan in sprints (optional; leave off for a continuous board)</label>
         <div class="field" style="max-width:220px;margin-top:8px"><label for="pd-sprint-days">A sprint lasts (days)</label><input id="pd-sprint-days" name="sprint_days" type="number" min="1" max="90" value="${esc(st.sprint_days || 14)}"></div></fieldset>
+      <fieldset class="pm-section"><legend>Tabs</legend><p class="hint" style="margin-top:0">Hide the ones this project doesn't use. Summary and Settings always show; a hidden tab still opens from a link.</p>
+        <div class="pm-checks">${OPTIONAL_TABS.map(([k, l]) => `<label class="pm-check"><input type="checkbox" name="tab" value="${esc(k)}" ${(st.hidden_tabs || []).includes(k) ? '' : 'checked'}> ${esc(l)}</label>`).join('')}</div></fieldset>
+      <fieldset class="pm-section"><legend>Phases (shaded on the timeline) ${infoTip('Named stretches of time, like Design, Build and Test. They only show on the timeline; they never move items.')}</legend>
+        <div data-phases class="pm-phases">${(st.phases || []).map(phaseRow).join('')}</div>
+        <p><button type="button" class="btn btn-sm" data-add-phase>+ Phase</button></p></fieldset>
       <fieldset class="pm-section"><legend>Document categories</legend><div class="field"><label for="pd-cats">One per line</label><textarea id="pd-cats" name="cats" rows="4">${esc((st.doc_categories?.length ? st.doc_categories : DOC_CATEGORIES).join('\n'))}</textarea></div></fieldset>
+      ${can(b, project.id, 'configure') ? `<p class="muted small">Reuse this set-up in other projects, or bring one in: <a href="${projectHref(project.key, 'settings/templates')}">Templates…</a></p>` : ''}
       <label class="pm-check"><input type="checkbox" name="archived" ${project.archived_at ? 'checked' : ''}> Archive this project (nothing is deleted; no new items until it's restored)</label>
       <div class="form-actions"><button type="submit" class="btn btn-primary">Save</button></div></form>`;
   bindOrgPickers(el);
+  const phasesBox = el.querySelector('[data-phases]');
+  el.querySelector('[data-add-phase]').onclick = () => {
+    if (phasesBox.children.length >= 20) return toast('Up to 20 phases.', 'bad');
+    phasesBox.insertAdjacentHTML('beforeend', phaseRow({}));
+    phasesBox.lastElementChild.querySelector('input').focus();
+  };
+  phasesBox.addEventListener('click', (e) => e.target.closest('[data-del-phase]')?.closest('.pm-phase-row').remove());
   el.querySelector('[data-details]').onsubmit = async (e) => {
     e.preventDefault();
     const f = e.target.elements;
     const lines = (v) => v.split('\n').map((x) => x.trim()).filter(Boolean);
+    const phases = [...phasesBox.querySelectorAll('.pm-phase-row')].map((r) => ({ name: r.querySelector('[data-ph=name]').value.trim(), start: r.querySelector('[data-ph=start]').value,
+      end: r.querySelector('[data-ph=end]').value, tone: r.querySelector('[data-ph=tone]').value })).filter((p) => p.name || p.start || p.end);
+    const bad = phases.find((p) => !p.name || !p.start || !p.end || p.end < p.start);
+    if (bad) return toast(bad.name ? `"${bad.name}" needs a start and an end, and the end can't be before the start.` : 'Give each phase a name.', 'bad');
     const saved = await attempt(() => pm.saveProject(project.id, {
       version: project.version, name: f.name.value.trim(), description: f.description.value, program_id: f.program.value || null, lead_id: f.lead.value || null,
       division_id: f.division.value || null, subsystem_id: f.subsystem.value || null, vehicle: f.vehicle.value,
       participants: [...e.target.querySelectorAll('[name=part]:checked')].map((n) => ({ division_id: n.dataset.div, subsystem_id: n.value })),
       ...(mayShare ? { visibility: f.visibility.value, team_role_id: f.team_role.value || null } : {}), archived: f.archived.checked,
       settings: { working_days: [...e.target.querySelectorAll('[name=wd]:checked')].map((n) => Number(n.value)), holidays: lines(f.holidays.value), sprints: f.sprints.checked,
-        sprint_days: Number(f.sprint_days.value) || 14, doc_categories: lines(f.cats.value) },
+        sprint_days: Number(f.sprint_days.value) || 14, doc_categories: lines(f.cats.value),
+        hidden_tabs: OPTIONAL_TABS.map(([k]) => k).filter((k) => !e.target.querySelector(`[name=tab][value="${k}"]`).checked), phases },
     }), 'Saved.');
     if (saved) (invalidate(), rerender());
   };
@@ -127,14 +155,19 @@ async function people(el, { b, project, cfg, reload }) {
 async function types(el, { project, cfg, reload }) {
   const flows = cfg.workflows.filter((w) => !w.archived_at);
   const list = [...cfg.types].sort((x, y) => !!x.archived_at - !!y.archived_at || x.level - y.level || x.sort - y.sort);
-  el.innerHTML = `<section class="card"><h2>Work-item types</h2><p class="muted">The kinds of work this project has. Each has its own workflow, its own forms and its place in the hierarchy.
-      The ones marked <span class="chip">Team</span> are on the whole team's list (<a href="#/projects/kinds">Kinds of work</a>): their name, icon and color are the same in every project, and only leads change them. You can still hide one here, and pick its workflow and what it goes under.</p>
+  el.innerHTML = `<section class="card"><h2>Work-item types ${infoTip(`Each type has its own workflow, its own forms and its place in the hierarchy. The ones marked <span class="chip">Team</span> are on the whole team's list (<a href="#/projects/kinds">Kinds of work</a>): their name, icon and color are the same in every project, and only leads change them. You can still hide one here, and pick its workflow and what it goes under. Level 0 is the top (an epic); an item can go under any item of a lower-numbered level, or only under the types you name.`)}</h2>
+    <p class="muted">The kinds of work this project has.</p>
     <div class="table-wrap"><table class="pm-table"><thead><tr><th>Type</th><th>Level</th><th>Goes under</th><th>Workflow</th><th></th></tr></thead><tbody>${list.map((t) => `<tr class="${t.archived_at ? 'is-done' : ''}">
       <td>${typeBadge(t)} <strong>${esc(t.name)}</strong>${t.kind_id ? ' <span class="chip" title="On the whole team\'s list of kinds of work">Team</span>' : ''}${t.is_milestone ? ' <span class="chip">Milestone</span>' : ''}${t.archived_at ? ` <span class="chip-tone tone-gray">${t.kind_id ? 'Hidden here' : 'Archived'}</span>` : ''}<div class="muted small">${esc(t.description)}</div></td>
       <td>${t.level}</td><td>${t.parent_type_ids.length ? t.parent_type_ids.map((id) => esc(cfg.typeById.get(id)?.name || '')).join(', ') : t.level === 0 ? '<span class="muted">Top level</span>' : '<span class="muted">Anything higher up</span>'}</td>
-      <td>${esc(flows.find((w) => w.id === t.workflow_id)?.name || '')}</td><td><button type="button" class="btn btn-sm" data-edit-type="${esc(t.id)}">Edit</button></td></tr>`).join('')}</tbody></table></div>
+      <td>${esc(flows.find((w) => w.id === t.workflow_id)?.name || '')}</td><td class="pm-nowrap"><button type="button" class="btn btn-sm" data-edit-type="${esc(t.id)}">Edit</button>
+        ${t.archived_at ? '' : `<a class="btn btn-sm" href="${projectHref(project.key, 'settings/forms')}" data-type-form="${esc(t.id)}">Form &amp; fields</a>`}</td></tr>`).join('')}</tbody></table></div>
     <p><button type="button" class="btn btn-primary" data-new-type>+ Work type</button></p>
-    <p class="hint">Level 0 is the top (an epic); an item can go under any item of a lower-numbered level, or only under the types you name.</p></section>`;
+    </section>
+    <div data-fields-here></div>`;
+  fields(el.querySelector('[data-fields-here]'), { project, cfg, reload });
+  // V5: straight to this type's form, with the fields beside it
+  el.querySelectorAll('[data-type-form]').forEach((a) => (a.onclick = () => Object.assign(formState, { type: a.dataset.typeForm, kind: 'create', transition: '', draft: null })));
   el.addEventListener('click', async (e) => {
     const t = e.target.closest('button');
     if (!t || (t.dataset.newType === undefined && !t.dataset.editType)) return;
@@ -181,7 +214,7 @@ async function types(el, { project, cfg, reload }) {
 async function fields(el, { project, cfg, reload }) {
   const typeName = (t) => FIELD_TYPES.find(([k]) => k === t)?.[1] || t;
   const list = [...cfg.fields].sort((x, y) => !!x.archived_at - !!y.archived_at || x.sort - y.sort);
-  el.innerHTML = `<section class="card"><h2>Custom fields</h2><p class="muted">Extra information this project keeps on its items. Put them on forms in <a href="${projectHref(project.key, 'settings/forms')}">Forms</a>; every field can also be a list column, a filter and a board swimlane.</p>
+  el.innerHTML = `<section class="card" id="pm-all-fields"><h2>All fields ${infoTip('Every field can also be a list column, a filter and a board swimlane.')}</h2><p class="muted">Extra information kept on items. Put them on a type's <a href="${projectHref(project.key, 'settings/forms')}">form</a>.</p>
     ${list.length ? `<div class="table-wrap"><table class="pm-table"><thead><tr><th>Field</th><th>Kind</th><th>On</th><th></th></tr></thead><tbody>${list.map((f) => `<tr class="${f.archived_at ? 'is-done' : ''}">
       <td><strong>${esc(f.name)}</strong> <code class="muted small">${esc(f.key)}</code>${f.archived_at ? ' <span class="chip-tone tone-gray">Archived</span>' : ''}<div class="muted small">${esc(f.description)}</div></td>
       <td>${esc(typeName(f.type))}${f.options.length ? `<div class="muted small">${esc(f.options.slice(0, 6).join(', '))}${f.options.length > 6 ? '…' : ''}</div>` : ''}${f.type === 'formula' ? `<div class="muted small"><code>${esc(f.formula)}</code></div>` : ''}</td>
@@ -191,14 +224,21 @@ async function fields(el, { project, cfg, reload }) {
   el.addEventListener('click', async (e) => {
     const t = e.target.closest('button');
     if (!t || (t.dataset.newField === undefined && !t.dataset.editField)) return;
-    const fd = cfg.fields.find((x) => x.id === t.dataset.editField);
+    const res = await fieldDialog(project, cfg, cfg.fields.find((x) => x.id === t.dataset.editField));
+    if (res) reload();
+  });
+}
+
+/** A custom field's dialog (new when fd is empty). Resolves with the saved field, or null. Fields and Forms (V5) use it. */
+function fieldDialog(project, cfg, fd, preset = {}) {
     const keyFrom = (name) => name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^[^a-z]+|_+$/g, '').slice(0, 40);
-    const res = await formDialog({ title: fd ? `Field: ${esc(fd.name)}` : 'New field', submit: 'Save', wide: true,
-      body: `<div class="form-grid"><div class="field span-2"><label for="fd-name">Name</label><input id="fd-name" name="name" type="text" maxlength="60" required value="${esc(fd?.name || '')}" placeholder="Test date"></div>
+    return formDialog({ title: fd ? `Field: ${esc(fd.name)}` : 'New field', submit: 'Save', wide: true,
+      body: `<div class="form-grid"><div class="field span-2"><label for="fd-name">Name</label><input id="fd-name" name="name" type="text" maxlength="60" required value="${esc(fd?.name || preset.name || '')}" placeholder="Test date"></div>
           <div class="field"><label for="fd-key">Key</label><input id="fd-key" name="key" type="text" maxlength="40" pattern="[a-z][a-z0-9_]*" required value="${esc(fd?.key || '')}" ${fd ? 'readonly' : ''}><div class="hint">Used in formulas and filters. Can't change later.</div></div>
           <div class="field"><label for="fd-type">Kind</label><select id="fd-type" name="type" ${fd ? 'disabled' : ''}>${FIELD_TYPES.map(([k, l]) => opt(k, l, (fd?.type || 'text') === k)).join('')}</select>${fd ? '<div class="hint">Can\'t change once it exists.</div>' : ''}</div>
           <div class="field span-4"><label for="fd-desc">Help text shown under it</label><input id="fd-desc" name="description" type="text" maxlength="500" value="${esc(fd?.description || '')}"></div>
-          <div class="field span-4" data-for="select multiselect"><label for="fd-options">Choices (one per line)</label><textarea id="fd-options" name="options" rows="4">${esc((fd?.options || []).join('\n'))}</textarea></div>
+          <div class="field span-4" data-for="select multiselect"><label for="fd-options">Choices (one per line)</label><textarea id="fd-options" name="options" rows="4">${esc((fd?.options || []).join('\n'))}</textarea>
+            <div class="hint">Give choices a color to show them as colored tags on cards, lists and items (optional).</div><div class="pm-tone-rows" data-tones></div></div>
           <div class="field" data-for="integer decimal currency duration"><label for="fd-min">At least</label><input id="fd-min" name="min" type="number" step="any" value="${esc(fd?.validation?.min ?? '')}"></div>
           <div class="field" data-for="integer decimal currency duration"><label for="fd-max">At most</label><input id="fd-max" name="max" type="number" step="any" value="${esc(fd?.validation?.max ?? '')}"></div>
           <div class="field" data-for="text longtext richtext"><label for="fd-maxlen">Longest (characters)</label><input id="fd-maxlen" name="maxlen" type="number" min="1" value="${esc(fd?.validation?.maxlen ?? '')}"></div>
@@ -207,12 +247,29 @@ async function fields(el, { project, cfg, reload }) {
             <div class="hint">Field keys: ${cfg.fields.filter((x) => x.type !== 'formula').map((x) => `<code>${esc(x.key)}</code>`).join(' ') || 'none yet'} ${FORMULA_BUILTINS.map((x) => `<code>${x}</code>`).join(' ')}. Functions: ${FORMULA_FUNCTIONS.map((x) => `<code>${x}()</code>`).join(' ')}. + - * / and comparisons.</div>
             <div data-formula-check class="small" aria-live="polite"></div></div>
           <div class="field span-2" data-for="text integer decimal currency duration select date url"><label for="fd-default">Starts as (optional)</label><input id="fd-default" name="default" type="text" value="${esc(fd?.default_value ?? '')}"></div></div>
-        <fieldset class="pm-section"><legend>Only on these work types (none ticked: all of them)</legend><div class="pm-checks">${cfg.types.filter((x) => !x.archived_at).map((x) => `<label class="pm-check"><input type="checkbox" name="types" value="${esc(x.id)}" ${fd?.type_ids.includes(x.id) ? 'checked' : ''}> ${esc(x.name)}</label>`).join('')}</div></fieldset>
+        <fieldset class="pm-section"><legend>Only on these work types (none ticked: all of them)</legend><div class="pm-checks">${cfg.types.filter((x) => !x.archived_at).map((x) => `<label class="pm-check"><input type="checkbox" name="types" value="${esc(x.id)}" ${(fd ? fd.type_ids.includes(x.id) : preset.type_id === x.id) ? 'checked' : ''}> ${esc(x.name)}</label>`).join('')}</div></fieldset>
         ${fd ? `<label class="pm-check"><input type="checkbox" name="archived" ${fd.archived_at ? 'checked' : ''}> Archived (its values are kept; it leaves forms and filters)</label>` : ''}`,
       onOpen(f) {
         const show = () => f.querySelectorAll('[data-for]').forEach((n) => (n.hidden = !n.dataset.for.split(' ').includes(f.elements.type.value)));
         show();
         f.elements.type.onchange = show;
+        // 069: a color per choice, kept while the choices are edited
+        const tones = { ...(fd?.option_tones || {}) };
+        const toneBox = f.querySelector('[data-tones]');
+        const drawTones = () => {
+          const opts = [...new Set(f.elements.options.value.split('\n').map((x) => x.trim()).filter(Boolean))].slice(0, 200);
+          toneBox.innerHTML = opts.map((o) => `<label class="pm-tone-row"><span class="chip-tone tone-${esc(tones[o] || 'gray')}">${esc(o)}</span>
+            <select data-tone-for="${esc(o)}" aria-label="Color for ${esc(o)}"><option value="">No color</option>${TONES.map((t) => `<option value="${t}" ${tones[o] === t ? 'selected' : ''}>${t}</option>`).join('')}</select></label>`).join('');
+        };
+        drawTones();
+        f.elements.options.addEventListener('input', drawTones);
+        toneBox.addEventListener('change', (e) => {
+          const o = e.target.dataset.toneFor;
+          if (o === undefined) return;
+          if (e.target.value) tones[o] = e.target.value; else delete tones[o];
+          drawTones();
+        });
+        f.readTones = () => Object.fromEntries([...toneBox.querySelectorAll('[data-tone-for]')].filter((s) => s.value).map((s) => [s.dataset.toneFor, s.value]));
         let typedKey = !!fd;
         f.elements.key.oninput = () => (typedKey = true);
         f.elements.name.oninput = () => !typedKey && (f.elements.key.value = keyFrom(f.elements.name.value));
@@ -231,15 +288,13 @@ async function fields(el, { project, cfg, reload }) {
         const num = (v) => (v === '' ? undefined : Number(v));
         const validation = Object.fromEntries(Object.entries({ min: num(x.min.value), max: num(x.max.value), maxlen: num(x.maxlen.value), pattern: x.pattern.value || undefined }).filter(([, v]) => v !== undefined));
         return pm.saveField(project.id, fd?.id || null, { key: x.key.value, name: x.name.value.trim(), type, description: x.description.value,
-          options: x.options.value.split('\n').map((s) => s.trim()).filter(Boolean), validation, formula: x.formula.value.trim(),
+          options: x.options.value.split('\n').map((s) => s.trim()).filter(Boolean), option_tones: f.readTones ? f.readTones() : {}, validation, formula: x.formula.value.trim(),
           default_value: x.default.value.trim() === '' ? null : x.default.value.trim(), type_ids: [...f.querySelectorAll('[name=types]:checked')].map((n) => n.value), ...(fd ? { archived: x.archived.checked } : {}) });
       } });
-    if (res) reload();
-  });
 }
 
 // ---- Forms ---------------------------------------------------------------------------------------------
-const formState = { type: '', kind: 'create', transition: '' };
+const formState = { type: '', kind: 'create', transition: '', draft: null };
 async function forms(el, { b, project, cfg, reload }) {
   const st = formState;
   if (st.type && !cfg.typeById.has(st.type)) st.type = '';
@@ -248,9 +303,13 @@ async function forms(el, { b, project, cfg, reload }) {
   const trId = st.kind === 'transition' ? st.transition || null : null;
   const own = cfg.layouts.find((l) => l.kind === st.kind && (l.type_id || '') === st.type && (l.transition_id || null) === trId);
   const typeId = st.type || cfg.types.find((t) => !t.archived_at)?.id;
-  let sections = JSON.parse(JSON.stringify(own ? own.sections : layoutFor(cfg, typeId, st.kind, trId)));
+  // V5: an unsaved form survives making a new field (which reloads the page)
+  const draftKey = `${st.type}|${st.kind}|${trId || ''}`;
+  if (st.draft && st.draft.key !== draftKey) st.draft = null;
+  let sections = JSON.parse(JSON.stringify(st.draft ? st.draft.sections : own ? own.sections : layoutFor(cfg, typeId, st.kind, trId)));
   if (!sections.length) sections = [{ title: '', fields: [] }];
-  let dirty = false;
+  let dirty = !!st.draft;
+  const keep = () => (st.draft = { key: draftKey, sections });
   const available = () => {
     const used = new Set(sections.flatMap((s) => s.fields.map((f) => f.key)));
     return [...BUILTIN_FIELDS.map(([k]) => k), ...cfg.fields.filter((f) => !f.archived_at && (!st.type || !f.type_ids.length || f.type_ids.includes(st.type))).map((f) => `cf.${f.key}`)].filter((k) => !used.has(k));
@@ -266,36 +325,54 @@ async function forms(el, { b, project, cfg, reload }) {
             <button type="button" class="btn btn-sm btn-ghost" data-f-del aria-label="Take off the form">✕</button></span></li>`).join('') || '<li class="muted">No fields in this section.</li>'}</ul>
         <select data-add-field aria-label="Add a field to this section"><option value="">+ Add a field…</option>${available().map((k) => opt(k, fieldLabel(k, cfg.fields))).join('')}</select></fieldset>`).join('')}
       <p><button type="button" class="btn btn-sm" data-sec-add>+ Section</button></p>`;
+    // V5: every field not on the form yet; click one to add it to the last section
+    el.querySelector('[data-palette]').innerHTML = available().map((k) => `<button type="button" class="pm-pal-item" data-pal="${esc(k)}">+ ${esc(fieldLabel(k, cfg.fields))}</button>`).join('')
+      || '<p class="muted small">Every field is on this form.</p>';
     el.querySelector('[data-preview]').innerHTML = `<div class="field"><label>Title <span class="pm-req">*</span></label><input type="text" disabled placeholder="(always first)"></div>${formSections(sections, { b, cfg, item: {}, parents: [], collaborators: [] })}`;
     el.querySelector('[data-preview]').querySelectorAll('input, select, textarea').forEach((n) => (n.disabled = true));
     el.querySelector('[data-save-form]').classList.toggle('btn-primary', dirty);
   };
   const KINDS = [['create', 'When creating an item'], ['edit', 'When editing an item'], ['view', 'On the item\'s page'], ['transition', 'When making a move']];
-  el.innerHTML = `<section class="card"><h2>Forms</h2><p class="muted">Which fields each form shows, in which order and sections, and which are required. A work type without its own form uses the project's; without that, the standard form.</p>
+  el.innerHTML = `<section class="card"><h2>Forms ${infoTip("A work type without its own form uses the project's; without that, the standard form.")}</h2><p class="muted">Which fields each form shows, in what order, and which are required.</p>
       <div class="pm-filters"><label class="inline-field">For <select data-form-type>${opt('', 'Every type (the project\'s form)', !st.type)}${cfg.types.filter((t) => !t.archived_at).map((t) => opt(t.id, t.name, t.id === st.type)).join('')}</select></label>
         <label class="inline-field">Form <select data-form-kind>${KINDS.map(([k, l]) => opt(k, l, k === st.kind)).join('')}</select></label>
         ${st.kind === 'transition' ? `<label class="inline-field">Move <select data-form-move>${moves.map((t) => opt(t.id, `${t.name} → ${cfg.statusById.get(t.to_status)?.name}`, t.id === st.transition)).join('') || '<option value="">No moves</option>'}</select></label>` : ''}
         <span class="chip-tone tone-${own ? 'blue' : 'gray'}">${own ? 'Has its own form' : 'Using the default'}</span></div>
-      <div class="pm-form-build"><div><h3>Build</h3><div data-builder></div></div><div><h3>Preview</h3><div class="pm-form-preview" data-preview></div></div></div>
+      <div class="pm-form-build"><div><h3>Build</h3><div data-builder></div></div>
+        <div><h3>Fields</h3><p class="hint" style="margin-top:0">Click one to add it to the last section.</p><div class="pm-palette" data-palette></div>
+          <p><button type="button" class="btn btn-sm" data-new-field-here>New field</button></p>
+          <h3>Preview</h3><div class="pm-form-preview" data-preview></div></div></div>
       <div class="form-actions">${own ? '<button type="button" class="btn btn-ghost" data-reset-form>Back to the default form</button>' : ''}<button type="button" class="btn" data-save-form>Save this form</button></div></section>`;
   draw();
-  const touch = () => ((dirty = true), draw());
+  const touch = () => ((dirty = true), keep(), draw());
   el.addEventListener('change', (e) => {
     const t = e.target;
-    if (t.matches('[data-form-type]')) ((st.type = t.value), reload());
-    else if (t.matches('[data-form-kind]')) ((st.kind = t.value), reload());
-    else if (t.matches('[data-form-move]')) ((st.transition = t.value), reload());
+    if (t.matches('[data-form-type]')) ((st.type = t.value), (st.draft = null), reload());
+    else if (t.matches('[data-form-kind]')) ((st.kind = t.value), (st.draft = null), reload());
+    else if (t.matches('[data-form-move]')) ((st.transition = t.value), (st.draft = null), reload());
     else if (t.matches('[data-add-field]') && t.value) (sections[Number(t.closest('[data-si]').dataset.si)].fields.push({ key: t.value }), touch());
     else if (t.matches('[data-req]')) ((sections[Number(t.closest('[data-si]').dataset.si)].fields[Number(t.closest('[data-fi]').dataset.fi)].required = t.checked), touch());
   });
-  el.addEventListener('input', (e) => e.target.matches('[data-sec-title]') && ((sections[Number(e.target.closest('[data-si]').dataset.si)].title = e.target.value), (dirty = true)));
+  el.addEventListener('input', (e) => e.target.matches('[data-sec-title]') && ((sections[Number(e.target.closest('[data-si]').dataset.si)].title = e.target.value), (dirty = true), keep()));
   el.addEventListener('click', async (e) => {
     const t = e.target.closest('button');
     if (!t) return;
     const si = Number(t.closest('[data-si]')?.dataset.si);
     const fi = Number(t.closest('[data-fi]')?.dataset.fi);
     const d = t.dataset;
-    if (d.secAdd !== undefined) sections.push({ title: 'New section', fields: [] });
+    if (d.pal) {
+      if (!sections.length) sections.push({ title: '', fields: [] });
+      sections[sections.length - 1].fields.push({ key: d.pal });
+    } else if (d.newFieldHere !== undefined) {
+      // V5: make a field here; it goes onto this form (not saved until "Save this form")
+      const made = await fieldDialog(project, cfg, null, { type_id: st.type });
+      if (!made) return;
+      if (!sections.length) sections.push({ title: '', fields: [] });
+      sections[sections.length - 1].fields.push({ key: `cf.${made.key}` });
+      keep();
+      toast(`"${made.name}" is on the form. Save the form to keep it there.`);
+      return void reload();
+    } else if (d.secAdd !== undefined) sections.push({ title: 'New section', fields: [] });
     else if (d.secDel !== undefined) sections.splice(si, 1);
     else if (d.secUp !== undefined) sections.splice(si - 1, 0, sections.splice(si, 1)[0]);
     else if (d.secDown !== undefined) sections.splice(si + 1, 0, sections.splice(si, 1)[0]);
@@ -305,7 +382,7 @@ async function forms(el, { b, project, cfg, reload }) {
     else if (d.saveForm !== undefined || d.resetForm !== undefined) {
       const body = d.resetForm !== undefined ? [] : sections.filter((s) => s.fields.length).map((s) => ({ title: s.title || '', fields: s.fields.map((f) => ({ key: f.key, ...(f.required ? { required: true } : {}) })) }));
       if (d.saveForm !== undefined && !body.length) return toast('Add at least one field, or use "Back to the default form".', 'bad');
-      if (await attempt(() => pm.saveLayout(project.id, { type_id: st.type || null, kind: st.kind, transition_id: trId, sections: body }), d.resetForm !== undefined ? 'Back to the default form.' : 'Form saved.')) reload();
+      if (await attempt(() => pm.saveLayout(project.id, { type_id: st.type || null, kind: st.kind, transition_id: trId, sections: body }), d.resetForm !== undefined ? 'Back to the default form.' : 'Form saved.')) ((st.draft = null), reload());
       return;
     } else return;
     touch();
@@ -315,6 +392,7 @@ async function forms(el, { b, project, cfg, reload }) {
 // ---- Rules (automation) ----------------------------------------------------------------------------------
 async function rules(el, { b, project, cfg, reload }) {
   const runs = await pm.automationRuns(project.id).catch(() => []);
+  const starters = starterRules(cfg);   // 069
   const trigger = (r) => {
     const tc = r.trigger_config || {};
     const base = TRIGGERS.find(([k]) => k === r.trigger)?.[1] || r.trigger;
@@ -324,15 +402,15 @@ async function rules(el, { b, project, cfg, reload }) {
     if (r.trigger === 'schedule') return tc.every === 'day' ? 'Every day' : tc.every === 'month' ? `Every month on day ${tc.day ?? 1}` : `Every ${['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][tc.weekday ?? 1]}`;
     return base;
   };
-  el.innerHTML = `<section class="card"><h2>Rules</h2><p class="muted">"When this happens, if these things are true, do that." Rules are built from lists, not code. Each run is logged below; a rule that fails never stops what the person was doing.</p>
+  el.innerHTML = `<section class="card"><h2>Rules ${infoTip('Rules are built from lists, not code. Each run is logged below; a rule that fails never stops what the person was doing. Timed rules (due soon, overdue, on a schedule) are checked when someone opens Projects, at most every half hour, or by the scheduled job if an Admin set it up. Rules can set each other off at most three deep, and a rule that runs 60 times in a minute is paused.')}</h2><p class="muted">"When this happens, if these things are true, do that."</p>
       ${cfg.automations.length ? `<div class="table-wrap"><table class="pm-table"><thead><tr><th>Rule</th><th>When</th><th>Then</th><th>On</th><th></th></tr></thead><tbody>${cfg.automations.map((r) => `<tr class="${r.enabled ? '' : 'is-done'}">
         <td><strong>${esc(r.name)}</strong><div class="muted small">${r.last_run_at ? `Last ran ${esc(fmtDateTime(r.last_run_at))}` : 'Hasn\'t run yet'}</div></td>
         <td>${esc(trigger(r))}${r.conditions ? `<div class="muted small">if ${esc(filterText(r.conditions))}</div>` : ''}</td><td>${r.actions.length} action${r.actions.length === 1 ? '' : 's'}</td>
         <td><input type="checkbox" data-toggle-rule="${esc(r.id)}" ${r.enabled ? 'checked' : ''} aria-label="${esc(r.name)} is on"></td>
         <td><button type="button" class="btn btn-sm" data-edit-rule="${esc(r.id)}">Edit</button></td></tr>`).join('')}</tbody></table></div>` : '<p class="muted">No rules yet.</p>'}
       <p><button type="button" class="btn btn-primary" data-new-rule>+ Rule</button></p>
-      <p class="hint">Timed rules (due soon, overdue, on a schedule) are checked when someone opens Projects, at most every half hour, or by the scheduled job if an Admin set it up (docs/projects.md).
-        Rules can set each other off at most three deep, and a rule that runs 60 times in a minute is paused.</p></section>
+      ${starters.length ? `<p class="muted small">Or start from a common one (you can change it before saving):</p><p>${starters.map((x) => `<button type="button" class="btn btn-sm" data-rule-template="${esc(x.key)}">${esc(x.label)}</button>`).join(' ')}</p>` : ''}
+    </section>
     <section class="card"><h2>Run log</h2>${runs.length ? `<div class="table-wrap"><table class="pm-table"><thead><tr><th>When</th><th>Rule</th><th>Result</th></tr></thead><tbody>${runs.map((r) => `<tr>
       <td>${esc(fmtDateTime(r.created_at))}</td><td>${esc(cfg.automations.find((a) => a.id === r.rule_id)?.name || 'A deleted rule')}</td>
       <td><span class="chip-tone tone-${r.status === 'ok' ? 'green' : r.status === 'error' ? 'red' : 'amber'}">${r.status === 'ok' ? 'Ran' : r.status === 'error' ? 'Failed' : 'Skipped'}</span> ${esc(r.detail)}</td></tr>`).join('')}</tbody></table></div>` : '<p class="muted">Nothing has run yet.</p>'}</section>`;
@@ -341,11 +419,12 @@ async function rules(el, { b, project, cfg, reload }) {
   });
   el.addEventListener('click', async (e) => {
     const t = e.target.closest('button');
-    if (!t || (t.dataset.newRule === undefined && !t.dataset.editRule)) return;
+    if (!t || (t.dataset.newRule === undefined && !t.dataset.editRule && !t.dataset.ruleTemplate)) return;
     const r = cfg.automations.find((x) => x.id === t.dataset.editRule);
-    let conditions = r?.conditions || null;
-    const acts = actionsEditor(b, cfg, r?.actions || [{ type: 'notify', to: 'owner', message: '' }]);
-    const tc = r?.trigger_config || {};
+    const seed = r || starters.find((x) => x.key === t.dataset.ruleTemplate)?.rule;   // 069: a starter rule fills in a new one
+    let conditions = seed?.conditions || null;
+    const acts = actionsEditor(b, cfg, seed?.actions || [{ type: 'notify', to: 'owner', message: '' }]);
+    const tc = seed?.trigger_config || {};
     const read = (f) => {
       const x = f.elements;
       const trig = x.trigger.value;
@@ -356,8 +435,8 @@ async function rules(el, { b, project, cfg, reload }) {
     const changeable = [['', 'Anything'], ...['title', 'description', 'priority', 'owner_id', 'due_date', 'start_date', 'estimate_hours', 'progress', 'blocked', 'labels', 'subsystem_id', 'sprint_id', 'parent_id'].map((k) => [k, fieldLabel(k.replace(/_id$/, ''))]),
       ...cfg.fields.filter((f) => !f.archived_at && f.type !== 'formula').map((f) => [`cf.${f.key}`, f.name])];
     const res = await formDialog({ title: r ? `Rule: ${esc(r.name)}` : 'New rule', submit: 'Save', wide: true,
-      body: `<div class="field"><label for="ru-name">Name</label><input id="ru-name" name="name" type="text" maxlength="80" required value="${esc(r?.name || '')}" placeholder="Review requested → tell the lead"></div>
-        <fieldset class="pm-section"><legend>When</legend><div class="pm-cond-row"><select name="trigger" aria-label="When">${TRIGGERS.map(([k, l]) => opt(k, l, (r?.trigger || 'status') === k)).join('')}</select>
+      body: `<div class="field"><label for="ru-name">Name</label><input id="ru-name" name="name" type="text" maxlength="80" required value="${esc(seed?.name || '')}" placeholder="Review requested → tell the lead"></div>
+        <fieldset class="pm-section"><legend>When</legend><div class="pm-cond-row"><select name="trigger" aria-label="When">${TRIGGERS.map(([k, l]) => opt(k, l, (seed?.trigger || 'status') === k)).join('')}</select>
           <span data-for="status">from <select name="from" aria-label="From status">${opt('', 'any status', !tc.from)}${cfg.statuses.map((s) => opt(s.id, s.name, tc.from === s.id)).join('')}</select> to <select name="to" aria-label="To status">${opt('', 'any status', !tc.to)}${cfg.statuses.map((s) => opt(s.id, s.name, tc.to === s.id)).join('')}</select></span>
           <span data-for="updated">what changed: <select name="field" aria-label="Field">${changeable.map(([k, l]) => opt(k, l, (tc.field || '') === k)).join('')}</select></span>
           <span data-for="due_soon">within <input name="days" type="number" min="0" max="60" value="${esc(tc.days ?? 2)}" style="width:80px" aria-label="Days"> days</span>
@@ -366,7 +445,7 @@ async function rules(el, { b, project, cfg, reload }) {
             <input name="day" type="number" min="1" max="28" value="${esc(tc.day ?? 1)}" style="width:80px" aria-label="Day of the month"></span></div></fieldset>
         <fieldset class="pm-section"><legend>If</legend><p><span data-cond-text class="muted">${esc(filterText(conditions) || 'always')}</span> <button type="button" class="btn btn-sm" data-cond>Set conditions</button></p></fieldset>
         <fieldset class="pm-section"><legend>Then</legend>${acts.html()}</fieldset>
-        <label class="pm-check"><input type="checkbox" name="enabled" ${r?.enabled === false ? '' : 'checked'}> On</label>
+        <label class="pm-check"><input type="checkbox" name="enabled" ${seed?.enabled === false ? '' : 'checked'}> On</label>
         <p><button type="button" class="btn btn-sm" data-try>Try it (changes nothing)</button> <span data-try-out class="muted" aria-live="polite"></span></p>
         ${r ? '<label class="pm-check"><input type="checkbox" name="delete"> Delete this rule</label>' : ''}`,
       onOpen(f) {

@@ -8,7 +8,10 @@
  *
  * It watches the row: links the app adds or removes later (after signing in, a new count badge) and window
  * resizes re-fit it. "More ▾" opens a small list of the hidden links; the current page's link lights it up.
+ * A link marked data-fold="always" (less-used pages, e.g. Projects' Boards) is always under "More ▾" on a laptop;
+ * phones list it with the rest.
  */
+
 const WIDE = '(min-width: 961px)';
 
 export function fitTopbarNav(nav = document.querySelector('.topbar .nav')) {
@@ -37,15 +40,18 @@ export function fitTopbarNav(nav = document.querySelector('.topbar .nav')) {
       more.hidden = true;
       if (!matchMedia(WIDE).matches) return;
       const all = links();
-      const folded = [];
-      if (nav.scrollWidth > nav.clientWidth + 1) {
+      const folded = all.filter((a) => a.dataset.fold === 'always');
+      folded.forEach((a) => a.classList.add('nav-folded'));
+      const rest = all.filter((a) => !folded.includes(a));
+      if (folded.length || nav.scrollWidth > nav.clientWidth + 1) {
         more.hidden = false;   // it takes room too, so make space for it first
-        while (nav.scrollWidth > nav.clientWidth + 1 && all.length > 1) {
-          const a = all.pop();
+        while (nav.scrollWidth > nav.clientWidth + 1 && rest.length > 1) {
+          const a = rest.pop();
           a.classList.add('nav-folded');
-          folded.unshift(a);
+          folded.push(a);
         }
       }
+      folded.sort((a, b) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1));   // in the row's order
       more.hidden = !folded.length;
       btn.classList.toggle('active', folded.some((a) => a.classList.contains('active')));
       pop.innerHTML = '';
