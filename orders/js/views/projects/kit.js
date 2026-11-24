@@ -11,6 +11,7 @@ import { pm } from '../../projects/api.js';
 import { PRIORITIES, CATEGORIES, newId, fieldLabel, layoutFor, movesFor, moveNeeds, relDay } from '../../projects/core.js';
 import { evalFormula } from '../../projects/formula.js';
 import { todayISO } from '../../projects/schedule.js';
+import { pickPerson } from './pick.js';
 
 export const PM_PERMS = ['projects.view', 'projects.create', 'projects.manage'];
 export const canCreateProjects = () => auth.can('projects.create') || auth.can('projects.manage');
@@ -184,7 +185,7 @@ const IE_LABELS = { status: 'status', owner: 'owner', due: 'due date', start: 's
 /** How a field looks (the inside of its button). look: 'name' (owner with name), 'avatar', 'short', 'badge' (kind icon only). */
 export function ieInner(b, cfg, i, field, look = '') {
   switch (field) {
-    case 'status': return statusChip(cfg?.statusById.get(i.status_id)) || '<span class="muted">—</span>';
+    case 'status': return (statusChip(cfg?.statusById.get(i.status_id)) || '<span class="muted">—</span>') + (look === 'button' ? '<span class="pm-caret" aria-hidden="true">▾</span>' : '');
     case 'owner': return look === 'avatar' ? avatar(b, i.owner_id) : i.owner_id ? `${avatar(b, i.owner_id)} ${esc(personName(b, i.owner_id))}` : '<span class="muted">No owner</span>';
     case 'due': return dueChip(i) || `<span class="muted">${look === 'short' ? '—' : 'No due date'}</span>`;
     case 'start': return i.start_date ? esc(fmtDate(i.start_date)) : `<span class="muted">${look === 'short' ? '—' : 'No start date'}</span>`;
@@ -279,8 +280,8 @@ export function fieldInput(key, ctx, { required = false } = {}) {
       case 'checkbox': return `<div class="field" data-field="${esc(key)}"><label class="pm-check"><input type="checkbox" name="${name}" value="true" ${v === true ? 'checked' : ''}> ${esc(f.name)}</label>${hint ? `<div class="hint">${hint}</div>` : ''}</div>`;
       case 'select': return wrap(`<select id="${id}" name="${name}" ${req}>${opt('', '—', !v)}${f.options.map((o) => opt(o, o, o === v)).join('')}</select>`, hint);
       case 'multiselect': return wrap(checks(name, f.options.map((o) => [o, o]), Array.isArray(v) ? v : []), hint, true);
-      case 'user': return wrap(`<select id="${id}" name="${name}" ${req}>${peopleOptions(b, v)}</select>`, hint);
-      case 'multiuser': return wrap(`<details class="pm-multi"><summary>${(Array.isArray(v) ? v : []).length || 'No'} chosen</summary>${checks(name, b.people.map((p) => [p.id, p.full_name || p.email]), Array.isArray(v) ? v : [])}</details>`, hint);
+      case 'user': return wrap(peopleField(name, id, b, v, { required }), hint);
+      case 'multiuser': return wrap(peopleField(name, id, b, Array.isArray(v) ? v : [], { multi: true }), hint);
       case 'url': return wrap(`<input id="${id}" name="${name}" type="url" placeholder="https://" value="${esc(v)}" ${req}>`, hint);
       case 'tags': return wrap(`<input id="${id}" name="${name}" type="text" value="${esc(Array.isArray(v) ? v.join(', ') : v)}" data-list ${req}>`, hint || 'Separate with commas');
       case 'formula': return `<div class="field" data-field="${esc(key)}"><label>${esc(f.name)}</label><output class="pm-formula">${esc(evalFormula(f.formula, item) ?? '—')}</output><div class="hint">Calculated: <code>${esc(f.formula)}</code></div></div>`;
@@ -291,8 +292,8 @@ export function fieldInput(key, ctx, { required = false } = {}) {
     case 'description': return wrap(`<textarea id="${id}" name="${name}" rows="5" ${req}>${esc(item.description || '')}</textarea>`, '**bold**, - lists, [text](https://link) and @Name work here.', true);
     case 'acceptance': return wrap(`<textarea id="${id}" name="${name}" rows="3" ${req}>${esc(item.acceptance || '')}</textarea>`, 'What has to be true for this to count as done.', true);
     case 'priority': return wrap(`<select id="${id}" name="${name}">${PRIORITIES.map(([k, l]) => opt(k, l, (item.priority || 'medium') === k)).join('')}</select>`);
-    case 'owner': return wrap(`<select id="${id}" name="${name}" ${req}>${peopleOptions(b, item.owner_id, 'No owner yet')}</select>`, 'The one person accountable.');
-    case 'collaborators': return wrap(`<details class="pm-multi"><summary>${(ctx.collaborators || []).length || 'No'} chosen</summary>${checks(name, b.people.map((p) => [p.id, p.full_name || p.email]), ctx.collaborators || [])}</details>`);
+    case 'owner': return wrap(peopleField(name, id, b, item.owner_id, { blank: 'No owner yet', required }), 'The one person accountable.');
+    case 'collaborators': return wrap(peopleField(name, id, b, ctx.collaborators || [], { multi: true }));
     case 'division': return wrap(`<select id="${id}" name="${name}" data-division ${req}>${opt('', '—', !item.division_id)}${b.divisions.filter((d) => !d.archived_at || d.id === item.division_id).map((d) => opt(d.id, d.name, d.id === item.division_id)).join('')}</select>`);
     case 'subsystem': return wrap(`<select id="${id}" name="${name}" data-subsystem ${req}>${opt('', '—', !item.subsystem_id)}${b.subsystems.filter((s) => !s.archived_at || s.id === item.subsystem_id)
       .map((s) => `<option value="${esc(s.id)}" data-div="${esc(s.division_id)}" ${s.id === item.subsystem_id ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</select>`,
@@ -308,6 +309,49 @@ export function fieldInput(key, ctx, { required = false } = {}) {
       <input type="text" name="f:blocked_reason" placeholder="What's it waiting on?" maxlength="500" value="${esc(item.blocked_reason || '')}" aria-label="What is it waiting on"></div>`;
     default: return '';
   }
+}
+
+// ---- choosing people: one searchable picker everywhere (pick.js → pickPerson), never a list of every name ----------
+const personLabel = (b, id) => esc(b.personById.get(id)?.full_name || b.personById.get(id)?.email || 'Someone');
+const personChip = (b, name, id) => `<span class="pm-person-chip">${personLabel(b, id)}<button type="button" data-person-off aria-label="Remove ${personLabel(b, id)}">×</button><input type="checkbox" name="${esc(name)}" value="${esc(id)}" checked hidden></span>`;
+/**
+ * A person (or several) as a form field: the chosen names, and a button that opens the same "Find a person"
+ * picker as the owner on a card. Single: an input named `name` holds the id (so form.elements[name].value works,
+ * and `required` is checked). Several: one ticked hidden box per person, named `name`. `among`: only these ids.
+ */
+export function peopleField(name, id, b, picked, { multi = false, blank = 'Nobody', required = false, among = null } = {}) {
+  const ids = [].concat(picked || []).filter(Boolean);
+  const attrs = `data-people="${esc(name)}" data-multi="${multi ? 1 : 0}" data-blank="${esc(blank)}"${among ? ` data-among="${esc(among.join(','))}"` : ''}`;
+  if (multi) return `<div class="pm-people" ${attrs}>${ids.map((p) => personChip(b, name, p)).join('')}<button type="button" class="btn btn-sm pm-person-add" id="${esc(id)}">+ Add a person</button></div>`;
+  return `<div class="pm-people" ${attrs}><span class="pm-person-one">${ids[0] ? personLabel(b, ids[0]) : `<span class="muted">${esc(blank)}</span>`}</span>
+    <button type="button" class="btn btn-sm pm-person-add" id="${esc(id)}">${ids[0] ? 'Change' : 'Choose…'}</button><input class="pm-person-value" name="${esc(name)}" value="${esc(ids[0] || '')}" ${required ? 'required' : ''} tabindex="-1" aria-label="${esc(blank)}"></div>`;
+}
+if (typeof document !== 'undefined') {
+  document.addEventListener('click', async (e) => {
+    const add = e.target.closest('.pm-person-add');
+    const off = e.target.closest('[data-person-off]');
+    const box = (add || off)?.closest('.pm-people');
+    if (!box) return;
+    e.preventDefault();
+    const changed = () => box.dispatchEvent(new Event('change', { bubbles: true }));
+    if (off) return void (off.closest('.pm-person-chip').remove(), changed());
+    const b = await loadBase();
+    const multi = box.dataset.multi === '1';
+    const among = box.dataset.among ? box.dataset.among.split(',') : null;
+    const value = box.querySelector('.pm-person-value');
+    const v = await pickPerson(add, b, multi ? '' : value.value, { blank: multi ? '' : box.dataset.blank, label: 'Person', among });
+    if (v === undefined) return;
+    if (multi) {
+      if (!v || box.querySelector(`input[value="${CSS.escape(v)}"]`)) return;
+      add.insertAdjacentHTML('beforebegin', personChip(b, box.dataset.people, v));
+    } else {
+      value.value = v;
+      value.setCustomValidity('');
+      box.querySelector('.pm-person-one').innerHTML = v ? personLabel(b, v) : `<span class="muted">${esc(box.dataset.blank)}</span>`;
+      add.textContent = v ? 'Change' : 'Choose…';
+    }
+    changed();
+  });
 }
 
 /** The sections of a form as HTML. */

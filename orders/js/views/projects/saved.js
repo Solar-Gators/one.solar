@@ -6,7 +6,7 @@
 import { auth } from '../../auth.js';
 import { esc } from '../../ui.js';
 import { pm } from '../../projects/api.js';
-import { can, canCreateProjects, formDialog, attempt, toast } from './kit.js';
+import { can, canCreateProjects, formDialog, attempt, toast, peopleField } from './kit.js';
 
 let cache = null;
 export const loadViews = async ({ fresh = false } = {}) => (cache && !fresh ? cache : (cache = pm.views().catch((e) => ((cache = null), Promise.reject(e)))));
@@ -95,11 +95,11 @@ export function saveAsDialog(b, { kind, projectId, config, noun = 'view' }) {
     title: `Save this ${esc(noun)}`, submit: 'Save',
     body: `<div class="field"><label for="pm-view-name">Name</label><input id="pm-view-name" name="name" type="text" maxlength="80" required></div>
       <fieldset class="pm-section"><legend>Who sees it</legend>${options.map(([v, l], i) => `<label class="pm-check"><input type="radio" name="sharing" value="${v}" ${i === 0 ? 'checked' : ''}> ${esc(l)}</label>`).join('')}
-        <div class="pm-checks" data-people hidden>${b.people.filter((p) => p.id !== b.me).map((p) => `<label class="pm-check"><input type="checkbox" name="who" value="${esc(p.id)}"> ${esc(p.full_name || p.email)}</label>`).join('')}</div>
+        <div data-share-people hidden>${peopleField('who', 'pm-view-who', b, [], { multi: true, among: b.people.filter((p) => p.id !== b.me).map((p) => p.id) })}</div>
         <p class="hint">People only ever see items of projects they're allowed into, whatever a shared ${esc(noun)} asks for.</p></fieldset>
       <label class="pm-check"><input type="checkbox" name="is_default"> Open this one first</label>`,
     onOpen(form) {
-      form.addEventListener('change', () => (form.querySelector('[data-people]').hidden = form.elements.sharing.value !== 'people'));
+      form.addEventListener('change', () => (form.querySelector('[data-share-people]').hidden = form.elements.sharing.value !== 'people'));
     },
     onSubmit: (form) => pm.saveView(null, {
       project_id: projectId, kind, name: form.elements.name.value.trim(), sharing: form.elements.sharing.value, config,

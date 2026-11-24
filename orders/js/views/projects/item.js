@@ -7,15 +7,16 @@
  */
 import { esc, fmtDate, fmtDateTime, askText, takeFlash, setFlash } from '../../ui.js';
 import { pm } from '../../projects/api.js';
-import { PRIORITIES, DEP_KINDS, layoutFor, movesFor, fieldLabel, findMentions, relDay, newId } from '../../projects/core.js';
+import { auth } from '../../auth.js';
+import { PRIORITIES, DEP_KINDS, layoutFor, fieldLabel, findMentions, relDay, newId } from '../../projects/core.js';
 import { renderAttachments } from '../../attachments.js';
 import { evalFormula } from '../../projects/formula.js';
 import { appUrl } from '../../../../shared/onesolar.js';
-import { needsDatabase, loadBase, loadConfig, can, header, itemHref, projectHref, personName, avatar, typeBadge, statusChip, priorityChip, dueChip, rich, formDialog, attempt, toast,
-  formSections, readFields, bindOrgPickers, loadParents, runMove, ie, choiceChips, infoTip } from './kit.js';
+import { needsDatabase, loadBase, loadConfig, can, header, itemHref, projectHref, personName, avatar, typeBadge, statusChip, dueChip, rich, formDialog, attempt, toast,
+  fieldInput, readFields, loadParents, ie, choiceChips, infoTip } from './kit.js';
 import { bindInline, saveField } from './inline.js';
 import { quickAdd, bindQuickAdd } from './quick.js';
-import { noteRecentItem } from './command.js';
+import { noteRecentItem, openCommandBar } from './command.js';
 import { addDocDialog, docLink } from './docs.js';
 import { linkTypes, describeLinks, searchLinks, linkOption, linkedProjectItems } from '../../related.js';
 import { linkFromUrl, exactFirst } from '../../linkParse.js';
@@ -41,7 +42,6 @@ export async function renderItem(el, { config, params, rerender }) {
   const collab = x.people.filter((p) => p.kind === 'collab').map((p) => p.user_id);
   const watchers = x.people.filter((p) => p.kind === 'watch').map((p) => p.user_id);
   const mayEdit = !item.archived_at && (may('edit') || (may('create') && (item.owner_id === b.me || item.reporter_id === b.me || collab.includes(b.me))));
-  const moves = !item.archived_at && may('transition') ? movesFor(cfg, item, cfg.who) : [];
   const pending = x.approvals.find((a) => a.status === 'pending');
   const lastDecision = x.approvals.find((a) => a.status === 'rejected');
 
@@ -107,10 +107,17 @@ export async function renderItem(el, { config, params, rerender }) {
       default: return null; // description, acceptance and blocked have their own places on the page
     }
   };
-  const viewLayout = layoutFor(cfg, item.type_id, 'view').some((s) => s.fields.length) && cfg.layouts.some((l) => l.kind === 'view')
-    ? layoutFor(cfg, item.type_id, 'view') : layoutFor(cfg, item.type_id, 'edit');
-  // these change right here (click the value); everything else is in "Edit"
+  const editLayout = layoutFor(cfg, item.type_id, 'edit');
+  const baseLayout = layoutFor(cfg, item.type_id, 'view').some((s) => s.fields.length) && cfg.layouts.some((l) => l.kind === 'view')
+    ? layoutFor(cfg, item.type_id, 'view') : editLayout;
+  // Every field the kind's form has is on the page and changes right here; one the "view" layout leaves out goes under "More".
+  const onPage = new Set(baseLayout.flatMap((s) => s.fields.map((f) => f.key)));
+  const leftOut = editLayout.flatMap((s) => s.fields).filter((f) => !onPage.has(f.key) && read(f.key) !== null);
+  const viewLayout = leftOut.length ? [...baseLayout, { title: 'More', fields: leftOut }] : baseLayout;
+  // quick pickers (the same as in lists and boards); every other field opens its own small editor in place (editInPlace)
   const INLINE = { owner: 'owner', priority: 'priority', start_date: 'start', due_date: 'due', estimate_hours: 'estimate', progress: 'progress' };
+  const formulaKey = (k) => k.startsWith('cf.') && cfg.fields.find((f) => f.key === k.slice(3))?.type === 'formula';
+  const inPlace = (k) => mayEdit && !INLINE[k] && !formulaKey(k);
   // a field is empty when there's nothing to show (an inline editor still counts as empty when the item has no value)
   const isEmpty = (k) => {
     if (k.startsWith('cf.')) return !read(k);
@@ -130,7 +137,12 @@ export async function renderItem(el, { config, params, rerender }) {
   const emptyCount = allRows.filter(([k]) => foldable(k)).length;
   const dlRow = ([k, v]) => {
     const on = prefs.pinned.includes(k);
-    return `<div><dt>${esc(fieldLabel(k, cfg.fields))} <button type="button" class="pm-pin${on ? ' is-on' : ''}" data-pin-field="${esc(k)}" aria-pressed="${on}" title="${on ? 'Unpin' : 'Pin to the top (on every item, for you)'}" aria-label="${on ? 'Unpin' : 'Pin'} ${esc(fieldLabel(k, cfg.fields))}">📌</button></dt><dd>${v || '<span class="muted">—</span>'}</dd></div>`;
+    const label = fieldLabel(k, cfg.fields);
+    // a value I can change: click it (or Enter) and it turns into its own input, saved on its own
+    const value = inPlace(k)
+      ? `<div class="pm-fv" data-edit-field="${esc(k)}" role="button" tabindex="0" title="Click to change" aria-label="${esc(`Change ${label}`)}">${v || '<span class="pm-fv-add">+ Add</span>'}</div>`
+      : v || '<span class="muted">—</span>';
+    return `<div data-row="${esc(k)}"><dt>${esc(label)} <button type="button" class="pm-pin${on ? ' is-on' : ''}" data-pin-field="${esc(k)}" aria-pressed="${on}" title="${on ? 'Unpin' : 'Pin to the top (on every item, for you)'}" aria-label="${on ? 'Unpin' : 'Pin'} ${esc(label)}">📌</button></dt><dd>${value}</dd></div>`;
   };
   const details = (pinned.length ? `<h3>Pinned</h3><dl class="pm-dl pm-pinned">${pinned.map(dlRow).join('')}</dl>` : '')
     + sections.map((s) => {
@@ -155,24 +167,48 @@ export async function renderItem(el, { config, params, rerender }) {
     return `<li class="tl-${esc(e.kind)}"><div><strong>${esc(e.actor_name || 'one.solar')}</strong> ${esc(e.summary)} <span class="muted small">${esc(fmtDateTime(e.created_at))}</span></div>
       ${lines ? `<ul class="pm-changes">${lines}</ul>` : ''}${e.kind === 'status' && e.data?.comment ? `<blockquote>${esc(e.data.comment)}</blockquote>` : ''}${e.data?.note ? `<blockquote>${esc(e.data.note)}</blockquote>` : ''}</li>`;
   };
+  // Activity: comments and the history, newest first; "All" puts them in one list
+  const commentRow = (c) => `<li class="pm-feed-comment${c.deleted_at ? ' is-removed' : ''}"><div class="pm-comment-head">${c.author_id ? avatar(b, c.author_id) : '<span class="pm-avatar">⚙</span>'}
+      <strong>${esc(c.author_id ? personName(b, c.author_id) : 'A rule')}</strong> <span class="muted small">${esc(fmtDateTime(c.created_at))}${c.edited_at ? ' · edited' : ''}</span>
+      ${!c.deleted_at && (c.author_id === b.me || may('delete')) ? `<button type="button" class="btn btn-sm btn-ghost" data-del-comment="${esc(c.id)}">Remove</button>` : ''}</div>
+    <div class="pm-rich">${rich(c.body)}</div></li>`;
+  const liveComments = x.comments.filter((c) => !c.deleted_at);
+  const newest = (list) => [...list].sort((a, z) => (a.created_at < z.created_at ? 1 : -1));
+  const feed = (tab) => {
+    const rows = tab === 'comments' ? newest(x.comments).map(commentRow)
+      : tab === 'history' ? newest(x.events).map(eventRow)
+      : newest([...x.comments.map((c) => ({ ...c, isComment: true })), ...x.events]).map((r) => (r.isComment ? commentRow(r) : eventRow(r)));
+    return rows.join('') || `<li class="muted">${tab === 'history' ? 'No changes yet.' : 'No comments yet.'}</li>`;
+  };
+  let activityTab = 'comments';
+  try { activityTab = localStorage.getItem('onesolar:pm-activity') || 'comments'; } catch { /* private window */ }
   const checkDone = x.checklist.filter((c) => c.done).length;
-  const alumniCard = item.archived_at ? '' : await alumniShareCard({ projectId: project.id, itemId: item.id, mayEdit: may('edit'), what: 'this item' });
+  // Shared with alumni: a card says so (and how to stop); not shared yet: "Share with alumni…" is in the ⋯ menu.
+  const mayShare = !item.archived_at && (may('edit') || auth.can('sgaa.edit'));
+  const shared = mayShare ? await pm.sharedWithAlumni(project.id, item.id).catch(() => undefined) : undefined;
+  const alumniCard = shared ? await alumniShareCard({ projectId: project.id, itemId: item.id, mayEdit: may('edit'), what: 'this item' }) : '';
+  const iWatch = watchers.includes(b.me);
+  const watchTitle = `${iWatch ? 'You\'re watching' : 'Watch'} (${watchers.length ? watchers.map((id) => personName(b, id)).join(', ') : 'nobody yet'})`;
+  const menu = [
+    '<button type="button" data-copy-link>Copy link</button>',
+    may('create') && !project.archived_at ? '<button type="button" data-copy-item>Copy this item</button>' : '',
+    may('edit') && !item.archived_at ? '<button type="button" data-move-project>Move to another project</button>' : '',
+    mayEdit ? `<button type="button" data-block="${item.blocked ? '0' : '1'}">${item.blocked ? 'Not blocked any more' : 'Mark as blocked…'}</button>` : '',
+    mayShare && shared === null ? '<button type="button" data-share-alumni>Share with alumni…</button>' : '',
+    may('delete') ? `<button type="button" data-archive>${item.archived_at ? 'Restore' : 'Archive'}</button>` : '',
+  ].filter(Boolean).join('');
 
   el.innerHTML = `${takeFlash()}<a class="back-link" href="${projectHref(project.key, 'list')}">← ${esc(project.name)}</a>
-    ${header(`${typeBadge(type)} ${mayEdit ? `<span class="pm-title-edit" data-rename-title tabindex="0" role="button" title="Click to rename">${esc(item.title)}</span>` : esc(item.title)}`,
-      `<span class="pm-key">${esc(item.key)}</span> · ${esc(type?.name || '')} · ${ie(b, cfg, item, 'status')} ${priorityChip(item.priority)}
+    ${header(`${typeBadge(type)} ${mayEdit ? `<span class="pm-title-edit" data-rename-title tabindex="0" role="button" title="Click to rename (E)">${esc(item.title)}</span>` : esc(item.title)}`,
+      `<button type="button" class="pm-key pm-key-copy" data-copy-link title="Copy a link to ${esc(item.key)}">${esc(item.key)}</button> · ${esc(type?.name || '')}
         ${item.archived_at ? '<span class="chip-tone tone-gray">Archived</span>' : ''}`,
-      `${moves.map((t) => `<button type="button" class="btn ${cfg.statusById.get(t.to_status)?.category === 'done' ? 'btn-primary' : ''}" data-do-move="${esc(t.id)}" title="${esc(t.description || `Move to ${cfg.statusById.get(t.to_status)?.name}`)}">${esc(t.name)}</button>`).join('')}
-       ${mayEdit ? '<button type="button" class="btn" data-edit>Edit</button>' : ''}
-       <button type="button" class="btn btn-ghost" data-watch>${watchers.includes(b.me) ? '★ Watching' : '☆ Watch'}</button>
-       ${may('edit') || may('delete') || may('create') ? `<details class="pm-more"><summary class="btn btn-ghost" aria-label="More">⋯</summary><div class="pm-more-pop">
-          ${may('create') && !project.archived_at ? '<button type="button" data-copy-item>Copy this item</button>' : ''}
-          ${may('edit') && !item.archived_at ? '<button type="button" data-move-project>Move to another project</button>' : ''}
-          ${may('delete') ? `<button type="button" data-archive>${item.archived_at ? 'Restore' : 'Archive'}</button>` : ''}</div></details>` : ''}`)}
+      `<span class="pm-status-btn">${ie(b, cfg, item, 'status', 'button')}</span>
+       <button type="button" class="btn btn-ghost pm-watch${iWatch ? ' is-on' : ''}" data-watch aria-pressed="${iWatch}" title="${esc(watchTitle)}" aria-label="${esc(watchTitle)}"><span aria-hidden="true">👁</span> ${watchers.length}</button>
+       <details class="pm-more"><summary class="btn btn-ghost" aria-label="More">⋯</summary><div class="pm-more-pop">${menu}</div></details>`)}
     ${pending ? `<div class="alert alert-info pm-approval"><strong>Waiting for approval:</strong> ${esc(personName(b, pending.requested_by))} asked for "${esc(cfg.transitions.find((t) => t.id === pending.transition_id)?.name || 'a move')}" ${esc(relDay(pending.requested_at))}.
         ${may('approve') ? `<span class="card-actions"><button type="button" class="btn btn-sm btn-primary" data-approve="${esc(pending.id)}">Approve</button><button type="button" class="btn btn-sm" data-reject="${esc(pending.id)}">Send back</button></span>` : ''}</div>` : ''}
     ${!pending && lastDecision && item.category !== 'done' && lastDecision.decided_at > (x.events.find((e) => e.kind === 'status')?.created_at || '') ? `<div class="alert alert-error"><strong>Not approved</strong> by ${esc(personName(b, lastDecision.decided_by))}: ${esc(lastDecision.note)}</div>` : ''}
-    ${item.blocked ? `<div class="alert alert-error"><strong>⛔ Blocked.</strong> ${esc(item.blocked_reason || 'No reason given.')}</div>` : ''}
+    ${item.blocked ? `<div class="alert alert-error"><strong>⛔ Blocked.</strong> ${esc(item.blocked_reason || 'No reason given.')}${mayEdit ? ' <button type="button" class="btn btn-sm btn-ghost" data-block="0">Not blocked any more</button>' : ''}</div>` : ''}
     ${waitingOn.length && item.category !== 'done' ? `<div class="alert alert-info">⏳ Waiting on ${waitingOn.map((d) => (otherById.get(d.from_item) ? `<a href="${itemHref(otherById.get(d.from_item).key)}">${esc(otherById.get(d.from_item).key)}</a>` : 'an item')).join(', ')} to finish.</div>` : ''}
     ${item.category === 'done' ? `<div class="alert ${item.accepted_at ? 'alert-success' : 'alert-info'} pm-accept">${item.accepted_at
       ? `<strong>Finished and accepted.</strong> Reviewed by ${esc(personName(b, item.accepted_by))} on ${esc(fmtDate(item.accepted_at))}.${may('approve') ? ' <button type="button" class="btn btn-sm btn-ghost" data-accept="0">Withdraw</button>' : ''}`
@@ -182,7 +218,9 @@ export async function renderItem(el, { config, params, rerender }) {
       <div class="pm-item-main">
         <section class="card" data-desc-card><h2>What's expected ${mayEdit ? '<button type="button" class="btn btn-sm btn-ghost" data-edit-desc>Edit</button>' : ''}</h2>
           <div data-desc>${item.description ? `<div class="pm-rich">${rich(item.description)}</div>` : `<p class="muted">No description yet.${mayEdit ? ' <button type="button" class="btn btn-sm btn-ghost" data-edit-desc>Add one</button>' : ''}</p>`}</div>
-          ${item.acceptance ? `<h3>Done means</h3><div class="pm-rich">${rich(item.acceptance)}</div>` : ''}</section>
+          ${item.acceptance || mayEdit ? `<h3>Done means</h3><div data-row="acceptance">${mayEdit
+            ? `<div class="pm-fv pm-fv-block" data-edit-field="acceptance" role="button" tabindex="0" title="Click to change" aria-label="Change what done means">${item.acceptance ? `<div class="pm-rich">${rich(item.acceptance)}</div>` : '<span class="pm-fv-add">+ Say what has to be true for this to count as done</span>'}</div>`
+            : `<div class="pm-rich">${rich(item.acceptance)}</div>`}</div>` : ''}</section>
 
         <section class="card"><h2>Checklist ${x.checklist.length ? `<span class="muted">${checkDone}/${x.checklist.length}</span>` : ''}</h2>
           <ul class="pm-checklist">${x.checklist.map((c) => `<li><label class="pm-check"><input type="checkbox" data-check="${esc(c.id)}" ${c.done ? 'checked' : ''} ${mayEdit ? '' : 'disabled'}> <span>${esc(c.text)}</span></label>
@@ -221,17 +259,14 @@ export async function renderItem(el, { config, params, rerender }) {
             <button type="button" data-add-doc>A document (Teams or SharePoint link)</button>
             ${mayEdit ? '<button type="button" data-add-file>A file or link (upload)</button>' : ''}</div></details>` : ''}</section>
 
-        <section class="card"><h2>Comments</h2>
-          <ul class="pm-comments">${x.comments.map((c) => `<li class="${c.deleted_at ? 'is-removed' : ''}"><div class="pm-comment-head">${c.author_id ? avatar(b, c.author_id) : '<span class="pm-avatar">⚙</span>'}
-              <strong>${esc(c.author_id ? personName(b, c.author_id) : 'A rule')}</strong> <span class="muted small">${esc(fmtDateTime(c.created_at))}${c.edited_at ? ' · edited' : ''}</span>
-              ${!c.deleted_at && (c.author_id === b.me || may('delete')) ? `<button type="button" class="btn btn-sm btn-ghost" data-del-comment="${esc(c.id)}">Remove</button>` : ''}</div>
-            <div class="pm-rich">${rich(c.body)}</div></li>`).join('') || '<li class="muted">No comments yet.</li>'}</ul>
-          ${may('comment') ? `<form data-comment class="pm-comment-form"><textarea rows="3" placeholder="Write a comment. @First Last mentions someone." aria-label="Comment" required></textarea>
-            <div class="form-actions"><button type="submit" class="btn btn-primary">Comment</button></div></form>` : ''}</section>
-
-        <details class="card"><summary><h2>History <span class="muted small">${x.events.length}</span></h2></summary><ul class="timeline pm-history">${x.events.map(eventRow).join('')}</ul></details>
+        <section class="card pm-activity-card" data-activity><div class="pm-activity-head"><h2>Activity</h2>
+          <div class="pm-seg" role="tablist" aria-label="Show">${[['comments', `Comments${liveComments.length ? ` <span class="muted">${liveComments.length}</span>` : ''}`], ['history', `History <span class="muted">${x.events.length}</span>`], ['all', 'All']]
+            .map(([k, l]) => `<button type="button" role="tab" data-activity-tab="${k}" class="${activityTab === k ? 'is-on' : ''}" aria-selected="${activityTab === k}">${l}</button>`).join('')}</div></div>
+          ${may('comment') ? `<form data-comment class="pm-comment-form"><textarea rows="2" placeholder="Add a comment. @First Last mentions someone. (M)" aria-label="Comment" required></textarea>
+            <div class="form-actions"><button type="submit" class="btn btn-primary btn-sm">Comment</button></div></form>` : ''}
+          <ul class="pm-feed" data-feed>${feed(activityTab)}</ul></section>
       </div>
-      <aside class="pm-item-side"><section class="card">${details}
+      <aside class="pm-item-side"><section class="card pm-side-card">${details}
         <h3>People</h3><dl class="pm-dl"><div><dt>Reporter</dt><dd>${esc(personName(b, item.reporter_id) || '—')}</dd></div>
           <div><dt>Watching</dt><dd>${watchers.map((id) => esc(personName(b, id))).join(', ') || '—'}</dd></div></dl>
         <p class="muted small">Created ${esc(fmtDate(item.created_at))}. Last changed ${esc(fmtDateTime(item.updated_at))}.</p></section>${alumniCard}</aside>
@@ -296,10 +331,109 @@ export async function renderItem(el, { config, params, rerender }) {
     area.addEventListener('keydown', (e) => (e.key === 'Enter' && (e.ctrlKey || e.metaKey) ? (e.preventDefault(), save()) : e.key === 'Escape' && area.value === (item.description || '') ? again() : null));
     form.querySelector('[data-cancel-desc]').onclick = () => (area.value === (item.description || '') || confirm('Throw away what you typed?')) && again();
   };
+  /**
+   * Change one field right where it shows: the value turns into that field's input (the same one the "new item"
+   * form uses). A list, date or tick box saves as soon as it's changed; text saves with Enter (Ctrl+Enter in a
+   * long box) or "Save". Esc puts it back. The save shows at once and the notice offers Undo.
+   */
+  const editInPlace = async (box) => {
+    const key = box.dataset.editField;
+    if (el.querySelector('.pm-ief')) return;   // one at a time
+    const parents = key === 'parent' ? (await loadParents(project.id).catch(() => [])).filter((p) => {
+      const pt = cfg.typeById.get(p.type_id);
+      return pt && p.id !== item.id && (type.parent_type_ids?.length ? type.parent_type_ids.includes(pt.id) : pt.level < type.level);
+    }) : [];
+    const required = editLayout.flatMap((s) => s.fields).find((f) => f.key === key)?.required;
+    const holder = document.createElement('form');
+    holder.className = 'pm-ief';
+    holder.noValidate = true;
+    holder.innerHTML = `${fieldInput(key, { b, cfg, item, parents, collaborators: collab }, { required: !!required })}
+      <div class="pm-ief-actions"><button type="submit" class="btn btn-sm btn-primary">Save</button><button type="button" class="btn btn-sm btn-ghost" data-ief-cancel>Cancel</button>
+        <span class="muted small">Enter saves · Esc cancels</span></div>`;
+    box.hidden = true;
+    box.after(holder);
+    const input = holder.querySelector('input:not([type=hidden]), select, textarea, summary');
+    if (input?.tagName === 'SUMMARY') input.parentElement.open = true;
+    else input?.focus();
+    const close = () => (holder.remove(), (box.hidden = false), box.focus());
+    let busy = false;
+    const save = async () => {
+      if (busy) return;
+      if (!holder.checkValidity()) return holder.reportValidity();
+      const patch = readFields(holder, cfg);
+      if (patch.custom) patch.custom = { ...(item.custom || {}), ...patch.custom };
+      busy = true;
+      holder.querySelectorAll('button').forEach((x) => (x.disabled = true));
+      if (await saveField({ b, item, cfg, root: el, after: again }, patch)) return;
+      busy = false;   // refused: what was typed stays, with the reason in the notice
+      holder.querySelectorAll('button').forEach((x) => (x.disabled = false));
+    };
+    holder.onsubmit = (e) => (e.preventDefault(), save());
+    holder.querySelector('[data-ief-cancel]').onclick = close;
+    holder.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') (e.preventDefault(), e.stopPropagation(), close());
+      else if (e.key === 'Enter' && e.target.tagName === 'TEXTAREA' && (e.ctrlKey || e.metaKey)) (e.preventDefault(), save());
+    });
+    // a pick saves at once; typing waits for Enter or Save
+    holder.addEventListener('change', (e) => {
+      const one = (e.target.matches('select:not([multiple]), input[type=date], input[type=checkbox], .pm-people') && !e.target.closest('.pm-multi, .pm-checks') && key !== 'blocked')
+        && !(e.target.matches('.pm-people') && e.target.dataset.multi === '1');   // several people: add them all, then Save
+      if (one) save();
+    });
+  };
+  el.addEventListener('click', (e) => {
+    const box = e.target.closest('[data-edit-field]');
+    if (box && !e.target.closest('a')) editInPlace(box);
+  });
+  el.addEventListener('keydown', (e) => {
+    const box = e.target.closest?.('[data-edit-field]');
+    if (box && (e.key === 'Enter' || e.key === ' ') && e.target === box) (e.preventDefault(), editInPlace(box));
+  });
+  const copyLink = async () => {
+    const url = location.href.split('#')[0] + itemHref(item.key);
+    try { await navigator.clipboard.writeText(url); toast(`Link to ${item.key} copied.`); } catch { prompt('Copy this link:', url); }
+  };
+  // Item-page keys (shown under "?"): A assign to me, M comment, S status, E rename, . the command bar
+  const keys = (e) => {
+    if (!el.isConnected) return document.removeEventListener('keydown', keys);
+    if (e.ctrlKey || e.metaKey || e.altKey || /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) || e.target.isContentEditable) return;
+    if (document.querySelector('dialog[open], .pm-pick, .pm-cmd, .pm-ief')) return;
+    const k = e.key.toLowerCase();
+    if (k === 'a' && mayEdit && item.owner_id !== b.me) (e.preventDefault(), saveField({ b, item, cfg, root: el, after: again }, { owner_id: b.me }));
+    else if (k === 'm' && may('comment')) {
+      e.preventDefault();
+      const area = el.querySelector('[data-comment] textarea');
+      area.scrollIntoView({ block: 'center' });
+      area.focus();
+    } else if (k === 's') { const s = el.querySelector('.pm-status-btn [data-ie="status"]'); if (s) (e.preventDefault(), s.click()); }
+    else if (k === 'e') { const t = el.querySelector('[data-rename-title]'); if (t) (e.preventDefault(), renameTitle(t)); }
+    else if (e.key === '.') (e.preventDefault(), openCommandBar());
+  };
+  document.addEventListener('keydown', keys);
   el.addEventListener('click', async (e) => {
     const t = e.target.closest('button');
     if (!t) return;
     const d = t.dataset;
+    if (t.closest('.pm-more-pop')) t.closest('details')?.removeAttribute('open');
+    if (d.activityTab) {
+      activityTab = d.activityTab;
+      try { localStorage.setItem('onesolar:pm-activity', activityTab); } catch { /* fine */ }
+      el.querySelectorAll('[data-activity-tab]').forEach((x) => { x.classList.toggle('is-on', x === t); x.setAttribute('aria-selected', String(x === t)); });
+      el.querySelector('[data-feed]').innerHTML = feed(activityTab);
+      return;
+    }
+    if (d.copyLink !== undefined) return void copyLink();
+    if (d.block) {
+      if (d.block === '0') return void saveField({ b, item, cfg, root: el, after: again }, { blocked: false, blocked_reason: '' });
+      const why = await askText({ title: `Mark ${item.key} as blocked`, label: 'What is it waiting on?', ok: 'Mark as blocked', required: false });
+      if (why === null) return;
+      return void saveField({ b, item, cfg, root: el, after: again }, { blocked: true, blocked_reason: why.trim() });
+    }
+    if (d.shareAlumni !== undefined) {
+      const ok = confirm(`Share ${item.key} with alumni? It goes on the alumni hub's "What we need" list${auth.can('sgaa.edit') ? '' : ' as a draft that someone with "Edit the alumni hub" makes public'}, so alumni can offer parts, money or know-how.`);
+      if (ok) fresh(() => pm.shareWithAlumni(project.id, item.id, true), 'Shared with alumni.');
+      return;
+    }
     if (d.addFile !== undefined) {
       t.closest('details')?.removeAttribute('open');
       return void filesBox.querySelector('.attach-open')?.click();
@@ -313,8 +447,6 @@ export async function renderItem(el, { config, params, rerender }) {
       return;
     }
     if (d.editDesc !== undefined) editDescription();
-    else if (d.doMove) (await runMove(b, cfg, item, cfg.transitions.find((q) => q.id === d.doMove))) && again();
-    else if (d.edit !== undefined) (await editDialog(b, cfg, item, collab)) && again();
     else if (d.watch !== undefined) fresh(() => pm.watch(item.id, !watchers.includes(b.me)));
     else if (d.archive !== undefined) confirm(item.archived_at ? `Restore ${item.key}?` : `Archive ${item.key} and everything under it? It can be restored.`) && fresh(() => pm.archiveItem(item.id, !item.archived_at));
     else if (d.approve || d.reject) {
@@ -358,29 +490,6 @@ export async function renderItem(el, { config, params, rerender }) {
       const body = e.target.querySelector('textarea').value.trim();
       if (body) fresh(() => pm.comment(item.id, body, findMentions(body, b.people)));
     }
-  });
-}
-
-/** Edit an item with its kind's "edit" form. A save from an out-of-date page is refused, not merged. */
-async function editDialog(b, cfg, item, collaborators) {
-  const type = cfg.typeById.get(item.type_id);
-  const parents = (await loadParents(cfg.project.id).catch(() => [])).filter((p) => {
-    const pt = cfg.typeById.get(p.type_id);
-    return pt && (type.parent_type_ids?.length ? type.parent_type_ids.includes(pt.id) : pt.level < type.level);
-  });
-  return formDialog({
-    title: `Edit ${esc(item.key)}`, submit: 'Save', wide: true,
-    body: `<div class="field"><label for="ei-title">Title</label><input id="ei-title" name="title" type="text" maxlength="200" required value="${esc(item.title)}"></div>
-      ${formSections(layoutFor(cfg, item.type_id, 'edit'), { b, cfg, item, parents, collaborators })}`,
-    onOpen: bindOrgPickers,
-    async onSubmit(form) {
-      try {
-        return await pm.updateItem(item.id, item.version, { title: form.elements.title.value.trim(), ...readFields(form, cfg) });
-      } catch (err) {
-        if (err.conflict) err.message += ' Copy anything you typed that you want to keep, then close this and reload.';
-        throw err;
-      }
-    },
   });
 }
 

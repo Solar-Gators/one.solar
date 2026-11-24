@@ -28,7 +28,7 @@ export function openPicker(anchor, { label = 'Pick', options = [], value, search
     pop.style.width = `${width}px`;
     pop.innerHTML = `${search ? `<input type="search" class="pm-pick-q" placeholder="${esc(placeholder)}" aria-label="${esc(placeholder)}" autocomplete="off">` : ''}
       <div class="pm-pick-list" role="listbox" aria-label="${esc(label)}"></div><div class="pm-pick-extra"></div>`;
-    document.body.append(pop);
+    (anchor.closest('dialog[open]') || document.body).append(pop);   // inside a pop-up, so it's above it and can be clicked
     const list = pop.querySelector('.pm-pick-list');
     const q = pop.querySelector('.pm-pick-q');
     let shown = options;
@@ -107,16 +107,17 @@ export const notePerson = (id) => {
 };
 
 /** A person: me first, then the people picked lately, then everyone. `onlyMe` when I may only take it myself. */
-export function pickPerson(anchor, b, current, { blank = 'No owner', onlyMe = false, label = 'Owner' } = {}) {
+export function pickPerson(anchor, b, current, { blank = 'No owner', onlyMe = false, label = 'Owner', among = null } = {}) {
   const name = (p) => p.full_name || p.email;
-  const me = b.personById.get(b.me);
-  const recent = recentPeople().filter((id) => id !== b.me && b.people.some((p) => p.id === id));
+  const people = among ? b.people.filter((p) => among.includes(p.id)) : b.people;   // e.g. only people not in the project yet
+  const me = people.find((p) => p.id === b.me);
+  const recent = recentPeople().filter((id) => id !== b.me && people.some((p) => p.id === id));
   const options = [
     ...(blank ? [{ value: '', label: blank, html: `<span class="pm-avatar is-none">–</span> ${esc(blank)}` }] : []),
     ...(me ? [{ value: me.id, label: `${name(me)} (me)`, html: `${initialsHtml(name(me))} ${esc(name(me))} <span class="muted">(me)</span>` }] : []),
     ...(onlyMe ? [] : [
       ...recent.map((id) => b.personById.get(id)).filter(Boolean).map((p) => ({ value: p.id, label: name(p), html: `${initialsHtml(name(p))} ${esc(name(p))}`, group: 'Recent' })),
-      ...b.people.filter((p) => p.id !== b.me && !recent.includes(p.id)).map((p) => ({ value: p.id, label: name(p), html: `${initialsHtml(name(p))} ${esc(name(p))}`, group: recent.length ? 'Everyone' : '' })),
+      ...people.filter((p) => p.id !== b.me && !recent.includes(p.id)).map((p) => ({ value: p.id, label: name(p), html: `${initialsHtml(name(p))} ${esc(name(p))}`, group: recent.length ? 'Everyone' : '' })),
     ]),
   ];
   if (onlyMe && current && current !== b.me && b.personById.get(current)) options.push({ value: current, label: name(b.personById.get(current)) });
@@ -161,7 +162,10 @@ export function pickMove(anchor, cfg, moves) {
     label: 'Status', search: moves.length > 7, width: 270,
     options: moves.map((t) => {
       const s = cfg.statusById.get(t.to_status);
-      return { value: t.id, label: `${s?.name || ''} ${t.name}`, html: `<span class="chip-tone tone-${esc(s?.color || 'gray')} pm-status">${esc(s?.name || '')}</span>`, hint: t.name !== s?.name ? t.name : '' };
+      // what the move asks for, so nobody is surprised by a dialog
+      const asks = [t.require_approval && 'needs approval', t.require_comment && 'asks for a comment', t.require_fields?.length && `asks for ${t.require_fields.length} field${t.require_fields.length === 1 ? '' : 's'}`].filter(Boolean).join(', ');
+      const hint = [t.name !== s?.name && !/^(Move to|Back to) /.test(t.name) ? t.name : /^Back to /.test(t.name) ? 'back' : '', asks].filter(Boolean).join(' · ');
+      return { value: t.id, label: `${s?.name || ''} ${t.name}`, html: `<span class="chip-tone tone-${esc(s?.color || 'gray')} pm-status">${esc(s?.name || '')}</span>`, hint };
     }),
   });
 }

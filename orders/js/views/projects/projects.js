@@ -7,7 +7,7 @@ import { esc, fmtDate, setFlash, takeFlash } from '../../ui.js';
 import { pm } from '../../projects/api.js';
 import { progressOf, attention } from '../../projects/core.js';
 import { todayISO } from '../../projects/schedule.js';
-import { needsDatabase, loadBase, invalidate, header, projectHref, personName, canCreateProjects, formDialog, peopleOptions, bindOrgPickers, attempt } from './kit.js';
+import { needsDatabase, loadBase, invalidate, header, projectHref, personName, canCreateProjects, formDialog, peopleField, bindOrgPickers, attempt } from './kit.js';
 import { cyclesOf, cycleSwitch, bindCycleSwitch, inView, cycleOfProject, cycleForNew, cycleDialog, newCycleDialog } from './cycles.js';
 
 const view = { archived: false, q: '' };
@@ -105,7 +105,7 @@ export async function createProjectDialog(b, templateId = null) {
         <div class="field span-4"><label for="np-template">Start from</label><select id="np-template" name="template">${templates.map((t) => `<option value="${esc(t.id)}" ${t.id === templateId ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select>
           <div class="hint" data-template-about></div></div>
         <div class="field span-2"><label for="np-program">Car cycle</label><select id="np-program" name="program"><option value="">None</option>${cyclesOf(b).map((g) => `<option value="${esc(g.id)}" ${g.id === cycleForNew(b) ? 'selected' : ''}>${esc(g.name)}</option>`).join('')}</select></div>
-        <div class="field span-2"><label for="np-lead">Project manager</label><select id="np-lead" name="lead">${peopleOptions(b, b.me, '')}</select></div>
+        <div class="field span-2"><label for="np-lead">Project manager</label>${peopleField('lead', 'np-lead', b, b.me, { blank: 'Nobody yet' })}</div>
         <div class="field span-2"><label for="np-div">CE division</label><select id="np-div" name="division" data-division><option value="">—</option>${b.divisions.filter((d) => !d.archived_at).map((d) => `<option value="${esc(d.id)}">${esc(d.name)}</option>`).join('')}</select></div>
         <div class="field span-2"><label for="np-sub">Subsystem</label><select id="np-sub" name="subsystem" data-subsystem><option value="">—</option>${b.subsystems.filter((s) => !s.archived_at).map((s) => `<option value="${esc(s.id)}" data-div="${esc(s.division_id)}">${esc(s.name)}</option>`).join('')}</select></div>
         <div class="field span-2"><label for="np-vis">Who can see it</label><select id="np-vis" name="visibility"><option value="team">The whole team (read-only unless they're added)</option><option value="private">Only people added to it</option></select></div>

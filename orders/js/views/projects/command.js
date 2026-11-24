@@ -213,6 +213,7 @@ export function helpDialog() {
       ${row(['S'], 'Change status of the row under the mouse')}${row(['A'], 'Change owner')}${row(['D'], 'Change due date')}${row(['P'], 'Change priority')}${row(['E'], 'Change estimate')}
       ${row(['X'], 'Select the row (Shift-click a box to select a range)')}${row(['Esc'], 'Close, or clear the selection')}
       ${PAGES.map(([l, , k]) => row(['G', k.toUpperCase()], l)).join('')}
+      <tr><th colspan="2">On an item's page</th></tr>${row(['A'], 'Assign it to me')}${row(['M'], 'Write a comment')}${row(['S'], 'Change its status')}${row(['E'], 'Rename it')}${row(['.'], 'The command bar')}
       ${row(['?'], 'This list')}</tbody></table>
       <p class="hint">Shortcuts don't work while you're typing in a box. Everything they do can also be done by clicking.</p>`,
   });

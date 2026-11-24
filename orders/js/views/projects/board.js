@@ -12,7 +12,7 @@ import { esc, askText } from '../../ui.js';
 import { pm } from '../../projects/api.js';
 import { boardColumns, moveTo, movesFor, rankBetween, PRIORITIES } from '../../projects/core.js';
 import { bindKanbanDnd } from '../../kanbanDnd.js';
-import { filterBar, bindFilterBar, filterOf, can, formDialog, toast, runMove, itemHref, typeBadge, personName, ie, mayEditItem, avatar, openMenu, attempt, loadParents, choiceChips, moreMenu } from './kit.js';
+import { filterBar, bindFilterBar, filterOf, can, formDialog, toast, runMove, itemHref, typeBadge, personName, ie, mayEditItem, avatar, openMenu, attempt, loadParents, choiceChips, moreMenu, peopleField } from './kit.js';
 import { refDialog } from './item.js';
 import { loadViews, viewsFor, pickView, viewPicker, bindViewPicker } from './saved.js';
 import { bindInline } from './inline.js';
@@ -211,7 +211,7 @@ export async function renderBoard(el, scope) {
       if (i.owner_id !== b.me) entries.push({ label: 'Assign to me', run: async () => (await attempt(() => pm.updateItem(i.id, null, { owner_id: b.me }), `${i.key} is yours.`)) && scope.rerender() });
       entries.push({ label: 'Assign…', run: async () => {
         const who = await formDialog({ title: `Assign ${esc(i.key)}`, submit: 'Assign',
-          body: `<div class="field"><label for="as-who">Owner</label><select id="as-who" name="who"><option value="">No owner</option>${b.people.map((p) => `<option value="${esc(p.id)}" ${p.id === i.owner_id ? 'selected' : ''}>${esc(p.full_name || p.email)}</option>`).join('')}</select></div>`,
+          body: `<div class="field"><label for="as-who">Owner</label>${peopleField('who', 'as-who', b, i.owner_id, { blank: 'No owner' })}</div>`,
           onSubmit: (f) => pm.updateItem(i.id, null, { owner_id: f.elements.who.value || null }).then(() => true) });
         if (who) scope.rerender();
       } });
