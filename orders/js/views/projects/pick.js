@@ -157,7 +157,9 @@ export const pickKind = (anchor, cfg, current) => openPicker(anchor, {
 });
 
 /** Where an item can go next: its workflow's moves for my role. Resolves with a transition id. */
-export function pickMove(anchor, cfg, moves) {
+/** Status moves. With workflow: true a "View workflow" line sits under the list; picking it gives VIEW_WORKFLOW. */
+export const VIEW_WORKFLOW = '__workflow';
+export function pickMove(anchor, cfg, moves, { workflow = false } = {}) {
   return openPicker(anchor, {
     label: 'Status', search: moves.length > 7, width: 270,
     options: moves.map((t) => {
@@ -167,6 +169,10 @@ export function pickMove(anchor, cfg, moves) {
       const hint = [t.name !== s?.name && !/^(Move to|Back to) /.test(t.name) ? t.name : /^Back to /.test(t.name) ? 'back' : '', asks].filter(Boolean).join(' · ');
       return { value: t.id, label: `${s?.name || ''} ${t.name}`, html: `<span class="chip-tone tone-${esc(s?.color || 'gray')} pm-status">${esc(s?.name || '')}</span>`, hint };
     }),
+    extra: workflow ? (box, done) => {
+      box.innerHTML = '<button type="button" class="pm-pick-foot" data-view-workflow>View workflow</button>';
+      box.querySelector('button').onclick = () => done(VIEW_WORKFLOW);
+    } : null,
   });
 }
 

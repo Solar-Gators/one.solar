@@ -807,3 +807,28 @@ li.pm-add-under-row { list-style: none; padding: 4px 0 4px 28px; }
 .pm-person-chip button { border: 0; background: none; color: inherit; cursor: pointer; padding: 0 6px; font-size: 15px; line-height: 1; opacity: .7; }
 .pm-person-chip button:hover { opacity: 1; }
 .pm-person-value { position: absolute; left: 0; bottom: 0; width: 1px; height: 1px; padding: 0; border: 0; opacity: 0; pointer-events: none; }
+
+/* Workflow editor (simpler): statuses in three columns, one "How items move" choice, rules only where needed */
+.pm-wf-bar { position: sticky; top: 0; z-index: 5; background: var(--bg); padding: 8px 0; }
+.pm-wf-lanes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.pm-wf-lane { background: var(--surface-2); border: 1px solid var(--border-soft); border-radius: var(--radius); padding: 10px; min-height: 120px; }
+.pm-wf-lane.is-over { outline: 2px dashed var(--border); outline-offset: -2px; }
+.pm-wf-lane h3 { margin: 0 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.pm-wf-lane ul { list-style: none; margin: 0 0 6px; padding: 0; display: grid; gap: 6px; }
+.pm-wf-st { display: flex; align-items: center; gap: 6px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 4px 6px; }
+.pm-wf-st.is-dragging { opacity: .45; }
+.pm-wf-st input[data-s-name] { flex: 1; min-width: 0; border: 1px solid transparent; background: transparent; padding: 4px 6px; font-weight: 600; }
+.pm-wf-st input[data-s-name]:hover, .pm-wf-st input[data-s-name]:focus { border-color: var(--border); background: var(--surface); }
+.pm-wf-grip { cursor: grab; color: var(--muted); user-select: none; font-size: 12px; letter-spacing: -2px; padding: 0 2px; }
+.pm-wf-dot { width: 14px; height: 14px; flex: none; border-radius: 50%; border: 0; padding: 0; background: currentColor; cursor: pointer; }
+.pm-wf-start { font-size: 11px; }
+.pm-wf-st-tools { display: inline-flex; opacity: .55; }
+.pm-wf-st:hover .pm-wf-st-tools, .pm-wf-st:focus-within .pm-wf-st-tools { opacity: 1; }
+.pm-wf-st-tools .btn { padding: 2px 6px; }
+.pm-wf-modes { margin: 4px 0 2px; }
+.pm-wf-more > summary { cursor: pointer; font-weight: 700; }
+@media (max-width: 760px) { .pm-wf-lanes { grid-template-columns: 1fr; } .pm-wf-st-tools { opacity: 1; } }
+.pm-wf-node.is-current rect { stroke: var(--navy); stroke-width: 3.5; }
+.pm-pick-foot { display: block; width: 100%; text-align: left; border: 0; border-top: 1px solid var(--border-soft); background: none; padding: 8px 10px; color: var(--link, var(--navy)); font: inherit; font-size: 13px; cursor: pointer; }
+.pm-pick-foot:hover, .pm-pick-foot:focus-visible { background: var(--surface-2); }
+.pm-settings select[data-wf-rule-pick] { width: auto; max-width: 100%; }

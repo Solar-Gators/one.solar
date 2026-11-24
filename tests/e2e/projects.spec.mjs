@@ -134,17 +134,30 @@ test.describe('projects', () => {
   test('a workflow with its own statuses and moves, drawn, previewed and saved as a new version', async () => {
     await open(page, '/projects/#/projects/p/BAT/settings/workflows', '[data-wf-save]');
     await expect(page.locator('.pm-wf-svg .pm-wf-node')).toHaveCount(4);
+    // the simple board starts as "Any order", with its statuses in To do / In progress / Done columns
+    await expect(page.locator('[data-mode="free"]')).toHaveAttribute('aria-checked', 'true');
+    await expect(page.locator('[data-lane="doing"] [data-s-name]')).toHaveCount(2);
+    await shot(page, 'workflow-start');
     const names = page.locator('[data-wf-statuses] [data-s-name]');
     for (const [n, name] of [[0, 'Draft'], [1, 'In Design'], [3, 'Released']]) {
       await names.nth(n).fill(name);
       await names.nth(n).dispatchEvent('change');
     }
-    await tap(page, '[data-s-add]');
-    await names.nth(4).fill('Approved');
-    await names.nth(4).dispatchEvent('change');
-    await page.locator('[data-wf-statuses] tr').nth(4).locator('[data-s-up]').click(); // Approved before Released
-    await expect(names.nth(3)).toHaveValue('Approved');
-    // replace "any status → each" with real moves
+    await expect(page.locator('[data-wf-rule-pick]')).toContainText('Any status → Released'); // moves follow the new names
+    await tap(page, '[data-s-add="doing"]');   // goes at the end of "In progress": before Released
+    await names.nth(3).fill('Approved');
+    await names.nth(3).dispatchEvent('change');
+    await expect(names.nth(4)).toHaveValue('Released');
+    // the ↑ at the top of a column moves it into the column before; ↓ brings it back
+    await page.locator('[data-lane="doing"] [data-s]').first().locator('[data-s-up]').click();
+    await expect(page.locator('[data-lane="todo"] [data-s-name]')).toHaveCount(2);
+    await page.locator('[data-lane="todo"] [data-s]').nth(1).locator('[data-s-down]').click();
+    await expect(page.locator('[data-lane="todo"] [data-s-name]')).toHaveCount(1);
+    // "Step by step": forward and back one status at a time
+    await tap(page, '[data-mode="steps"]');
+    await expect(page.locator('[data-wf-rule-pick] option')).toHaveCount(9);
+    // "Custom": exactly these moves
+    await tap(page, '[data-mode="custom"]');
     while (await page.locator('[data-wf-moves] [data-t-del]').count()) await page.locator('[data-wf-moves] [data-t-del]').first().click();
     const move = async (name, from, to, extra = async () => {}) => {
       await tap(page, '[data-t-add]');
@@ -175,7 +188,7 @@ test.describe('projects', () => {
     await expect(dialog(page)).toContainText('Save this workflow?');
     await save(page, 'Save as a new version');
     await expect(toast(page)).toContainText('as version 2');
-    expect((await sql(page, `select s.name from pm_statuses s join pm_projects p on p.id = s.project_id where p.key = 'BAT' order by s.sort`)).map((r) => r.name))
+    expect((await sql(page, `select s.name from pm_statuses s join pm_types t on t.workflow_id = s.workflow_id join pm_projects p on p.id = t.project_id where p.key = 'BAT' and t.name = 'Task' order by s.sort`)).map((r) => r.name))
       .toEqual(['Draft', 'In Design', 'In Review', 'Approved', 'Released']);
     await expect(page.locator('details', { hasText: 'Earlier versions' })).toContainText('Version 1');
   });
@@ -324,6 +337,14 @@ test.describe('projects', () => {
     expect(res.error).toMatch(/is now "Draft", so "Release" doesn't apply/);
     await page.locator('.pm-status-btn [data-ie="status"]').click();
     await expect(moves(page)).toHaveCount(1); // only what the workflow offers from Draft
+    // "View workflow" under the list: the drawing with this item's status marked, and where it can go from here
+    await page.locator('[data-view-workflow]').click();
+    await expect(dialog(page).locator('.pm-wf-node.is-current')).toContainText('Draft');
+    await expect(dialog(page)).toContainText('From here it can go to');
+    await expect(dialog(page)).toContainText('Project Manager');   // who can change it (070)
+    await shot(page, 'view-workflow');
+    await dialog(page).locator('[data-cancel]').click();
+    await page.locator('.pm-status-btn [data-ie="status"]').click();
     await moves(page).filter({ hasText: 'Start design' }).click();
     await expect(toast(page)).toContainText('is now "In Design"');
     // "Send for review" needs an owner: the move asks for it (new items start with their creator as owner, so take it off first)
@@ -1056,5 +1077,19 @@ test.describe('projects', () => {
     await page.locator('[data-level="work"]').click();
     await expect(page.locator('[data-new-kind]')).toBeVisible();
     await noOverflow(page);
+  });
+
+  test('070: a type that shares a workflow gets a copy of its own; its items keep their status', async () => {
+    await signIn(page, ADMIN);
+    await open(page, '/projects/#/projects/p/BAT/settings/types', '[data-new-type]');
+    const bug = page.locator('.pm-settings tr', { hasText: 'Bug' });
+    await bug.locator('[data-own-flow]').click();
+    await save(page, 'Make a copy for it');
+    await expect(toast(page)).toContainText('Bug has its own workflow now');
+    await expect(page.locator('.pm-settings tr', { hasText: 'Bug' })).toContainText('Bug workflow');
+    await expect(page.locator('.pm-settings tr', { hasText: 'Bug' }).locator('[data-own-flow]')).toHaveCount(0);
+    await page.locator('.pm-settings tr', { hasText: 'Bug' }).getByRole('link', { name: 'Bug workflow' }).click();
+    await expect(page.locator('[data-wf-pick]')).toHaveValue(/.+/);
+    await expect(page.locator('.pm-settings')).toContainText('Used by Bug');
   });
 });

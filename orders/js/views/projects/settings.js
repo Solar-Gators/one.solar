@@ -5,7 +5,7 @@
  */
 import { esc, fmtDateTime } from '../../ui.js';
 import { pm } from '../../projects/api.js';
-import { CAPS, TONES, FIELD_TYPES, BUILTIN_FIELDS, PRIORITIES, DOC_CATEGORIES, fieldLabel, layoutFor, filterText, starterRules } from '../../projects/core.js';
+import { CAPS, TONES, FIELD_TYPES, BUILTIN_FIELDS, PRIORITIES, DOC_CATEGORIES, fieldLabel, layoutFor, filterText, starterRules, newId } from '../../projects/core.js';
 import { checkFormula, FORMULA_FUNCTIONS, FORMULA_BUILTINS } from '../../projects/formula.js';
 import { can, formDialog, attempt, toast, invalidate, loadConfig, peopleField, personName, avatar, bindOrgPickers, typeBadge, formSections, conditionDialog, projectHref, OPTIONAL_TABS, infoTip } from './kit.js';
 import { renderWorkflows, actionsEditor } from './workflowEditor.js';
@@ -152,15 +152,18 @@ async function people(el, { b, project, cfg, reload }) {
 }
 
 // ---- Work types ----------------------------------------------------------------------------------------
-async function types(el, { project, cfg, reload }) {
+async function types(el, { b, project, cfg, reload }) {
   const flows = cfg.workflows.filter((w) => !w.archived_at);
+  const mayFlows = can(b, project.id, 'workflows');
+  const sharing = (t) => cfg.types.filter((x) => !x.archived_at && x.workflow_id === t.workflow_id).length;
   const list = [...cfg.types].sort((x, y) => !!x.archived_at - !!y.archived_at || x.level - y.level || x.sort - y.sort);
   el.innerHTML = `<section class="card"><h2>Work-item types ${infoTip(`Each type has its own workflow, its own forms and its place in the hierarchy. The ones marked <span class="chip">Team</span> are on the whole team's list (<a href="#/projects/kinds">Kinds of work</a>): their name, icon and color are the same in every project, and only leads change them. You can still hide one here, and pick its workflow and what it goes under. Level 0 is the top (an epic); an item can go under any item of a lower-numbered level, or only under the types you name.`)}</h2>
     <p class="muted">The kinds of work this project has.</p>
     <div class="table-wrap"><table class="pm-table"><thead><tr><th>Type</th><th>Level</th><th>Goes under</th><th>Workflow</th><th></th></tr></thead><tbody>${list.map((t) => `<tr class="${t.archived_at ? 'is-done' : ''}">
       <td>${typeBadge(t)} <strong>${esc(t.name)}</strong>${t.kind_id ? ' <span class="chip" title="On the whole team\'s list of kinds of work">Team</span>' : ''}${t.is_milestone ? ' <span class="chip">Milestone</span>' : ''}${t.archived_at ? ` <span class="chip-tone tone-gray">${t.kind_id ? 'Hidden here' : 'Archived'}</span>` : ''}<div class="muted small">${esc(t.description)}</div></td>
       <td>${t.level}</td><td>${t.parent_type_ids.length ? t.parent_type_ids.map((id) => esc(cfg.typeById.get(id)?.name || '')).join(', ') : t.level === 0 ? '<span class="muted">Top level</span>' : '<span class="muted">Anything higher up</span>'}</td>
-      <td>${esc(flows.find((w) => w.id === t.workflow_id)?.name || '')}</td><td class="pm-nowrap"><button type="button" class="btn btn-sm" data-edit-type="${esc(t.id)}">Edit</button>
+      <td>${mayFlows ? `<a href="${projectHref(project.key, `settings/workflows/${t.workflow_id}`)}">${esc(flows.find((w) => w.id === t.workflow_id)?.name || '')}</a>` : esc(flows.find((w) => w.id === t.workflow_id)?.name || '')}
+        ${mayFlows && !t.archived_at && sharing(t) > 1 ? `<div class="muted small">Shared by ${sharing(t)} types · <button type="button" class="link-btn" data-own-flow="${esc(t.id)}">Give it its own</button></div>` : ''}</td><td class="pm-nowrap"><button type="button" class="btn btn-sm" data-edit-type="${esc(t.id)}">Edit</button>
         ${t.archived_at ? '' : `<a class="btn btn-sm" href="${projectHref(project.key, 'settings/forms')}" data-type-form="${esc(t.id)}">Form &amp; fields</a>`}</td></tr>`).join('')}</tbody></table></div>
     <p><button type="button" class="btn btn-primary" data-new-type>+ Work type</button></p>
     </section>
@@ -170,6 +173,7 @@ async function types(el, { project, cfg, reload }) {
   el.querySelectorAll('[data-type-form]').forEach((a) => (a.onclick = () => Object.assign(formState, { type: a.dataset.typeForm, kind: 'create', transition: '', draft: null })));
   el.addEventListener('click', async (e) => {
     const t = e.target.closest('button');
+    if (t?.dataset.ownFlow) return ownWorkflow(cfg.typeById.get(t.dataset.ownFlow));
     if (!t || (t.dataset.newType === undefined && !t.dataset.editType)) return;
     const ty = cfg.typeById.get(t.dataset.editType);
     const res = await formDialog({ title: ty ? `Work type: ${esc(ty.name)}` : 'New work type', submit: 'Save', wide: true,
@@ -208,6 +212,27 @@ async function types(el, { project, cfg, reload }) {
       } });
     if (res) reload();
   });
+
+  /** A copy of the type's shared workflow that only this type uses, so its statuses and moves can change on their own. Its items keep their status (the copy of it). */
+  async function ownWorkflow(ty) {
+    const wf = cfg.workflows.find((w) => w.id === ty.workflow_id);
+    const ok = await formDialog({ title: `Give ${esc(ty.name)} its own workflow?`, submit: 'Make a copy for it',
+      body: `<p>${esc(ty.name)} shares "${esc(wf.name)}" with ${sharing(ty) - 1} other type${sharing(ty) === 2 ? '' : 's'}. This makes a copy named "${esc(ty.name)} workflow" that only ${esc(ty.name)} uses, so you can change it without touching the others.</p>
+        <p class="hint">Its items stay in the same status (in the copy). An approval that's waiting on one of them is cancelled and can be asked for again.</p>`,
+      onSubmit: async () => {
+        const ids = new Map(cfg.statuses.filter((q) => q.workflow_id === wf.id).map((q) => [q.id, newId()]));
+        const copy = await pm.saveWorkflow(project.id, null, { name: `${ty.name} workflow`.slice(0, 80), description: `Made from "${wf.name}" for ${ty.name}.`,
+          statuses: cfg.statuses.filter((q) => q.workflow_id === wf.id).sort((x, y) => x.sort - y.sort).map(({ id, name, category, color, sort, x, y }) => ({ id: ids.get(id), name, category, color, sort, x, y })),
+          transitions: cfg.transitions.filter((q) => q.workflow_id === wf.id).map((q, n) => ({ id: newId(), name: q.name, from_status: q.from_status ? ids.get(q.from_status) : null, to_status: ids.get(q.to_status),
+            description: q.description || '', role_ids: q.role_ids || [], require_fields: q.require_fields || [], require_comment: !!q.require_comment, require_approval: !!q.require_approval,
+            no_self_approval: !!q.no_self_approval, conditions: q.conditions || null, actions: q.actions || [], sort: (n + 1) * 10 })) });
+        await pm.saveType(project.id, ty.id, { workflow_id: copy.id, mapping: Object.fromEntries(ids) });
+        return copy;
+      } });
+    if (!ok) return;
+    toast(`${ty.name} has its own workflow now.`);
+    await reload();
+  }
 }
 
 // ---- Fields --------------------------------------------------------------------------------------------

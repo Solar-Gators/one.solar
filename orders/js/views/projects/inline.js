@@ -7,7 +7,7 @@
 import { pm } from '../../projects/api.js';
 import { movesFor } from '../../projects/core.js';
 import { ieInner, can, runMove, toast, friendly, personName } from './kit.js';
-import { pickPerson, pickDate, pickPriority, pickKind, pickMove, pickNumber } from './pick.js';
+import { pickPerson, pickDate, pickPriority, pickKind, pickMove, pickNumber, VIEW_WORKFLOW } from './pick.js';
 
 const NAMES = { owner_id: 'owner', due_date: 'due date', start_date: 'start date', priority: 'priority', type_id: 'kind', estimate_hours: 'estimate', progress: 'progress' };
 const COLUMN = { owner: 'owner_id', due: 'due_date', start: 'start_date', priority: 'priority', type: 'type_id', estimate: 'estimate_hours', progress: 'progress' };
@@ -91,7 +91,8 @@ export async function saveField({ b, item, cfg, root = document, after = null, u
 async function changeStatus(btn, { b, item, cfg, root, after }) {
   const moves = movesFor(cfg, item, cfg.who);
   if (!moves.length) return toast(`${item.key} can't move from "${cfg.statusById.get(item.status_id)?.name || 'here'}" with your role.`, 'bad');
-  const id = await pickMove(btn, cfg, moves);
+  const id = await pickMove(btn, cfg, moves, { workflow: true });
+  if (id === VIEW_WORKFLOW) return (await import('./workflowEditor.js')).showWorkflow(b, cfg, item);
   if (!id) return;
   const tr = moves.find((t) => t.id === id);
   const before = { status_id: item.status_id, category: item.category };
