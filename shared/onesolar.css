@@ -146,6 +146,13 @@ p { margin: 0 0 10px; }
 .table a.mono { text-decoration: none; }
 .table tr.clickable { cursor: pointer; }
 .table tr.clickable:hover td { background: var(--row-hover); }
+/* The row J / K is on (orders/js/shortcuts.js) */
+.kbd-at { outline: 2px solid var(--blue, #2563eb); outline-offset: -2px; border-radius: var(--r-sm); }
+.table tr.kbd-at td { background: var(--row-selected); }
+.kbd-table { width: 100%; border-collapse: collapse; margin: 4px 0 10px; }
+.kbd-table td { padding: 6px 8px; border-bottom: 1px solid var(--border-soft); vertical-align: top; }
+.kbd-table td:first-child { white-space: nowrap; width: 1%; }
+kbd { font: 600 11.5px/1 var(--font); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border); border-bottom-width: 2px; background: var(--surface); color: var(--text); }
 .cell-title { font-weight: 500; }
 
 .toolbar { display: flex; gap: 10px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }

@@ -32,7 +32,7 @@ export async function renderInvItems(el, ctx) {
 
   const state = { q: query.get('q') || '', category: query.get('category') || '', location: query.get('location') || '', show: query.get('state') || 'active' };
   el.innerHTML = `${takeFlash()}${header('Items', 'Everything the shop keeps, and how much of it there is.',
-    `${can.receive() ? '<a class="btn btn-primary" href="#/inventory/items/new">Add an item</a>' : ''}
+    `${can.receive() ? '<a class="btn btn-primary" href="#/inventory/items/new" data-shortcut="create">Add an item</a>' : ''}
      <button type="button" class="btn" data-download>Download Excel</button><button type="button" class="btn" data-labels>Print labels</button>`)}
     <div class="toolbar inv-filters">
       <input type="search" data-q value="${esc(state.q)}" placeholder="Search name, SKU, part number…" aria-label="Search items" autocomplete="off">

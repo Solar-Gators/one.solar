@@ -176,7 +176,7 @@ export async function renderSponsors(el, { config, rerender, reloadConfig }) {
         <p class="subtitle">${introText('sponsors', 'Sponsorships and donations, from first contact to thank-you. Every season stays here for the next team.')}</p>
       </div>
       <div class="card-actions sp-actions">
-        ${canEdit() ? '<button type="button" class="btn btn-primary" id="new-card">+ New sponsor</button>' : ''}
+        ${canEdit() ? '<button type="button" class="btn btn-primary" id="new-card" data-shortcut="create">+ New sponsor</button>' : ''}
         ${canEdit() && hasCars(config) ? '<button type="button" class="btn" id="sp-import">Import from spreadsheet…</button>' : ''}
         ${canEdit() && outreach ? '<button type="button" class="btn" id="sp-tags">Tags</button>' : ''}
         ${canEdit() ? '<button type="button" class="btn" id="board-settings">Board settings</button>' : ''}

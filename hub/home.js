@@ -26,7 +26,7 @@
 import * as appList from './apps.js';
 import { SUPABASE_URL, SUPABASE_ANON_KEY, appUrl, isLocal, signInUrl, rememberBrand } from '../shared/onesolar.js';
 import { renderAccount, syncLogo, roleLabelOf } from '../shared/account-menu.js';
-import { rememberApps, safeHref } from '../shared/app-switcher.js';
+import { rememberApps, safeHref, mountPalette } from '../shared/app-switcher.js';
 import { startVersionCheck } from '../shared/version-check.js';
 import { startErrorReporter } from '../shared/error-reporter.js';
 
@@ -46,6 +46,7 @@ const sb = FAKE
 
 startVersionCheck(sb);
 startErrorReporter(sb, 'hub');
+mountPalette({ supabase: sb }); // Ctrl/⌘ + K: go to any app or page, or find a request, part, sponsor… (066)
 
 const me = { user: null, name: '', roles: [], perms: new Set(), roleLabel: '', guest: false };
 let waiting = []; // 040: people who signed up and wait to be accepted (for those who can accept them)
@@ -726,13 +727,11 @@ document.addEventListener('input', (e) => {
     if (x) x.name = e.target.value;
   }
 });
-// "/" (or Ctrl/⌘ + K, the app switcher's shortcut in the other apps) jumps to the search box;
-// Escape clears it; Enter opens the first match.
+// "/" jumps to the search box (Ctrl/⌘ + K opens the palette, as in every app); Escape clears it; Enter opens the first match.
 document.addEventListener('keydown', (e) => {
   const box = $('#search');
   const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName || '');
-  const ctrlK = (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k';
-  if ((ctrlK || (e.key === '/' && !typing)) && !$('#search-wrap').hidden) {
+  if (e.key === '/' && !typing && !e.ctrlKey && !e.metaKey && !e.altKey && !$('#search-wrap').hidden) {
     e.preventDefault();
     box.focus();
   } else if (e.target === box && e.key === 'Escape' && box.value) {

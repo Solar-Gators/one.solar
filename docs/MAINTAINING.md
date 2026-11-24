@@ -121,6 +121,8 @@ shared/                  What every app shares:
   onesolar.css           colours (light + dark), sizes (type, corners, control heights), status colours, top bar,
                          account menu, buttons, forms, cards, tables, alerts
   nav-more.js            top bar links stay on one line: what doesn't fit goes into "More ▾"
+  app-switcher.js        ⊞ next to the logo: every app; mounts the command palette
+  command-palette.js     Ctrl/⌘ + K: pages, apps, actions, and search_everything (066) results
   theme.js               light / dark before the page draws
   onesolar.js            site root + links between apps, sign-in link, Light / Dark setting
   account-menu.js        the account menu at the top right
