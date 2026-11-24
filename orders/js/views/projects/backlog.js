@@ -11,7 +11,7 @@ import { bindKanbanDnd } from '../../kanbanDnd.js';
 import { filterBar, bindFilterBar, filterOf, can, formDialog, attempt, toast, itemHref, typeBadge, ie, loadConfig, invalidate } from './kit.js';
 import { bindInline } from './inline.js';
 import { bindSelection, pickBox } from './select.js';
-import { quickAdd, bindQuickAdd } from './quick.js';
+import { quickAdd, addUnderButton, bindAddUnder } from './quick.js';
 
 const states = new Map();
 const stateOf = (key) => states.get(key) || states.set(key, { f: { q: '', owner: '', category: '', priority: '', type: '', more: null }, group: '' }).get(key);
@@ -32,7 +32,7 @@ export async function renderBacklog(el, scope) {
 
   const row = (i, n, list) => `<li class="pm-bl-row" data-card="${esc(i.id)}" ${plan || edit ? 'draggable="true"' : ''} tabindex="-1">
     <span class="pm-bl-grip" aria-hidden="true">⋮⋮</span>${pickBox(i)}
-    <div class="pm-bl-main">${typeBadge(cfg.typeById.get(i.type_id))} <a class="pm-keylink" href="${itemHref(i.key)}">${esc(i.key)}</a> <a href="${itemHref(i.key)}">${esc(i.title)}</a>
+    <div class="pm-bl-main">${addUnderButton(b, cfg, i)}${typeBadge(cfg.typeById.get(i.type_id))} <a class="pm-keylink" href="${itemHref(i.key)}">${esc(i.key)}</a> <a href="${itemHref(i.key)}">${esc(i.title)}</a>
       ${ie(b, cfg, i, 'status')} ${ie(b, cfg, i, 'priority', 'quiet')} ${ie(b, cfg, i, 'due', 'short')}${i.blocked ? ' <span class="chip-tone tone-red">⛔</span>' : ''}</div>
     <span class="pm-bl-est" title="Estimate (hours)">${ie(b, cfg, i, 'estimate')}</span><span class="pm-bl-owner">${ie(b, cfg, i, 'owner', 'name')}</span>
     ${plan || edit ? `<span class="pm-bl-move"><button type="button" class="btn btn-sm btn-ghost" data-up="${esc(i.id)}" ${n ? '' : 'disabled'} aria-label="Move ${esc(i.key)} up">↑</button>
@@ -58,9 +58,9 @@ export async function renderBacklog(el, scope) {
   };
   const backlog = inList('');
 
-  el.innerHTML = `<div class="pm-toolbar"><div class="card-actions"><label class="inline-field">Group by <select data-group><option value="">Nothing</option><option value="parent" ${st.group === 'parent' ? 'selected' : ''}>Parent (epic)</option></select></label></div>
-      <div class="card-actions">${plan ? (sprintsOn ? '<button type="button" class="btn" data-new-sprint>New sprint</button>' : '<button type="button" class="btn" data-sprints-on title="Plan work in cycles of a week or two. Optional.">Use sprints</button>') : ''}</div></div>
-    ${filterBar(b, st.f, { types: cfg.types })}
+  el.innerHTML = `<div class="pm-toolbar pm-tbar">${filterBar(b, st.f, { types: cfg.types })}
+      <div class="card-actions"><label class="inline-field">Group <select data-group><option value="">None</option><option value="parent" ${st.group === 'parent' ? 'selected' : ''}>By parent (epic)</option></select></label>
+        ${plan ? (sprintsOn ? '<button type="button" class="btn btn-sm" data-new-sprint>New sprint</button>' : '<button type="button" class="btn btn-sm" data-sprints-on title="Plan work in cycles of a week or two. Optional.">Use sprints</button>') : ''}</div></div>
     ${total > items.length ? `<p class="alert alert-info">Showing the first ${items.length} of ${total} open items. Narrow the filter to see the rest.</p>` : ''}
     ${sprintsOn ? open.map(sprintBox).join('') : ''}
     <section class="card"><div class="pm-sprint-head"><h2>Backlog</h2><span class="muted small">${backlog.length} item${backlog.length === 1 ? '' : 's'} · ${hours(backlog)} h estimated${backlog.some((i) => i.estimate_hours === null) ? ` · ${backlog.filter((i) => i.estimate_hours === null).length} without an estimate` : ''}</span></div>
@@ -112,7 +112,7 @@ export async function renderBacklog(el, scope) {
   // the hours under each list follow an estimate changed in place
   bindInline(el, { b, itemOf: (id) => byId.get(id), cfgOf: () => cfg, after: (i, keys) => keys.includes('estimate_hours') && again() });
   bindSelection(el, { b, items: () => items, cfgOf: () => cfg, done: again, sprints: cfg.sprints });
-  bindQuickAdd(el, { b, done: again });
+  bindAddUnder(el, { b, done: again });   // also the quick-add lines (V8a)
   el.addEventListener('change', async (e) => {
     const d = e.target.dataset;
     if (d.send && e.target.value) {

@@ -45,13 +45,13 @@ begin
   execute 'drop policy if exists "attachments: upload" on storage.objects';
   execute 'drop policy if exists "attachments: delete" on storage.objects';
 
-  -- From 025_treasurer_tools.sql (the latest version of this rule).
+  -- From 069_projects_stage2.sql (the latest version of this rule: by attachment_owner, so Projects items too).
   execute $p$
     create policy "attachments: read" on storage.objects for select to authenticated using (
       bucket_id = 'attachments' and (
         exists (
           select 1 from public.attachments a where a.path = name
-            and public.attachment_access(public.attachment_kind(a), coalesce(a.sponsor_card_id, a.request_id, a.finance_row_id), false))
+            and public.attachment_access(public.attachment_kind(a), public.attachment_owner(a), false))
         or (split_part(name, '/', 2) ~ '^[0-9a-f-]{36}$'
             and not exists (select 1 from public.attachments a where a.path = name)
             and public.attachment_access(split_part(name, '/', 1), split_part(name, '/', 2)::uuid, true))))

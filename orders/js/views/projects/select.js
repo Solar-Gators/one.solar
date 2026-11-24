@@ -2,12 +2,30 @@
  * Projects: one way to pick several items, everywhere (List, Board, Backlog, Timeline, My work). Tick the box on
  * a row or card (Shift picks everything between; X ticks the one under the mouse; Escape clears), and the same bar
  * appears at the bottom: status, owner, due date, priority, more, archive. Changes go through the same rules as
- * one at a time; anything that can't change is listed, not skipped silently.
+ * one at a time; anything that can't change is listed, not skipped silently. A change to 5 or more items shows
+ * what will change first (each item, now and after), and only happens after "Change them".
  */
-import { esc } from '../../ui.js';
+import { esc, fmtDate } from '../../ui.js';
 import { pm } from '../../projects/api.js';
-import { moveTo, moveNeeds } from '../../projects/core.js';
-import { toast, friendly, formDialog } from './kit.js';
+import { moveTo, moveNeeds, PRIORITIES } from '../../projects/core.js';
+import { toast, friendly, formDialog, personName } from './kit.js';
+
+const REVIEW_AT = 5;
+/**
+ * Before a change to many items: what changes, item by item. rows: [{ i, now, after, skip }] (skip: why that one
+ * won't change). Resolves true to go ahead. Fewer than REVIEW_AT items go ahead without asking.
+ */
+export function reviewBulk(change, rows) {
+  if (rows.length < REVIEW_AT) return Promise.resolve(true);
+  const go = rows.filter((r) => !r.skip);
+  if (!go.length) return toast(`None of them can change: ${rows[0].skip}.`, 'bad'), Promise.resolve(false);
+  return formDialog({ title: `Change ${go.length} item${go.length === 1 ? '' : 's'}?`, submit: `Change ${go.length}`, wide: true,
+    body: `<p><strong>${esc(change)}</strong></p>
+      <div class="pm-review"><table class="pm-table"><thead><tr><th>Item</th><th>Now</th><th>After</th></tr></thead><tbody>${rows.map((r) => `<tr class="${r.skip ? 'is-skip' : ''}">
+        <td><span class="pm-key">${esc(r.i.key)}</span> ${esc(r.i.title)}</td><td>${esc(r.now ?? '')}</td><td>${r.skip ? `<span class="muted">Won't change: ${esc(r.skip)}</span>` : `<strong>${esc(r.after ?? '')}</strong>`}</td></tr>`).join('')}</tbody></table></div>
+      <p class="hint">Nothing has changed yet. Each item is changed with the same rules as one at a time, and Undo isn't available for a change to many items.</p>`,
+    onSubmit: () => true }).then((ok) => ok === true);
+}
 import { pickPerson, pickDate, pickPriority, openPicker } from './pick.js';
 
 /** A tick box for an item (rows and cards). */
@@ -95,7 +113,16 @@ export function bindSelection(root, { b, items, cfgOf, done, sprints = [] }) {
     clear();
     done();
   };
+  const prio = (k) => PRIORITIES.find(([x]) => x === k)?.[1] || k || '';
   const bulk = async (patch) => {
+    const list = chosen();
+    const [change, now, after] = patch.owner_id !== undefined ? ['Owner', (i) => personName(b, i.owner_id) || 'No owner', () => personName(b, patch.owner_id) || 'No owner']
+      : patch.archived ? ['Archive them (and what\'s under them)', () => 'Open', () => 'Archived']
+        : patch.priority ? ['Priority', (i) => prio(i.priority), () => prio(patch.priority)]
+          : patch.due_date && Object.keys(patch).length === 1 ? ['Due date', (i) => (i.due_date ? fmtDate(i.due_date) : 'No date'), () => fmtDate(patch.due_date)]
+            : ['Several fields', () => '', () => [patch.start_date && `start ${fmtDate(patch.start_date)}`, patch.due_date && `due ${fmtDate(patch.due_date)}`,
+              patch.add_labels && `+ ${patch.add_labels.join(', ')}`, patch.sprint_id !== undefined && (patch.sprint_id ? 'new sprint' : 'backlog')].filter(Boolean).join(', ')];
+    if (!(await reviewBulk(change, list.map((i) => ({ i, now: now(i), after: after(i) }))))) return;
     try {
       const res = await pm.bulkUpdate([...picked], patch);
       report(res.changed, res.failed);
@@ -131,20 +158,22 @@ export function bindSelection(root, { b, items, cfgOf, done, sprints = [] }) {
       const v = await openPicker(t, { label: 'Status', search: names.size > 7, width: 240,
         options: [...names.values()].map((s) => ({ value: s.name.toLowerCase(), label: s.name, html: `<span class="chip-tone tone-${esc(s.color)} pm-status">${esc(s.name)}</span>` })) });
       if (!v) return;
-      let n = 0;
-      const failed = [];
-      t.disabled = true;
-      for (const i of list) {
+      // work out every move first, so the review shows which can't happen
+      const plan = list.map((i) => {
         const c = cfgOf(i);
         const target = c?.statuses.find((s) => s.name.toLowerCase() === v && s.workflow_id === c.typeById.get(i.type_id)?.workflow_id);
         const tr = target && moveTo(c, i, target.id, c.who);
-        if (!tr) {
-          failed.push({ key: i.key, error: target && target.id === i.status_id ? 'already there' : 'no such move' });
-          continue;
-        }
-        const need = moveNeeds(c, i, tr);
-        if (need.comment || need.keys.length) {
-          failed.push({ key: i.key, error: 'needs details: open it' });
+        const need = tr && moveNeeds(c, i, tr);
+        return { i, tr, now: c?.statusById.get(i.status_id)?.name || '', after: target?.name || names.get(v)?.name,
+          skip: !tr ? (target && target.id === i.status_id ? 'already there' : 'no such move') : need.comment || need.keys.length ? 'needs details: open it' : '' };
+      });
+      if (!(await reviewBulk(`Status → ${names.get(v)?.name || v}`, plan))) return;
+      let n = 0;
+      const failed = [];
+      t.disabled = true;
+      for (const { i, tr, skip } of plan) {
+        if (skip) {
+          failed.push({ key: i.key, error: skip });
           continue;
         }
         try {

@@ -12,6 +12,7 @@ import { eventStats, pct } from '../../events/stats.js';
 import { loadBase, needsDatabase, header, mayCreate, seesAll, runs, eventHref, categoryChip, phaseChip, standingChip, inviteWords, personName,
   placeOf, attempt, toast, formDialog, remember, downloadFile, downloadXlsx, fileDate, safeName, invalidate } from './kit.js';
 import { rsvpButtons, bindRsvp } from './home.js';
+import { projectsCard } from '../../related.js';
 
 const RSVP_WORDS = { yes: 'Going', maybe: 'Maybe', no: 'Can\'t make it' };
 /** The attendance list's columns; sign-in questions are added as q:<id>. */
@@ -76,10 +77,12 @@ export async function renderEvent(el, ctx) {
       ${e.notes ? `<div class="ev-notes">${renderRichText(e.notes)}</div>` : ''}
       ${myBlock}
     </section>
+    <div data-projects-card></div>
     ${lead ? `<nav class="page-tabs" aria-label="This event"><a href="${eventHref(id)}" class="${tab !== 'log' ? 'active' : ''}">Attendance</a><a href="${eventHref(id, 'log')}" class="${tab === 'log' ? 'active' : ''}">Log</a></nav>
       <div data-lead></div>` : ''}`;
 
   bindRsvp(el, () => myRsvp, () => ctx.rerender());
+  projectsCard(el.querySelector('[data-projects-card]'), 'event', e.id);   // V2
   if (host) bindHostActions(el, e, ctx);
   if (!lead) return;
   const box = el.querySelector('[data-lead]');

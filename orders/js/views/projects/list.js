@@ -4,11 +4,12 @@
  */
 import { esc } from '../../ui.js';
 import { pm } from '../../projects/api.js';
-import { filterBar, bindFilterBar, filterOf, itemTable, TABLE_COLUMNS, can, formDialog, attempt } from './kit.js';
-import { loadViews, viewsFor, pickView, viewPicker, bindViewPicker } from './saved.js';
+import { filterBar, bindFilterBar, filterOf, itemTable, TABLE_COLUMNS, can, formDialog, attempt, moreMenu } from './kit.js';
+import { loadViews, viewsFor, pickView, viewPicker, bindViewPicker, readySearches } from './saved.js';
+import { recentItems } from './command.js';
 import { bindInline } from './inline.js';
 import { bindSelection } from './select.js';
-import { quickAdd, bindQuickAdd } from './quick.js';
+import { quickAdd, addUnderButton, bindAddUnder } from './quick.js';
 
 const PAGE = 50;
 const states = new Map();
@@ -18,8 +19,8 @@ const stateOf = (key) => states.get(key) || states.set(key, { f: { q: '', owner:
 export async function renderList(el, scope) {
   const { b, project, cfg } = scope;
   const st = stateOf(project?.id || '');
-  const views = viewsFor(await loadViews(), 'list', project?.id);
-  if (st.view === undefined) applyView(st, pickView(views, null, b.me));
+  const views = [...readySearches(recentItems().map((r) => r.key)), ...viewsFor(await loadViews(), 'list', project?.id)];
+  if (st.view === undefined) applyView(st, pickView(views.filter((v) => !v.ready), null, b.me));
   const current = views.find((v) => v.id === st.view) || null;
   const defaults = project ? ['key', 'title', 'status', 'owner', 'priority', 'due_date'] : ['key', 'title', 'project', 'status', 'owner', 'due_date'];
   const columns = st.columns || defaults;
@@ -36,14 +37,12 @@ export async function renderList(el, scope) {
   const pages = Math.max(1, Math.ceil(page.total / PAGE));
   const canBulk = project ? can(b, project.id, 'edit') || can(b, project.id, 'create') : true;
 
-  el.innerHTML = `<div class="pm-toolbar">${viewPicker(b, views, current, { dirty: st.dirty })}
-      <div class="card-actions"><label class="inline-field">Sort <select data-sort>${SORTS.map(([k, l]) => `<option value="${k}" ${st.sort === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
-        <button type="button" class="btn btn-sm" data-dir aria-label="Reverse the order">${st.dir === 'asc' ? '↑' : '↓'}</button>
-        <button type="button" class="btn btn-sm" data-columns>Columns</button><button type="button" class="btn btn-sm" data-csv>Download</button></div></div>
-    ${filterBar(b, st.f, { types: scope.types })}
+  el.innerHTML = `<div class="pm-toolbar pm-tbar">${viewPicker(b, views, current, { dirty: st.dirty })}${filterBar(b, st.f, { types: scope.types })}
+      <div class="card-actions"><select data-sort aria-label="Sort">${SORTS.flatMap(([k, l]) => ['asc', 'desc'].map((d) => `<option value="${k}:${d}" ${st.sort === k && st.dir === d ? 'selected' : ''}>${l} ${d === 'asc' ? '↑' : '↓'}</option>`)).join('')}</select>
+        ${moreMenu([['data-columns', 'Columns…'], ['data-csv', 'Download (CSV)']])}</div></div>
     <p class="muted small" aria-live="polite">${page.total} item${page.total === 1 ? '' : 's'}${page.total > PAGE ? `, showing ${st.page * PAGE + 1}–${Math.min(page.total, (st.page + 1) * PAGE)}` : ''}
       ${page.items.length ? '<span class="pm-tip">Click a status, owner, priority or date to change it.</span>' : ''}</p>
-    ${itemTable(b, page.items, scope.cfgOf, { columns, select: canBulk,
+    ${itemTable(b, page.items, scope.cfgOf, { columns, select: canBulk, addUnder: (c, i) => addUnderButton(b, c, i),
       empty: Object.values(st.f).some((v) => v && v !== 'open') ? '<p><strong>No items match.</strong></p><p><button type="button" class="btn btn-sm" data-clear-filters>Clear the filter</button></p>'
         : project ? '<p><strong>No open items in this project yet.</strong></p><p>Type a title below and press Enter. You can fill in the rest later, right in the list.</p>'
           : '<p><strong>Nothing open that you can see.</strong></p><p>Items show here once they\'re added to a project.</p>',
@@ -59,8 +58,7 @@ export async function renderList(el, scope) {
   bindFilterBar(el, b, st.f, changed, { fields: cfg?.fields, statuses: scope.statuses, sprints: cfg?.sprints });
   bindViewPicker(el, { b, kind: 'list', projectId: project?.id, views, current, getConfig: () => ({ filter_state: st.f, sort: st.sort, dir: st.dir, columns }),
     onPick: (v, id) => (applyView(st, v, id), scope.rerender()) });
-  el.querySelector('[data-sort]').onchange = (e) => ((st.sort = e.target.value), changed());
-  el.querySelector('[data-dir]').onclick = () => ((st.dir = st.dir === 'asc' ? 'desc' : 'asc'), changed());
+  el.querySelector('[data-sort]').onchange = (e) => (([st.sort, st.dir] = e.target.value.split(':')), changed());
   el.querySelectorAll('[data-page]').forEach((n) => (n.onclick = () => ((st.page = Number(n.dataset.page)), scope.rerender())));
   el.querySelector('[data-columns]').onclick = async () => {
     const all = [...TABLE_COLUMNS, ...custom];
@@ -78,7 +76,7 @@ export async function renderList(el, scope) {
   const byId = new Map(page.items.map((i) => [i.id, i]));
   bindInline(el, { b, itemOf: (id) => byId.get(id), cfgOf: scope.cfgOf });
   if (canBulk) bindSelection(el, { b, items: () => page.items, cfgOf: scope.cfgOf, done: () => scope.rerender(), sprints: cfg?.sprints || [] });
-  bindQuickAdd(el, { b, done: () => scope.rerender() });
+  bindAddUnder(el, { b, done: () => scope.rerender() });   // also the quick-add lines (V8a)
   el.querySelector('.empty [data-clear-filters]')?.addEventListener('click', () => {
     Object.assign(st.f, { q: '', owner: '', category: '', priority: '', type: '', more: null });
     changed();

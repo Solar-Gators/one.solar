@@ -323,7 +323,7 @@ export const api = {
 
   /** Files and links of one sponsor card / request / Finances row, oldest first. Files get a 1-hour link (`href`). */
   async listAttachments(kind, ownerId) {
-    const column = { sponsor: 'sponsor_card_id', request: 'request_id', finance: 'finance_row_id', purchase: 'finance_purchase_id' }[kind];
+    const column = { sponsor: 'sponsor_card_id', request: 'request_id', finance: 'finance_row_id', purchase: 'finance_purchase_id', item: 'pm_item_id' }[kind];
     const { data, error } = await supabase.from('attachments').select('*').eq(column, ownerId).order('created_at');
     if (error) return null; // before migration 017
     const paths = data.filter((a) => a.path).map((a) => a.path);

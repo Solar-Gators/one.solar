@@ -104,3 +104,39 @@ export function bindQuickAdd(root, { b, done }) {
 
 /** For a link in a notice: the item's page. */
 export const openHref = (item) => itemHref(item.key);
+
+/**
+ * V8a: a "+" on a row that adds an item under it, right there (the parent is set). Shown only when this person can
+ * add items to the project and the project's levels allow something under that kind of item.
+ */
+export function addUnderButton(b, cfg, i) {
+  if (!cfg || i.category === 'done' || i.archived_at || !can(b, i.project_id, 'create')) return '';
+  const parentType = cfg.typeById.get(i.type_id);
+  if (!parentType || !cfg.types.some((t) => !t.archived_at && (t.parent_type_ids?.length ? t.parent_type_ids.includes(parentType.id) : t.level > parentType.level))) return '';
+  return `<button type="button" class="pm-add-under" data-add-under="${esc(i.id)}" data-key="${esc(i.key)}" data-project="${esc(i.project_id)}" data-type="${esc(i.type_id)}" title="Add an item under ${esc(i.key)}" aria-label="Add an item under ${esc(i.key)}">+</button>`;
+}
+
+const underBound = new WeakSet();
+/** V8a: open (or close) the one-line form under a row whose "+" was clicked. Rows are <tr> or <li>. */
+export function bindAddUnder(root, { b, done }) {
+  bindQuickAdd(root, { b, done });
+  if (underBound.has(root)) return;
+  underBound.add(root);
+  root.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-add-under]');
+    if (!btn || !root.contains(btn)) return;
+    const row = btn.closest('tr, li');
+    const next = row?.nextElementSibling;
+    if (next?.matches('.pm-add-under-row')) return void next.remove();
+    root.querySelectorAll('.pm-add-under-row').forEach((x) => x.remove());
+    const form = quickAdd(b, { project_id: btn.dataset.project, parent_id: btn.dataset.addUnder, parent_type_id: btn.dataset.type },
+      { placeholder: `+ Add an item under ${btn.dataset.key} (Enter to add, Esc to close)`, label: `Add an item under ${btn.dataset.key}` });
+    const holder = document.createElement(row.tagName === 'TR' ? 'tr' : 'li');
+    holder.className = 'pm-add-under-row';
+    holder.innerHTML = row.tagName === 'TR' ? `<td colspan="${row.children.length}">${form}</td>` : form;
+    row.after(holder);
+    const input = holder.querySelector('input[type=text]');
+    input.addEventListener('keydown', (k) => k.key === 'Escape' && (holder.remove(), btn.focus()));
+    input.focus();
+  });
+}

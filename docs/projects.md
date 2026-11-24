@@ -22,7 +22,7 @@ can set up a completely new kind of project without a developer.
 | **Timeline** | A Gantt chart like the team's roadmap slides: drag to plan (with Undo), click for details, draw dependencies, present or export. The forecast, baseline, critical path and what-ifs are under Plan. |
 | **Calendar** | Deadlines, milestones, starts and project events, by month, week or agenda. Drag a deadline to another day. |
 | **Documents** | The project's linked documents (Teams / SharePoint / OneDrive / GitHub / CAD…). |
-| **Settings** | Details, People & roles, Work types, Workflows, Fields, Forms, Rules, Templates. |
+| **Settings** | Details, People & roles, Work types & fields, Workflows, Rules. Forms open from a work type; Templates from Details. |
 | **Boards / Timeline / Calendar** (top menu) | The same views across every project you can see, for the car cycle chosen at the top. The Timeline has levels: Car → CE division → subsystem → project → work (see below). |
 | **Kinds of work** | The team's one list of kinds of work (Design Task, Calc, Design Review…): the same name, icon and color in every project. Leads change it. |
 | **Dashboards** | A board of widgets you can add, remove, reorder and save (for yourself, or shared with the team); **Workload**; **Weekly review**. |
@@ -94,7 +94,7 @@ The database checks every change and every read: hiding a button is never the pr
 
 ## Setting a project up (no code)
 
-**Work types** (Settings → Work types): name, icon, color, level (0 is the top, an epic), which types it can go
+**Work types** (Settings → Work types & fields): name, icon, color, level (0 is the top, an epic), which types it can go
 under, its workflow, whether it's a milestone, and what new items of that type start with.
 
 **Kinds of work for the whole team** (Projects → Kinds of work, 063). Kinds like Design Task, Calc or Design Review
@@ -121,7 +121,7 @@ Statuses only ever change through a move. The board, the list, My work and the i
 a move the workflow doesn't have, or that the person's role may not make, is refused everywhere, including for
 someone calling the database directly.
 
-**Fields** (Settings → Fields): short / long / formatted text, whole number, number, date, date and time, checkbox,
+**Fields** (Settings → Work types & fields → All fields): short / long / formatted text, whole number, number, date, date and time, checkbox,
 dropdown (one or several choices), person, people, link, tags, duration, money, and calculated. Each has help text, a
 starting value, limits (minimum, maximum, length, pattern), and can be limited to some work types. Values are checked
 by the database, kind by kind. Every field can be a list column, a filter, a board swimlane or card detail, and
@@ -132,7 +132,7 @@ comparisons, `and or not`, `a ? b : c`, and `min max round abs ceil floor if coa
 is worked out in the page by its own parser (never `eval`, never SQL), shown on the item and in lists, and not stored,
 so a calculated field can't be filtered on.
 
-**Forms** (Settings → Forms): for each work type (or the whole project) and each of *creating*, *editing*, *the
+**Forms** (Settings → Work types & fields → a type's *Form & fields*): for each work type (or the whole project) and each of *creating*, *editing*, *the
 item's page* and *making a particular move*: which fields, in which sections and order, and which are required, with a
 live preview. A type without its own form uses the project's; without that, the standard one.
 
@@ -142,20 +142,68 @@ needs *Create projects*), or for people you pick. A shared view never shows anyo
 see.
 
 **Filters** are built from conditions (field, comparison, value) joined by *all of* / *any of*, with groups. They are
-a checked model that the database turns into its own query; no text from a filter is ever run as SQL.
+a checked model that the database turns into its own query; no text from a filter is ever run as SQL. Since 069 a
+condition can also check **Everything under it is done**, the **Parent's status**, and **Status history** (has it ever
+been in a status: now, or any earlier move to or from it). The same conditions work in views, rules and workflow moves,
+so a move can wait until all sub-items are done or the parent reaches a status. Saving a workflow warns about a
+status no chain of moves leads to.
 
 **Rules** (Settings → Rules): *when* (an item is created, changed, changes status, gets a new owner, is commented on,
 everything it was waiting on is finished, a milestone is reached, is due soon, is overdue, or on a schedule) → *if*
 (conditions) → *then* (send a notice, comment, move it to a status, assign, set a field, add a label, add a watcher,
-create an item). "Try it" shows which items match without doing anything. Every run is logged with its result. A rule
+create an item, move its parent once everything under it is done). **Starter rules** (069) open the rule dialog
+filled in for this project: close the parent when everything under it is done, assign it to whoever starts it, tell
+everyone on it 3 days before it's due, and recurring work (a new item every week; any schedule and item can be set).
+Nothing is saved until Save. "Try it" shows which items match without doing anything. Every run is logged with its result. A rule
 that fails is logged and never stops what the person was doing; rules can set each other off at most three deep; a
 rule that runs 60 times in a minute is paused; a timed rule runs once per item per date.
 
-**Templates** (top menu, and Settings → Templates): the whole set-up as one checked document. *New project* starts
+**Templates** (top menu → More, and Settings → Details → *Templates…*): the whole set-up as one checked document. *New project* starts
 from one. *Apply to a project* brings chosen parts into a running project after a preview of exactly what would be
 added or updated; it matches by name, never removes anything and never touches existing items. Templates can be
 exported and imported as a file; an imported file is tried on a scratch project that is thrown away, and refused whole
 if any part is wrong. Three come built in: *Simple board*, *Engineering design*, *Manufacturing*.
+
+**Smaller set-up and everyday helpers (draft, with 069):**
+- *Work types → Form & fields* opens that type's form with the project's unused fields beside it. Click a field to add
+  it to the last section, or use *New field* to make one there (it's ticked for that type). Nothing is kept until
+  *Save this form*. The full Forms page and the All fields list are still there for bulk work.
+- *Details → Tabs* hides tabs the project doesn't use (a hidden tab still opens from a link). *Details → Phases* are
+  named date ranges (Design, Build, Test) shaded on the timeline; they never move items.
+- An item's *+ Link a record* picks the kind of record inside one dialog (only the kinds your role can link). Events and
+  sponsors show a *Projects* card listing the items linked to them.
+- Calendar: *No date yet* lists open undated items; drag one onto a day or use *Pick a date*.
+- Board: a parent chip on cards (click to show only that parent's items), a right-click or ⋯ menu (move, assign,
+  copy link, add a related item, archive), and *Stand-up*, which walks the board one person at a time with a 2-minute
+  clock (arrow keys move on, Esc ends it).
+- List and Backlog: the **+** on a row adds an item under it, right there.
+
+**More Jira-style helpers (draft, with 069):**
+- *Ready-made searches* at the top of the List's view picker: My open items, Reported by me, Everything open, Done,
+  Changed in the last 7 days, Finished in the last 14 days, Worked on by me (last 30 days), Recently viewed. They can't
+  be changed or deleted; *Save as…* keeps a copy to change.
+- Board card menu: *Change parent…* (only open items of a kind it can go under) and *Flag as blocked…* / *Clear the
+  blocked flag* (the same Blocked flag and reason as on the item).
+- *+ Link a record*: type a record's number (an exact match comes first, so Enter links it), or paste a one.solar link
+  to an order, part, event, sponsor or item and it jumps to that record. On *Related item*, with nothing typed, it
+  lists the items you opened lately.
+- Dropdown choices can have colors (Settings → Work types & fields → All fields → the field → a color per choice). They show as colored tags on
+  cards, lists and items. Applying a template doesn't carry the colors yet.
+- Summary: *This week* (finished, changed and added in the last 7 days, and what's due in the next 7) and *Epic
+  progress* (each top-level item and how many of the items directly under it are done).
+- My work: *Worked on* (items you changed, moved or commented on in the last 30 days) and *Recently viewed*.
+- Changing 5 or more items at once (the bar at the bottom) first shows every item, what it is now and what it will
+  be, and which ones won't change and why. Nothing changes until *Change N*.
+- Starter rule *Close the items under it when it's done* (rule action *Move the open items under it*). An item under
+  it whose workflow has no such move, or whose move needs a field that's empty, is left as it is and counted in the
+  rule's log.
+- Item page: pin fields to the top of the side panel (📌, on every item, for you) and *Hide empty fields*. Both are
+  kept on this device only. *⋯ → Copy this item* makes a new item with the same kind, fields, owner, priority,
+  labels and description, and optionally its checklist, parent and dates. Comments, history, files and links aren't
+  copied.
+- *Files* on an item: the same files & links as Orders and Sponsors (PDF, images, Office files, zip; 10 MB each; or a
+  link). Anyone who can see the item sees them; whoever can edit the item adds and removes them. Adding and removing
+  shows in the item's history.
 
 ## Car cycles
 
@@ -223,7 +271,7 @@ choices are remembered per project on their own device.
   so a plan that starts months from now isn't squeezed by the empty time before it. **Today** scrolls back to today.
   The zoom is remembered per project in this browser (the old Season choice became "Fit: everything shown").
 - **Color:** kind of work (default), status, subsystem, owner or priority. Kind colors are the work types' colors
-  (Settings → Work types).
+  (Settings → Work types & fields).
 - **Rows:** **Group by** what's under what (default), owner, kind of work, status, subsystem, or nothing (one list).
   **Order** inside a group: as planned, by start date, by end date, or what waits on what (an item comes after what it
   waits on). **Pack rows** puts things that don't overlap in time on one row, so the chart is shorter; the row's name
@@ -289,7 +337,29 @@ original in Microsoft 365.
 - The same model holds GitHub, Onshape / GrabCAD, Google Drive and other one.solar apps (GatorWire, Orders…).
 - `pm_resources.meta` is there for a later Graph sync (file ids, modified dates) without changing what's stored.
 
+### A tidier layout (C1–C10)
+
+- **Item page:** six cards. *Related work* holds the items under it and its dependencies (empty parts hide);
+  *Links & files* holds linked records, documents and uploaded files behind one *+ Add* menu. History is folded.
+  Empty fields hide unless you can fill them in place (*Show N empty fields*).
+- **List, Board, Backlog, Calendar:** one toolbar line: the saved view (with *Save* only when something changed),
+  search, owner and a *Filter* menu (status, kind, priority, more conditions); the rarer actions sit under ⋯.
+- **Timeline:** one zoom menu, Today and Fit together, *Color by* inside Show, Present under ⋯. A wider work
+  column, titles on two lines, and phase and cycle names that stay in view while you scroll.
+- **Summary:** seven cards. *Coming up* has the last / next 7 days; one *Progress* card switches between by epic and
+  by subsystem; documents are one line under *How it's going*.
+- **My work:** Watching, Worked on, Viewed and Finished share one card with tabs.
+- **Settings:** five tabs. Fields sit under the work types; Forms and Templates open from there and from Details
+  (their old links still work).
+- **Top menu:** My work, Projects, Timeline, Calendar, Dashboards, and *More* (Boards, Kinds of work, Templates),
+  so it fits on one line down to 1120px wide.
+- **Help text:** one short line on the page; the longer explanation opens from the ⓘ next to the heading.
+
 ## Other one.solar apps
+
+Links to other apps go through the **link registry** (068): each kind of record is a row in `os_link_types`, and its
+app says what matches a search and what each record is now. Adding an app needs no Projects change; see
+[integrations.md](integrations.md).
 
 - **Orders**: link an item to a purchase request; the request's status is read live (so "not here yet" shows on the
   item). Projects never changes a request. The project's **Summary** adds up its linked requests (spent: ordered or received; committed: approved, not ordered yet; waiting for approval) next to the project's own budget (**Set budget…**, for whoever can configure the project), and the request's page in Orders lists the project items it's linked to (migration 060).
@@ -389,8 +459,8 @@ Said plainly, so nobody expects it:
 - Workflow moves have conditions, required fields, comments, approvals and follow-up actions, but not arbitrary
   validators or scripts; rules have no branching ("else") and can't call other systems (no webhooks).
 - No live updates: a page shows what was there when it loaded and refuses a save made from stale data.
-- No file attachments on items: documents are linked, not uploaded. No Microsoft Graph, so no file previews,
-  permission checks or "recent files".
+- Files can be attached to items (10 MB each, the shared files bucket), but documents from Teams or SharePoint are
+  linked, not uploaded. No Microsoft Graph, so no file previews, permission checks or "recent files".
 - Calculated fields are display-only (not filterable or sortable in the database).
 - The timeline schedules forward only, in whole days, with one calendar per project; it has no resource levelling
   and no per-person calendars. Workload uses estimates and due dates, not hours actually spent.

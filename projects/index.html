@@ -39,12 +39,13 @@
       <nav class="nav signed-in-only" id="main-nav" aria-label="Main">
         <a href="#/projects" data-nav="pm-mine">My work</a>
         <a href="#/projects/all" data-nav="pm-projects">Projects</a>
-        <a href="#/projects/boards" data-nav="pm-boards">Boards</a>
         <a href="#/projects/timeline" data-nav="pm-timeline">Timeline</a>
         <a href="#/projects/calendar" data-nav="pm-calendar">Calendar</a>
         <a href="#/projects/dashboards" data-nav="pm-dash">Dashboards</a>
-        <a href="#/projects/kinds" data-nav="pm-kinds">Kinds of work</a>
-        <a href="#/projects/templates" data-nav="pm-templates" data-perm="projects.create projects.manage" hidden>Templates</a>
+        <!-- C9: the less-used pages always sit under "More ▾" on a laptop (data-fold="always", shared/nav-more.js); phones list them with the rest -->
+        <a href="#/projects/boards" data-nav="pm-boards" data-fold="always">Boards</a>
+        <a href="#/projects/kinds" data-nav="pm-kinds" data-fold="always">Kinds of work</a>
+        <a href="#/projects/templates" data-nav="pm-templates" data-perm="projects.create projects.manage" hidden data-fold="always">Templates</a>
       </nav>
 
       <a class="btn btn-primary new-cta signed-in-only" href="#/projects/inbox" data-nav="pm-inbox" aria-label="Inbox"><span aria-hidden="true">✉</span><span class="cta-label"> Inbox</span><span class="pm-unread" id="pm-unread" hidden></span></a>

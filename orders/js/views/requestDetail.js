@@ -9,7 +9,6 @@
  * Plus, for the Treasurer: private notes (the ledger line's), and deleting a request entirely (025).
  */
 import { api } from '../api.js';
-import { supabase } from '../supabase.js';
 import { renderAttachments } from '../attachments.js';
 import { auth } from '../auth.js';
 import {
@@ -23,6 +22,7 @@ import { COMMITTED, stepChoices, stepOf } from '../ledger.js';
 import { inv } from '../inventory/api.js';
 import { fmtNum } from '../inventory/core.js';
 import { appUrl } from '../../../shared/onesolar.js';
+import { linkedProjectItems } from '../related.js';
 
 /** Copy buttons (for pasting into purchasing forms) go to whoever Admin → Request page says. */
 let layout = null; // set on each render from the `layout` settings
@@ -1267,8 +1267,7 @@ const PM_PERMS = ['projects.view', 'projects.create', 'projects.manage'];
  */
 async function projectsPanel(box, r, config) {
   if (!box || Number(config.schemaVersion) < 60 || !PM_PERMS.some((p) => auth.can(p))) return;
-  const { data } = await supabase.from('pm_refs').select('item_id, pm_items(key, title)').eq('kind', 'order').eq('ref_id', r.id);
-  const items = (data || []).map((x) => x.pm_items).filter(Boolean);
+  const items = await linkedProjectItems('order', r.id).catch(() => []);   // 068: the shared link helper
   if (!items.length || !box.isConnected) return;
   box.innerHTML = `<section class="card"><h2>Projects</h2><ul class="plain-list">${items.map((i) =>
     `<li><a href="${esc(appUrl(`projects/#/projects/item/${encodeURIComponent(i.key)}`))}">${esc(i.key)}</a> ${esc(i.title)}</li>`).join('')}</ul>

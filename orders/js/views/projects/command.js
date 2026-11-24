@@ -25,7 +25,7 @@ export function noteRecentItem(item) {
     localStorage.setItem(RECENT, JSON.stringify([{ key: item.key, title: item.title }, ...list].slice(0, 8)));
   } catch { /* fine */ }
 }
-const recentItems = () => {
+export const recentItems = () => {
   try {
     return JSON.parse(localStorage.getItem(RECENT) || '[]');
   } catch {

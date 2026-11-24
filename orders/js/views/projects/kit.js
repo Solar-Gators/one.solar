@@ -133,12 +133,17 @@ export const header = (title, subtitle = '', actions = '') => `<div class="page-
   ${actions ? `<div class="card-actions">${actions}</div>` : ''}</div>`;
 
 const PROJECT_TABS = [['', 'Summary'], ['list', 'List'], ['board', 'Board'], ['backlog', 'Backlog'], ['timeline', 'Timeline'], ['calendar', 'Calendar'], ['docs', 'Documents'], ['settings', 'Settings']];
-/** A project's top: name, key, and its tabs. Settings shows only to people who can change something there. */
+/**
+ * A project's top: name, key, and its tabs. Settings shows only to people who can change something there. Tabs the
+ * project hides (V7, Settings → Details) are left out, but still open from a link (and show while open).
+ */
+export const OPTIONAL_TABS = PROJECT_TABS.filter(([k]) => k && k !== 'settings');
 export function projectTop(b, project, active, actions = '') {
   const settings = ['configure', 'workflows', 'members', 'automations'].some((c) => can(b, project.id, c));
+  const hidden = project.settings?.hidden_tabs || [];
   return `${header(`${esc(project.name)} <span class="pm-key">${esc(project.key)}</span>`,
     `${project.archived_at ? '<span class="chip-tone tone-gray">Archived</span> ' : ''}${project.visibility === 'private' ? '<span class="chip-tone tone-purple" title="Only its members can see this project">Private</span> ' : ''}${esc(project.description.split('\n')[0] || '')}`, actions)}
-  <nav class="pm-tabs" aria-label="${esc(project.name)}">${PROJECT_TABS.filter(([k]) => k !== 'settings' || settings)
+  <nav class="pm-tabs" aria-label="${esc(project.name)}">${PROJECT_TABS.filter(([k]) => (k !== 'settings' || settings) && (!hidden.includes(k) || k === active))
     .map(([k, label]) => `<a href="${projectHref(project.key, k)}" ${k === active ? 'aria-current="page"' : ''}>${label}</a>`).join('')}</nav>`;
 }
 
@@ -479,17 +484,44 @@ export const moveSelect = (cfg, item, label = 'Move to…') => {
  * The filter bar every list, board, timeline and calendar has. state: { q, owner, category, priority, type,
  * more (an advanced condition) }. onChange() when anything changes.
  */
+/**
+ * The filter bar (C3: the same on List, Board, Backlog, Calendar and Timeline). Search and owner stay out; status,
+ * kind, priority and "more conditions" are under one Filter button that counts what's set.
+ */
+let keepFilterOpen = false;
 export function filterBar(b, state, { types = [] } = {}) {
   const typeNames = [...new Set(types.filter((t) => !t.archived_at).map((t) => t.name))].sort();
+  const set = [state.category && state.category !== 'open', state.type, state.priority, state.more].filter(Boolean).length;
+  const open = keepFilterOpen;
+  keepFilterOpen = false;
   return `<div class="pm-filters" data-filters>
-    <input type="search" data-f="q" placeholder="Search title, key, description" aria-label="Search" value="${esc(state.q || '')}">
+    <input type="search" data-f="q" placeholder="Search" aria-label="Search title, key, description" value="${esc(state.q || '')}">
     <select data-f="owner" aria-label="Owner">${opt('', 'Anyone', !state.owner)}${opt('me', 'Me', state.owner === 'me')}${opt('none', 'No owner', state.owner === 'none')}${b.people.map((p) => opt(p.id, p.full_name || p.email, p.id === state.owner)).join('')}</select>
-    <select data-f="category" aria-label="Status">${opt('', 'Any status', !state.category)}${opt('open', 'Not done', state.category === 'open')}${CATEGORIES.map(([k, l]) => opt(k, l, state.category === k)).join('')}</select>
-    <select data-f="type" aria-label="Kind">${opt('', 'Any kind', !state.type)}${typeNames.map((n) => opt(n, n, state.type === n)).join('')}</select>
-    <select data-f="priority" aria-label="Priority">${opt('', 'Any priority', !state.priority)}${PRIORITIES.map(([k, l]) => opt(k, l, state.priority === k)).join('')}</select>
-    <button type="button" class="btn btn-sm${state.more ? ' is-on' : ''}" data-more-filters>${state.more ? 'More filters ●' : 'More filters'}</button>
+    <details class="pm-pop pm-filter-pop" ${open ? 'open' : ''}><summary class="btn btn-sm${set ? ' is-on' : ''}">Filter${set ? ` · ${set}` : ''}</summary>
+      <div class="pm-more-pop pm-filter-body">
+        <label>Status <select data-f="category">${opt('', 'Any status', !state.category)}${opt('open', 'Not done', state.category === 'open')}${CATEGORIES.map(([k, l]) => opt(k, l, state.category === k)).join('')}</select></label>
+        <label>Kind <select data-f="type">${opt('', 'Any kind', !state.type)}${typeNames.map((n) => opt(n, n, state.type === n)).join('')}</select></label>
+        <label>Priority <select data-f="priority">${opt('', 'Any priority', !state.priority)}${PRIORITIES.map(([k, l]) => opt(k, l, state.priority === k)).join('')}</select></label>
+        <button type="button" class="btn btn-sm${state.more ? ' is-on' : ''}" data-more-filters>${state.more ? 'More conditions ●' : 'More conditions…'}</button>
+      </div></details>
     ${Object.values(state).some(Boolean) ? '<button type="button" class="btn btn-sm btn-ghost" data-clear-filters>Clear</button>' : ''}
   </div>`;
+}
+/** C3: a "⋯" menu of less-used actions. items: [[data-attribute, label], …] (empty ones are left out). */
+export const moreMenu = (items, label = 'More') => {
+  const list = items.filter(Boolean);
+  return list.length ? `<details class="pm-pop pm-dots"><summary class="btn btn-sm" aria-label="${esc(label)}" title="${esc(label)}">⋯</summary><div class="pm-more-pop">${list.map(([attr, l]) => `<button type="button" ${attr}>${l}</button>`).join('')}</div></details>` : '';
+};
+// a click outside an open toolbar menu closes it; a click on one of its buttons closes it too
+let popsBound = false;
+function bindPops() {
+  if (popsBound) return;
+  popsBound = true;
+  document.addEventListener('click', (e) => {
+    document.querySelectorAll('details.pm-pop[open]').forEach((d) => {
+      if (!d.contains(e.target) || (e.target.closest('button') && !e.target.closest('summary') && !d.classList.contains('pm-filter-pop'))) d.removeAttribute('open');
+    });
+  });
 }
 /** The filter bar's state as a condition for pm_search. */
 export function filterOf(state) {
@@ -504,6 +536,7 @@ export function filterOf(state) {
   return all.length ? { all } : null;
 }
 export function bindFilterBar(root, b, state, onChange, ctx = {}) {
+  bindPops();
   const bar = root.querySelector('[data-filters]');
   if (!bar) return;
   let timer;
@@ -511,6 +544,7 @@ export function bindFilterBar(root, b, state, onChange, ctx = {}) {
     const k = e.target.dataset.f;
     if (!k) return;
     state[k] = e.target.value;
+    if (e.target.closest('.pm-filter-pop')) keepFilterOpen = true;   // the page redraws; the Filter menu stays open
     clearTimeout(timer);
     timer = setTimeout(onChange, k === 'q' ? 300 : 0);
   });
@@ -534,14 +568,16 @@ function conditionFields(b, { fields = [], statuses = [], sprints = [] } = {}) {
   return [
     ['owner', 'Owner', 'person'], ['reporter', 'Reporter', 'person'], ['priority', 'Priority', PRIORITIES.map(([k, l]) => [k, l])],
     ['category', 'Status category', CATEGORIES], ['status_name', 'Status', uniq(statuses.map((s) => [s.name, s.name]))],
+    ['been_in', 'Status history', uniq(statuses.map((s) => [s.name, s.name])), 'history'],                   // 069
+    ['parent_status', 'Parent\'s status', uniq(statuses.map((s) => [s.name, s.name]))],
     ['division', 'CE division', b.divisions.map((d) => [d.id, d.name])], ['subsystem', 'Subsystem', b.subsystems.map((s) => [s.id, s.name])],
     ['project', 'Project', b.projects.map((p) => [p.id, p.name])], ['program', 'Program', b.programs.map((p) => [p.id, p.name])],
     ...(sprints.length ? [['sprint', 'Sprint', sprints.map((s) => [s.id, s.name])]] : []),
     ['labels', 'Label', 'text'], ['title', 'Title', 'text'], ['vehicle', 'Vehicle', 'text'], ['due', 'Due date', 'date'], ['start', 'Start date', 'date'],
     ['created', 'Created', 'date'], ['updated', 'Last changed', 'date'], ['completed', 'Finished on', 'date'], ['estimate', 'Estimate (hours)', 'number'], ['progress', 'Progress %', 'number'],
     ['blocked', 'Is blocked', 'flag'], ['overdue', 'Is overdue', 'flag'], ['open_deps', 'Is waiting on another item', 'flag'], ['milestone', 'Is a milestone', 'flag'],
-    ['awaiting', 'Is awaiting approval', 'flag'], ['unassigned', 'Has no owner', 'flag'], ['mine', 'Is mine (owner or collaborator)', 'flag'], ['watching', 'I\'m watching it', 'flag'],
-    ['accepted', 'Was formally accepted', 'flag'],
+    ['awaiting', 'Is awaiting approval', 'flag'], ['unassigned', 'Has no owner', 'flag'], ['mine', 'Is mine (owner or collaborator)', 'flag'], ['watching', 'I\'m watching it', 'flag'], ['worked_on', 'I changed it in the last 30 days', 'flag'],
+    ['accepted', 'Was formally accepted', 'flag'], ['children_done', 'Everything under it is done', 'flag'],
     ...fields.filter((f) => !f.archived_at && f.type !== 'formula').map((f) => [`cf.${f.key}`, f.name,
       ['select', 'multiselect'].includes(f.type) ? f.options.map((o) => [o, o]) : ['user', 'multiuser'].includes(f.type) ? 'person'
         : ['integer', 'decimal', 'currency', 'duration'].includes(f.type) ? 'number' : ['date', 'datetime'].includes(f.type) ? 'date' : f.type === 'checkbox' ? 'cfflag' : 'text']),
@@ -554,6 +590,7 @@ const OPS = {
   date: [['within', 'in the next … days'], ['last', 'in the last … days'], ['past', 'more than … days ago'], ['lt', 'before'], ['gt', 'after'], ['eq', 'on'], ['empty', 'is empty'], ['notempty', 'is set']],
   flag: [['is', 'yes'], ['ne', 'no']],
   cfflag: [['notempty', 'yes'], ['empty', 'no']],
+  history: [['eq', 'includes'], ['ne', 'doesn\'t include']],   // 069: been_in
 };
 
 /**
@@ -564,7 +601,7 @@ export function conditionDialog(b, current, ctx = {}, title = 'Filter') {
   const defs = conditionFields(b, ctx);
   const kindOf = (f) => {
     const d = defs.find((x) => x[0] === f);
-    return !d ? 'text' : Array.isArray(d[2]) ? 'list' : d[2] === 'person' ? 'list' : d[2];
+    return !d ? 'text' : d[3] || (Array.isArray(d[2]) ? 'list' : d[2] === 'person' ? 'list' : d[2]);
   };
   const leaf = (c = {}) => ({ f: c.f || 'owner', op: c.op || '', v: c.v ?? '' });
   const toGroups = (c) => {
@@ -582,7 +619,7 @@ export function conditionDialog(b, current, ctx = {}, title = 'Filter') {
     const opSel = `<select data-op="${path}" aria-label="How">${ops.map(([o, l]) => opt(o, l, o === row.op)).join('')}</select>`;
     if (['empty', 'notempty', 'is'].includes(row.op) || kind === 'flag' || kind === 'cfflag') return opSel;
     let input;
-    if (kind === 'list') {
+    if (kind === 'list' || kind === 'history') {
       const options = d[2] === 'person' ? [['me', 'Me'], ...b.people.map((p) => [p.id, p.full_name || p.email])] : d[2];
       input = `<select data-val="${path}" aria-label="Value">${options.map(([v, l]) => opt(v, l, String(row.v) === String(v))).join('')}</select>`;
       if (!options.some(([v]) => String(v) === String(row.v))) row.v = options[0]?.[0] ?? '';
@@ -659,12 +696,12 @@ export function conditionDialog(b, current, ctx = {}, title = 'Filter') {
 }
 
 /** Rows of items as a table. columns: keys from COLS. `cfgOf(item)` gives the item's project configuration (or null). */
-export function itemTable(b, items, cfgOf, { columns = ['key', 'title', 'status', 'owner', 'priority', 'due_date'], select = false, empty = 'Nothing here.', inline = true, foot = '' } = {}) {
+export function itemTable(b, items, cfgOf, { columns = ['key', 'title', 'status', 'owner', 'priority', 'due_date'], select = false, empty = 'Nothing here.', inline = true, foot = '', addUnder = null } = {}) {
   if (!items.length) return `<div class="empty">${empty}</div>${foot}`;
   const E = (field, look) => (i, c) => (inline ? ie(b, c, i, field, look) : ieInner(b, c, i, field, look));
   const COLS = {
     key: ['Key', (i) => `<a href="${itemHref(i.key)}" class="pm-keylink">${esc(i.key)}</a>`],
-    title: ['Title', (i, c) => `${typeBadge(c?.typeById.get(i.type_id))} <a href="${itemHref(i.key)}">${esc(i.title)}</a>${i.blocked ? ' <span class="chip-tone tone-red" title="Blocked">⛔ Blocked</span>' : ''}${Number(i.open_deps) ? ` <span class="chip-tone tone-amber" title="Waiting on ${i.open_deps} other item(s)">⏳ ${i.open_deps}</span>` : ''}${Number(i.children) ? ` <span class="muted small" title="Items under it done">${i.children_done}/${i.children}</span>` : ''}`],
+    title: ['Title', (i, c) => `${addUnder ? addUnder(c, i) : ''}${typeBadge(c?.typeById.get(i.type_id))} <a href="${itemHref(i.key)}">${esc(i.title)}</a>${i.blocked ? ' <span class="chip-tone tone-red" title="Blocked">⛔ Blocked</span>' : ''}${Number(i.open_deps) ? ` <span class="chip-tone tone-amber" title="Waiting on ${i.open_deps} other item(s)">⏳ ${i.open_deps}</span>` : ''}${Number(i.children) ? ` <span class="muted small" title="Items under it done">${i.children_done}/${i.children}</span>` : ''}`],
     status: ['Status', E('status')],
     owner: ['Owner', E('owner', 'name')],
     priority: ['Priority', E('priority')],
@@ -682,6 +719,7 @@ export function itemTable(b, items, cfgOf, { columns = ['key', 'title', 'status'
     const v = f?.type === 'formula' ? evalFormula(f.formula, i) : i.custom?.[key.slice(3)];
     if (v === undefined || v === null || v === '') return '<span class="muted">—</span>';
     if (['user', 'multiuser'].includes(f?.type)) return esc([].concat(v).map((id) => personName(b, id)).join(', '));
+    if (choiceChips(f, v)) return choiceChips(f, v);
     return f?.type === 'url' ? `<a href="${esc(v)}" target="_blank" rel="noopener noreferrer">Open</a>` : esc(Array.isArray(v) ? v.join(', ') : v === true ? 'Yes' : v);
   };
   const cols = columns.map((k) => (COLS[k] ? [k, ...COLS[k]] : k.startsWith('cf.') ? [k, k.slice(3).replace(/_/g, ' '), custom(k)] : null)).filter(Boolean);
@@ -705,3 +743,62 @@ export async function shapesFor(b, projectIds) {
   })]));
   return { all: s, cfgOf: (item) => per.get(item.project_id) || null, per };
 }
+
+/**
+ * V8c: a small menu at a point (a right-click, or under a "⋯" button). entries: [{ label, run }]. Closes on a pick,
+ * Esc, or a click elsewhere; arrow keys move between entries.
+ */
+let openMenuEl = null;
+export function closeMenu() {
+  openMenuEl?.remove();
+  openMenuEl = null;
+}
+export function openMenu(x, y, entries, label = 'Actions') {
+  closeMenu();
+  const pop = document.createElement('div');
+  pop.className = 'pm-more-pop pm-float-menu';
+  pop.setAttribute('role', 'menu');
+  pop.setAttribute('aria-label', label);
+  pop.innerHTML = entries.map((e, n) => `<button type="button" role="menuitem" data-n="${n}">${esc(e.label)}</button>`).join('');
+  document.body.append(pop);
+  const r = pop.getBoundingClientRect();
+  pop.style.left = `${Math.max(8, Math.min(x, innerWidth - r.width - 8))}px`;
+  pop.style.top = `${Math.max(8, Math.min(y, innerHeight - r.height - 8))}px`;
+  openMenuEl = pop;
+  const items = [...pop.querySelectorAll('button')];
+  items[0]?.focus();
+  pop.addEventListener('click', (e) => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    closeMenu();
+    entries[Number(btn.dataset.n)].run();
+  });
+  pop.addEventListener('keydown', (e) => {
+    const at = items.indexOf(document.activeElement);
+    if (e.key === 'Escape') (e.preventDefault(), closeMenu());
+    else if (e.key === 'ArrowDown') (e.preventDefault(), items[(at + 1) % items.length].focus());
+    else if (e.key === 'ArrowUp') (e.preventDefault(), items[(at - 1 + items.length) % items.length].focus());
+  });
+  setTimeout(() => document.addEventListener('mousedown', function away(e) {
+    if (!pop.contains(e.target)) (closeMenu(), document.removeEventListener('mousedown', away));
+  }));
+}
+
+/**
+ * A dropdown field's value(s) as colored chips, using the colors picked for its choices (069, option_tones).
+ * Null when the field isn't a dropdown or none of these choices has a color (show the plain text then).
+ */
+export function choiceChips(f, v) {
+  const tones = f?.option_tones || {};
+  if (!f || !['select', 'multiselect'].includes(f.type) || !Object.keys(tones).length) return null;
+  const list = [].concat(v).filter((x) => x !== null && x !== undefined && x !== '');
+  if (!list.some((x) => tones[x])) return null;
+  return list.map((x) => (tones[x] ? `<span class="chip-tone tone-${esc(tones[x])}">${esc(x)}</span>` : `<span class="chip">${esc(x)}</span>`)).join(' ');
+}
+
+/**
+ * C10: a short line stays on the page; the longer explanation opens in place from an ⓘ. Nothing is lost, it's
+ * just folded. `text` is HTML (escape what needs it).
+ */
+export const infoTip = (html, label = 'More about this') =>
+  `<details class="pm-info"><summary aria-label="${esc(label)}" title="${esc(label)}">ⓘ</summary><div class="pm-info-body">${html}</div></details>`;

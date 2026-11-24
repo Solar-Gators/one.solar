@@ -219,12 +219,63 @@ export function filterText(c, names = {}) {
   }
   if (c.not) return `not ${filterText(c.not, names)}`;
   const label = { mine: 'mine', overdue: 'overdue', blocked: 'blocked', open_deps: 'waiting on something', milestone: 'milestones', awaiting: 'awaiting approval',
-    unassigned: 'no owner', watching: 'watching', accepted: 'accepted' }[c.f];
+    unassigned: 'no owner', watching: 'watching', accepted: 'accepted', children_done: 'everything under it done', worked_on: 'worked on by me' }[c.f];
   if (label) return c.v === false || c.op === 'ne' ? `not ${label}` : label;
   const val = (v) => (v === 'me' ? 'me' : names[c.f]?.get?.(v) || String(v));
   const v = Array.isArray(c.v) ? c.v.map(val).join(' or ') : val(c.v ?? '');
+  if (c.f === 'been_in') return `${['ne', 'nin'].includes(c.op) ? 'has never been' : 'has been'} in ${v}`;   // 069
   const op = { eq: 'is', ne: 'is not', in: 'is', nin: 'is not', lt: '<', lte: '≤', gt: '>', gte: '≥', contains: 'has', empty: 'is empty', notempty: 'is set',
     within: 'in the next', past: 'more than', last: 'in the last' }[c.op || 'eq'];
   const unit = ['within', 'past', 'last'].includes(c.op) ? (c.op === 'past' ? ' days ago' : ' days') : '';
   return `${String(c.f).replace(/^cf\./, '').replace(/_/g, ' ')} ${op}${['empty', 'notempty'].includes(c.op) ? '' : ` ${v}${unit}`}`;
+}
+
+/**
+ * 069: statuses no item can ever get to. New items start in the first status; a move "from any status" reaches its
+ * status from anywhere. Returns the statuses (in order) that no chain of moves from the first one reaches.
+ */
+export function unreachableStatuses(statuses = [], transitions = []) {
+  if (!statuses.length) return [];
+  const reached = new Set([statuses[0].id]);
+  for (let grew = true; grew;) {
+    grew = false;
+    for (const t of transitions) {
+      if ((!t.from_status || reached.has(t.from_status)) && !reached.has(t.to_status)) {
+        reached.add(t.to_status);
+        grew = true;
+      }
+    }
+  }
+  return statuses.filter((s) => !reached.has(s.id));
+}
+
+/**
+ * 069: common rules to start from, filled in for this project (its statuses and work types). Picking one opens the
+ * normal rule dialog with it filled in; nothing is saved until Save. Recurring work is just a rule on a schedule
+ * that creates an item. One whose project has nothing to point it at (no Done status…) is left out.
+ */
+export function starterRules(cfg = {}) {
+  const statuses = cfg.statuses || [];
+  const done = statuses.find((s) => s.category === 'done');
+  const doing = statuses.find((s) => s.category === 'doing');
+  const types = (cfg.types || []).filter((t) => !t.archived_at);
+  const type = types.find((t) => t.level === 1 && !t.is_milestone) || types.find((t) => !t.is_milestone) || types[0];
+  const list = [
+    done && { key: 'close_parent', label: 'Close the parent when everything under it is done',
+      rule: { name: 'Close the parent when everything under it is done', trigger: 'status', trigger_config: {},
+        conditions: { f: 'category', op: 'eq', v: 'done' }, actions: [{ type: 'move_parent', status: done.id }] } },
+    done && { key: 'close_children', label: 'Close the items under it when it\'s done',
+      rule: { name: 'Close the items under it when it\'s done', trigger: 'status', trigger_config: {},
+        conditions: { f: 'category', op: 'eq', v: 'done' }, actions: [{ type: 'move_children', status: done.id }] } },
+    doing && { key: 'assign_on_start', label: 'Assign it to whoever starts it',
+      rule: { name: 'Assign it to whoever starts it', trigger: 'status', trigger_config: { to: doing.id },
+        conditions: { f: 'unassigned' }, actions: [{ type: 'assign', user: 'actor' }] } },
+    { key: 'due_heads_up', label: 'Tell everyone on it 3 days before it\'s due',
+      rule: { name: 'Heads-up 3 days before it\'s due', trigger: 'due_soon', trigger_config: { days: 3 },
+        conditions: null, actions: [{ type: 'notify', to: 'watchers', message: '{key} "{title}" is due {due}.' }] } },
+    type && { key: 'recurring', label: 'Recurring work: a new item every week',
+      rule: { name: 'Every Monday: weekly check', trigger: 'schedule', trigger_config: { every: 'week', weekday: 1, day: 1 },
+        conditions: null, actions: [{ type: 'create_item', type_id: type.id, title: 'Weekly check', owner: 'lead', due_in_days: 4 }] } },
+  ];
+  return list.filter(Boolean);
 }

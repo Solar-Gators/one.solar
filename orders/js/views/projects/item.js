@@ -1,20 +1,25 @@
 /**
  * Projects: one work item. What's expected, when it's due, who's responsible, what's holding it up, which
  * documents matter and what "done" means, then the working parts: checklist, sub-items, dependencies, linked
- * documents and one.solar records, comments and the full history. Which fields show, and which are required,
- * comes from the project's form layout for this kind of item.
+ * documents and one.solar records, files, comments and the full history. Which fields show, and which are required,
+ * comes from the project's form layout for this kind of item. Each person can pin fields to the top of the side panel
+ * and hide empty ones (kept on this device). "Copy this item" makes a new one like it.
  */
 import { esc, fmtDate, fmtDateTime, askText, takeFlash, setFlash } from '../../ui.js';
 import { pm } from '../../projects/api.js';
-import { PRIORITIES, DEP_KINDS, layoutFor, movesFor, fieldLabel, findMentions, relDay } from '../../projects/core.js';
+import { PRIORITIES, DEP_KINDS, layoutFor, movesFor, fieldLabel, findMentions, relDay, newId } from '../../projects/core.js';
+import { renderAttachments } from '../../attachments.js';
 import { evalFormula } from '../../projects/formula.js';
 import { appUrl } from '../../../../shared/onesolar.js';
 import { needsDatabase, loadBase, loadConfig, can, header, itemHref, projectHref, personName, avatar, typeBadge, statusChip, priorityChip, dueChip, rich, formDialog, attempt, toast,
-  formSections, readFields, bindOrgPickers, loadParents, runMove, ie } from './kit.js';
+  formSections, readFields, bindOrgPickers, loadParents, runMove, ie, choiceChips, infoTip } from './kit.js';
 import { bindInline, saveField } from './inline.js';
 import { quickAdd, bindQuickAdd } from './quick.js';
 import { noteRecentItem } from './command.js';
 import { addDocDialog, docLink } from './docs.js';
+import { linkTypes, describeLinks, searchLinks, linkOption, linkedProjectItems } from '../../related.js';
+import { linkFromUrl, exactFirst } from '../../linkParse.js';
+import { recentItems } from './command.js';
 import { alumniShareCard, bindAlumniShare } from './alumni.js';
 
 export async function renderItem(el, { config, params, rerender }) {
@@ -44,11 +49,16 @@ export async function renderItem(el, { config, params, rerender }) {
   const others = await pm.itemsByIds([...new Set([...x.depsIn.map((d) => d.from_item), ...x.depsOut.map((d) => d.to_item), item.parent_id].filter(Boolean))]);
   const otherById = new Map(others.map((o) => [o.id, o]));
   const invIds = x.refs.filter((r) => r.kind === 'inventory').map((r) => r.ref_id);
-  const [orders, stock, reserved] = await Promise.all([
-    pm.requestsByIds(x.refs.filter((r) => r.kind === 'order').map((r) => r.ref_id)).catch(() => []),
+  const [live, linkKinds, stock, reserved, relatedFrom] = await Promise.all([
+    describeLinks(x.refs),                    // 068: every linked record as it is now, from its own app
+    linkTypes().catch(() => []),
     pm.inventoryByIds(invIds).catch(() => []),
     pm.inventoryReserved(invIds).catch(() => ({})),   // 061
+    linkedProjectItems('item', item.id).catch(() => []),   // 069: items that marked this one as related
   ]);
+  const fromLive = relatedFrom.length ? (await describeLinks(relatedFrom.map((o) => ({ kind: 'item', ref_id: o.id })))).get('item') || new Map() : new Map();
+  const liveChip = (d) => (d ? `${d.status ? `<span class="chip-tone tone-${esc(d.tone || 'gray')}">${esc(d.status)}</span>` : ''}${d.detail ? ` <span class="muted small">${esc(d.detail)}</span>` : ''}` : '');
+  const kindLabel = (kind) => esc(linkKinds.find((k) => k.key === kind)?.label || kind);
   /** 061: an Inventory part's stock for this item: what it needs, and whether what's left after other open items is enough. */
   const partLine = (r, o) => {
     if (!o) return '<span class="muted small">(open Inventory to see stock)</span>';
@@ -77,6 +87,7 @@ export async function renderItem(el, { config, params, rerender }) {
       if (f.type === 'date') return esc(fmtDate(v));
       if (f.type === 'currency') return esc(Number(v).toLocaleString('en-US', { style: 'currency', currency: 'USD' }));
       if (f.type === 'duration') return `${esc(v)} h`;
+      if (choiceChips(f, v)) return choiceChips(f, v);
       return esc(Array.isArray(v) ? v.join(', ') : v === true ? 'Yes' : v);
     }
     switch (key) {
@@ -100,10 +111,33 @@ export async function renderItem(el, { config, params, rerender }) {
     ? layoutFor(cfg, item.type_id, 'view') : layoutFor(cfg, item.type_id, 'edit');
   // these change right here (click the value); everything else is in "Edit"
   const INLINE = { owner: 'owner', priority: 'priority', start_date: 'start', due_date: 'due', estimate_hours: 'estimate', progress: 'progress' };
-  const details = viewLayout.map((s) => {
-    const rows = s.fields.map((f) => [f.key, INLINE[f.key] && !item.archived_at ? ie(b, cfg, item, INLINE[f.key], f.key === 'owner' ? 'name' : '') : read(f.key)]).filter(([, v]) => v !== null);
-    return rows.length ? `<h3>${esc(s.title || 'Details')}</h3><dl class="pm-dl">${rows.map(([k, v]) => `<div><dt>${esc(fieldLabel(k, cfg.fields))}</dt><dd>${v || '<span class="muted">—</span>'}</dd></div>`).join('')}</dl>` : '';
-  }).join('');
+  // a field is empty when there's nothing to show (an inline editor still counts as empty when the item has no value)
+  const isEmpty = (k) => {
+    if (k.startsWith('cf.')) return !read(k);
+    const col = { owner: 'owner_id', start_date: 'start_date', due_date: 'due_date', estimate_hours: 'estimate_hours', priority: 'priority', parent: 'parent_id', sprint: 'sprint_id',
+      division: 'division_id', subsystem: 'subsystem_id', vehicle: 'vehicle' }[k];
+    if (k === 'collaborators') return !collab.length;
+    if (k === 'labels') return !(item.labels || []).length;
+    if (k === 'progress') return false;
+    return col ? item[col] === null || item[col] === undefined || item[col] === '' : !read(k);
+  };
+  const prefs = itemPrefs();
+  const sections = viewLayout.map((s) => ({ title: s.title, rows: s.fields.map((f) => [f.key, INLINE[f.key] && !item.archived_at ? ie(b, cfg, item, INLINE[f.key], f.key === 'owner' ? 'name' : '') : read(f.key)]).filter(([, v]) => v !== null) }));
+  const allRows = sections.flatMap((s) => s.rows);
+  const pinned = prefs.pinned.map((k) => allRows.find(([r]) => r === k)).filter(Boolean);
+  // C2: empty fields are folded away (unless you choose to see them), except ones you can fill in right here
+  const foldable = (k) => !prefs.pinned.includes(k) && isEmpty(k) && !(INLINE[k] && mayEdit);
+  const emptyCount = allRows.filter(([k]) => foldable(k)).length;
+  const dlRow = ([k, v]) => {
+    const on = prefs.pinned.includes(k);
+    return `<div><dt>${esc(fieldLabel(k, cfg.fields))} <button type="button" class="pm-pin${on ? ' is-on' : ''}" data-pin-field="${esc(k)}" aria-pressed="${on}" title="${on ? 'Unpin' : 'Pin to the top (on every item, for you)'}" aria-label="${on ? 'Unpin' : 'Pin'} ${esc(fieldLabel(k, cfg.fields))}">📌</button></dt><dd>${v || '<span class="muted">—</span>'}</dd></div>`;
+  };
+  const details = (pinned.length ? `<h3>Pinned</h3><dl class="pm-dl pm-pinned">${pinned.map(dlRow).join('')}</dl>` : '')
+    + sections.map((s) => {
+      const rows = s.rows.filter(([k]) => !prefs.pinned.includes(k) && !(prefs.hideEmpty && foldable(k)));
+      return rows.length ? `<h3>${esc(s.title || 'Details')}</h3><dl class="pm-dl">${rows.map(dlRow).join('')}</dl>` : '';
+    }).join('')
+    + (emptyCount ? `<p class="pm-side-tools"><button type="button" class="btn btn-sm btn-ghost" data-hide-empty>${prefs.hideEmpty ? `Show ${emptyCount} empty field${emptyCount === 1 ? '' : 's'}` : 'Hide empty fields'}</button></p>` : '');
 
   const depRow = (d, otherId, mine) => {
     const o = otherById.get(otherId);
@@ -131,7 +165,8 @@ export async function renderItem(el, { config, params, rerender }) {
       `${moves.map((t) => `<button type="button" class="btn ${cfg.statusById.get(t.to_status)?.category === 'done' ? 'btn-primary' : ''}" data-do-move="${esc(t.id)}" title="${esc(t.description || `Move to ${cfg.statusById.get(t.to_status)?.name}`)}">${esc(t.name)}</button>`).join('')}
        ${mayEdit ? '<button type="button" class="btn" data-edit>Edit</button>' : ''}
        <button type="button" class="btn btn-ghost" data-watch>${watchers.includes(b.me) ? '★ Watching' : '☆ Watch'}</button>
-       ${may('edit') || may('delete') ? `<details class="pm-more"><summary class="btn btn-ghost" aria-label="More">⋯</summary><div class="pm-more-pop">
+       ${may('edit') || may('delete') || may('create') ? `<details class="pm-more"><summary class="btn btn-ghost" aria-label="More">⋯</summary><div class="pm-more-pop">
+          ${may('create') && !project.archived_at ? '<button type="button" data-copy-item>Copy this item</button>' : ''}
           ${may('edit') && !item.archived_at ? '<button type="button" data-move-project>Move to another project</button>' : ''}
           ${may('delete') ? `<button type="button" data-archive>${item.archived_at ? 'Restore' : 'Archive'}</button>` : ''}</div></details>` : ''}`)}
     ${pending ? `<div class="alert alert-info pm-approval"><strong>Waiting for approval:</strong> ${esc(personName(b, pending.requested_by))} asked for "${esc(cfg.transitions.find((t) => t.id === pending.transition_id)?.name || 'a move')}" ${esc(relDay(pending.requested_at))}.
@@ -154,34 +189,37 @@ export async function renderItem(el, { config, params, rerender }) {
             ${mayEdit ? `<button type="button" class="btn btn-sm btn-ghost" data-check-del="${esc(c.id)}" aria-label="Remove">✕</button>` : ''}</li>`).join('')}</ul>
           ${mayEdit ? '<form data-check-add class="pm-inline-add"><input type="text" maxlength="300" placeholder="+ Add a step" aria-label="Add a checklist step"></form>' : x.checklist.length ? '' : '<p class="muted">No checklist.</p>'}</section>
 
-        <section class="card"><h2>Items under this one ${x.children.length ? `<span class="muted">${x.children.filter((c) => c.category === 'done').length}/${x.children.length}</span>` : ''}</h2>
-          ${x.children.length ? `<ul class="pm-mini">${x.children.map((c) => `<li>${typeBadge(cfg.typeById.get(c.type_id))} <a href="${itemHref(c.key)}">${esc(c.key)} · ${esc(c.title)}</a> ${statusChip(cfg.statusById.get(c.status_id))} ${avatar(b, c.owner_id)}</li>`).join('')}</ul>` : '<p class="muted">Nothing under it.</p>'}
+        <section class="card pm-related"><h2>Related work</h2>
+          <h3>Under it ${x.children.length ? `<span class="muted">${x.children.filter((c) => c.category === 'done').length}/${x.children.length} done</span>` : ''}</h3>
+          ${x.children.length ? `<ul class="pm-mini">${x.children.map((c) => `<li>${typeBadge(cfg.typeById.get(c.type_id))} <a href="${itemHref(c.key)}">${esc(c.key)} · ${esc(c.title)}</a> ${statusChip(cfg.statusById.get(c.status_id))} ${avatar(b, c.owner_id)}</li>`).join('')}</ul>` : ''}
           ${may('create') && !item.archived_at ? quickAdd(b, { project_id: project.id, parent_id: item.id, parent_type_id: item.type_id, division_id: item.division_id || undefined, subsystem_id: item.subsystem_id || undefined },
-            { placeholder: '+ Add an item under this (Enter to add, Shift+Enter for the full form)' }) : ''}</section>
+            { placeholder: '+ Add an item under this (Enter to add)' }) : x.children.length ? '' : '<p class="muted">Nothing under it.</p>'}
+          ${x.depsIn.length ? `<h3>Waits on</h3><ul class="pm-mini">${x.depsIn.map((d) => depRow(d, d.from_item, true)).join('')}</ul>` : ''}
+          ${x.depsOut.length ? `<h3>Waiting on this</h3><ul class="pm-mini">${x.depsOut.map((d) => depRow(d, d.to_item, false)).join('')}</ul>` : ''}
+          <p class="pm-related-foot">${x.depsIn.length || x.depsOut.length ? '' : '<span class="muted small">No dependencies.</span> '}${may('plan') && !item.archived_at ? '<button type="button" class="btn btn-sm btn-ghost" data-add-dep>+ Dependency</button>' : ''}</p></section>
 
-        <section class="card"><h2>Dependencies</h2>
-          <h3>This waits on</h3>${x.depsIn.length ? `<ul class="pm-mini">${x.depsIn.map((d) => depRow(d, d.from_item, true)).join('')}</ul>` : '<p class="muted">Nothing.</p>'}
-          <h3>Waiting on this</h3>${x.depsOut.length ? `<ul class="pm-mini">${x.depsOut.map((d) => depRow(d, d.to_item, false)).join('')}</ul>` : '<p class="muted">Nothing.</p>'}
-          ${may('plan') && !item.archived_at ? '<p><button type="button" class="btn btn-sm" data-add-dep>+ Add a dependency</button></p>' : ''}</section>
-
-        <section class="card"><h2>Documents</h2>
+        <section class="card pm-links"><h2>Links &amp; files ${infoTip('Linked records show as they are now in their own app; linking never changes them. Saying how many of a part this needs reserves them in Inventory until this is done. Documents are links to Teams or SharePoint. Files are uploaded here (10 MB each); whoever can edit the item adds and removes them.')}</h2>
+          ${x.refs.length || relatedFrom.length ? `<ul class="pm-mini">${x.refs.map((r) => {
+            const d = live.get(r.kind)?.get(r.ref_id);   // null when it's gone or this person can't see it
+            const now = r.kind === 'inventory' ? partLine(r, stock.find((q) => q.id === r.ref_id))   // 061: stock and reservations
+              : liveChip(d);
+            const name = d?.path ? `<a href="${esc(appUrl(d.path))}">${esc(r.label)}</a>` : esc(r.label);
+            return `<li><span class="chip">${kindLabel(r.kind)}</span> ${name} ${now} ${r.note ? `<span class="muted small">${esc(r.note)}</span>` : ''}
+              ${mayEdit ? `<button type="button" class="btn btn-sm btn-ghost" data-unref="${esc(r.id)}" aria-label="Remove this link">✕</button>` : ''}</li>`;
+          }).join('')}${relatedFrom.map((o) => {   // 069: related from the other item (removed there)
+            const d = fromLive.get(o.id);
+            return `<li><span class="chip">${kindLabel('item')}</span> <a href="${itemHref(o.key)}">${esc(o.key)} · ${esc(o.title)}</a> ${liveChip(d)}</li>`;
+          }).join('')}</ul>` : ''}
           ${x.links.length ? `<ul class="pm-mini pm-docs">${x.links.map((l) => {
             const r = x.resources.find((q) => q.id === l.resource_id);
             return r ? `<li>${docLink(r)} ${mayEdit ? `<button type="button" class="btn btn-sm btn-ghost" data-unlink-doc="${esc(l.id)}" aria-label="Remove from this item">✕</button>` : ''}</li>` : '';
-          }).join('')}</ul>` : '<p class="muted">No documents linked.</p>'}
-          ${mayEdit || may('create') ? '<p><button type="button" class="btn btn-sm" data-add-doc>+ Link a document</button> <span class="muted small">Paste a link from Teams or SharePoint.</span></p>' : ''}</section>
-
-        <section class="card"><h2>In other one.solar apps</h2>
-          ${x.refs.length ? `<ul class="pm-mini">${x.refs.map((r) => {
-            const o = r.kind === 'order' ? orders.find((q) => q.id === r.ref_id) : stock.find((q) => q.id === r.ref_id);
-            const live = r.kind === 'order' ? (o ? `<span class="chip-tone tone-${o.status === 'Received' ? 'green' : o.status === 'Ordered' ? 'blue' : 'amber'}">${esc(o.status)}</span>${['Received'].includes(o.status) ? '' : ' <span class="muted small">not here yet</span>'}` : '')
-              : partLine(r, o);
-            const href = r.kind === 'order' ? appUrl(`orders/#/requests/${encodeURIComponent(o?.request_number || r.label.split(' · ')[0])}`) : appUrl(`inventory/#/inventory/items/${encodeURIComponent(r.ref_id)}`);
-            return `<li><span class="chip">${r.kind === 'order' ? 'Order' : 'Inventory'}</span> <a href="${esc(href)}">${esc(r.label)}</a> ${live} ${r.note ? `<span class="muted small">${esc(r.note)}</span>` : ''}
-              ${mayEdit ? `<button type="button" class="btn btn-sm btn-ghost" data-unref="${esc(r.id)}" aria-label="Remove this link">✕</button>` : ''}</li>`;
-          }).join('')}</ul>` : '<p class="muted">No orders or inventory items linked.</p>'}
-          ${mayEdit ? '<p><button type="button" class="btn btn-sm" data-add-ref="order">+ Link an order</button> <button type="button" class="btn btn-sm" data-add-ref="inventory">+ Link an inventory item</button></p>' : ''}
-          <p class="hint">Status and stock are read live from Orders and Inventory. Nothing here orders anything or changes stock; saying how many of a part this needs reserves them (Inventory shows it) until it's done.</p></section>
+          }).join('')}</ul>` : ''}
+          <div data-files></div>
+          <p class="muted" data-links-empty hidden>Nothing linked or attached yet.</p>
+          ${mayEdit || may('create') ? `<details class="pm-add-menu"><summary class="btn btn-sm">+ Add ▾</summary><div class="pm-more-pop">
+            ${mayEdit && linkKinds.length ? '<button type="button" data-add-ref="">A record from another app</button>' : ''}
+            <button type="button" data-add-doc>A document (Teams or SharePoint link)</button>
+            ${mayEdit ? '<button type="button" data-add-file>A file or link (upload)</button>' : ''}</div></details>` : ''}</section>
 
         <section class="card"><h2>Comments</h2>
           <ul class="pm-comments">${x.comments.map((c) => `<li class="${c.deleted_at ? 'is-removed' : ''}"><div class="pm-comment-head">${c.author_id ? avatar(b, c.author_id) : '<span class="pm-avatar">⚙</span>'}
@@ -191,7 +229,7 @@ export async function renderItem(el, { config, params, rerender }) {
           ${may('comment') ? `<form data-comment class="pm-comment-form"><textarea rows="3" placeholder="Write a comment. @First Last mentions someone." aria-label="Comment" required></textarea>
             <div class="form-actions"><button type="submit" class="btn btn-primary">Comment</button></div></form>` : ''}</section>
 
-        <details class="card" open><summary><h2>History</h2></summary><ul class="timeline pm-history">${x.events.map(eventRow).join('')}</ul></details>
+        <details class="card"><summary><h2>History <span class="muted small">${x.events.length}</span></h2></summary><ul class="timeline pm-history">${x.events.map(eventRow).join('')}</ul></details>
       </div>
       <aside class="pm-item-side"><section class="card">${details}
         <h3>People</h3><dl class="pm-dl"><div><dt>Reporter</dt><dd>${esc(personName(b, item.reporter_id) || '—')}</dd></div>
@@ -199,6 +237,18 @@ export async function renderItem(el, { config, params, rerender }) {
         <p class="muted small">Created ${esc(fmtDate(item.created_at))}. Last changed ${esc(fmtDateTime(item.updated_at))}.</p></section>${alumniCard}</aside>
     </div>`;
   bindAlumniShare(el, { projectId: project.id, itemId: item.id, done: () => rerender() });
+  // 069: files on the item (the same files & links as Orders and Sponsors), filled in after the page shows
+  const filesBox = el.querySelector('[data-files]');
+  // C1: files sit in "Links & files"; the card says "nothing yet" only when there are no links, documents or files
+  const linksEmpty = () => {
+    const none = !x.refs.length && !relatedFrom.length && !x.links.length && !filesBox.querySelector('.attach-list li, .attach-form');
+    const msg = el.querySelector('[data-links-empty]');
+    if (msg) msg.hidden = !none;
+  };
+  renderAttachments(filesBox, { kind: 'item', ownerId: item.id, canEdit: mayEdit, hint: 'Add a file or link', onChange: linksEmpty })
+    .then(linksEmpty)
+    .catch(() => (filesBox.innerHTML = '<p class="muted">Files couldn\'t be loaded.</p>'));
+  new MutationObserver(linksEmpty).observe(filesBox, { childList: true, subtree: true });
 
   const again = () => rerender();
   const fresh = async (fn, done) => (await attempt(fn, done)) && again();
@@ -250,6 +300,18 @@ export async function renderItem(el, { config, params, rerender }) {
     const t = e.target.closest('button');
     if (!t) return;
     const d = t.dataset;
+    if (d.addFile !== undefined) {
+      t.closest('details')?.removeAttribute('open');
+      return void filesBox.querySelector('.attach-open')?.click();
+    }
+    if (t.closest('.pm-add-menu')) t.closest('details').removeAttribute('open');
+    if (d.pinField) return void (togglePin(d.pinField), again());
+    if (d.hideEmpty !== undefined) return void (setItemPrefs({ ...itemPrefs(), hideEmpty: !itemPrefs().hideEmpty }), again());
+    if (d.copyItem !== undefined) {
+      const made = await copyDialog(b, cfg, item, x.checklist);
+      if (made) ((location.hash = itemHref(made.key)), toast(`Made ${made.key}, a copy of ${item.key}.`));
+      return;
+    }
     if (d.editDesc !== undefined) editDescription();
     else if (d.doMove) (await runMove(b, cfg, item, cfg.transitions.find((q) => q.id === d.doMove))) && again();
     else if (d.edit !== undefined) (await editDialog(b, cfg, item, collab)) && again();
@@ -265,7 +327,7 @@ export async function renderItem(el, { config, params, rerender }) {
     else if (d.addDep !== undefined) (await depDialog(b, item)) && again();
     else if (d.addDoc !== undefined) (await addDocDialog(b, project, { projectId: project.id, itemId: item.id }, { siteUrl: config.siteUrl })) && again();
     else if (d.unlinkDoc) fresh(() => pm.removeResourceLink(d.unlinkDoc));
-    else if (d.addRef) (await refDialog(item, d.addRef)) && again();
+    else if (d.addRef !== undefined) (await refDialog(item, d.addRef || null)) && again();
     else if (d.unref) fresh(() => pm.removeRef(d.unref));
     else if (d.refQty) {
       const v = await askText({ title: 'How many does this need?', label: 'Quantity', required: false, ok: 'Save', value: d.qty,
@@ -353,21 +415,73 @@ function depDialog(b, item) {
   });
 }
 
-/** Link an Orders request or an Inventory item: search, pick, optional note. */
-function refDialog(item, kind) {
+/** Link a record from another one.solar app (any kind in the link registry, 068): search, pick, optional note. */
+/**
+ * Link a record from another app, or a related item (V1: one button, the kind picked inside). Kinds the person's role
+ * can't use (the app's own rule, checked by the database) aren't offered.
+ */
+export async function refDialog(item, first) {
+  const all = await linkTypes().catch(() => []);
+  const usable = (await Promise.all(all.map((t) => searchLinks(t.key, '').then(() => t, () => null)))).filter(Boolean);
+  if (!usable.length) return toast('Your role can\'t link any kind of record here.', 'bad'), null;
+  let kind = usable.some((t) => t.key === first) ? first : usable[0].key;
+  const typeOf = () => usable.find((t) => t.key === kind);
   return formDialog({
-    title: kind === 'order' ? 'Link an order' : 'Link an inventory item', submit: 'Link it',
-    body: `<div class="field"><label for="ref-q">Find it</label><input id="ref-q" type="search" placeholder="${kind === 'order' ? 'Request number or title' : 'SKU or name'}" autocomplete="off">
+    title: 'Link a record', submit: 'Link it',
+    body: `<div class="field"><span class="small muted" id="ref-kind-label">What kind</span>
+        <span role="tablist" class="pm-seg" aria-labelledby="ref-kind-label">${usable.map((t) => `<button type="button" role="tab" data-ref-kind="${esc(t.key)}" aria-selected="${t.key === kind}">${esc(t.label)}</button>`).join('')}</span></div>
+      <div class="field"><label for="ref-q">Find it</label><input id="ref-q" type="search" placeholder="${esc(typeOf().search_hint)}" autocomplete="off">
+        <div class="hint" data-ref-hint>Type to search, type its number (like ${esc(item.key)}), or paste a one.solar link.</div>
         <select name="ref" size="6" required aria-label="Matches"></select></div>
-      <div class="field"><label for="ref-note">Note (optional)</label><input id="ref-note" name="note" type="text" maxlength="300" placeholder="${kind === 'order' ? 'e.g. Waiting on delivery before layup' : 'e.g. Needs 12 for the pack'}"></div>`,
+      <div class="field"><label for="ref-note">Note (optional)</label><input id="ref-note" name="note" type="text" maxlength="300" placeholder="${esc(typeOf().note_hint)}"></div>`,
     onOpen(form) {
       let timer;
-      const search = async () => {
-        const q = form.querySelector('#ref-q').value.trim();
-        const rows = !q ? [] : await (kind === 'order' ? pm.findRequests(q) : pm.findInventory(q)).catch((err) => (toast(err.message, 'bad'), []));
-        form.elements.ref.innerHTML = rows.map((r) => `<option value="${esc(r.id)}">${esc(kind === 'order' ? `${r.request_number} · ${r.title} (${r.status})` : `${r.sku} · ${r.name}`)}</option>`).join('');
+      const q = form.querySelector('#ref-q');
+      const hint = form.querySelector('[data-ref-hint]');
+      const pick = (key) => {
+        kind = key;
+        form.querySelectorAll('[data-ref-kind]').forEach((x) => x.setAttribute('aria-selected', String(x.dataset.refKind === key)));
+        q.placeholder = typeOf().search_hint;
+        form.querySelector('#ref-note').placeholder = typeOf().note_hint;
       };
-      form.querySelector('#ref-q').oninput = () => (clearTimeout(timer), (timer = setTimeout(search, 250)));
+      const search = async () => {
+        const text = q.value.trim();
+        let rows = [];
+        let note = 'Type to search, type its number, or paste a one.solar link.';
+        const pasted = linkFromUrl(text);
+        if (pasted) {
+          // a pasted link: go to its kind and show just that record
+          if (!usable.some((t) => t.key === pasted.kind)) note = 'Your role can\'t link that kind of record.';
+          else {
+            pick(pasted.kind);
+            rows = pasted.id ? [...(((await describeLinks([{ kind: pasted.kind, ref_id: pasted.id }])).get(pasted.kind) || new Map()).values())]
+              : (await searchLinks(pasted.kind, pasted.code).catch(() => [])).filter((r) => String(r.code || '').toUpperCase() === pasted.code);
+            note = rows.length ? 'Found the record that link points to.' : 'That link\'s record doesn\'t exist, or you can\'t see it.';
+          }
+        } else if (text) {
+          rows = exactFirst(await searchLinks(kind, text).catch((err) => (toast(err.message, 'bad'), [])), text);
+        } else if (kind === 'item') {
+          // nothing typed: the items opened lately on this device
+          const keys = recentItems().map((r) => r.key).filter((k) => k !== item.key);
+          rows = keys.length ? (await pm.search({ filter: { f: 'key', op: 'in', v: keys }, limit: 8 }).catch(() => ({ items: [] }))).items
+            .sort((a, c) => keys.indexOf(a.key) - keys.indexOf(c.key)).map((i) => ({ id: i.id, code: i.key, title: i.title })) : [];
+          if (rows.length) note = 'Recently viewed. Type to search for others.';
+        }
+        rows = rows.filter((r) => !(kind === 'item' && r.id === item.id));
+        hint.textContent = note;
+        form.elements.ref.innerHTML = rows.map((r) => `<option value="${esc(r.id)}">${esc(linkOption(r))}</option>`).join('');
+        if (rows.length) form.elements.ref.selectedIndex = 0;   // Enter links the first (an exact number match comes first)
+      };
+      q.oninput = () => (clearTimeout(timer), (timer = setTimeout(search, 250)));
+      form.querySelectorAll('[data-ref-kind]').forEach((btn) => (btn.onclick = () => {
+        pick(btn.dataset.refKind);
+        if (linkFromUrl(q.value)) q.value = '';
+        search();
+        q.focus();
+      }));
+      q.addEventListener('paste', () => setTimeout(search, 0));
+      search();
+      q.focus();
     },
     onSubmit: (form) => pm.addRef(item.id, kind, form.elements.ref.value, form.elements.note.value.trim()),
   });
@@ -391,5 +505,50 @@ async function moveDialog(b, item) {
       fill();
     },
     onSubmit: (form) => pm.moveItem(item.id, { project_id: form.elements.project.value, type_id: form.elements.type.value }),
+  });
+}
+
+// ---- per-person item page settings (this device): pinned fields, hide empty ones ----------------------------
+const PREFS = 'pm.itemPrefs';
+function itemPrefs() {
+  try {
+    const p = JSON.parse(localStorage.getItem(PREFS) || '{}');
+    return { pinned: Array.isArray(p.pinned) ? p.pinned.slice(0, 20) : [], hideEmpty: p.hideEmpty !== false };   // C2: hidden unless you show them
+  } catch {
+    return { pinned: [], hideEmpty: true };
+  }
+}
+function setItemPrefs(p) {
+  try {
+    localStorage.setItem(PREFS, JSON.stringify(p));
+  } catch { /* private window: it just isn't kept */ }
+}
+function togglePin(key) {
+  const p = itemPrefs();
+  p.pinned = p.pinned.includes(key) ? p.pinned.filter((k) => k !== key) : [...p.pinned, key];
+  setItemPrefs(p);
+}
+
+/**
+ * Copy an item: a new one in the same project with the same kind, fields and (if ticked) checklist and parent.
+ * It starts in the first status, with you as its reporter; comments, history, files and links aren't copied.
+ */
+function copyDialog(b, cfg, item, checklist) {
+  return formDialog({ title: `Copy ${esc(item.key)}`, submit: 'Make the copy',
+    body: `<div class="field"><label for="cp-title">Title</label><input id="cp-title" name="title" type="text" maxlength="200" required value="${esc(`Copy of ${item.title}`.slice(0, 200))}"></div>
+      <label class="pm-check"><input type="checkbox" name="checklist" ${checklist.length ? 'checked' : 'disabled'}> The checklist (${checklist.length} step${checklist.length === 1 ? '' : 's'}, unticked)</label>
+      ${item.parent_id ? '<label class="pm-check"><input type="checkbox" name="parent" checked> Under the same parent</label>' : ''}
+      <label class="pm-check"><input type="checkbox" name="dates"> The same start and due dates</label>
+      <p class="hint">Fields, owner, priority, labels and the description come along. Comments, history, files and links don't. It starts in the first status.</p>`,
+    onOpen: (f) => f.elements.title.select(),
+    onSubmit: (f) => pm.createItem(newId(), {
+      project_id: item.project_id, type_id: item.type_id, title: f.elements.title.value.trim(),
+      description: item.description || '', acceptance: item.acceptance || '', priority: item.priority, owner_id: item.owner_id || null,
+      division_id: item.division_id || null, subsystem_id: item.subsystem_id || null, vehicle: item.vehicle || '', estimate_hours: item.estimate_hours,
+      labels: item.labels || [], custom: item.custom || {},
+      ...(f.elements.parent?.checked ? { parent_id: item.parent_id } : {}),
+      ...(f.elements.dates.checked ? { start_date: item.start_date, due_date: item.due_date } : {}),
+      checklist: f.elements.checklist.checked ? checklist.map((c) => c.text) : [],
+    }),
   });
 }
