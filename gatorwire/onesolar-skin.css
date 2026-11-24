@@ -37,12 +37,12 @@ body { display: flex; flex-direction: column; }
 #root { flex: 1; min-height: 0; height: auto; }
 
 .os-bar {
-  flex: none; display: flex; align-items: center; gap: 12px 24px; min-height: 62px; padding: 8px 20px;
+  flex: none; display: flex; align-items: center; gap: 12px 24px; min-height: 56px; padding: 6px 20px;
   background: #fff; color: #1c2733; border-bottom: 3px solid var(--uf-orange, #f26b1d); box-shadow: 0 1px 3px rgba(11, 37, 69, .06);
   font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
-.os-brand { display: flex; align-items: center; gap: 10px; color: #0b2545; text-decoration: none; font-weight: 700; font-size: 17px; white-space: nowrap; }
-.os-logo { height: 36px; width: auto; display: block; }
+.os-brand { display: flex; align-items: center; gap: 10px; color: #0b2545; text-decoration: none; font-weight: 700; font-size: 16px; white-space: nowrap; }
+.os-logo { height: 32px; width: auto; display: block; }
 .os-divider { width: 1px; height: 24px; background: #dde3ea; }
 .os-accent { color: var(--uf-orange, #f26b1d); }
 .os-app { color: #5d6d7e; font-weight: 600; padding-left: 10px; border-left: 1px solid #dde3ea; }

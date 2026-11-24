@@ -13,6 +13,7 @@
  * Styles are built in (GatorWire doesn't load shared/onesolar.css); they follow data-theme.
  */
 import { appUrl, ROOT } from './onesolar.js';
+import { fitTopbarNav } from './nav-more.js';
 
 const KEY = 'onesolar:apps';
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -90,6 +91,7 @@ let mounted = false;
 export function mountAppSwitcher({ after = document.querySelector('.topbar .brand, .os-brand, .brand') } = {}) {
   if (mounted || !after) return;
   mounted = true;
+  fitTopbarNav();   // the page links stay on one line: what doesn't fit goes into "More ▾"
   const style = document.createElement('style');
   style.textContent = CSS;
   document.head.append(style);

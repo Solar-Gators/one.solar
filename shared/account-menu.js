@@ -18,6 +18,22 @@ import { canReport, openReportDialog } from './error-reporter.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
+/**
+ * The positions under your name in the top bar: the first one, and "+2" for the rest ("Chief Engineer +2"),
+ * with all of them in the tooltip. `label` is "Chief Engineer · Admin · President", in the roles' set order.
+ */
+export function roleBadge(label) {
+  const all = String(label || '').split('·').map((s) => s.trim()).filter(Boolean);
+  return `<span class="account-role" title="${esc(all.join(', '))}">${esc(all[0] || '')}${all.length > 1 ? ` <span class="account-more">+${all.length - 1}</span>` : ''}</span>`;
+}
+/** "Chief Engineer · Admin": the roles' labels in their set order (Admin → Roles), without Member when there are others. */
+export function roleLabelOf(keys, roles) {
+  const mine = (roles || []).filter((r) => (keys || []).includes(r.key)).sort((a, b) => (a.sort ?? 100) - (b.sort ?? 100));
+  const shown = mine.length > 1 ? mine.filter((r) => r.key !== 'member') : mine;
+  const missing = (keys || []).filter((k) => !(roles || []).some((r) => r.key === k));   // labels not loaded: the key itself
+  return [...shown.map((r) => r.label), ...(shown.length ? [] : missing)].join(' · ');
+}
+
 /** The top bar's logo: the team's own (Admin → Logo & accent), or the Solar Gators logo, which has a light and a dark version. */
 export function syncLogo() {
   const dark = document.documentElement.dataset.theme === 'dark';
@@ -50,7 +66,7 @@ export function renderAccount(host, { user, name = '', role = '', onSignOut, lin
   host.innerHTML = `<div class="account-menu">
       <button type="button" class="account-link" aria-expanded="false" aria-haspopup="true" title="${esc(user.email || '')}">
         <span class="account-name">${esc(name || user.email || '')}</span>
-        ${role ? `<span class="account-role">${esc(role)}</span>` : ''}
+        ${role ? roleBadge(role) : ''}
       </button>
       <div class="account-pop" hidden>
         <a href="${esc(appUrl('orders/#/account'))}">My account &amp; notifications</a>

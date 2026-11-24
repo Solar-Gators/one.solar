@@ -25,7 +25,7 @@
 // for 10 minutes) gets the default sections instead of a blank page.
 import * as appList from './apps.js';
 import { SUPABASE_URL, SUPABASE_ANON_KEY, appUrl, isLocal, signInUrl, rememberBrand } from '../shared/onesolar.js';
-import { renderAccount, syncLogo } from '../shared/account-menu.js';
+import { renderAccount, syncLogo, roleLabelOf } from '../shared/account-menu.js';
 import { rememberApps, safeHref } from '../shared/app-switcher.js';
 import { startVersionCheck } from '../shared/version-check.js';
 import { startErrorReporter } from '../shared/error-reporter.js';
@@ -112,10 +112,10 @@ async function loadMe() {
   }
   const [{ data: perms }, { data: labels }] = await Promise.all([
     sb.from('role_permissions').select('permission').in('role', me.roles),
-    sb.from('roles').select('key, label').in('key', me.roles),
+    sb.from('roles').select('key, label, sort').in('key', me.roles),
   ]);
   me.perms = new Set((perms || []).map((p) => p.permission));
-  me.roleLabel = me.roles.map((r) => (labels || []).find((l) => l.key === r)?.label || r).join(' · ');
+  me.roleLabel = roleLabelOf(me.roles, labels);   // same order as the other apps
   await loadWaiting();
 }
 

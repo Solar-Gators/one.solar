@@ -8,6 +8,7 @@ import { APP, APPS, homePath } from './appMode.js';
 import { hasHelp } from './views/help.js';
 import { setLedgerSettings } from './ledger.js';
 import { mountAppSwitcher } from '../../shared/app-switcher.js';
+import { roleBadge } from '../../shared/account-menu.js';
 import { startVersionCheck } from '../../shared/version-check.js';
 import { startErrorReporter, openReportDialog } from '../../shared/error-reporter.js';
 import { rememberBrand, appUrl, isSafeNext } from '../../shared/onesolar.js';
@@ -131,7 +132,7 @@ function updateChrome() {
 
   const account = document.getElementById('account-btn');
   account.innerHTML = auth.signedIn
-    ? `<span class="account-name">${esc(auth.displayName)}</span><span class="account-role" title="${esc(auth.roleLabel)}">${esc(auth.roleLabel)}</span>`
+    ? `<span class="account-name">${esc(auth.displayName)}</span>${roleBadge(auth.roleLabel)}`
     : '';
 }
 

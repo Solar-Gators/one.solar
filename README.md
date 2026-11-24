@@ -38,7 +38,9 @@ The old addresses (`/Orders-Form/…`, `/Custom-Apps/…`) still work: those rep
   then goes back to the app you came from.
 - **One look.** [`shared/onesolar.css`](shared/onesolar.css) has the colours (light and dark), the top bar, the
   account menu, buttons, form controls, cards, tables and alerts. Every app loads it first, then its own styles.
-  Change a colour there and every app follows.
+  Change a colour there and every app follows. Sizes are tokens too: six type sizes (`--fs-xs` … `--fs-xl`),
+  corners (`--r-sm`, `--r`, `--r-lg`), control heights (`--h-control`, 32px; 38px on phones) and status colours
+  (`--st-info-bg`, `--st-danger-fg`…). Use them instead of new pixel values, so the apps stay alike.
 - **One Light / Dark setting.** The account menu's **Appearance** (Auto / Light / Dark) applies to every app.
 - **The top bar.** Solar Gators logo, **one.solar** (back to the home screen), the app's name and its tabs on the
   left, and the account menu on the right: your name and position, My account & notifications, Appearance and
