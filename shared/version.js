@@ -9,4 +9,4 @@
  * (tests/migrations.test.mjs and tests/version.test.mjs check them).
  */
 export const VERSION = 'dev';
-export const SCHEMA_VERSION = 66;
+export const SCHEMA_VERSION = 67;

@@ -839,6 +839,11 @@
   "returns": "void",
   "anon": false
  },
+ "my_inbox": {
+  "args": "",
+  "returns": "jsonb",
+  "anon": false
+ },
  "my_name": {
   "args": "",
   "returns": "text",

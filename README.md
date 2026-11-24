@@ -87,6 +87,14 @@ Signed in, it shows the apps your position can use: Sponsors needs **See / Edit 
 **See / Edit Finances**, and the Queue shortcut needs **Review** or **Order** requests. Hiding a card is only for
 tidiness: each app's database rules decide who sees what, and anyone can type an app's address.
 
+**Waiting on you** (migration 067), above the apps for everyone on the team: one list of what needs you in every
+app, the urgent ones first. It shows your requests sent back for changes and your drafts, plus the Orders queues your
+role works (to approve, to order, awaiting delivery). It also shows Sponsors follow-ups due on cards you lead or watch,
+Solar Evals you're writing, your Projects work due within a week or overdue (and unread Projects updates), and events
+in the next two weeks you haven't answered. Each line opens the thing itself. One database function, `my_inbox()`,
+runs as you, so it only lists what you can open. With nothing waiting it says so in one line. To add a source, add a
+block to `my_inbox` in a new migration (tests: `tests/inbox.test.mjs`, `tests/e2e/inbox.spec.mjs`).
+
 **For everyone.** ☆ on a card makes it a favourite: favourites go to the top (kept in that browser). With seven or
 more cards there's a search box (**/** jumps to it, **Enter** opens the first match; **Ctrl + K** searches everything).
 
