@@ -105,7 +105,7 @@ test('Projects messages say what happened and link to the item in Projects', () 
   assert.equal(m.subject, 'BAT-24: Assigned to you: Bracket calculations');
   assert.deepEqual(m.lines, ['Hi Mia, Pat Manager gave you BAT-24 "Bracket calculations".']);
   assert.equal(m.link, 'https://solar-gators.github.io/one.solar/projects/#/projects/item/BAT-24');
-  assert.equal(m.linkLabel, 'Open in Projects');
+  assert.equal(m.linkLabel, 'Open in Workbench');
   assert.deepEqual(m.facts, []);
 });
 

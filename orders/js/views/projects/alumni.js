@@ -31,7 +31,7 @@ export async function alumniShareCard({ projectId, itemId = null, mayEdit, what 
        ${shared.status === 'draft' && !editor ? '<p class="muted small">Someone with “Edit the alumni hub” checks it and makes it public.</p>' : ''}
        ${editor || shared.status !== 'draft' ? `<p><a href="${esc(hubLink)}">${editor ? 'Edit it on the alumni hub' : 'See it on the alumni hub'}</a></p>` : ''}
        <p><button type="button" class="btn btn-sm" data-alumni-share="0">Stop sharing</button></p>`
-    : `<p class="muted small">Alumni can't see Projects. Sharing puts ${esc(what)} on the alumni hub's “What we need” list, so alumni can offer
+    : `<p class="muted small">Alumni can't see Workbench. Sharing puts ${esc(what)} on the alumni hub's “What we need” list, so alumni can offer
         parts, money or know-how and contact the team about it. ${editor ? '' : 'It starts as a draft that someone with “Edit the alumni hub” makes public.'}</p>
        <p><button type="button" class="btn btn-sm" data-alumni-share="1">Share with alumni</button></p>`;
   return `<section class="card pm-alumni" data-alumni-card><${heading}>Share with alumni</${heading}>${body}</section>`;

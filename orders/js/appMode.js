@@ -21,7 +21,7 @@ export const APPS = {
   sponsors: { name: 'Sponsors', home: '/sponsors' },
   admin: { name: 'Admin', home: '/admin' },
   inventory: { name: 'Inventory', home: '/inventory' },
-  projects: { name: 'Projects', home: '/projects' },
+  projects: { name: 'Workbench', home: '/projects' },
   events: { name: 'Events', home: '/events' },
 };
 

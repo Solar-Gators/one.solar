@@ -865,10 +865,10 @@ test.describe('projects', () => {
     await signIn(page, ADMIN);
     await open(page, `/projects/#/projects/item/${itemKey}`, '[data-alumni-card]');
     await tap(page, '[data-alumni-card] a:has-text("Edit it on the alumni hub")');
-    await expect(page.locator('form[data-form="need"] .alert-info')).toContainText(`Shared from Projects: ${itemKey} · Pack layout`);
+    await expect(page.locator('form[data-form="need"] .alert-info')).toContainText(`Shared from Workbench: ${itemKey} · Pack layout`);
     await expect(page.locator('form[data-form="need"] .alert-info a')).toHaveAttribute('href', new RegExp(`projects/#/projects/item/${itemKey}$`));
     await open(page, '/sgaa/#/manage/needs', 'table');
-    await expect(page.locator('tr', { hasText: 'Pack layout' })).toContainText('From Projects');
+    await expect(page.locator('tr', { hasText: 'Pack layout' })).toContainText('From Workbench');
 
     // Shared by an editor, a whole project goes up as public; stopping takes it off again (archived once public).
     const aero = `select n.status from sgaa_needs n join pm_projects p on p.id = n.pm_project_id where p.key = 'AERO' and n.pm_item_id is null`;

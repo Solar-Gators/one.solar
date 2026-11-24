@@ -20,7 +20,7 @@ export const canEditKinds = () => auth.can('projects.kinds') || auth.can('projec
 /** The database has Projects (051)? Otherwise pages say so instead of failing. */
 export function needsDatabase(config) {
   if (Number(config.schemaVersion) >= 51) return '';
-  return `<section class="card no-access"><h1>Projects isn't set up yet</h1>
+  return `<section class="card no-access"><h1>Workbench isn't set up yet</h1>
     <p>The database needs the update <code>supabase/migrations/051_projects.sql</code>. ${auth.can('settings.edit') ? 'See the yellow banner above.' : 'Ask an Admin.'}</p></section>`;
 }
 

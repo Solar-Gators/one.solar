@@ -12,7 +12,7 @@ Every Solar Gators team app, in one place and one repo: **https://one.ufsolargat
 | Sponsors | `/sponsors/` | [`sponsors/`](sponsors) | [docs/orders.md](docs/orders.md#sponsors-business-coordinator) |
 | Admin (people, permissions, settings) | `/admin/` | [`admin/`](admin) | [docs/orders.md](docs/orders.md#admin) |
 | Inventory (needs migration 050) | `/inventory/` | [`inventory/`](inventory) | [docs/inventory.md](docs/inventory.md) |
-| Projects (needs migration 051) | `/projects/` | [`projects/`](projects) | [docs/projects.md](docs/projects.md) |
+| Workbench, formerly Projects (needs migration 051) | `/projects/` | [`projects/`](projects) | [docs/projects.md](docs/projects.md) |
 | Events (attendance, needs migration 064) | `/events/` | [`events/`](events) | [docs/events.md](docs/events.md) |
 | Alumni hub (SGAA, needs migration 052) | `/sgaa/` | [`sgaa/`](sgaa) | [docs/sgaa.md](docs/sgaa.md) |
 | Solar Evals | `/evals/` | [`evals/`](evals) | [docs/solar-evals.md](docs/solar-evals.md) |
@@ -20,14 +20,14 @@ Every Solar Gators team app, in one place and one repo: **https://one.ufsolargat
 | CE Scope Map | `/scope-map/` | [`scope-map/`](scope-map) | an editable four-way Venn diagram of Chief Engineer responsibilities |
 | Solar Gators website | https://ufsolargators.org/ | (its own repo, Advertisement-Website) | a card on the home screen |
 
-Orders, Finances, Sponsors, Inventory, Projects, Events and Admin are separate apps (each its own address, top bar and menu) built from the same
+Orders, Finances, Sponsors, Inventory, Workbench (the engineering work tracker; its address and code are still `projects`), Events and Admin are separate apps (each its own address, top bar and menu) built from the same
 code in `orders/js/`: each app's `index.html` says which it is (`<body data-app="finances">`), and
 [`orders/js/appMode.js`](orders/js/appMode.js) decides which pages belong where. A link to another app's page
 (e.g. an old `orders/#/sponsors/…` email link) opens it in that app. Admin is grouped by where a setting applies: **one.solar** (every app: people, positions and permissions, the season,
 logo, banner, notifications, home screen), **Orders** (the request form, approvals, lists), and **Other apps** (where
 Sponsors, Finances and Solar Evals keep their own settings, inside each app).
 
-Orders, Finances, Sponsors, Inventory, Projects, Events, Admin, Solar Evals and the alumni hub share one Supabase database ([`supabase/`](supabase)). For setting it up,
+Orders, Finances, Sponsors, Inventory, Workbench, Events, Admin, Solar Evals and the alumni hub share one Supabase database ([`supabase/`](supabase)). For setting it up,
 running it locally, database updates and how the code fits together, see **[docs/MAINTAINING.md](docs/MAINTAINING.md)**.
 
 The old addresses (`/Orders-Form/…`, `/Custom-Apps/…`) still work: those repos now only send people here.
@@ -107,7 +107,7 @@ tidiness: each app's database rules decide who sees what, and anyone can type an
 **Waiting on you** (migration 067), above the apps for everyone on the team: one list of what needs you in every
 app, the urgent ones first. It shows your requests sent back for changes and your drafts, plus the Orders queues your
 role works (to approve, to order, awaiting delivery). It also shows Sponsors follow-ups due on cards you lead or watch,
-Solar Evals you're writing, your Projects work due within a week or overdue (and unread Projects updates), and events
+Solar Evals you're writing, your Workbench work due within a week or overdue (and unread Workbench updates), and events
 in the next two weeks you haven't answered. Each line opens the thing itself. One database function, `my_inbox()`,
 runs as you, so it only lists what you can open. With nothing waiting it says so in one line. To add a source, add a
 block to `my_inbox` in a new migration (tests: `tests/inbox.test.mjs`, `tests/e2e/inbox.spec.mjs`).

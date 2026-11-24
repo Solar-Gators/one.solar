@@ -76,7 +76,7 @@ export const APPS = [
   {
     id: 'projects',
     section: 'apps',
-    name: 'Projects',
+    name: 'Workbench',
     blurb: 'Plan and track the work: your tasks, boards, timelines with dependencies, milestones and documents, set up per project.',
     href: 'projects/',
     icon: '📋',

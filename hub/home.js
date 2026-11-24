@@ -308,7 +308,7 @@ const PERM_WORDS = {
   'request.review': 'review requests', 'request.order': 'order requests', 'evals.view': 'see evaluations', 'evals.write': 'write evaluations',
   'users.manage': 'manage people', 'settings.edit': 'edit settings', 'site.customize': 'customize the site', 'seasons.manage': 'manage seasons', 'workflow.edit': 'edit approval rules',
   'inventory.view': 'see Inventory', 'inventory.use': 'use parts', 'inventory.receive': 'receive stock', 'inventory.count': 'count stock', 'inventory.manage': 'manage Inventory',
-  'projects.view': 'see Projects', 'projects.create': 'create projects', 'projects.manage': 'manage all projects',
+  'projects.view': 'see Workbench', 'projects.create': 'create projects', 'projects.manage': 'manage all projects',
   'events.create': 'create events', 'events.attendance': 'see attendance',
 };
 const defaultWords = (access = 'public') =>

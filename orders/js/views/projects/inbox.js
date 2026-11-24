@@ -33,7 +33,7 @@ export async function renderInbox(el, { config, rerender }) {
       <form id="prefs-form"><div class="table-wrap"><table class="pm-table"><thead><tr><th>When…</th><th>In this inbox</th><th>By email / Teams</th></tr></thead><tbody>${KINDS.map(([k, label, emailDefault]) => `<tr>
         <td>${esc(label)}</td><td><input type="checkbox" name="inapp:${k}" aria-label="In the inbox: ${esc(label)}" ${mine.notify?.[k]?.inapp === false ? '' : 'checked'}></td>
         <td><input type="checkbox" name="email:${k}" aria-label="By email: ${esc(label)}" ${(mine.notify?.[k]?.email ?? emailDefault) ? 'checked' : ''}></td></tr>`).join('')}</tbody></table></div>
-        <p class="hint">${emailOn ? 'Email and Teams messages also follow your choices in My account & notifications.' : 'Email and Teams messages from Projects are turned off for the team right now (an Admin can turn "Project updates" on in Admin → Notifications). The inbox always works.'}
+        <p class="hint">${emailOn ? 'Email and Teams messages also follow your choices in My account & notifications.' : 'Email and Teams messages from Workbench are turned off for the team right now (an Admin can turn "Project updates" on in Admin → Notifications). The inbox always works.'}
           You're never notified about your own changes, and bulk edits don't send email.</p>
         <div class="field" style="max-width:260px"><label for="pf-hours">Hours a week I have for the team (optional)</label>
           <input id="pf-hours" name="hours" type="number" min="0" max="168" step="1" value="${esc(mine.hours_per_week ?? '')}"><div class="hint">Only used to show when someone has more planned than they have time for.</div></div>
