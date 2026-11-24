@@ -10,11 +10,14 @@
  * resizes re-fit it. "More ▾" opens a small list of the hidden links; the current page's link lights it up.
  * A link marked data-fold="always" (less-used pages, e.g. Projects' Boards) is always under "More ▾" on a laptop;
  * phones list it with the rest.
+ *
+ * A second row of tabs that should fold at every width (the alumni hub's tabs on a phone) passes its own media query:
+ *   fitTopbarNav(document.querySelector('#sgaa-nav'), { media: 'all' });
  */
 
 const WIDE = '(min-width: 961px)';
 
-export function fitTopbarNav(nav = document.querySelector('.topbar .nav')) {
+export function fitTopbarNav(nav = document.querySelector('.topbar .nav'), { media = WIDE } = {}) {
   if (!nav || nav.dataset.fit) return;
   nav.dataset.fit = '1';
   const more = document.createElement('div');
@@ -38,7 +41,7 @@ export function fitTopbarNav(nav = document.querySelector('.topbar .nav')) {
       for (const a of nav.querySelectorAll(':scope > a.nav-folded')) a.classList.remove('nav-folded');
       if (more.parentNode !== nav) nav.append(more);
       more.hidden = true;
-      if (!matchMedia(WIDE).matches) return;
+      if (!matchMedia(media).matches) return;
       const all = links();
       const folded = all.filter((a) => a.dataset.fold === 'always');
       folded.forEach((a) => a.classList.add('nav-folded'));
@@ -89,6 +92,6 @@ export function fitTopbarNav(nav = document.querySelector('.topbar .nav')) {
   new ResizeObserver(soon).observe(nav.closest('.topbar-inner') || nav);
   watcher = new MutationObserver((list) => { if (list.some((m) => m.target !== pop && !pop.contains(m.target))) soon(); });
   watcher.observe(nav, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'hidden'] });
-  matchMedia(WIDE).addEventListener?.('change', soon);
+  matchMedia(media).addEventListener?.('change', soon);
   fit();
 }

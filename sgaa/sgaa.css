@@ -10,6 +10,10 @@ main.container { padding-top: 24px; max-width: 1120px; }
 .sgaa-nav a { padding: 10px 12px; color: var(--muted); text-decoration: none; font-weight: 600; white-space: nowrap; border-bottom: 3px solid transparent; margin-bottom: -3px; }
 .sgaa-nav a:hover { color: var(--navy); }
 .sgaa-nav a.active { color: var(--navy); border-bottom-color: var(--orange); }
+/* Tabs that don't fit go into "More ▾" at every width (shared/nav-more.js), so none hide off the edge */
+.sgaa-nav { overflow: hidden; align-items: center; }
+.sgaa-nav > a.nav-folded { display: none; }
+.sgaa-nav .nav-more { display: block; }
 
 h1 { font-size: 26px; color: var(--navy); }
 .lead { font-size: 16px; color: var(--text); max-width: 680px; }
