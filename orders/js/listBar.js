@@ -7,7 +7,8 @@
  *
  * filters: [{ key, label, all: 'Any status', options: [[value, label], …] }]; values: { key: value } (changed in place).
  * The filters picked are remembered per list in this browser (localStorage "onesolar:list:<id>"), so a list opens the
- * way it was left. extra: more controls placed after the Filter menu (e.g. a season picker).
+ * way it was left. extra: more controls placed after the Filter menu (e.g. a season picker); end: a button after the
+ * count (e.g. "+ Add").
  */
 import { esc } from './ui.js';
 
@@ -34,7 +35,7 @@ const chips = (filters, values) => filters.filter((f) => values[f.key]).map((f) 
   return `<span class="list-chip">${esc(f.label)}: <strong>${esc(label)}</strong><button type="button" data-unfilter="${esc(f.key)}" aria-label="Remove the ${esc(f.label)} filter">×</button></span>`;
 }).join('');
 
-export function listBar({ q = '', placeholder = 'Search…', filters = [], values = {}, extra = '', searchAttr = 'data-list-q' }) {
+export function listBar({ q = '', placeholder = 'Search…', filters = [], values = {}, extra = '', end = '', searchAttr = 'data-list-q' }) {
   const on = filters.filter((f) => values[f.key]).length;
   return `<div class="list-bar">
       <input type="search" ${searchAttr} value="${esc(q)}" placeholder="${esc(placeholder)}" aria-label="Search" autocomplete="off">
@@ -44,7 +45,7 @@ export function listBar({ q = '', placeholder = 'Search…', filters = [], value
           ${on ? '<button type="button" class="link-btn" data-unfilter="*">Clear all filters</button>' : ''}</div></details>` : ''}
       ${extra}
       <span class="list-chips" data-list-chips>${chips(filters, values)}</span>
-      <span class="list-count muted" data-list-count></span>
+      <span class="list-count muted" data-list-count></span>${end}
     </div>`;
 }
 

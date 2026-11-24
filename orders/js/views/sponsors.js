@@ -28,6 +28,7 @@ import { toast } from '../../../shared/toast.js';
 import { loadExcelJS } from '../excel.js';
 import { bindKanbanDnd } from '../kanbanDnd.js';
 import { projectsCard } from '../related.js';
+import { listBar, bindListBar } from '../listBar.js';
 
 const STAGE_KINDS = [
   ['open', 'Working on it'],
@@ -170,6 +171,11 @@ export async function renderSponsors(el, { config, rerender, reloadConfig }) {
     );
   };
 
+  // The list toolbar (listBar.js): Car and Whose sit in the Filter menu; the season and the board's order stay in view.
+  const filters = [
+    ...(cars.length && view.mode !== 'again' ? [{ key: 'car', label: 'Car', all: 'Every car', options: cars.map((c) => [c, c]) }] : []),
+    ...(grouped ? [] : [{ key: 'who', label: 'Whose', all: "Everyone's", options: [['mine', "I'm leading"], ['watching', "I'm watching"], ...(outreach ? [['free', "Nobody's on it yet"]] : [])] }]),
+  ];
   el.innerHTML = `
     ${takeFlash()}
     <div class="page-header">
@@ -193,26 +199,16 @@ export async function renderSponsors(el, { config, rerender, reloadConfig }) {
         ${outreach ? `<button type="button" role="tab" data-mode="sponsors" aria-selected="${view.mode === 'sponsors'}">By sponsor</button>
         <button type="button" role="tab" data-mode="again" aria-selected="${view.mode === 'again'}">Ask again</button>` : ''}
       </div>
-      <input type="search" id="sp-q" placeholder="Search names, contacts, tags, notes…" value="${esc(view.q)}" aria-label="Search sponsors">
-      ${grouped ? '' : `<select id="sp-season" aria-label="Season">
+    </div>
+    ${listBar({ q: view.q, placeholder: 'Search names, contacts, tags, notes…', searchAttr: 'id="sp-q" data-list-q', filters, values: view, extra: `
+      ${grouped ? '' : `<select id="sp-season" class="list-bar-select" aria-label="Season">
         ${view.mode === 'list' ? `<option value="all" ${view.season === 'all' ? 'selected' : ''}>Every season</option>` : ''}
         ${seasons.map((s) => `<option value="${esc(s)}" ${s === view.season ? 'selected' : ''}>${esc(s)}</option>`).join('')}
       </select>`}
-      ${cars.length && view.mode !== 'again' ? `<select id="sp-car" aria-label="Car">
-        <option value="">Every car</option>
-        ${cars.map((c) => `<option value="${esc(c)}" ${c === view.car ? 'selected' : ''}>${esc(c)}</option>`).join('')}
-      </select>` : ''}
-      ${grouped ? '' : `<select id="sp-who" aria-label="Whose">
-        <option value="">Everyone's</option>
-        <option value="mine" ${view.who === 'mine' ? 'selected' : ''}>I'm leading</option>
-        <option value="watching" ${view.who === 'watching' ? 'selected' : ''}>I'm watching</option>
-        ${outreach ? `<option value="free" ${view.who === 'free' ? 'selected' : ''}>Nobody's on it yet</option>` : ''}
-      </select>`}
-      ${outreach && view.mode === 'board' ? `<select id="sp-sort" aria-label="Order">
+      ${outreach && view.mode === 'board' ? `<select id="sp-sort" class="list-bar-select" aria-label="Order">
         <option value="">As arranged</option>
         <option value="priority" ${view.sort === 'priority' ? 'selected' : ''}>By priority</option>
-      </select>` : ''}
-    </div>
+      </select>` : ''}` })}
     <div id="sp-errors"></div>
     <div id="sp-body"></div>
     ${canEdit() ? '<div id="sp-deleted"></div>' : ''}`;
@@ -430,14 +426,6 @@ export async function renderSponsors(el, { config, rerender, reloadConfig }) {
       view.season = e.target.value;
       return draw();
     }
-    if (e.target.id === 'sp-car') {
-      view.car = e.target.value;
-      return draw();
-    }
-    if (e.target.id === 'sp-who') {
-      view.who = e.target.value;
-      return draw();
-    }
     if (e.target.id === 'sp-sort') {
       view.sort = e.target.value;
       return draw();
@@ -457,6 +445,7 @@ export async function renderSponsors(el, { config, rerender, reloadConfig }) {
     }
     if (e.target.id === 'ask-car') return draw();
   });
+  bindListBar(el, { filters, values: view, onChange: () => draw() });
   el.querySelector('#sp-q').addEventListener('input', (e) => {
     view.q = e.target.value;
     draw();
