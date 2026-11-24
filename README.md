@@ -66,6 +66,12 @@ The old addresses (`/Orders-Form/…`, `/Custom-Apps/…`) still work: those rep
   app ([`shared/toast.js`](shared/toast.js), `toast(message, 'ok' | 'bad', { undo })`; Orders' `setFlash` shows one
   on the next page). Deleting a sponsor card, a purchase or a funding source happens at once, with **Undo** on the
   toast (it restores from Recently deleted, 047) instead of an "are you sure?" box.
+- **One list toolbar.** Lists have the same bar: search, one **Filter ▾** menu, the filters in use as chips (× takes
+  one off), and the count on the right ([`orders/js/listBar.js`](orders/js/listBar.js)). Orders → Requests remembers
+  its filters in this browser; Inventory → Items keeps them in the address, so a filtered list can be shared.
+- **Peek.** On Orders → Requests and Inventory → Items, a click on a row opens it in a panel beside the list
+  ([`orders/js/peek.js`](orders/js/peek.js)): ↑ / ↓ go to the previous / next row, Esc closes, "Open full page" goes to
+  it. Ctrl / ⌘ / Shift-click, Enter on a picked row, and phones still open the full page.
 - **Settings in the same place.** Each app's own settings are its last tab, called **Settings**, shown only to people
   who can change them: Inventory, Events and Solar Evals have it in their tabs, Orders' Settings tab opens Admin →
   Orders, and Sponsors has a **⚙ Settings** button at the end of its row. Team-wide settings stay in Admin.

@@ -5,7 +5,9 @@
 import { esc, takeFlash } from '../../ui.js';
 import { inv } from '../../inventory/api.js';
 import { locationAndChildren } from '../../inventory/core.js';
-import { loadBase, header, needsDatabase, stateChip, qty, itemHref, can, locationOptions, hazardChips } from './kit.js';
+import { loadBase, header, needsDatabase, stateChip, qty, itemHref, can, hazardChips } from './kit.js';
+import { listBar, bindListBar, setListCount } from '../../listBar.js';
+import { bindPeek } from '../../peek.js';
 import { downloadWorkbook, catalogSheet, stockSheet, lowStockSheet, fileDate } from './exporting.js';
 import { setLabelSelection } from './labels.js';
 
@@ -31,18 +33,17 @@ export async function renderInvItems(el, ctx) {
   const stockByLoc = query.get('location') ? await inv.stock({ locationIds: locationAndChildren(query.get('location'), b.locations) }) : null;
 
   const state = { q: query.get('q') || '', category: query.get('category') || '', location: query.get('location') || '', show: query.get('state') || 'active' };
+  // The Filter ▾ menu (listBar.js). "Current items" is the default (no filter); the filters live in the page's address.
+  const filters = [
+    { key: 'category', label: 'Category', all: 'All categories', options: b.categories.filter((c) => !c.archived_at).map((c) => [c.id, c.name]) },
+    { key: 'location', label: 'Location', all: 'All locations', options: b.tree.map((l) => [l.id, `${' '.repeat(l.depth)}${l.code}${l.name && l.name !== l.code ? ` · ${l.name}` : ''}`]) },
+    { key: 'show', label: 'Show', all: 'Current items', options: [['low', 'Low or out'], ['aside', 'Has set-aside stock'], ['lots', 'Lots to check'], ['hazard', 'Hazardous'], ['due', 'Due for a count'], ['all', 'Everything, with archived']] },
+  ];
+  const values = { category: state.category, location: state.location, show: state.show === 'active' ? '' : state.show };
   el.innerHTML = `${takeFlash()}${header('Items', 'Everything the shop keeps, and how much of it there is.',
     `${can.receive() ? '<a class="btn btn-primary" href="#/inventory/items/new" data-shortcut="create">Add an item</a>' : ''}
      <button type="button" class="btn" data-download>Download Excel</button><button type="button" class="btn" data-labels>Print labels</button>`)}
-    <div class="toolbar inv-filters">
-      <input type="search" data-q value="${esc(state.q)}" placeholder="Search name, SKU, part number…" aria-label="Search items" autocomplete="off">
-      <select data-category aria-label="Category"><option value="">All categories</option>${b.categories.filter((c) => !c.archived_at).map((c) => `<option value="${esc(c.id)}" ${c.id === state.category ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select>
-      <select data-location aria-label="Location">${locationOptions(b, state.location, { blank: 'All locations' })}</select>
-      <select data-show aria-label="Show">
-        ${[['active', 'Current items'], ['low', 'Low or out'], ['aside', 'Has set-aside stock'], ['lots', 'Lots to check'], ['hazard', 'Hazardous'], ['due', 'Due for a count'], ['all', 'Everything, with archived']]
-          .map(([v, l]) => `<option value="${v}" ${v === state.show ? 'selected' : ''}>${l}</option>`).join('')}
-      </select>
-    </div>
+    ${listBar({ q: state.q, placeholder: 'Search name, SKU, part number…', filters, values })}
     <div data-list></div>`;
 
   const lotItems = new Set((b.overview.lots || []).map((l) => l.item_id));
@@ -62,8 +63,9 @@ export async function renderInvItems(el, ctx) {
   };
   const draw = () => {
     const rows = list();
+    setListCount(el, rows.length, b.items.filter((i) => state.show === 'all' || i.status !== 'archived').length, 'items');
     el.querySelector('[data-list]').innerHTML = rows.length
-      ? `<p class="muted small">${rows.length} item${rows.length === 1 ? '' : 's'}</p><div class="table-wrap"><table class="table inv-items" data-fit>
+      ? `<div class="table-wrap"><table class="table inv-items" data-fit>
         <thead><tr><th>Item</th><th>SKU</th><th>Category</th><th class="num">Available</th><th class="num">On hand</th><th class="num">Places</th><th>State</th></tr></thead>
         <tbody>${rows.map((i) => `<tr data-href="${itemHref(i.id)}">
           <td data-label="Item"><a href="${itemHref(i.id)}">${esc(i.name)}</a>${i.status !== 'active' ? ` <span class="chip chip-tone tone-gray">${esc(i.status)}</span>` : ''}${i.hazardous ? ' <span class="inv-hazard-dot" title="Hazardous">⚠</span>' : ''}
@@ -83,14 +85,15 @@ export async function renderInvItems(el, ctx) {
     for (const [k, v] of Object.entries({ q: state.q, category: state.category, location: state.location, state: state.show === 'active' ? '' : state.show })) if (v) p.set(k, v);
     history.replaceState(null, '', `#/inventory/items${p.toString() ? `?${p}` : ''}`);
   };
-  el.querySelector('[data-q]').addEventListener('input', (e) => ((state.q = e.target.value), setQuery(), draw()));
-  el.querySelector('[data-category]').addEventListener('change', (e) => ((state.category = e.target.value), setQuery(), draw()));
-  el.querySelector('[data-show]').addEventListener('change', (e) => ((state.show = e.target.value), setQuery(), draw()));
-  el.querySelector('[data-location]').addEventListener('change', (e) => {
-    state.location = e.target.value;
+  el.querySelector('[data-list-q]').addEventListener('input', (e) => ((state.q = e.target.value), setQuery(), draw()));
+  bindListBar(el, { filters, values, onChange: () => {
+    const moved = values.location !== state.location;
+    Object.assign(state, { category: values.category, location: values.location, show: values.show || 'active' });
     setQuery();
-    ctx.rerender(); // needs that location's stock
-  });
+    if (moved) ctx.rerender(); // needs that location's stock
+    else draw();
+  } });
+  bindPeek(el.querySelector('[data-list]'), { ctx });   // a click opens the item beside the list
   el.addEventListener('click', (e) => {
     const row = e.target.closest('tr[data-href]');
     if (row && !e.target.closest('a, button, input')) location.hash = row.dataset.href;
