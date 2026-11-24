@@ -518,3 +518,40 @@ dialog::backdrop { background: #0b254566; }
 .os-report-hint { color: var(--muted); font-size: 13px; margin: 8px 0 0; }
 .os-report-msg { margin: 10px 0 0; font-weight: 600; }
 .os-report-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+
+/* One toolbar for every list (orders/js/listBar.js): search, a Filter ▾ menu, the filters in use as chips, the count. */
+.list-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+.list-bar input[type="search"] { flex: 1 1 240px; min-width: 0; max-width: 380px; }
+.list-bar-select { width: auto; }
+.list-filter { position: relative; }
+.list-filter > summary { list-style: none; cursor: pointer; user-select: none; }
+.list-filter > summary::-webkit-details-marker { display: none; }
+.list-filter > summary.is-on { border-color: var(--blue); color: var(--blue); }
+.list-filter-pop { position: absolute; z-index: 40; top: calc(100% + 4px); left: 0; min-width: 240px; display: grid; gap: 10px; padding: 12px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); box-shadow: 0 8px 28px rgba(0, 0, 0, .16); }
+.list-filter-pop label { display: grid; gap: 4px; font-size: var(--fs-sm); color: var(--muted); margin: 0; }
+.list-filter-pop select { width: 100%; }
+.list-filter-pop .link-btn { justify-self: start; }
+.list-chips { display: contents; }
+.list-chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 4px 2px 10px; border-radius: var(--r-pill); font-size: var(--fs-sm);
+  background: var(--st-info-bg); color: var(--st-info-fg); border: 1px solid var(--st-info-bd); }
+.list-chip button { border: 0; background: none; color: inherit; cursor: pointer; font-size: 15px; line-height: 1; padding: 0 4px; min-height: 0; opacity: .7; }
+.list-chip button:hover { opacity: 1; }
+.list-count { margin-left: auto; font-size: var(--fs-sm); white-space: nowrap; }
+@media (max-width: 760px) {
+  .list-bar input[type="search"] { flex-basis: 100%; max-width: none; }
+  .list-filter-pop { position: fixed; left: 12px; right: 12px; top: auto; }
+}
+
+/* Peek (orders/js/peek.js): a record opened beside its list. */
+.peek { position: fixed; z-index: 60; top: 0; right: 0; bottom: 0; width: min(620px, 92vw); display: flex; flex-direction: column;
+  background: var(--bg); border-left: 1px solid var(--border); box-shadow: -10px 0 32px rgba(0, 0, 0, .14); animation: peek-in .16s ease-out; }
+.peek-head { display: flex; align-items: center; gap: 6px; padding: 10px 14px; border-bottom: 1px solid var(--border); background: var(--surface); }
+.peek-title { flex: 1; }
+.peek-body { flex: 1; overflow: auto; padding: 16px 18px 40px; }
+.peek-body .back-link, .peek-body .page-tabs { display: none; }
+.peek-loading { padding: 20px 0; }
+.table tr.is-peeked td { background: var(--row-selected, var(--surface-2)); }
+.table tr.is-peeked td:first-child { box-shadow: inset 3px 0 0 var(--blue); }
+@keyframes peek-in { from { transform: translateX(24px); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .peek { animation: none; } }

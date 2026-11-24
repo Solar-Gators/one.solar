@@ -7,10 +7,12 @@ import { api } from '../api.js';
 import { auth } from '../auth.js';
 import { esc, requestTable, bindRowLinks, bindSorting, sortRows, statusBadge, selfApprovedTag, stepTag, takeFlash, introText, pageTabs } from '../ui.js';
 import { listColumns, listSort, listFilters } from '../listColumns.js';
+import { listBar, bindListBar, rememberedFilters, setListCount } from '../listBar.js';
+import { bindPeek } from '../peek.js';
 
-// Kept while navigating around the app (not across reloads).
-// season '' means "the current season"; values holds each filter's choice.
-const state = { season: '', q: '', values: {}, sort: null, sortFrom: '' };
+// Kept while navigating around the app; the filters are also remembered in this browser (listBar.js).
+// season '' means "the current season"; values holds each filter's choice (null: not read from the browser yet).
+const state = { season: '', q: '', values: null, sort: null, sortFrom: '' };
 const PAGE = 100;
 
 /** Everything a search can match: IDs, names, vendors, items, part numbers, ticket #, custom answers. */
@@ -40,6 +42,7 @@ export async function renderRequestList(el, { config, rerender }) {
 
   const columns = listColumns('requests', config);
   const filters = listFilters(config);
+  state.values ||= rememberedFilters('requests', filters);
   // Start from the configured default sort; re-apply it if an admin changes the default.
   const defaultSort = listSort('requests', config);
   const defaultKey = `${defaultSort.key}:${defaultSort.dir}`;
@@ -47,12 +50,6 @@ export async function renderRequestList(el, { config, rerender }) {
     state.sort = { ...defaultSort };
     state.sortFrom = defaultKey;
   }
-
-  const select = (f) => `
-    <select data-filter="${esc(f.key)}" aria-label="${esc(f.label)}">
-      <option value="">${esc(f.all)}</option>
-      ${f.options.map(([v, label]) => `<option value="${esc(v)}" ${state.values[f.key] === v ? 'selected' : ''}>${esc(label)}</option>`).join('')}
-    </select>`;
 
   // Your requests that need you: sent back for changes first, then drafts. Any season.
   const needsYou = [...mine].sort((a, b) => (a.status === b.status ? 0 : a.status === 'Changes Requested' ? -1 : 1));
@@ -82,12 +79,10 @@ export async function renderRequestList(el, { config, rerender }) {
     </div>
     ${needsYouStrip}
     ${isCurrent ? '' : `<div class="alert alert-info small">You're looking at <strong>${esc(season)}</strong>. <a href="#" id="back-current">Back to ${esc(config.season)}</a></div>`}
-    <div class="toolbar">
-      <input type="search" id="q" placeholder="Search ID, title, person, vendor, item, part #, ticket #…" value="${esc(state.q)}" aria-label="Search">
-      ${seasonList.length > 1 ? `<select id="season" aria-label="Season">${seasonList.map((s) => `<option value="${esc(s)}" ${s === season ? 'selected' : ''}>${esc(s)}</option>`).join('')}</select>` : ''}
-      ${filters.map(select).join('')}
-      <span class="muted" id="count"></span>
-    </div>
+    ${listBar({
+      q: state.q, placeholder: 'Search ID, title, person, vendor, item, part #, ticket #…', filters, values: state.values, searchAttr: 'id="q"',
+      extra: seasonList.length > 1 ? `<select id="season" class="list-bar-select" aria-label="Season">${seasonList.map((s) => `<option value="${esc(s)}" ${s === season ? 'selected' : ''}>${esc(s)}</option>`).join('')}</select>` : '',
+    })}
     <div id="results"></div>`;
 
   let limit = PAGE;
@@ -97,7 +92,7 @@ export async function renderRequestList(el, { config, rerender }) {
     const rows = all.filter(
       (r) => filters.every((f) => !state.values[f.key] || f.match(r, state.values[f.key], ctx)) && words.every((w) => r._search.includes(w))
     );
-    el.querySelector('#count').textContent = `${rows.length} of ${all.length}`;
+    setListCount(el, rows.length, all.length);
     const results = el.querySelector('#results');
     if (!rows.length && state.values.owner === 'mine' && !all.some((r) => r.created_by === auth.user.id) && !words.length) {
       results.innerHTML = `<div class="empty">You haven't made a request ${isCurrent ? 'this season' : 'in this season'} yet.
@@ -119,13 +114,7 @@ export async function renderRequestList(el, { config, rerender }) {
     limit = PAGE;
     apply();
   });
-  el.querySelectorAll('[data-filter]').forEach((s) =>
-    s.addEventListener('input', (e) => {
-      state.values[e.target.dataset.filter] = e.target.value;
-      limit = PAGE;
-      apply();
-    })
-  );
+  bindListBar(el, { id: 'requests', filters, values: state.values, onChange: () => ((limit = PAGE), apply()) });
   el.querySelector('#results').addEventListener('click', (e) => {
     if (e.target.id !== 'more') return;
     limit += PAGE;
@@ -143,6 +132,7 @@ export async function renderRequestList(el, { config, rerender }) {
   });
 
   bindSorting(el.querySelector('#results'), state.sort, columns, apply);
+  bindPeek(el.querySelector('#results'), { ctx: { config, rerender } });   // a click opens the request beside the list
   bindRowLinks(el);
   apply();
 }
