@@ -77,20 +77,20 @@ test.describe('inventory', () => {
     await dialog(page).locator('#a-to').selectOption({ label: 'CAB-A · Cabinet A' });
     await dialog(page).locator('#a-qty').fill('100');
     await dialog(page).getByRole('button', { name: 'Add to stock' }).click();
-    await expect(page.locator('.alert-success')).toContainText('100 ea available now');
+    await expect(page.locator('.alert-success, .os-toast').filter({ hasText: '100 ea available now' }).first()).toBeVisible();
 
     await page.click('.inv-actions [data-act="use"]');
     await dialog(page).locator('#a-qty').fill('20');
     await dialog(page).locator('#att-division').selectOption({ label: 'Powertrain' });
     await dialog(page).locator('#att-subsystem').selectOption({ label: 'Battery' });
     await dialog(page).getByRole('button', { name: 'Take it out' }).click();
-    await expect(page.locator('.alert-success')).toContainText('80 ea available now');
+    await expect(page.locator('.alert-success, .os-toast').filter({ hasText: '80 ea available now' }).first()).toBeVisible();
 
     await page.click('.inv-actions [data-act="move"]');
     await dialog(page).locator('#a-to').selectOption({ label: 'CAB-B · Cabinet B' });
     await dialog(page).locator('#a-qty').fill('30');
     await dialog(page).getByRole('button', { name: 'Move it' }).click();
-    await expect(page.locator('.alert-success')).toContainText('80 ea available now');
+    await expect(page.locator('.alert-success, .os-toast').filter({ hasText: '80 ea available now' }).first()).toBeVisible();
 
     expect(await stockOf(page)).toEqual({ total: 80, byLocation: { 'CAB-A': 50, 'CAB-B': 30 } });
   });
@@ -108,13 +108,13 @@ test.describe('inventory', () => {
     await line.locator('[data-ifield="quantity"]').fill('50');
     await line.locator('[data-ifield="unit_price"]').fill('0.10');
     await page.getByRole('button', { name: 'Submit Request' }).click();
-    await expect(page.locator('.alert-success')).toContainText('submitted for approval');
+    await expect(page.locator('.alert-success, .os-toast').filter({ hasText: 'submitted for approval' }).first()).toBeVisible();
     const number = (page.url().match(/#\/requests\/([^/?]+)/) || [])[1];
     await page.getByRole('button', { name: 'Approve', exact: true }).click();
-    await expect(page.locator('.alert-success')).toContainText('approved');
+    await expect(page.locator('.alert-success, .os-toast').filter({ hasText: 'approved' }).first()).toBeVisible();
     await page.fill('#o-number', 'T-5150');
     await page.getByRole('button', { name: 'Mark as Ordered' }).click();
-    await expect(page.locator('.alert-success')).toContainText('marked as ordered');
+    await expect(page.locator('.alert-success, .os-toast').filter({ hasText: 'marked as ordered' }).first()).toBeVisible();
     // The request page now offers receiving it in Inventory.
     await expect(page.locator('#inventory-panel')).toContainText('Receive in Inventory');
 
@@ -129,7 +129,7 @@ test.describe('inventory', () => {
     await expect(dialog(page).locator('#r-qty')).toHaveValue('50');
     await dialog(page).locator('#r-loc').selectOption({ label: 'CAB-A · Cabinet A' });
     await dialog(page).getByRole('button', { name: 'Receive' }).click();
-    await expect(page.locator('.alert-success')).toContainText('The request is now Received in Orders');
+    await expect(page.locator('.alert-success, .os-toast').filter({ hasText: 'The request is now Received in Orders' }).first()).toBeVisible();
 
     expect(await stockOf(page)).toEqual({ total: 130, byLocation: { 'CAB-A': 100, 'CAB-B': 30 } });
     const [req] = await sql(page, 'select status from requests where request_number = $1', [number]);
@@ -170,7 +170,7 @@ test.describe('inventory', () => {
     await dialog(page).locator('#a-qty').fill('2');
     await dialog(page).locator('#att-division').selectOption({ label: 'General shop (not for one subsystem)' });
     await dialog(page).getByRole('button', { name: 'Take it out' }).click();
-    await expect(page.locator('.alert-success')).toContainText('128 ea available now');
+    await expect(page.locator('.alert-success, .os-toast').filter({ hasText: '128 ea available now' }).first()).toBeVisible();
   });
 
   test('count Cabinet B, find 28 not 30, apply the correction', async () => {
@@ -187,10 +187,10 @@ test.describe('inventory', () => {
     await expect(page.locator('[data-diff]')).toContainText('−2');
     await page.click('[data-submit]');
     await dialog(page).getByRole('button', { name: 'Submit' }).click();
-    await expect(page.locator('.alert-success')).toContainText('Submitted');
+    await expect(page.locator('.alert-success, .os-toast').filter({ hasText: 'Submitted' }).first()).toBeVisible();
     await page.click('[data-apply]');
     await dialog(page).getByRole('button', { name: 'Apply' }).click();
-    await expect(page.locator('.alert-success')).toContainText('Applied: 1 correction');
+    await expect(page.locator('.alert-success, .os-toast').filter({ hasText: 'Applied: 1 correction' }).first()).toBeVisible();
     expect(await stockOf(page)).toEqual({ total: 126, byLocation: { 'CAB-A': 98, 'CAB-B': 28 } });
   });
 

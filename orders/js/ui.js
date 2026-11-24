@@ -1,5 +1,6 @@
 /** Shared formatting and small UI helpers used by every view. */
 import { STEPS, COMMITTED, stepOf, stepChoices } from './ledger.js';
+import { toast } from '../../shared/toast.js';
 import { friendlyMessage } from './messages.js';
 
 // Workflow statuses. The database enforces the transitions (supabase/schema.sql);
@@ -436,16 +437,19 @@ export function errorBox(err) {
   return `<div class="alert alert-error" role="alert"><strong>${esc(friendlyMessage(err))}</strong>${details}</div>`;
 }
 
-// ---- One-shot flash message shown on the next page render ----------------
+// ---- One-shot message after moving to the next page ("Request submitted") ----------------
+// Shown as the shared toast at the bottom of the screen (shared/toast.js), like every other "done" message.
 
 let flash = null;
 export function setFlash(message, type = 'success') {
   flash = { message, type };
 }
+/** Called while the next page draws: shows the message once and returns '' (pages still put ${takeFlash()} in their HTML). */
 export function takeFlash() {
   const f = flash;
   flash = null;
-  return f ? `<div class="alert alert-${f.type} flash" role="status">${esc(f.message)}</div>` : '';
+  if (f) setTimeout(() => toast(f.message, f.type === 'success' ? 'ok' : 'bad'), 0);
+  return '';
 }
 
 // ---- Copy to clipboard (Treasurer: paste into purchasing forms) ------------

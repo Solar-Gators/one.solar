@@ -62,10 +62,10 @@ const OTHER_APPS = [
   {
     icon: '🤝', name: 'Sponsors', perm: 'sponsors.edit', who: 'Edit sponsors',
     items: [
-      ['Board settings', 'The board\'s stages, sponsor types, and which Finances funding line received money goes to.', 'sponsors/'],
+      ['Settings', 'The board\'s stages, sponsor types, and which Finances funding line received money goes to.', 'sponsors/'],
       ['Tags', 'Rename or merge the tags used on sponsor cards (it spots lookalikes such as "In-kind" and "inkind").', 'sponsors/'],
     ],
-    where: 'On the Sponsors board: the <strong>Board settings</strong> and <strong>Tags</strong> buttons.',
+    where: 'On the Sponsors board: the <strong>⚙ Settings</strong> and <strong>Tags</strong> buttons.',
   },
   {
     icon: '💵', name: 'Finances', perm: 'finances.edit', who: 'Edit Finances',
@@ -77,13 +77,13 @@ const OTHER_APPS = [
     where: 'On the Finances page: <strong>Edit steps…</strong> on Purchases, and the <strong>Budget</strong> and <strong>Custom sheets</strong> tabs.',
   },
   {
-    icon: '📝', name: 'Solar Evals', perm: 'evals.write', who: 'Set up Solar Evals (Setup), Edit eval rubrics (Forms), Fill out evals (their own questions)',
+    icon: '📝', name: 'Solar Evals', perm: 'evals.write', who: 'Set up Solar Evals (Settings), Edit eval rubrics (Forms), Fill out evals (their own questions)',
     items: [
-      ['Setup', 'Each kind of eval: who evaluates whom, who gives input, the form, the questionnaire, the meeting, who sees what and when, and the emails. Also groups of people.', 'evals/#/setup'],
+      ['Settings', 'Each kind of eval: who evaluates whom, who gives input, the form, the questionnaire, the meeting, who sees what and when, and the emails. Also groups of people.', 'evals/#/setup'],
       ['Forms', 'Every evaluation form, its variants (divisions, positions) and their versions.', 'evals/#/rubrics'],
       ['Questionnaires', 'Shared self-eval questionnaires, and each evaluator\'s own questions.', 'evals/#/questions'],
     ],
-    where: 'In Solar Evals: the <strong>Setup</strong>, <strong>Forms</strong> and <strong>Questionnaires</strong> tabs.',
+    where: 'In Solar Evals: the <strong>Settings</strong>, <strong>Forms</strong> and <strong>Questionnaires</strong> tabs.',
   },
   {
     icon: '🗺️', name: 'CE Scope Map', who: 'Anyone with the file',

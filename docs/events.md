@@ -19,7 +19,7 @@ Events is not connected to Solar Evals, and nothing in it weighs attendance: the
 | **Check-in screen** | hosts | Full screen for a projector or a laptop at the door: a QR code that changes every 30 seconds, the same code in big letters to type, a countdown, how many are in and the last few names. **Close check-in** when everyone's in. |
 | **All events** | leads | Every event you can see, upcoming / past / everything, by category, with invited, came and turnout. |
 | **Stats** | *See attendance* | **People**, **Events** and **Divisions & subsystems** (below). |
-| **Categories & questions** | *Create events* | The categories (Town hall, Testing day, Workday, Outreach, Social, Other; add, rename, recolor, retire) and saved sets of sign-in questions. |
+| **Settings** (categories & questions) | *Create events* | The categories (Town hall, Testing day, Workday, Outreach, Social, Other; add, rename, recolor, retire) and saved sets of sign-in questions. |
 
 ### Making an event
 

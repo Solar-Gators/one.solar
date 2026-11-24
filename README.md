@@ -62,6 +62,13 @@ The old addresses (`/Orders-Form/…`, `/Custom-Apps/…`) still work: those rep
   [`shared/command-palette.js`](shared/command-palette.js), mounted by `mountAppSwitcher({ supabase })`; the Orders
   family's actions are in [`orders/js/commands.js`](orders/js/commands.js) (`registerCommands([...])`). Projects keeps
   its own Ctrl + K bar, which ends with "Search all of one.solar".
+- **Toasts.** "Saved", "Request submitted", "Deleted · Undo": one short notice at the bottom of the screen in every
+  app ([`shared/toast.js`](shared/toast.js), `toast(message, 'ok' | 'bad', { undo })`; Orders' `setFlash` shows one
+  on the next page). Deleting a sponsor card, a purchase or a funding source happens at once, with **Undo** on the
+  toast (it restores from Recently deleted, 047) instead of an "are you sure?" box.
+- **Settings in the same place.** Each app's own settings are its last tab, called **Settings**, shown only to people
+  who can change them: Inventory, Events and Solar Evals have it in their tabs, Orders' Settings tab opens Admin →
+  Orders, and Sponsors has a **⚙ Settings** button at the end of its row. Team-wide settings stay in Admin.
 - **Keyboard shortcuts**, the same in every app: **C** new (the page's button marked `data-shortcut="create"`),
   **/** search this page, **J** / **K** move through a list's rows and **Enter** opens one, **?** lists them
   ([`orders/js/shortcuts.js`](orders/js/shortcuts.js); Projects has these and more).

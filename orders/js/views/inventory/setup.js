@@ -1,5 +1,5 @@
 /**
- * Inventory → Setup (inventory managers): locations, categories, CE divisions & subsystems (also in Admin, since
+ * Inventory → Settings (inventory managers): locations, categories, CE divisions & subsystems (also in Admin, since
  * other apps can use them), settings (count frequency, when a count needs approval, expiry warnings, blind counts)
  * and importing an existing spreadsheet: pick the file, match its columns, see every problem before anything is
  * saved, then import all or nothing (and undo the whole import later if needed).
@@ -23,8 +23,8 @@ export async function renderInvSetup(el, ctx) {
   if (missing) return (el.innerHTML = missing);
   const tab = TABS.some(([k]) => k === ctx.params.id) ? ctx.params.id : 'locations';
   const editable = tab === 'org' ? can.org() : can.manage();
-  el.innerHTML = `${takeFlash()}${header('Setup', 'How the shop is laid out and how Inventory behaves.')}
-    <nav class="tabs" aria-label="Setup">${TABS.map(([k, l]) => `<a href="#/inventory/setup/${k}" ${k === tab ? 'class="active" aria-current="page"' : ''}>${esc(l)}</a>`).join('')}</nav>
+  el.innerHTML = `${takeFlash()}${header('Settings', 'How the shop is laid out and how Inventory behaves.')}
+    <nav class="tabs" aria-label="Settings">${TABS.map(([k, l]) => `<a href="#/inventory/setup/${k}" ${k === tab ? 'class="active" aria-current="page"' : ''}>${esc(l)}</a>`).join('')}</nav>
     ${editable ? '' : '<p class="alert alert-info">You can look; changing these needs "Manage inventory".</p>'}
     <div data-tab></div>`;
   const box = el.querySelector('[data-tab]');

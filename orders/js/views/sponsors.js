@@ -24,6 +24,7 @@ import { readItemFile } from '../itemImport.js';
 import { readSponsorRows, toSponsorCard, guessCar } from '../sponsorImport.js';
 import { groupSponsors, sponsorKey, tagLookalikes } from '../sponsorGroups.js';
 import { mountRecentlyDeleted } from '../recentlyDeleted.js';
+import { toast } from '../../../shared/toast.js';
 import { loadExcelJS } from '../excel.js';
 import { bindKanbanDnd } from '../kanbanDnd.js';
 import { projectsCard } from '../related.js';
@@ -180,8 +181,8 @@ export async function renderSponsors(el, { config, rerender, reloadConfig }) {
         ${canEdit() ? '<button type="button" class="btn btn-primary" id="new-card" data-shortcut="create">+ New sponsor</button>' : ''}
         ${canEdit() && hasCars(config) ? '<button type="button" class="btn" id="sp-import">Import from spreadsheet…</button>' : ''}
         ${canEdit() && outreach ? '<button type="button" class="btn" id="sp-tags">Tags</button>' : ''}
-        ${canEdit() ? '<button type="button" class="btn" id="board-settings">Board settings</button>' : ''}
         <button type="button" class="btn" id="sp-download" title="The sponsors shown (season, car and search filters apply)">Download .xlsx</button>
+        ${canEdit() ? '<button type="button" class="btn" id="board-settings" title="Stages, sponsor types, where received money goes">⚙ Settings</button>' : ''}
       </div>
     </div>
     <div id="settings-box"></div>
@@ -1216,12 +1217,22 @@ export async function renderSponsorCard(el, { config, params, rerender }) {
         return;
       }
       if (btn.id === 'delete-card') {
-        if (!confirm(`Delete ${card.name} and its whole history? You can restore it from Recently deleted (bottom of the Sponsors page) for 90 days.\n\nTip: moving it to "${stages.find((s) => s.kind === 'lost')?.label || 'Not this year'}" keeps the history for future teams.`)) return;
+        // Deleted at once, with Undo on the toast (and Restore under Recently deleted for 90 days), instead of asking first.
         await api.deleteSponsorCard(card.id);
         dirty = false;
         releaseGuard();
-        setFlash(`Deleted ${card.name}.`);
         location.hash = '#/sponsors';
+        toast(`Deleted ${card.name}. It's in Recently deleted for 90 days.`, 'ok', {
+          undo: async () => {
+            try {
+              const out = await api.undoDelete('sponsor_card', card.id);
+              toast(`${card.name} is back.`);
+              location.hash = `#/sponsors/${out?.record_id || card.id}`;
+            } catch (err) {
+              toast(err.message, 'bad');
+            }
+          },
+        });
       }
     } catch (err) {
       errors.innerHTML = errorBox(err);

@@ -190,7 +190,7 @@ test.describe('signed in as an Admin', () => {
     await expect(page.locator('#settings-form #s-team')).toHaveValue('Their name');
     await page.fill('#s-team', 'Solar Gators');
     await page.locator('#settings-form [type="submit"]').click();
-    await expect(page.locator('.alert-success')).toContainText('Team settings saved');
+    await expect(page.locator('.alert-success, .os-toast').filter({ hasText: 'Team settings saved' }).first()).toBeVisible();
   });
 
   test('a database behind or ahead of the page shows the version banner (shared/version-check.js)', async () => {

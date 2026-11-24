@@ -44,7 +44,7 @@ test.describe('workflows', () => {
     await item.locator('[data-ifield="unit_price"]').fill('5');
     await page.getByRole('button', { name: 'Submit Request' }).click();
 
-    await expect(page.locator('.alert-success')).toContainText('submitted for approval');
+    await expect(page.locator('.alert-success, .os-toast').filter({ hasText: 'submitted for approval' }).first()).toBeVisible();
     const number = (page.url().match(/#\/requests\/([^/?]+)/) || [])[1];
     expect(number).toBeTruthy();
     await expect(page.locator('#app')).toContainText('$20.00');
@@ -53,12 +53,12 @@ test.describe('workflows', () => {
     expect((await sql(page, `select count(*)::int n from requests where title = 'Flow test cells'`))[0].n).toBe(1);
 
     await page.getByRole('button', { name: 'Approve', exact: true }).click();
-    await expect(page.locator('.alert-success')).toContainText('approved');
+    await expect(page.locator('.alert-success, .os-toast').filter({ hasText: 'approved' }).first()).toBeVisible();
     await expect(page.locator('.subtitle .self-approved')).toBeVisible(); // the maker approved it (B11)
 
     await page.fill('#o-number', 'T-4242');
     await page.getByRole('button', { name: 'Mark as Ordered' }).click();
-    await expect(page.locator('.alert-success')).toContainText('marked as ordered');
+    await expect(page.locator('.alert-success, .os-toast').filter({ hasText: 'marked as ordered' }).first()).toBeVisible();
     await expect(page.locator('#app')).toContainText('T-4242');
 
     await open(page, '/finances/', '#ledger-add');
@@ -83,9 +83,9 @@ test.describe('workflows', () => {
     await item.locator('[data-ifield="quantity"]').fill('1');
     await item.locator('[data-ifield="unit_price"]').fill('3');
     await page.getByRole('button', { name: 'Submit Request' }).click();
-    await expect(page.locator('.alert-success')).toContainText('submitted for approval');
+    await expect(page.locator('.alert-success, .os-toast').filter({ hasText: 'submitted for approval' }).first()).toBeVisible();
     await page.getByRole('button', { name: 'Approve', exact: true }).click();
-    await expect(page.locator('.alert-success')).toContainText('approved');
+    await expect(page.locator('.alert-success, .os-toast').filter({ hasText: 'approved' }).first()).toBeVisible();
     await page.selectOption('#r-step', 'sent');
     await expect(page.locator('#r-step-status')).not.toHaveText('');
 
@@ -96,7 +96,7 @@ test.describe('workflows', () => {
     await page.locator('#edit-steps').click();
     await page.selectOption('#steps-shown-to', 'requester');
     await page.getByRole('button', { name: 'Save steps' }).click();
-    await expect(page.locator('.alert-success')).toContainText('Purchasing steps saved');
+    await expect(page.locator('.alert-success, .os-toast').filter({ hasText: 'Purchasing steps saved' }).first()).toBeVisible();
     const saved = await sql(page, `select value ->> 'showStepsInOrders' v from app_settings where key = 'ledger'`);
     expect(saved[0].v).toBe('requester');
   });
@@ -136,8 +136,8 @@ test.describe('workflows', () => {
   test('deleted by mistake: a sponsor card and a purchase come back from Recently deleted (047)', async () => {
     const [{ id }] = await sql(page, `select id from sponsor_cards where name = 'Flow Test Energy'`);
     await open(page, `/sponsors/#/sponsors/${id}`, '#delete-card');
-    page.once('dialog', (d) => d.accept());
-    await page.locator('#delete-card').click();
+    await page.locator('#delete-card').click();   // no "are you sure?": deleted at once, with Undo on the toast
+    await expect(page.locator('.os-toast')).toContainText('Deleted Flow Test Energy');
     await expect(page).toHaveURL(/#\/sponsors$|\/sponsors\/$/);
     await expect(page.locator('#sp-body')).not.toContainText('Flow Test Energy');
     const box = page.locator('#sp-deleted .recently-deleted');
@@ -149,7 +149,12 @@ test.describe('workflows', () => {
 
     await open(page, '/finances/', '#ledger-add');
     const line = page.locator('tr', { has: page.locator('[data-f="description"][value="Zip ties (hardware store)"]') });
-    page.once('dialog', (d) => d.accept());
+    await line.locator('[data-delete]').click();
+    await expect(page.locator('[data-f="description"][value="Zip ties (hardware store)"]')).toHaveCount(0);
+    // Undo on the toast puts it straight back
+    await page.locator('.os-toast-undo').click();
+    await expect(page.locator('[data-f="description"][value="Zip ties (hardware store)"]')).toHaveCount(1);
+    // delete it again: Recently deleted still has it after the toast is gone
     await line.locator('[data-delete]').click();
     await expect(page.locator('[data-f="description"][value="Zip ties (hardware store)"]')).toHaveCount(0);
     const fin = page.locator('#fin-deleted .recently-deleted');
