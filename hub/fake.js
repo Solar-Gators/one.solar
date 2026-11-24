@@ -20,6 +20,27 @@ const PERMS = {
   treasurer: ['request.order', 'finances.view', 'finances.edit', 'sponsors.view'],
   coordinator: ['sponsors.view', 'sponsors.edit', 'finances.view'],
 };
+// "Waiting on you" (067): what my_inbox would return for each fake role.
+function inboxFor(role) {
+  const row = (app, kind, title, note, href, extra = {}) => ({ app, kind, title, note, href, count: null, due: null, urgent: false, ...extra });
+  const mine = [
+    row('orders', 'request', 'Battery spot welder tips', 'SG27-104 · sent back: make the changes and resubmit', 'orders/#/requests/SG27-104', { urgent: true }),
+    row('projects', 'item', 'BAT-12 · Pack thermal test plan', 'Projects · overdue since Nov 20', 'projects/#/projects/item/BAT-12', { urgent: true }),
+    row('evals', 'eval', 'Finish your self-evaluation', 'Solar Evals · Fall 2026 · draft', 'evals/#/evals/fake-1'),
+    row('events', 'rsvp', 'Are you coming? General body meeting', 'Events · Tue Dec 1, 6:30 PM', 'events/#/events/e/fake-1'),
+    row('orders', 'request', 'Spare fuses', 'SG27-109 · draft: not submitted yet', 'orders/#/requests/SG27-109'),
+  ];
+  const queues = {
+    admin: [row('orders', 'queue', '3 requests to approve', 'Orders › Queue › To approve', 'orders/#/approvals', { count: 3 }),
+      row('sponsors', 'follow_up', 'Follow up with Acme Volts', 'Sponsors · follow-up was due Nov 21', 'sponsors/#/sponsors/fake-1', { urgent: true })],
+    ce: [row('orders', 'queue', '3 requests to approve', 'Orders › Queue › To approve', 'orders/#/approvals', { count: 3 })],
+    treasurer: [row('orders', 'queue', '2 approved requests to order', 'Orders › Queue › To order', 'orders/#/treasurer', { count: 2 })],
+    coordinator: [row('sponsors', 'follow_up', 'Follow up with Acme Volts', 'Sponsors · follow-up was due Nov 21', 'sponsors/#/sponsors/fake-1', { urgent: true })],
+  };
+  const all = [...mine, ...(queues[role] || [])];
+  return role === 'member' ? [] : all.sort((a, b) => b.urgent - a.urgent);
+}
+
 // People waiting to be accepted (040), for those who can accept them (Admin, CE, E-board since 043).
 let waiting = [
   { id: 'fake-guest-1', full_name: 'Sam Newcomer', email: 'sam.newcomer@ufl.edu', created_at: new Date(Date.now() - 864e5).toISOString(), email_confirmed: true },
@@ -75,6 +96,7 @@ export function createFakeClient(kind) {
   return {
     from: query,
     rpc: async (fn, { p_key, p_value, p_user } = {}) => {
+      if (fn === 'my_inbox') return { data: signedIn && !['guest', 'alumni', 'alum'].includes(role) ? inboxFor(role) : [], error: null };
       if (['waiting_guests', 'waiting_people', 'accept_member', 'decline_guest'].includes(fn)) {
         if (!PERMS[role].includes('people.accept')) return { data: null, error: { message: 'Your role does not allow this action (people.accept).' } };
         if (fn === 'accept_member' && waiting.find((w) => w.id === p_user)?.email_confirmed === false) {

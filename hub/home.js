@@ -117,10 +117,46 @@ async function loadMe() {
   ]);
   me.perms = new Set((perms || []).map((p) => p.permission));
   me.roleLabel = roleLabelOf(me.roles, labels);   // same order as the other apps
-  await loadWaiting();
+  await Promise.all([loadWaiting(), loadInbox()]);
+}
+
+// ---- "Waiting on you" (067): what needs me, from every app --------------------------------------
+
+let inbox = null;   // null: not loaded (signed out, not on the team, or the database is older than 067)
+const INBOX_ALL = 'onesolar:inbox-all';
+const INBOX_SHOWN = 6;
+async function loadInbox() {
+  inbox = null;
+  if (!me.user || me.guest) return;
+  const { data, error } = await sb.rpc('my_inbox', {});
+  if (!error && Array.isArray(data)) inbox = data.filter((r) => safeHref(r.href));
+}
+
+function drawInbox() {
+  const box = $('#inbox');
+  box.hidden = editing || !inbox;
+  if (box.hidden) return;
+  let all = false;
+  try { all = localStorage.getItem(INBOX_ALL) === '1'; } catch {}
+  const icon = (app) => APPS.find((a) => a.id === app)?.icon || '•';
+  const rows = all ? inbox : inbox.slice(0, INBOX_SHOWN);
+  box.innerHTML = `<div class="inbox-head"><h2>Waiting on you${inbox.length ? ` <span class="inbox-n">${inbox.length}</span>` : ''}</h2></div>
+    ${inbox.length
+      ? `<ul class="inbox-list">${rows.map((r) => `<li><a class="inbox-row${r.urgent ? ' is-urgent' : ''}" href="${esc(appUrl(safeHref(r.href)))}">
+          <span class="inbox-ic" aria-hidden="true">${esc(icon(r.app))}</span>
+          <span class="inbox-text"><span class="inbox-title">${esc(r.title)}</span><span class="inbox-note">${esc(r.note)}</span></span>
+          ${r.urgent ? '<span class="inbox-flag">Needs action</span>' : ''}${r.count ? `<span class="inbox-count">${esc(r.count)}</span>` : ''}
+          <span class="inbox-go" aria-hidden="true">→</span></a></li>`).join('')}</ul>
+        ${inbox.length > INBOX_SHOWN ? `<button type="button" class="link-btn inbox-more" id="inbox-more">${all ? 'Show fewer' : `Show all ${inbox.length}`}</button>` : ''}`
+      : '<p class="inbox-clear">✓ You\'re all caught up. Nothing is waiting on you in any app.</p>'}`;
+  $('#inbox-more')?.addEventListener('click', () => {
+    try { localStorage.setItem(INBOX_ALL, all ? '0' : '1'); } catch {}
+    drawInbox();
+  });
 }
 
 /** Who is waiting to be accepted into the team (040), for anyone who can accept them. */
+
 async function loadWaiting() {
   waiting = [];
   if (!me.user || me.guest || !me.perms.has('people.accept')) return;
@@ -358,6 +394,7 @@ function draw() {
   $('#edit-open').hidden = !canCustomize() || editing;
   document.body.classList.toggle('editing-home', editing);
   drawWaiting();
+  drawInbox();
   if (editing) return drawEditing();
   drawWelcome(cardsOf(settings).filter((c) => sees(c)));
 
