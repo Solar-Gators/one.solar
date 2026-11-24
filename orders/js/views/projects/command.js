@@ -156,7 +156,7 @@ export async function openCommandBar({ mode = 'all', title = 'Go to or do anythi
           ...(here ? TABS.filter(([l]) => has(`${here.name} ${here.key} ${l}`)).map(([l, tab]) => ({ group: here.name, label: l, hint: here.key, href: projectHref(here.key, tab) })) : []),
           ...PAGES.filter(([l]) => has(l)).map(([l, href, k]) => ({ group: 'Go to', label: l, hint: `G ${k.toUpperCase()}`, href })),
           ...projects.slice(0, needle ? 8 : 6).map((p) => ({ group: 'Projects', label: p.name, hint: p.key, href: projectHref(p.key) })),
-          ...(needle ? [{ group: 'Everywhere', label: `Search all of one.solar for “${q.value.trim()}”`, hint: 'Requests, parts, sponsors…', act: () => openPalette(q.value.trim()) }] : []),
+          ...(needle ? [{ group: 'Everywhere', label: 'Search all of one.solar', hint: 'Requests, parts, sponsors, events…', act: () => openPalette(q.value.trim()) }] : []),
         ];
       }
       at = Math.min(at, Math.max(rows.length - 1, 0));
