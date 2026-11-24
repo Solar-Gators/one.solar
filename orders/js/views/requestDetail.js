@@ -1271,7 +1271,7 @@ async function projectsPanel(box, r, config) {
   if (!items.length || !box.isConnected) return;
   box.innerHTML = `<section class="card"><h2>Projects</h2><ul class="plain-list">${items.map((i) =>
     `<li><a href="${esc(appUrl(`projects/#/projects/item/${encodeURIComponent(i.key)}`))}">${esc(i.key)}</a> ${esc(i.title)}</li>`).join('')}</ul>
-    <p class="hint">It counts toward ${items.length === 1 ? 'that project' : 'those projects'}' spending (Projects → Summary).</p></section>`;
+    <p class="hint">It counts toward ${items.length === 1 ? 'that project' : 'those projects'}' spending (Workbench → Summary).</p></section>`;
 }
 
 const INV_PERMS = ['inventory.view', 'inventory.use', 'inventory.receive', 'inventory.count', 'inventory.manage'];

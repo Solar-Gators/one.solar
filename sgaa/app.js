@@ -806,10 +806,10 @@ async function manageNeeds(id) {
   }
   const list = all.filter((n) => n.status !== 'archived');
   return `<div class="toolbar"><a class="btn btn-primary" href="#/manage/needs/new">+ New need</a>
-    <span class="muted small">Tip: in Projects, "Share with alumni" on a project or work item adds it here too.</span></div>
+    <span class="muted small">Tip: in Workbench, "Share with alumni" on a project or work item adds it here too.</span></div>
   ${list.length ? `<div class="table-wrap"><table class="table">
     <thead><tr><th>Need</th><th>Status</th><th>Rough cost</th><th>Updated</th></tr></thead>
-    <tbody>${list.map((n) => `<tr><td><a href="#/manage/needs/${n.id}">${esc(n.title)}</a>${n.pm_item_id || n.pm_project_id ? ' <span class="tag">From Projects</span>' : ''}</td>
+    <tbody>${list.map((n) => `<tr><td><a href="#/manage/needs/${n.id}">${esc(n.title)}</a>${n.pm_item_id || n.pm_project_id ? ' <span class="tag">From Workbench</span>' : ''}</td>
       <td><span class="tag tag-s-${n.status}">${STATUS[n.status]}</span></td><td>${esc(money(n.cost_estimate))}</td><td class="muted">${esc(ago(n.updated_at))}</td></tr>`).join('')}</tbody>
   </table></div>` : '<div class="empty">No needs yet. Add the first one.</div>'}
   ${all.some((n) => n.status === 'archived') ? `<details class="block"><summary class="muted">Archived (${all.filter((n) => n.status === 'archived').length})</summary>
@@ -824,7 +824,7 @@ async function projectsLink(n) {
   const href = item ? appUrl(`projects/#/projects/item/${encodeURIComponent(item.key)}`)
     : project ? appUrl(`projects/#/projects/p/${encodeURIComponent(project.key)}`) : '';
   const label = item ? `${item.key} · ${item.title}` : project?.name || '';
-  return `<div class="alert alert-info">Shared from Projects${href ? `: <a href="${esc(href)}">${esc(label)}</a>` : ' (from a project you can\'t see)'}.
+  return `<div class="alert alert-info">Shared from Workbench${href ? `: <a href="${esc(href)}">${esc(label)}</a>` : ' (from a project you can\'t see)'}.
     ${n.pm_item_id ? 'When that work item is finished, this need is marked met.' : ''}</div>`;
 }
 

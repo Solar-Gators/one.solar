@@ -361,7 +361,7 @@ export async function renderNotifications(el, { config, rerender, reloadConfig }
 
   el.innerHTML = `
     ${takeFlash()}
-    ${adminHeader('notifications', 'Email and Microsoft Teams messages from every app (Orders, Sponsors, Solar Evals and Projects): what gets sent and how it\'s worded. Each person picks which messages they get on <a href="#/account">My account</a>.')}
+    ${adminHeader('notifications', 'Email and Microsoft Teams messages from every app (Orders, Sponsors, Solar Evals and Workbench): what gets sent and how it\'s worded. Each person picks which messages they get on <a href="#/account">My account</a>.')}
     <div id="n-errors"></div>
     <div class="two-col">
       <section class="card">

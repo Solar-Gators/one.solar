@@ -179,7 +179,7 @@ export function render(row: Pick<Row, 'event' | 'payload'>, settings: Record<str
     subject: fill(t.subject || '{request_number}', values).split('\n')[0] || 'Order form',
     lines: fill(t.body || '', values).split('\n').filter(Boolean),
     link: values.link,
-    linkLabel: sgaa ? 'See your alumni messages' : events ? 'Open in Events' : projects ? 'Open in Projects' : evals ? 'Open Solar Evals' : sponsor ? 'Open on the Sponsors board' : values.request_number ? `Open ${values.request_number}` : 'Open the order form',
+    linkLabel: sgaa ? 'See your alumni messages' : events ? 'Open in Events' : projects ? 'Open in Workbench' : evals ? 'Open Solar Evals' : sponsor ? 'Open on the Sponsors board' : values.request_number ? `Open ${values.request_number}` : 'Open the order form',
     facts: row.event === 'test' ? [] : facts,
     logo: logoUrl(settings?.siteUrl || ''),
     ...(sgaa ? {

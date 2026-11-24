@@ -49,7 +49,7 @@ export function shortcutsDialog() {
       <tr><td>${key('Esc')}</td><td>Close a dialog or menu</td></tr>
       <tr><td>${key('?')}</td><td>This list</td></tr>
     </tbody></table>
-    <p class="muted small">Shortcuts don't work while you're typing in a box. Projects has a few more (press ? there).</p>
+    <p class="muted small">Shortcuts don't work while you're typing in a box. Workbench has a few more (press ? there).</p>
     <div class="form-actions"><button class="btn btn-primary" value="ok">Done</button></div></form>`;
   document.body.append(dialog);
   dialog.addEventListener('close', () => dialog.remove());

@@ -90,7 +90,7 @@ export function cycleDialog(b, g = null) {
         <div class="field span-2"><label for="cy-start">Starts</label><input id="cy-start" name="start" type="date" value="${esc(g?.start_date || '')}"></div>
         <div class="field span-2"><label for="cy-end">Ends</label><input id="cy-end" name="end" type="date" value="${esc(g?.end_date || '')}"></div>
         <div class="field span-4"><label for="cy-desc">Notes</label><textarea id="cy-desc" name="description" rows="2">${esc(g?.description || '')}</textarea></div></div>
-      <label class="pm-check"><input type="checkbox" name="current" ${g ? (g.is_current ? 'checked' : '') : (cyclesOf(b).length ? '' : 'checked')}> This is the current car (Projects opens on it)</label>
+      <label class="pm-check"><input type="checkbox" name="current" ${g ? (g.is_current ? 'checked' : '') : (cyclesOf(b).length ? '' : 'checked')}> This is the current car (Workbench opens on it)</label>
       ${g ? '<label class="pm-check"><input type="checkbox" name="archived"> Archive this car cycle (its projects stay)</label>' : ''}`,
     onSubmit: async (f) => {
       const e = f.elements;
@@ -122,7 +122,7 @@ export function newCycleDialog(b) {
   const fromProjects = from ? b.projects.filter((p) => !p.archived_at && cycleOfProject(b, p)?.id === from.id) : [];
   return formDialog({
     title: 'Start a new car cycle', submit: 'Start it', wide: true,
-    body: `<p class="muted">Plan the next car while this one is still being built. The switcher at the top of Projects shows this car, the next one or both.</p>
+    body: `<p class="muted">Plan the next car while this one is still being built. The switcher at the top of Workbench shows this car, the next one or both.</p>
       <div class="form-grid">
         <div class="field span-2"><label for="nc-name">Name</label><input id="nc-name" name="name" type="text" maxlength="80" required placeholder="Car 8"></div>
         <div class="field span-2"><label for="nc-vehicle">Vehicle (optional)</label><input id="nc-vehicle" name="vehicle" type="text" maxlength="80"></div>

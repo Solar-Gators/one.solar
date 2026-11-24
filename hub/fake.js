@@ -25,7 +25,7 @@ function inboxFor(role) {
   const row = (app, kind, title, note, href, extra = {}) => ({ app, kind, title, note, href, count: null, due: null, urgent: false, ...extra });
   const mine = [
     row('orders', 'request', 'Battery spot welder tips', 'SG27-104 · sent back: make the changes and resubmit', 'orders/#/requests/SG27-104', { urgent: true }),
-    row('projects', 'item', 'BAT-12 · Pack thermal test plan', 'Projects · overdue since Nov 20', 'projects/#/projects/item/BAT-12', { urgent: true }),
+    row('projects', 'item', 'BAT-12 · Pack thermal test plan', 'Workbench · overdue since Nov 20', 'projects/#/projects/item/BAT-12', { urgent: true }),
     row('evals', 'eval', 'Finish your self-evaluation', 'Solar Evals · Fall 2026 · draft', 'evals/#/evals/fake-1'),
     row('events', 'rsvp', 'Are you coming? General body meeting', 'Events · Tue Dec 1, 6:30 PM', 'events/#/events/e/fake-1'),
     row('orders', 'request', 'Spare fuses', 'SG27-109 · draft: not submitted yet', 'orders/#/requests/SG27-109'),
