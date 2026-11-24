@@ -96,6 +96,18 @@ await test('default access: every team role can open Projects; CEs and Admins ca
   assert.deepEqual(await perms('alumni'), []);
 });
 
+await test('070: the Engineering design template gives Design Review and Test their own workflows', async () => {
+  const c = (await one(`select config from pm_templates where name = 'Engineering design'`)).config;
+  const flow = (type) => c.workflows.find((w) => w.id === c.types.find((t) => t.name === type).workflow_id);
+  assert.equal(c.workflows.length, 3);
+  assert.equal(flow('Design Task').name, 'Design work');
+  assert.equal(flow('Analysis').id, flow('Design Task').id);
+  assert.deepEqual(flow('Design Review').statuses.map((x) => x.name), ['Scheduled', 'In Review', 'Changes Needed', 'Passed']);
+  assert.deepEqual(flow('Design Review').transitions.filter((t) => t.require_approval).map((t) => t.name), ['Passed']);
+  assert.deepEqual(flow('Test').statuses.map((x) => x.name), ['Planned', 'Testing', 'Passed', 'Failed']);
+  assert.ok(c.roles.find((r) => r.key === 'manager').caps.includes('workflows'));
+});
+
 await test('an Admin creates a project: it gets roles, a workflow and types, and they are its Project Administrator', async () => {
   bat = await by(admin, 'pm_save_project', null, { key: 'bat', name: 'Battery Engineering' });
   assert.equal(bat.key, 'BAT');
@@ -159,9 +171,10 @@ await test('members and roles: a project manager adds people without being an Ad
   await by(admin, 'pm_set_member', bat.id, pmgr, await role(bat.id, 'manager'));
   await by(pmgr, 'pm_set_member', bat.id, member, await role(bat.id, 'contributor'));
   await by(pmgr, 'pm_set_member', bat.id, approver, await role(bat.id, 'approver'));
-  // the manager role has no "configure"/"workflows", so it can't give out Project Administrator or edit that role
+  // the manager role has no "configure", so it can't give out Project Administrator or edit that role (070: it does have "workflows")
   await rejects(by(pmgr, 'pm_set_member', bat.id, other, await role(bat.id, 'admin')), /more than yours/, '42501');
-  await rejects(by(pmgr, 'pm_save_role', bat.id, await role(bat.id, 'contributor'), { name: 'Contributor', caps: ['view', 'workflows'] }), /your own role can't do/, '42501');
+  await rejects(by(pmgr, 'pm_save_role', bat.id, await role(bat.id, 'contributor'), { name: 'Contributor', caps: ['view', 'configure'] }), /your own role can't do/, '42501');
+  assert.ok((await one(`select caps from pm_roles where id = $1`, [await role(bat.id, 'manager')])).caps.includes('workflows'), '070: Project Managers may change workflows');
   await rejects(by(pmgr, 'pm_set_member', bat.id, admin, null), /more than yours/, '42501');
   await rejects(by(member, 'pm_set_member', bat.id, other, await role(bat.id, 'viewer')), /Members and roles/, '42501');
   await rejects(by(admin, 'pm_set_member', bat.id, guest, await role(bat.id, 'viewer')), /on the team/);
@@ -213,7 +226,8 @@ await test('a workflow with custom statuses and transitions is saved as a whole,
   // without saying where "To Do" items go, it refuses: nothing is ever left without a status
   const err = await rejects(by(admin, 'pm_save_workflow', bat.id, wf.id, p), /Say which status they move to/, 'OS428');
   assert.match(err.detail, /To Do/);
-  await rejects(by(pmgr, 'pm_save_workflow', bat.id, wf.id, p), /Workflows/, '42501');
+  await rejects(by(member, 'pm_save_workflow', bat.id, wf.id, p), /Workflows/, '42501');
+  assert.equal((await by(pmgr, 'pm_save_workflow', bat.id, wf.id, { ...p, dry_run: true })).dry_run, true, '070: a Project Manager may change the workflow');
   const saved = await by(admin, 'pm_save_workflow', bat.id, wf.id, { ...p, mapping: { [old[0].id]: st.Draft } });
   assert.equal(saved.version, wf.version + 1);
   assert.equal((await item(stray.id)).status, 'Draft');
