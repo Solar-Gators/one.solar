@@ -11,6 +11,7 @@
 import { signInUrl, appUrl } from '../shared/onesolar.js';
 import { renderAccount } from '../shared/account-menu.js';
 import { mountAppSwitcher } from '../shared/app-switcher.js';
+import { howItWorks } from '../shared/help.js';
 import { startErrorReporter } from '../shared/error-reporter.js';
 import { startVersionCheck } from '../shared/version-check.js';
 import { esc, formatText, money, when, ago, toLocalInput, fromLocalInput, splitEvents, spotsLeft, KINDS, URGENCY, fileSlug, isSchoolEmail, joinProblems,
@@ -773,9 +774,9 @@ async function renderManage([tab, id]) {
 
 async function manageAlumni() {
   const queue = await rows(sb.rpc('sgaa_alumni_queue'));
-  return `<p class="muted">People who signed up on this hub to join as an alum. Approve the ones you recognize: they can then contact the
-    team, RSVP to events and see the alumni directory (never the team's apps). Graduating members don't show up here: mark them
-    <strong>Graduated</strong> in <a href="${esc(appUrl('admin/#/admin/users'))}">Admin → Users</a>.</p>
+  return `<p class="muted">People who signed up on this hub to join as an alum. Approve the ones you recognize.</p>
+    ${howItWorks(`<p>Once approved they can contact the team, RSVP to events and see the alumni directory (never the team's apps).
+    Graduating members don't show up here: mark them <strong>Graduated</strong> in <a href="${esc(appUrl('admin/#/admin/users'))}">Admin → Users</a>.</p>`, { id: 'sgaa-alumni-queue' })}
   <div class="alert alert-error form-error" hidden></div>
   ${queue.length ? `<div class="stack">${queue.map((q) => `<div class="card alum-req">
     <div class="alum-req-body">

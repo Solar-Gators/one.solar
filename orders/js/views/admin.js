@@ -9,7 +9,7 @@
  */
 import { api } from '../api.js';
 import { auth } from '../auth.js';
-import { esc, fmtDate, errorBox, setFlash, takeFlash, askText } from '../ui.js';
+import { esc, fmtDate, errorBox, setFlash, takeFlash, askText, about } from '../ui.js';
 import { guardLeaving } from '../leaveGuard.js';
 import { SCHOOL_EMAIL } from './account.js';
 import { appUrl } from '../../../shared/onesolar.js';
@@ -113,9 +113,8 @@ document.addEventListener('change', (e) => {
   if (e.target.matches?.('[data-admin-jump]')) location.hash = `#/admin/${e.target.value}`;
 });
 
-/** A short "how this works" note that opens on click, instead of a big box on every visit. */
-export const about = (html, summary = 'How this works') =>
-  `<details class="about"><summary>${esc(summary)}</summary><div>${html}</div></details>`;
+/** A short "how this works" note that opens on click, instead of a big box on every visit (ui.js → shared/help.js). */
+export { about };
 
 // ---- Users --------------------------------------------------------------------
 
@@ -752,9 +751,9 @@ async function renderSettings(el, { rerender, reloadConfig }, part) {
       <div class="two-col">
         <section class="card">
           <h2>Dropdown lists</h2>
-          <p class="muted small">Every dropdown on the request form. To add a new dropdown, go to
-            <a href="#/admin/fields">Request form</a>, add a field, and set its type to <strong>Dropdown</strong>. It then appears here.
-            Renaming an option doesn't change requests that already used the old one. Colors are under <a href="#/admin/appearance">Statuses &amp; colors</a>.</p>
+          <p class="muted small">Every dropdown on the request form.</p>
+          ${about(`<p>To add a new dropdown, go to <a href="#/admin/fields">Request form</a>, add a field, and set its type to <strong>Dropdown</strong>. It then appears here.
+            Renaming an option doesn't change requests that already used the old one. Colors are under <a href="#/admin/appearance">Statuses &amp; colors</a>.</p>`)}
           ${visibleLists.map(listBox).join('') || '<p class="muted">There are no dropdowns on the form.</p>'}
           ${
             hiddenLists.length

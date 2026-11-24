@@ -448,9 +448,6 @@ table.list.asg-t{min-width:0}
 .vis td:first-child{font-weight:700;white-space:nowrap}
 .vis select{width:100%;min-width:120px;padding:6px 8px;font-size:13px}
 .vis .fixed{color:var(--muted);font-size:13px}
-.howto{background:var(--flag-bg);border:1px solid var(--line);border-left:4px solid var(--flag);border-radius:10px;padding:12px 16px;margin-bottom:14px;font-size:14px;max-width:960px}
-.howto ol{margin:6px 0 0;padding-left:20px}
-.howto li{margin:3px 0;color:var(--ink-2)}
 .chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .chip{display:inline-flex;gap:6px;align-items:center;background:var(--panel-2);border:1px solid var(--line);border-radius:999px;padding:3px 6px 3px 10px;font-size:13px;color:var(--ink)}
 .chip button{border:0;background:none;cursor:pointer;color:var(--muted);font-size:15px;line-height:1;padding:0 2px}
@@ -509,7 +506,6 @@ table.list.asg-t{min-width:0}
 .sum-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-lg);padding:16px 18px;margin-bottom:16px;min-width:0}
 .sum-card h3{font-size:16px;font-weight:700;color:var(--ink)}
 .sum-card .sub{font-size:13px;color:var(--muted);margin:4px 0 12px}
-.sum-note{font-size:12.5px;color:var(--muted);max-width:760px}
 .muted-s{color:var(--muted);font-weight:600;font-size:12px}
 .hwrap{overflow-x:auto}
 table.heat{border-collapse:separate;border-spacing:4px;width:100%;font-size:13.5px}
@@ -750,6 +746,7 @@ import { renderAccount, roleLabelOf } from "../shared/account-menu.js";
 import { startVersionCheck } from "../shared/version-check.js";
 import { startErrorReporter } from "../shared/error-reporter.js";
 import { mountAppSwitcher, mountPalette } from "../shared/app-switcher.js";
+import { howItWorks as helpBox } from "../shared/help.js";
 
 import { summarize, teamMakeup, bySemester, change } from "./summary.js";
 mountAppSwitcher(); // ⊞ next to the logo: jump to any other one.solar app; Ctrl/⌘ + K searches everything
@@ -1698,7 +1695,7 @@ function sumScoresHTML(s){
       ${shown.map(c => `<tr><td class="g">${esc(c)}</td>${sumCell(ct.get(c), labels)}${active.map(d => sumCell(cd.get(d.name)?.get(c), labels)).join("")}</tr>`).join("")}
       </tbody></table></div></section>`;
   }
-  h += `<p class="sum-note">How it's worked out: an eval's score is the average of its ratings (N/O doesn't count); a group's average is the average of its people's scores, so everyone counts once. Only finished or shared evals count, not drafts or self-evals.</p>`;
+  h += helpBox(`<p>An eval's score is the average of its ratings (N/O doesn't count); a group's average is the average of its people's scores, so everyone counts once. Only finished or shared evals count, not drafts or self-evals.</p>`, { id: "evals-summary-scores", summary: "How the scores are worked out" });
   return h;
 }
 function sumKey(labels){
@@ -3230,7 +3227,9 @@ function renderSetup(){
   const L2 = k => esc(L(s, k));
   let h = toolbarHTML(isNew ? "New eval type" : d.name || "Untitled", meta, acts, "var(--orange)");
   if (warn.length) h += `<div class="banner"><span class="bt"><b>Check before saving:</b><br>${warn.map(esc).join("<br>").replace(/&lt;b&gt;|&lt;\/b&gt;/g, "")}</span></div>`;
-  h += `<div class="howto"><b>How ${/^[aeiou]/i.test(d.name.trim()) ? "an" : "a"} ${/\beval$/i.test(d.name.trim()) ? esc(d.name.trim()) : `${esc(d.name.trim() || "new")} eval`} goes</b><ol>${howItWorks(d).map(x => `<li>${x}</li>`).join("")}</ol></div>`;
+  // "How a … eval goes": open the first time, then it stays the way it was left (shared/help.js)
+  h += helpBox(`<ol>${howItWorks(d).map(x => `<li>${x}</li>`).join("")}</ol>`, { id: "evals-setup-howto", open: true,
+    summary: `How ${/^[aeiou]/i.test(d.name.trim()) ? "an" : "a"} ${/\beval$/i.test(d.name.trim()) ? d.name.trim() : `${d.name.trim() || "new"} eval`} goes` });
   h += `<div class="setup">
     ${isNew ? `<div class="scard"><h3>Start from</h3><p class="sd">Copy the settings of an eval type you already have, then change what's different.</p>
       ${srow("Copy", `<select class="fi" id="sCopy">${types.map(x => `<option value="${esc(x.id)}"${x.id === lsGet("sg-evals-setup-copy") ? " selected" : ""}>${esc(x.name)}</option>`).join("")}</select>`)}</div>` : ""}

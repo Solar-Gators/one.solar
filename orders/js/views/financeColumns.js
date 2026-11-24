@@ -5,7 +5,7 @@
  * See js/financeCalc.js for what each type does.
  */
 import { api } from '../api.js';
-import { esc, errorBox, setFlash } from '../ui.js';
+import { esc, errorBox, setFlash, about } from '../ui.js';
 import { requestFields, fieldOptions } from '../formFields.js';
 import { workflowSettings } from '../workflow.js';
 import { ORDER_METRICS, PLAIN_NUMERIC, requestDetails, isNumeric, isCalc, checkColumns } from '../financeCalc.js';
@@ -176,8 +176,8 @@ export function openColumnEditor(box, { sheet, sheets, rowsCount, config, onDone
         )
         .join('')}</ol>
       <button type="button" class="btn btn-sm" id="col-add">+ Add column</button>
-      <p class="hint"><strong>Calculated</strong> columns fill themselves in, and you can click any of their cells to see what was added up.
-        "Fill from request" is what <strong>Add ordered requests</strong> copies into a column. Deleting a column hides its data.</p>
+      ${about(`<p><strong>Calculated</strong> columns fill themselves in, and you can click any of their cells to see what was added up.
+        "Fill from request" is what <strong>Add ordered requests</strong> copies into a column. Deleting a column hides its data.</p>`, 'How this works', 'finance-columns')}
       <div id="col-errors"></div>
       <div class="form-actions">
         <button type="button" class="btn btn-danger reset-btn" id="sheet-delete">Delete this sheet</button>

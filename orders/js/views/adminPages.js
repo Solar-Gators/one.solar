@@ -7,7 +7,7 @@
  *   #/admin/intros   — Orders: the line under each Orders page's title
  */
 import { api } from '../api.js';
-import { esc, errorBox, setFlash, takeFlash, statusLabel, renderRichText } from '../ui.js';
+import { esc, errorBox, setFlash, takeFlash, statusLabel, renderRichText, about } from '../ui.js';
 import { COPY_MODES, pageLayout, detailCandidates, itemCandidates } from '../pageLayout.js';
 import { exportCatalog, exportTemplates } from '../excel.js';
 import { adminHeader, adminTop } from './admin.js';
@@ -415,8 +415,8 @@ export async function renderTextBanner(el, { config, rerender, reloadConfig }, p
 
       <section class="card">
         <h2>Help page</h2>
-        <p class="muted small">When filled in, <strong>Help</strong> appears for everyone in the account menu of Orders, Finances, Sponsors and Admin. Formatting: a line starting with <code>#</code> is a heading,
-          <code>- </code> starts a bullet, <code>**bold**</code>, and links as <code>[text](https://…)</code>. Leave a blank line between paragraphs.</p>
+        <p class="muted small">When filled in, <strong>Help</strong> appears for everyone in the account menu of Orders, Finances, Sponsors and Admin.</p>
+        ${about(`<p>A line starting with <code>#</code> is a heading, <code>- </code> starts a bullet, <code>**bold**</code>, and links as <code>[text](https://…)</code>. Leave a blank line between paragraphs.</p>`, 'Formatting')}
         <div class="two-col">
           <div class="field"><label for="help-text">Help text</label>
             <textarea id="help-text" name="help" rows="14" maxlength="20000">${esc(a.helpText || '')}</textarea></div>

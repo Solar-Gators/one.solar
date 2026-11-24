@@ -2,6 +2,15 @@
 import { STEPS, COMMITTED, stepOf, stepChoices } from './ledger.js';
 import { toast } from '../../shared/toast.js';
 import { friendlyMessage } from './messages.js';
+import { howItWorks } from '../../shared/help.js';
+
+export { howItWorks, helpOpen } from '../../shared/help.js';
+/**
+ * "How this works": a page's longer explanation behind one line that opens on click (shared/help.js). It remembers
+ * per page whether it was left open; pass an id when one page has more than one with the same summary.
+ */
+export const about = (html, summary = 'How this works', id = '') =>
+  howItWorks(html, { summary, id: id || `${location.hash.split('?')[0].replace(/^#\/?/, '') || 'home'}:${summary}` });
 
 // Workflow statuses. The database enforces the transitions (supabase/schema.sql);
 // keep this list in sync with the `status` check constraint there.

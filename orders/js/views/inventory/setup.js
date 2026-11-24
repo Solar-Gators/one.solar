@@ -4,7 +4,7 @@
  * and importing an existing spreadsheet: pick the file, match its columns, see every problem before anything is
  * saved, then import all or nothing (and undo the whole import later if needed).
  */
-import { esc, fmtDateTime, takeFlash, setFlash } from '../../ui.js';
+import { esc, fmtDateTime, takeFlash, setFlash, about } from '../../ui.js';
 import { loadExcelJS } from '../../excel.js';
 import { cellText } from '../../sheetImport.js';
 import { inv } from '../../inventory/api.js';
@@ -136,8 +136,8 @@ export async function renderOrgEditor(box, ctx, b = null) {
   const subsOf = (id) => b.subsystems.filter((s) => s.division_id === id);
   box.innerHTML = `<section class="card"><div class="card-head"><h2>CE divisions & subsystems</h2>
       ${edit ? `<button type="button" class="btn btn-primary btn-sm" data-add-div>Add a division</button>${divisions.length ? '' : '<button type="button" class="btn btn-sm" data-copy>Copy from Solar Evals</button>'}` : ''}</div>
-    <p class="muted small">What parts are used for: each Chief Engineer's division and its subsystems. Inventory asks for one when parts are taken out.
-      Renaming keeps the history right; archiving hides it from new choices but keeps its history.</p>
+    <p class="muted small">What parts are used for: each Chief Engineer's division and its subsystems.</p>
+    ${about('<p>Inventory asks for one when parts are taken out. Renaming keeps the history right; archiving hides it from new choices but keeps its history.</p>', 'How this works', 'inventory-divisions')}
     ${divisions.length ? divisions.map((d, i) => `<div class="inv-org ${d.archived_at ? 'is-archived' : ''}">
       <div class="inv-org-head"><strong>${esc(d.name)}</strong>${d.archived_at ? ' <span class="chip chip-tone tone-gray">archived</span>' : ''}
         ${edit ? `<span class="inv-org-tools"><button type="button" class="link-btn" data-up="${i}" ${i === 0 ? 'disabled' : ''} aria-label="Move up">↑</button>

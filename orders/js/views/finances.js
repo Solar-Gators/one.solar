@@ -12,7 +12,7 @@
  */
 import { api } from '../api.js';
 import { auth } from '../auth.js';
-import { esc, fmtMoney, fmtDate, errorBox, setFlash, takeFlash, renderRichText, askText, selfApprovedTag, statusLabel, introText } from '../ui.js';
+import { esc, fmtMoney, fmtDate, errorBox, setFlash, takeFlash, renderRichText, askText, selfApprovedTag, statusLabel, introText, about } from '../ui.js';
 import { mountRecentlyDeleted } from '../recentlyDeleted.js';
 import { toast } from '../../../shared/toast.js';
 import { requestFields, fieldOptions } from '../formFields.js';
@@ -451,9 +451,9 @@ function drawBudget(box, s) {
         <label class="rule-toggle"><input type="checkbox" id="budget-block" ${budgets.block ? 'checked' : ''}>
           <span>Approving over budget needs a written reason <span class="hint">The approver has to say why; it's kept in the request's History.</span></span></label>
       </div></details>` : ''}
-    <p class="hint">Spent = ${STEPS.filter((x) => x.counts === 'spent' && !x.hidden).map((x) => x.label).join(', ')}. In the pipeline = approved but not ordered yet (${STEPS.filter((x) => x.counts === 'pipeline' && !x.hidden).map((x) => x.label).join(', ')}).
-      Purchases added by hand count too; cancelled ones don't. The same budgets warn approvers before a request goes over.${notesOn && s.canEdit ? ' Notes are just for you (and whoever sees Finances).' : ''}
-      ${tree ? ' A category with others under it (↳) counts everything under it; approving checks its budget too. With "Approving over budget needs a written reason" on, sub-budgets also can\'t add up to more than their parent\'s.' : ''}</p>
+    <p class="hint">Spent = ${STEPS.filter((x) => x.counts === 'spent' && !x.hidden).map((x) => x.label).join(', ')}. In the pipeline = approved but not ordered yet (${STEPS.filter((x) => x.counts === 'pipeline' && !x.hidden).map((x) => x.label).join(', ')}).</p>
+    ${about(`<p>Purchases added by hand count too; cancelled ones don't. The same budgets warn approvers before a request goes over.${notesOn && s.canEdit ? ' Notes are just for you (and whoever sees Finances).' : ''}
+      ${tree ? ' A category with others under it (↳) counts everything under it; approving checks its budget too. With "Approving over budget needs a written reason" on, sub-budgets also can\'t add up to more than their parent\'s.' : ''}</p>`, 'How budgets are counted', 'finances-budgets')}
     ${tree ? '<details class="about" data-moves-box><summary>Money moves</summary><div data-moves><p class="muted small">Loading…</p></div></details>' : ''}`;
 
   // Money moves: who moved how much from where to where, and why (058).
@@ -817,8 +817,8 @@ function editSteps({ lines, config, reloadConfig, rerender }) {
   const draw = () => {
     dialog.innerHTML = `<form method="dialog" novalidate>
       <h2>Purchasing steps</h2>
-      <p class="muted small">Name them the way your legend does (e.g. "MAE ordered"), pick colors, hide ones you don't use, or add your own.
-        New steps count as in the pipeline (before ordering; requests can use them) or as spent (purchases added here).</p>
+      <p class="muted small">Name them the way your legend does (e.g. "MAE ordered"), pick colors, hide ones you don't use, or add your own.</p>
+      ${about(`<p>New steps count as in the pipeline (before ordering; requests can use them) or as spent (purchases added here).</p>`, 'How steps count', 'finances-steps')}
       <div class="table-wrap flat"><table class="table steps-table">
         <thead><tr><th></th><th>Name</th><th>Color</th><th>Counts as</th><th>Hide</th><th></th></tr></thead>
         <tbody>${steps.map((x, i) => `<tr data-i="${i}">

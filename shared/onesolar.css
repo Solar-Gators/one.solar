@@ -555,3 +555,15 @@ dialog::backdrop { background: #0b254566; }
 .table tr.is-peeked td:first-child { box-shadow: inset 3px 0 0 var(--blue); }
 @keyframes peek-in { from { transform: translateX(24px); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .peek { animation: none; } }
+
+/* "How this works" (shared/help.js): longer explanations behind one line that opens on click, remembered per browser. */
+.about { margin: 0 0 14px; font-size: var(--fs-sm); }
+.about > summary { cursor: pointer; color: var(--blue); font-weight: var(--fw-semibold); width: max-content; max-width: 100%; list-style: none; }
+.about > summary::-webkit-details-marker { display: none; }
+.about[data-help] > summary::before { content: "ⓘ "; font-weight: var(--fw-regular); }
+.about > summary::after { content: " ▸"; font-size: .85em; }
+.about[open] > summary::after { content: " ▾"; }
+.about > div { margin-top: 8px; padding: 10px 12px; border: 1px solid var(--st-info-bd); border-radius: var(--r); background: var(--st-info-bg); color: var(--st-info-fg); line-height: 1.5; }
+.about > div > :first-child { margin-top: 0; }
+.about > div > :last-child { margin-bottom: 0; }
+.about ol, .about ul { padding-left: 20px; }
