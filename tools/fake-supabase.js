@@ -208,6 +208,11 @@ class Query {
 // ---- auth -----------------------------------------------------------------------------
 
 const listeners = new Set();
+/** Emails the fake site "sent" (sign-up confirmations), for tests to read: window.__fakeMail. */
+const fakeMail = [];
+/** localStorage "sg-fake-confirm" = "1": act like the real site with "Confirm email" on. */
+const fakeConfirm = () => { try { return localStorage.getItem('sg-fake-confirm') === '1'; } catch { return false; } };
+try { window.__fakeMail = fakeMail; } catch {}
 function setSession(next, event) {
   session = next;
   try {
@@ -244,22 +249,35 @@ const authApi = {
     const [user] = await superuser(`select id, email, email_confirmed_at, raw_user_meta_data as user_metadata, banned_until > now() as banned from auth.users where lower(email) = lower($1) and password = $2`, [email, password]);
     if (!user) return { data: {}, error: { message: 'Invalid login credentials' } };
     if (user.banned) return { data: {}, error: { message: 'User is banned' } };
+    if (!user.email_confirmed_at && fakeConfirm()) return { data: {}, error: { message: 'Email not confirmed' } };
     delete user.banned;
     setSession({ user }, 'SIGNED_IN');
     return { data: { session }, error: null };
   },
   async signUp({ email, password, options }) {
+    // localStorage "sg-fake-confirm" = "1": act like the real site with "Confirm email" on (no session; an email is "sent").
+    const confirm = fakeConfirm();
     try {
       const [user] = await superuser(
-        `insert into auth.users (email, password, raw_user_meta_data) values ($1, $2, $3) returning id, email, email_confirmed_at, raw_user_meta_data as user_metadata`,
-        [email, password, options?.data || {}]
+        `insert into auth.users (email, password, raw_user_meta_data, email_confirmed_at) values ($1, $2, $3, case when $4 then null else now() end) returning id, email, email_confirmed_at, raw_user_meta_data as user_metadata`,
+        [email, password, options?.data || {}, confirm]
       );
+      if (confirm) { fakeMail.push({ type: 'signup', email, at: Date.now() }); return { data: { session: null, user }, error: null }; }
       setSession({ user }, 'SIGNED_IN');
       return { data: { session, user }, error: null };
     } catch (e) {
       const message = /duplicate key/.test(e.message) ? 'User already registered' : 'Database error saving new user';
       return { data: {}, error: { message } };
     }
+  },
+  /** Like Supabase: one confirmation email a minute per address. */
+  async resend({ type, email }) {
+    const last = [...fakeMail].reverse().find((m) => m.email === email);
+    if (last && Date.now() - (last.at || 0) < 60000) {
+      return { data: {}, error: { message: `For security purposes, you can only request this after ${Math.ceil((60000 - (Date.now() - last.at)) / 1000)} seconds.` } };
+    }
+    fakeMail.push({ type, email, at: Date.now() });
+    return { data: {}, error: null };
   },
   async resetPasswordForEmail() {
     return { data: {}, error: { message: 'Password reset emails are not available in fake mode.' } };

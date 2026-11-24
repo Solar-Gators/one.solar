@@ -2708,7 +2708,12 @@ async function startPreview(ty, tid, p){
   evalState = {row, other:null, notes:[], dirty:false, saving:false, err:"", timer:null};
   if (location.hash === "#/evals/preview") route(); else location.hash = "#/evals/preview";
 }
-const endPreview = () => { location.hash = can("evals.types") && evalState?.row.type_id ? `#/setup/${evalState.row.type_id}` : "#/evals"; };
+// Forget the preview right away (nothing to save): if another address comes in before this one is handled, it can't open the preview again.
+const endPreview = () => {
+  const type = evalState?.row.preview ? evalState.row.type_id : null;
+  if (evalState?.row.preview) { clearTimeout(evalState.timer); evalState = null; }
+  location.hash = can("evals.types") && type ? `#/setup/${type}` : "#/evals";
+};
 async function startReview(selfId){
   try { const id = await call("eval_start_review", {p_self:selfId}); await loadEvals(); location.hash = "#/evals/" + id; }
   catch (e) { fail("Couldn't start your eval", e); }

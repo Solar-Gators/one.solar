@@ -151,6 +151,12 @@ export const auth = {
     return !data.session;
   },
 
+  /** Send the confirm-your-email link again (Supabase allows one a minute per address). */
+  async resendConfirmation(email) {
+    const { error } = await supabase.auth.resend({ type: 'signup', email, options: { emailRedirectTo: siteUrl() } });
+    if (error) throw error;
+  },
+
   async sendPasswordReset(email) {
     const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: siteUrl() });
     if (error) throw error;
