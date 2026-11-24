@@ -49,6 +49,22 @@ const rowMenu = async (page, title, item) => {
   await page.locator('.pm-g-label', { hasText: title }).locator('[data-menu]').click();
   await page.locator(`.pm-g-menu ${item}`).click();
 };
+/** Clicks a toolbar control; if the C1–C10 tidy-up put it under a ⋯ / ▾ menu, opens that menu first. */
+const tap = async (page, sel) => {
+  const el = page.locator(sel).first();
+  await el.waitFor({ state: 'attached' });
+  const menu = page.locator(`details:not([open]):has(${sel}) > summary`).first();
+  if (!(await el.isVisible()) && (await menu.count())) await menu.click();
+  await el.click();
+};
+/** Opens the closed menu a control sits in (C1–C10: Filter ▾, ⋯), so it can be filled in or picked. */
+const reveal = async (page, sel) => {
+  const el = page.locator(sel).first();
+  await el.waitFor({ state: 'attached' });
+  const menu = page.locator(`details:not([open]):has(${sel}) > summary`).first();
+  if (!(await el.isVisible()) && (await menu.count())) await menu.click();
+  return el;
+};
 const noOverflow = async (page) => expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
 
 test.describe('projects', () => {
@@ -98,7 +114,7 @@ test.describe('projects', () => {
   test('two custom work-item types', async () => {
     await open(page, '/projects/#/projects/p/BAT/settings/types', '[data-new-type]');
     for (const [name, icon] of [['Design Task', '✎'], ['Design Review', '☑']]) {
-      await page.click('[data-new-type]');
+      await tap(page, '[data-new-type]');
       await dialog(page).locator('#ty-name').fill(name);
       await dialog(page).locator('#ty-icon').fill(icon);
       await save(page);
@@ -114,7 +130,7 @@ test.describe('projects', () => {
       await names.nth(n).fill(name);
       await names.nth(n).dispatchEvent('change');
     }
-    await page.click('[data-s-add]');
+    await tap(page, '[data-s-add]');
     await names.nth(4).fill('Approved');
     await names.nth(4).dispatchEvent('change');
     await page.locator('[data-wf-statuses] tr').nth(4).locator('[data-s-up]').click(); // Approved before Released
@@ -122,7 +138,7 @@ test.describe('projects', () => {
     // replace "any status → each" with real moves
     while (await page.locator('[data-wf-moves] [data-t-del]').count()) await page.locator('[data-wf-moves] [data-t-del]').first().click();
     const move = async (name, from, to, extra = async () => {}) => {
-      await page.click('[data-t-add]');
+      await tap(page, '[data-t-add]');
       await dialog(page).locator('#mv-name').fill(name);
       await dialog(page).locator('#mv-from').selectOption({ label: from });
       await dialog(page).locator('#mv-to').selectOption({ label: to });
@@ -146,7 +162,7 @@ test.describe('projects', () => {
     await expect(page.locator('.pm-wf-svg .pm-wf-line.is-gate')).toHaveCount(1); // the approval gate is dashed
     await shot(page, 'workflow');
     await expect(page.locator('[data-wf-dirty]')).toHaveText('Unsaved changes');
-    await page.click('[data-wf-save]');
+    await tap(page, '[data-wf-save]');
     await expect(dialog(page)).toContainText('Save this workflow?');
     await save(page, 'Save as a new version');
     await expect(toast(page)).toContainText('as version 2');
@@ -157,20 +173,20 @@ test.describe('projects', () => {
 
   test('custom fields, and a form for one work type with a required field', async () => {
     await open(page, '/projects/#/projects/p/BAT/settings/fields', '[data-new-field]');
-    await page.click('[data-new-field]');
+    await tap(page, '[data-new-field]');
     await dialog(page).locator('#fd-name').fill('Chemistry');
     await expect(dialog(page).locator('#fd-key')).toHaveValue('chemistry');
     await dialog(page).locator('#fd-type').selectOption('select');
     await dialog(page).locator('#fd-options').fill('NMC\nLFP\nLTO');
     await save(page);
     await expect(page.locator('.pm-settings table')).toContainText('Chemistry');
-    await page.click('[data-new-field]');
+    await tap(page, '[data-new-field]');
     await dialog(page).locator('#fd-name').fill('Cell count');
     await dialog(page).locator('#fd-type').selectOption('integer');
     await dialog(page).locator('#fd-min').fill('1');
     await save(page);
     await expect(page.locator('.pm-settings table')).toContainText('Cell count');
-    await page.click('[data-new-field]');
+    await tap(page, '[data-new-field]');
     await dialog(page).locator('#fd-name').fill('Cells per module');
     await dialog(page).locator('#fd-type').selectOption('formula');
     await dialog(page).locator('#fd-formula').fill('cell_count / nope');
@@ -187,7 +203,7 @@ test.describe('projects', () => {
     await page.locator('.pm-form-fields li', { hasText: 'Chemistry' }).locator('[data-req]').check();
     await page.locator('.pm-form-sec').nth(1).locator('[data-sec-title]').fill('Cells');
     await expect(page.locator('[data-preview]')).toContainText('Chemistry');
-    await page.click('[data-save-form]');
+    await tap(page, '[data-save-form]');
     await expect(toast(page)).toContainText('Form saved');
     await expect(page.locator('.chip-tone', { hasText: 'Has its own form' })).toBeVisible();
   });
@@ -201,11 +217,11 @@ test.describe('projects', () => {
       await expect(page.locator('.pm-settings table').first()).toContainText(who.name);
     }
     await signIn(page, MANAGER);
-    await open(page, '/projects/#/projects/p/BAT/board', '[data-board-settings]');
+    await open(page, '/projects/#/projects/p/BAT/board', '.kanban-col');
     await expect(page.locator('.kanban-col h2')).toHaveText(['Draft', 'In Design', 'In Review', 'Approved', 'Released']);
     // the manager can't touch workflows (their role has no "Workflows"), but can share a board
     await expect(page.locator('.pm-tabs')).toContainText('Settings');
-    await page.click('[data-board-settings]');
+    await tap(page, '[data-board-settings]');   // C3: under the toolbar's ⋯ menu
     const cols = dialog(page).locator('.pm-col-edit');
     await cols.nth(2).locator('[data-remove]').click(); // In Review joins In Design
     await cols.nth(1).locator('[data-col-name]').fill('Working');
@@ -213,7 +229,7 @@ test.describe('projects', () => {
     await cols.nth(1).locator('[data-col-wip]').fill('2');
     await save(page, 'Apply');
     await expect(page.locator('.kanban-col h2')).toHaveText(['Draft', 'Working', 'Approved', 'Released']);
-    await page.click('[data-view-new]');
+    await tap(page, '[data-view-new]');
     await dialog(page).locator('#pm-view-name').fill('Design board');
     await dialog(page).getByLabel('Everyone in this project').check();
     await dialog(page).locator('[name=is_default]').check();
@@ -229,7 +245,7 @@ test.describe('projects', () => {
     await open(page, '/projects/#/projects/p/BAT/board', '[data-new-item]');
     await expect(page.locator('.kanban-col h2')).toHaveText(['Draft', 'Working', 'Approved', 'Released']); // the shared board opens first
     await expect(page.locator('.pm-tabs')).not.toContainText('Settings');
-    await page.click('[data-new-item]');
+    await tap(page, '[data-new-item]');
     await dialog(page).locator('#pm-new-type').selectOption({ label: '✎ Design Task' });
     await dialog(page).locator('#pm-new-title').fill('Pack layout');
     await expect(dialog(page).locator('[data-field="cf.chemistry"]')).toContainText('*');
@@ -250,7 +266,7 @@ test.describe('projects', () => {
     await open(page, `/projects/#/projects/item/${itemKey}`, '[data-edit]');
     await expect(page.locator('.pm-item-side')).toContainText('NMC');
     await expect(page.locator('.pm-item-side')).toContainText('26'); // 416 / 16, the calculated field
-    await page.click('[data-edit]');
+    await tap(page, '[data-edit]');
     await dialog(page).locator('[name="f:description"]').fill('Lay out **16 modules** of 26 cells.\n- thermal gaps\n- busbar routing');
     await dialog(page).locator('[name="f:due_date"]').fill('2030-03-01');
     await dialog(page).locator('[name="f:cf.cell_count"]').fill('0');
@@ -304,7 +320,7 @@ test.describe('projects', () => {
     await signIn(page, MANAGER);
     await open(page, '/projects/#/projects', '[data-approve]');
     await expect(page.locator('#pm-unread')).toBeVisible();
-    await page.click('[data-approve]');
+    await tap(page, '[data-approve]');
     await expect(toast(page)).toContainText('Approved');
     expect((await one(page, `select s.name from pm_items i join pm_statuses s on s.id = i.status_id where i.id = $1`, [id])).name).toBe('Approved');
     await open(page, '/projects/#/projects/inbox', '.pm-inbox');
@@ -333,7 +349,7 @@ test.describe('projects', () => {
     await open(page, '/projects/#/projects/p/BAT/list', '[data-new-item]');
     const day = (n) => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
     const make = async (title, start, due) => {
-      await page.click('[data-new-item]');
+      await tap(page, '[data-new-item]');
       await dialog(page).locator('#pm-new-type').selectOption({ label: '☑ Design Review' });
       await dialog(page).locator('#pm-new-title').fill(title);
       await dialog(page).locator('[name="f:due_date"]').fill(due);
@@ -349,7 +365,7 @@ test.describe('projects', () => {
     for (const [item, other] of [['Module design', 'Cell selection'], ['Pack assembly', 'Module design']]) {
       await open(page, `/projects/#/projects/item/${await key(item)}`, '[data-add-dep]');
       await expect(page.locator('h1')).toContainText(item); // the page for this item, not the one before it
-      await page.click('[data-add-dep]');
+      await tap(page, '[data-add-dep]');
       await dialog(page).locator('#dep-q').fill(other);
       await expect(dialog(page).locator('[name=other] option')).toHaveCount(1);
       await dialog(page).locator('[name=other]').selectOption({ index: 0 });
@@ -357,7 +373,7 @@ test.describe('projects', () => {
       await expect(page.locator('.pm-item-main')).toContainText(`${await key(other)} · ${other}`);
     }
     // a loop is refused
-    await page.click('[data-add-dep]');
+    await tap(page, '[data-add-dep]');
     await dialog(page).locator('#dep-q').fill('Cell selection');
     await expect(dialog(page).locator('[name=other] option')).toHaveCount(1);
     await dialog(page).locator('[name=other]').selectOption({ index: 0 });
@@ -396,16 +412,16 @@ test.describe('projects', () => {
     await expect(page.locator('.pm-whatif')).toContainText(await key('Pack assembly'));
     expect((await one(page, `select due_date::text d from pm_items where title = 'Module design'`)).d).toBe(before.d);
     // a baseline, then apply the what-if: now it's saved, with history, and the baseline still shows the old plan
-    await page.click('[data-discard]');
+    await tap(page, '[data-discard]');
     await openPop(page, 'plan');
-    await page.click('[data-save-baseline]');
+    await tap(page, '[data-save-baseline]');
     await dialog(page).locator('#ask-text').fill('Plan of record');
     await dialog(page).getByRole('button', { name: 'Save' }).click();
     await expect(toast(page)).toContainText('Baseline saved');
     await rowMenu(page, 'Module design', '[data-dates]');
     await dialog(page).locator('#gd-due').fill(day(19));
     await save(page, 'Try these dates');
-    await page.click('[data-apply]');
+    await tap(page, '[data-apply]');
     await dialog(page).locator('#ask-text').fill('Cells arrived late');
     await dialog(page).getByRole('button', { name: 'Apply to the plan' }).click();
     await expect(toast(page)).toContainText('Rescheduled 1 item');
@@ -426,11 +442,11 @@ test.describe('projects', () => {
     await expect(toast(page)).toContainText('progress changed');
     await expect.poll(async () => (await one(page, `select progress from pm_items where title = 'Pack assembly'`)).progress).toBe(40);
     // present: the chart as a slide
-    await page.click('[data-present]');
+    await tap(page, '[data-present]');
     await expect(page.locator('.pm-present-chart svg')).toBeVisible();
     await expect(page.locator('.pm-present-chart svg')).toContainText('WORK PACKAGE');
     await shot(page, 'timeline-present');
-    await page.click('[data-present-exit]');
+    await tap(page, '[data-present-exit]');
     await expect(page.locator('.pm-gantt')).toBeVisible();
     // light / dark follows the site's own setting (account menu), not a separate switch
     await expect(page.locator('[data-g-theme]')).toHaveCount(0);
@@ -445,8 +461,8 @@ test.describe('projects', () => {
     // Zoom: the chart fills the page's width; presets, − / +, and Fit
     const chart = () => page.locator('[data-scroll]').evaluate((n) => ({ w: n.clientWidth, full: n.scrollWidth, left: n.scrollLeft }));
     const pane = await page.locator('.pm-gantt').evaluate((n) => n.clientWidth);
-    await page.click('[data-zoom-px="0.9"]');
-    await expect(page.locator('.pm-g-zoom .is-on')).toHaveText('Year');
+    await page.selectOption('[data-zoom-pick]', '0.9');
+    await expect(page.locator('[data-zoom-pick] option:checked')).toHaveText('Year');
     await expect(page.locator('.pm-g-right .pm-g-month').first()).toHaveText(/^20\d\d$/);   // years over months
     // names that don't fit in their bar sit beside it, in the same row and inside the chart
     await openPop(page, 'show');
@@ -464,22 +480,22 @@ test.describe('projects', () => {
     await page.uncheck('[data-show="labels"]');
     await expect(page.locator('.pm-g-right .pm-g-barlabel')).toHaveCount(0);
     await expect.poll(async () => (await chart()).w).toBeGreaterThan(pane - 400);   // not the old 900-pixel guess
-    await page.click('[data-zoom-step="1"]');
-    await expect(page.locator('.pm-g-zoom .is-on')).toHaveCount(0);   // between presets
-    await page.click('[data-zoom-px="40"]');
-    await expect(page.locator('.pm-g-zoom .is-on')).toHaveText('Days');
+    await tap(page, '[data-zoom-step="1"]');
+    await expect(page.locator('[data-zoom-pick] option:checked')).toHaveText(/Custom|Fitted/);   // between presets
+    await page.selectOption('[data-zoom-pick]', '40');
+    await expect(page.locator('[data-zoom-pick] option:checked')).toHaveText('Days');
     await expect(page.locator('.pm-g-wk.is-day').first()).toBeVisible();
-    await page.click('[data-pop=fit] summary');
-    await page.click('[data-fit="all"]');
+    await tap(page, '[data-pop=fit] summary');
+    await tap(page, '[data-fit="all"]');
     await expect(page.locator('[data-pop=fit] summary')).toContainText('Everything shown');
     await expect.poll(async () => { const c = await chart(); return c.full - c.w - c.left; }).toBeLessThanOrEqual(2);   // the work, to its end, with no scrolling
-    await page.click('[data-pop=fit] summary');
+    await tap(page, '[data-pop=fit] summary');
     await page.fill('[data-fit-from]', '2027-01-01');
     await page.fill('[data-fit-to]', '2027-03-31');
-    await page.click('[data-fit-custom]');
+    await tap(page, '[data-fit-custom]');
     await expect(page.locator('[data-pop=fit] summary')).toContainText('Fit:');
-    await page.click('[data-zoom-px="18"]');   // back to Weeks for the tests after this one
-    await expect(page.locator('.pm-g-zoom .is-on')).toHaveText('Weeks');
+    await page.selectOption('[data-zoom-pick]', '18');   // back to Weeks for the tests after this one
+    await expect(page.locator('[data-zoom-pick] option:checked')).toHaveText('Weeks');
 
     // Rows: group by status, order by start date, pack rows; the row under the mouse lights up on both sides
     const rowCount = () => page.locator('.pm-g-left .pm-g-label').count();
@@ -615,9 +631,9 @@ test.describe('projects', () => {
   });
 
   test('a document is linked by pasting its Teams address; an Orders request is linked and shows its status', async () => {
-    await open(page, `/projects/#/projects/item/${itemKey}`, '[data-add-doc]');
+    await open(page, `/projects/#/projects/item/${itemKey}`, '.pm-key');
     await expect(page.locator('.pm-key')).toHaveText(itemKey);   // the last test ended on another item's page (same document, so its button shows at once)
-    await page.click('[data-add-doc]');
+    await tap(page, '[data-add-doc]');
     const url = 'https://uflorida.sharepoint.com/:x:/r/sites/SolarGators/Shared%20Documents/Battery/Pack_sizing-v3.xlsx?d=wabc&csf=1&web=1';
     await dialog(page).locator('#doc-url').fill('javascript:alert(1)');
     await expect(dialog(page).locator('[data-read]')).toContainText('Only https:// links');
@@ -635,13 +651,14 @@ test.describe('projects', () => {
     await expect(page.locator('.pm-table')).toContainText('Pack sizing v3');
     await expect(page.locator('.pm-table')).toContainText(itemKey);
 
-    await open(page, `/projects/#/projects/item/${itemKey}`, '[data-add-ref="order"]');
-    await page.click('[data-add-ref="order"]');
+    await open(page, `/projects/#/projects/item/${itemKey}`, '.pm-key');
+    await tap(page, '[data-add-ref]');   // V1: one "A record from another app", the kind picked inside
+    await dialog(page).locator('[data-ref-kind="order"]').click();
     await dialog(page).locator('#ref-q').fill('nickel');
     await expect(dialog(page).locator('[name=ref] option')).toHaveCount(1);
     await dialog(page).locator('[name=ref]').selectOption({ index: 0 });
     await save(page, 'Link it');
-    const refs = page.locator('.card', { hasText: 'In other one.solar apps' });
+    const refs = page.locator('.card.pm-links');   // C2: "Links & files" holds records from other apps too
     await expect(refs).toContainText('SG27-777 · Nickel strip for the pack');
     await expect(refs.locator('.chip-tone')).toHaveText('Ordered');
     expect((await one(page, `select status from requests where request_number = 'SG27-777'`)).status).toBe('Ordered'); // Orders is untouched
@@ -649,7 +666,7 @@ test.describe('projects', () => {
 
   test('a rule runs when its trigger happens, and the run is logged', async () => {
     await open(page, '/projects/#/projects/p/BAT/settings/rules', '[data-new-rule]');
-    await page.click('[data-new-rule]');
+    await tap(page, '[data-new-rule]');
     await dialog(page).locator('#ru-name').fill('In review → tell the manager');
     await dialog(page).locator('[name=trigger]').selectOption('status');
     await dialog(page).locator('[name=to]').selectOption({ label: 'In Review' });
@@ -679,7 +696,7 @@ test.describe('projects', () => {
   test('the set-up is saved as a template; a project made from it works the same; a second, different project runs independently', async () => {
     await signIn(page, ADMIN);
     await open(page, '/projects/#/projects/p/BAT/settings/templates', '[data-save-template]');
-    await page.click('[data-save-template]');
+    await tap(page, '[data-save-template]');
     await dialog(page).locator('#st-name').fill('Battery design process');
     await save(page, 'Save template');
     await expect(toast(page)).toContainText('Template saved');
@@ -693,7 +710,7 @@ test.describe('projects', () => {
     await expect(page.locator('h1')).toContainText('Battery v2');
     await open(page, '/projects/#/projects/p/BAT2/board', '.kanban-col');
     await expect(page.locator('.kanban-col h2')).toHaveText(['Draft', 'Working', 'Approved', 'Released']); // the shared board came too, on its own statuses
-    await page.click('[data-new-item]');
+    await tap(page, '[data-new-item]');
     await dialog(page).locator('#pm-new-type').selectOption({ label: '✎ Design Task' });
     await expect(dialog(page).locator('[data-field="cf.chemistry"]')).toContainText('*');
     await dialog(page).locator('[data-cancel]').click();
@@ -708,7 +725,7 @@ test.describe('projects', () => {
     await expect(page.locator('h1')).toContainText('Aerobody Manufacturing');
     await open(page, '/projects/#/projects/p/AERO/board', '.kanban-col');
     await expect(page.locator('.kanban-col h2')).toHaveText(['Planned', 'Material Ready', 'In Manufacturing', 'Inspection', 'Complete']);
-    await page.click('[data-new-item]');
+    await tap(page, '[data-new-item]');
     await dialog(page).locator('#pm-new-type').selectOption({ label: '⚙ Manufacturing Job' });
     await dialog(page).locator('#pm-new-title').fill('Top shell mold');
     await expect(dialog(page).locator('[data-field="cf.process"]')).toBeVisible();
@@ -727,7 +744,7 @@ test.describe('projects', () => {
     // bring one part of a template into the running Aerobody project, after a preview
     await open(page, '/projects/#/projects/p/AERO/settings/templates', '[data-apply]');
     await page.locator('[data-from]').selectOption({ label: 'Battery design process' });
-    await page.click('[data-apply]');
+    await tap(page, '[data-apply]');
     for (const part of ['types', 'workflows']) await dialog(page).locator(`[name=part][value=${part}]`).uncheck();
     await save(page, 'Preview');
     await expect(dialog(page).locator('[data-preview]')).toContainText('Chemistry');
@@ -740,24 +757,24 @@ test.describe('projects', () => {
 
   test('a personal view stays personal; the shared board is everyone\'s; lists page and filter', async () => {
     await signIn(page, MEMBER);
-    await open(page, '/projects/#/projects/p/BAT/list', '[data-view-new]');
-    await page.locator('[data-f=priority]').selectOption('medium');
+    await open(page, '/projects/#/projects/p/BAT/list', '[data-view-pick]');
+    await (await reveal(page, '[data-f=priority]')).selectOption('medium');
     await page.locator('[data-f=q]').fill('design');
     await expect(page.locator('.pm-table tbody tr')).toHaveCount(1);
-    await page.click('[data-more-filters]');
+    await tap(page, '[data-more-filters]');
     await dialog(page).locator('[data-field-pick]').selectOption('cf.chemistry');
     await save(page, 'Apply');
     await expect(page.locator('.empty')).toContainText('No items match'); // "Module design" has no chemistry
-    await page.click('[data-clear-filters]');
+    await tap(page, '[data-clear-filters]');
     await page.locator('[data-f=owner]').selectOption('me');
-    await page.click('[data-view-new]');
+    await tap(page, '[data-view-new]');
     await dialog(page).locator('#pm-view-name').fill('Mine in Battery');
     await expect(dialog(page).getByLabel('Everyone in this project')).toHaveCount(0); // a contributor can't share with the project
     await save(page);
     await expect(page.locator('[data-view-pick]')).toContainText('Mine in Battery');
     expect((await one(page, `select sharing from pm_views where name = 'Mine in Battery'`)).sharing).toBe('private');
     await signIn(page, MANAGER);
-    await open(page, '/projects/#/projects/p/BAT/list', '[data-view-new]');
+    await open(page, '/projects/#/projects/p/BAT/list', '[data-view-pick]');
     await expect(page.locator('[data-view-pick]')).not.toContainText('Mine in Battery');
     await open(page, '/projects/#/projects/p/BAT/board', '[data-view-pick]');
     await expect(page.locator('[data-view-pick]')).toContainText('Design board');
@@ -783,7 +800,7 @@ test.describe('projects', () => {
     await dialog(page).locator('#np-vis').selectOption('private');
     await save(page, 'Create project');
     await expect(page.locator('h1')).toContainText('Sponsor talks');
-    await page.click('[data-new-item]');
+    await tap(page, '[data-new-item]');
     await dialog(page).locator('#pm-new-title').fill('Confidential offer');
     await save(page, 'Create');
     await open(page, '/projects/#/projects/dashboards', '.pm-dash');
@@ -831,7 +848,7 @@ test.describe('projects', () => {
     // The project manager can edit the item but not the alumni hub: it goes to the hub as a draft.
     await signIn(page, MANAGER);
     await open(page, `/projects/#/projects/item/${itemKey}`, '[data-alumni-card]');
-    await page.click('[data-alumni-share="1"]');
+    await tap(page, '[data-alumni-share="1"]');
     await expect(toast(page)).toContainText('Shared with alumni');
     await expect(page.locator('[data-alumni-card]')).toContainText('a draft (not public yet)');
     await expect(page.locator('[data-alumni-card] a')).toHaveCount(0);   // drafts aren't on the hub for them
@@ -847,7 +864,7 @@ test.describe('projects', () => {
     // An Admin ("Edit the alumni hub") goes from the item to the need, which links back.
     await signIn(page, ADMIN);
     await open(page, `/projects/#/projects/item/${itemKey}`, '[data-alumni-card]');
-    await page.click('[data-alumni-card] a:has-text("Edit it on the alumni hub")');
+    await tap(page, '[data-alumni-card] a:has-text("Edit it on the alumni hub")');
     await expect(page.locator('form[data-form="need"] .alert-info')).toContainText(`Shared from Projects: ${itemKey} · Pack layout`);
     await expect(page.locator('form[data-form="need"] .alert-info a')).toHaveAttribute('href', new RegExp(`projects/#/projects/item/${itemKey}$`));
     await open(page, '/sgaa/#/manage/needs', 'table');
@@ -856,11 +873,11 @@ test.describe('projects', () => {
     // Shared by an editor, a whole project goes up as public; stopping takes it off again (archived once public).
     const aero = `select n.status from sgaa_needs n join pm_projects p on p.id = n.pm_project_id where p.key = 'AERO' and n.pm_item_id is null`;
     await open(page, '/projects/#/projects/p/AERO', '[data-alumni-card]');
-    await page.click('[data-alumni-share="1"]');
+    await tap(page, '[data-alumni-share="1"]');
     await expect(page.locator('[data-alumni-card]')).toContainText('public');
     expect(await one(page, aero)).toEqual({ status: 'open' });
     page.once('dialog', (d) => d.accept());
-    await page.click('[data-alumni-share="0"]');
+    await tap(page, '[data-alumni-share="0"]');
     await expect(page.locator('[data-alumni-share="1"]')).toBeVisible();
     expect(await one(page, aero)).toEqual({ status: 'archived' });
   });
@@ -905,7 +922,7 @@ test.describe('projects', () => {
     await dialog(page).locator('#ga-due').fill('');
     await save(page, 'Add');
     await expect(page.locator('.pm-g-label', { hasText: 'Data review' })).toBeVisible();
-    await page.click('[data-filters]');
+    await tap(page, '[data-filters]');
     await page.locator('[data-opt="undated"]').check();
     const { id } = await one(page, `select id from pm_items where title = 'Data review'`);
     const row = page.locator(`.pm-g-row[data-draw="${id}"]`);
@@ -934,7 +951,7 @@ test.describe('projects', () => {
     await expect(page.locator('[data-new-kind]')).toHaveCount(0);
     await signIn(page, ADMIN);
     await open(page, '/projects/#/projects/kinds', '[data-new-kind]');
-    await page.click('[data-new-kind]');
+    await tap(page, '[data-new-kind]');
     await dialog(page).locator('#kd-name').fill('Calc');
     await dialog(page).locator('#kd-icon').fill('∑');
     await dialog(page).locator('.pm-kind-color', { has: page.locator('input[value="purple"]') }).click();
@@ -945,7 +962,7 @@ test.describe('projects', () => {
       and not exists (select 1 from pm_types t where t.project_id = p.id and t.name = 'Calc' and t.color = 'purple' and t.kind_id is not null)`);
     expect(missing).toEqual([]);
     await open(page, '/projects/#/projects/p/BAT/settings/types', '.pm-table');
-    await expect(page.locator('.pm-table tr', { hasText: 'Calc' })).toContainText('Team');
+    await expect(page.locator('.pm-table tr', { hasText: 'Calc' }).first()).toContainText('Team');   // C7: Fields share this page now
 
     // car cycles: the first one is the current car; the next is started from it, its projects copied without items
     await open(page, '/projects/#/projects/all', '#new-program');
