@@ -277,6 +277,8 @@ test.describe('projects', () => {
     await save(page, 'Create');
     await expect(dialog(page)).toBeVisible(); // Chemistry is required: the form doesn't go
     await dialog(page).locator('[name="f:cf.chemistry"]').selectOption('NMC');
+    // W4: optional fields wait under "More fields"; required ones (Chemistry) stay in view
+    await dialog(page).locator('.pm-create-more > summary').click();
     await dialog(page).locator('[name="f:cf.cell_count"]').fill('416');
     await save(page, 'Create');
     await expect(page.locator('.kcard', { hasText: 'Pack layout' })).toBeVisible();
@@ -584,10 +586,10 @@ test.describe('projects', () => {
     await open(page, '/projects/#/projects/p/BAT/board', '.kanban');
     const card = page.locator('.kcard', { hasText: 'Module design' });
     await expect(page.locator('.kanban-col').nth(0)).toContainText('Module design');
-    // the status on the card (what phones and keyboards use instead of dragging) offers only the workflow's moves from Draft
-    await card.locator('[data-ie="status"]').click();
-    await expect(page.locator('.pm-pick-opt')).toHaveText([/In Design/]);
-    await page.locator('.pm-pick-opt', { hasText: 'In Design' }).click();
+    // the card's ⋯ menu (what phones and keyboards use instead of dragging) offers only the workflow's moves from Draft
+    await card.locator('[data-card-menu]').click();
+    await expect(page.locator('.pm-float-menu button', { hasText: 'Move to' })).toHaveText(['Move to In Design']);
+    await page.locator('.pm-float-menu button', { hasText: 'Move to In Design' }).click();
     await expect(toast(page)).toContainText('is now "In Design"');
     await expect(page.locator('.kanban-col').nth(1)).toContainText('Module design');
     // dragging to a column the workflow has no move to is refused with the reason
@@ -603,6 +605,13 @@ test.describe('projects', () => {
     await page.locator('[data-lane]').selectOption('owner');
     await expect(page.locator('.pm-lane')).not.toHaveCount(0);
     await page.locator('[data-lane]').selectOption('');
+    // W1: a card opens over the board (the address says which), and Esc goes back to the board
+    await page.locator('.kcard', { hasText: 'Pack assembly' }).locator('.kcard-name').click();
+    await expect(page.locator('.peek h1')).toContainText('Pack assembly');
+    await expect(page).toHaveURL(/\/board\?item=BAT-\d+$/);
+    await page.keyboard.press('Escape');
+    await expect(page.locator('.peek')).toHaveCount(0);
+    await expect(page).toHaveURL(/\/board$/);
   });
 
   test('change things where they show, with Undo; add with a title; change several at once; Ctrl+K and the shortcuts', async () => {
@@ -780,12 +789,14 @@ test.describe('projects', () => {
     await tap(page, '[data-new-item]');
     await dialog(page).locator('#pm-new-type').selectOption({ label: '⚙ Manufacturing Job' });
     await dialog(page).locator('#pm-new-title').fill('Top shell mold');
+    await expect(dialog(page).locator('.pm-create-more > summary')).toContainText('More fields');
+    await dialog(page).locator('.pm-create-more > summary').click();
     await expect(dialog(page).locator('[data-field="cf.process"]')).toBeVisible();
     await expect(dialog(page).locator('[data-field="cf.chemistry"]')).toHaveCount(0);
     await save(page, 'Create');
     const card = page.locator('.kcard', { hasText: 'Top shell mold' });
-    await card.locator('[data-ie="status"]').click();
-    await expect(page.locator('.pm-pick-opt')).toHaveText([/Material Ready/]);
+    await card.locator('[data-card-menu]').click();
+    await expect(page.locator('.pm-float-menu button', { hasText: 'Move to' })).toHaveText(['Move to Material Ready']);
     await page.keyboard.press('Escape');
     // neither project changed the other
     const statuses = async (k) => (await sql(page, `select s.name from pm_statuses s join pm_projects p on p.id = s.project_id where p.key = $1 order by s.sort`, [k])).map((r) => r.name);

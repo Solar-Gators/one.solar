@@ -355,6 +355,30 @@ original in Microsoft 365.
   so it fits on one line down to 1120px wide.
 - **Help text:** one short line on the page; the longer explanation opens from the ⓘ next to the heading.
 
+### Side by side with Jira (W1–W9, migration 071)
+
+- **Items open over the view.** On List, Board, Backlog, Timeline and Calendar, clicking an item opens it in a
+  panel on the right. Esc or × closes it, and ↑ / ↓ move to the previous or next item. While it's open the address
+  ends in `?item=KEY`, so you can send that link. Ctrl/⌘-click and phones still open the full page.
+- **Board cards:** the title first, then the due date, parent and counts, then type + key, priority (only when not
+  Medium) and owner. There's no status chip, since the column already shows it. Moves are in the card's ⋯ menu or
+  by dragging. Top-level items (epics) aren't cards unless *Columns & cards → Top-level items* is ticked; they show
+  as the parent name on each card under them.
+- **New item** is a short form: kind and title, a description, then owner / priority / dates / parent in one
+  row. Required fields come next, and optional ones go under *More fields*. *Create another* keeps the dialog open
+  with the same kind and parent.
+- **List as a tree** (in Backlog order): items sit indented under their parent when both are on the page. ▸ / ▾
+  folds them, and this device remembers it. ⋯ → *Show as a flat list* turns it off; any other sort is flat.
+- **Summary** opens with four 7-day numbers (finished, changed, added, due soon). Each one opens the List filtered
+  to those items (`list?show=finished|changed|added|due`). Orders & budget and Share with alumni are one line until
+  they have something in them.
+- **Loading:** when a page takes more than a moment, grey placeholder rows (or board columns) show where things
+  will appear.
+- **Timeline → Show → Status:** an item's status, or for an item with work under it, a bar of how much is done.
+- **Switch projects** from the project's name: recent projects first, and you stay on the same tab.
+- **071** puts each field in the *Engineering design* template on its own work types. Projects made before it keep
+  their fields as they are; change them in Settings → Work types & fields → All fields.
+
 ## Other one.solar apps
 
 Links to other apps go through the **link registry** (068): each kind of record is a row in `os_link_types`, and its

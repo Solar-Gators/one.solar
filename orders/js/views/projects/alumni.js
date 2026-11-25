@@ -16,7 +16,7 @@ const STATUS = { draft: 'a draft (not public yet)', open: 'public', met: 'met' }
  * The "Share with alumni" card, or '' when this person can't share it (or the database doesn't have 052 yet).
  * `mayEdit`: they can edit it in Projects.
  */
-export async function alumniShareCard({ projectId, itemId = null, mayEdit, what = 'this', heading = 'h3' }) {
+export async function alumniShareCard({ projectId, itemId = null, mayEdit, what = 'this', heading = 'h3', compact = false }) {
   const editor = auth.can('sgaa.edit');
   if (!mayEdit && !editor) return '';
   let shared;
@@ -24,6 +24,11 @@ export async function alumniShareCard({ projectId, itemId = null, mayEdit, what 
     shared = await pm.sharedWithAlumni(projectId, itemId);
   } catch {
     return '';   // before 052
+  }
+  // W6: on a project's Summary, one line until it's shared (the explanation is the button's tooltip)
+  if (compact && !shared) {
+    return `<section class="card pm-alumni pm-oneline" data-alumni-card><${heading}>Share with alumni</${heading}><span class="muted small">Not shared.</span>
+      <button type="button" class="btn btn-sm" data-alumni-share="1" title="${esc(`Alumni can't see Workbench. Sharing puts ${what} on the alumni hub's “What we need” list, so alumni can offer parts, money or know-how.${editor ? '' : ' It starts as a draft that someone with “Edit the alumni hub” makes public.'}`)}">Share with alumni</button></section>`;
   }
   const hubLink = shared && appUrl(editor ? `sgaa/#/manage/needs/${shared.id}` : `sgaa/#/need/${shared.id}`);
   const body = shared

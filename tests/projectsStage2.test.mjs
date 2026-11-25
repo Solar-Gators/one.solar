@@ -333,4 +333,13 @@ await test('files on an item: whoever can edit it adds and removes them; people 
   assert.equal(await seen(member), 0);
 });
 
+await test('071: a project from Engineering design puts each engineering field on its own work types', async () => {
+  const tpl = await one(`select id from pm_templates where name = 'Engineering design'`);
+  const p = await by(admin, 'pm_save_project', null, { key: 'ENG', name: 'Engineering', template_id: tpl.id });
+  const rows = (await db.query(`select f.key, array(select t.name from pm_types t where t.id = any(f.type_ids) order by t.name) as types
+    from pm_fields f where f.project_id = $1 order by f.key`, [p.id])).rows;
+  const on = Object.fromEntries(rows.map((r) => [r.key, r.types.join(', ')]));
+  assert.deepEqual(on, { analysis_type: 'Analysis', measured_result: 'Test', outcome: 'Test', requirement: 'Design Task, Epic', review_date: 'Design Review', test_procedure: 'Test' });
+});
+
 console.log(`\n${passed} Projects Stage 2 tests passed`);

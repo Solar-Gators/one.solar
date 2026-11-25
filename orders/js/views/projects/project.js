@@ -15,6 +15,26 @@ import { renderList } from './list.js';
 import { alumniShareCard, bindAlumniShare } from './alumni.js';
 import { renderBoard } from './board.js';
 import { cycleSwitch, bindCycleSwitch, inView, cyclesInView } from './cycles.js';
+import { bindPeekLinks, openPeek } from '../../peek.js';
+
+/**
+ * W1: on the views that list work, an item opens in a panel over the view instead of a new page (Esc closes it).
+ * The address gets ?item=KEY while it's open, so the link can be sent; opening that link opens the panel again.
+ */
+const PEEK_TABS = ['list', 'board', 'backlog', 'timeline', 'calendar', 'boards'];
+function peekItems(body, ctx, base) {
+  const share = (href) => {
+    const key = href ? decodeURIComponent(href.split('/').pop()) : '';
+    const q = new URLSearchParams(ctx.params.query || '');
+    if (key) q.set('item', key);
+    else q.delete('item');
+    return `${base}${q.toString() ? `?${q}` : ''}`;
+  };
+  const opts = { ctx: { config: ctx.config, rerender: ctx.rerender }, share };
+  bindPeekLinks(body, opts);
+  const key = ctx.params.query?.get('item');
+  if (key) openPeek(body, itemHref(key), opts);
+}
 
 const lazy = {
   backlog: () => import('./backlog.js').then((m) => m.renderBacklog),
@@ -45,6 +65,7 @@ export async function renderProject(el, ctx) {
     if (item) ctx.rerender();
   });
   const body = el.querySelector('[data-body]');
+  if (PEEK_TABS.includes(tab)) peekItems(body, ctx, scope.base);
   if (tab === '') return summary(body, scope);
   if (tab === 'list') return renderList(body, scope);
   if (tab === 'board') return renderBoard(body, scope);
@@ -69,6 +90,7 @@ export async function renderAcross(el, ctx) {
   bindCycleSwitch(el, b, ctx.rerender);
   const body = el.querySelector('[data-body]');
   if (!projectIds.length) return void (body.innerHTML = `<div class="empty"><p><strong>${cyclesInView(b) ? 'No projects in this car cycle yet.' : 'No projects yet.'}</strong></p><p><a class="btn btn-primary" href="#/projects/all">Projects</a></p></div>`);
+  if (PEEK_TABS.includes(which)) peekItems(body, ctx, `#/projects/${which}`);
   if (which === 'list') return renderList(body, scope);
   if (which === 'boards') return renderBoard(body, scope);
   return (await lazy[which]())(body, scope);
@@ -79,7 +101,7 @@ async function summary(el, { b, project, cfg, rerender }) {
   const [rollup, upcoming, events, docs, alumniCard, spend, late] = await Promise.all([
     pm.rollup(), pm.search({ project: project.id, filter: { all: [{ f: 'category', op: 'ne', v: 'done' }, { any: [{ f: 'milestone' }, { f: 'due', op: 'within', v: 14 }, { f: 'overdue' }] }] }, sort: 'due', limit: 12 }),
     pm.events({ projectIds: [project.id], limit: 15 }), pm.resources(project.id).catch(() => []),
-    project.archived_at ? '' : alumniShareCard({ projectId: project.id, mayEdit: can(b, project.id, 'edit'), what: 'this project', heading: 'h2' }),
+    project.archived_at ? '' : alumniShareCard({ projectId: project.id, mayEdit: can(b, project.id, 'edit'), what: 'this project', heading: 'h2', compact: true }),
     pm.projectSpend(project.id).catch(() => null),   // 060
     pm.orderWarnings(project.id).catch(() => []),   // 061
   ]);
@@ -88,14 +110,17 @@ async function summary(el, { b, project, cfg, rerender }) {
   const groups = rollup.groups.filter((g) => g.project_id === project.id);
   const p = progressOf(groups);
   const why = attention(p);
-  const metric = (label, m) => `<div class="pm-metric" title="${esc(m.how)}"><strong>${m.value === null ? '—' : `${m.value}%`}</strong><span>${esc(label)}</span><small>${esc(m.how)}</small></div>`;
+  const metric = (label, m) => `<div class="pm-metric" title="${esc(m.how)}"><strong>${m.value === null ? '—' : `${m.value}%`}</strong><span>${esc(label)}</span></div>`;
+  // W6: four 7-day numbers at the top, each opening the List with those items (like Jira's summary)
+  const tile = (n, label, when, show) => `<a class="pm-tile" href="${projectHref(project.key, 'list')}?show=${show}"><strong>${n ?? '—'}</strong><span>${label}</span><small>${when}</small></a>`;
   const bySub = [...new Map(groups.map((g) => [g.subsystem_id || g.division_id || '', null])).keys()].map((id) => {
     const rows = groups.filter((g) => (g.subsystem_id || g.division_id || '') === id);
     return [b.subsystemById.get(id)?.name || b.divisionById.get(id)?.name || 'No subsystem', progressOf(rows)];
   });
   const roleName = (m) => cfg.roles.find((r) => r.id === m.role_id)?.name || '';
   el.innerHTML = `<div class="pm-summary">
-    <section class="card"><h2>How it's going ${infoTip('Three ways of measuring the same project. They rarely agree: finishing many small items moves the first, finishing the big ones moves the second, and only reaching milestones moves the third. Point at a number to see how it\'s worked out.')}</h2>
+    <div class="pm-tiles pm-wide" role="list">${tile(week.finished, 'finished', 'in the last 7 days', 'finished')}${tile(week.changed, 'changed', 'in the last 7 days', 'changed')}${tile(week.created, 'added', 'in the last 7 days', 'added')}${tile(week.due.total, 'due soon', 'in the next 7 days', 'due')}</div>
+    <section class="card"><h2>How it's going ${infoTip('Three ways of measuring the same project. They rarely agree: finishing many small items moves the first, finishing the big ones moves the second, and only reaching milestones moves the third. By items: items finished ÷ all items. By effort: estimated hours finished ÷ all estimated hours. By milestones: milestones reached ÷ all milestones. Point at a number to see its figures.')}</h2>
       ${why.length ? `<div class="alert alert-info pm-attention-box">⚠ May need someone to step in: ${esc(why.join('; '))}.</div>` : ''}
       ${progressBar(p)}
       <div class="pm-nums"><a href="${projectHref(project.key, 'list')}"><strong>${p.total - p.done}</strong> open</a><span><strong>${p.doing}</strong> in progress</span><span><strong>${p.done}</strong> done</span>
@@ -104,7 +129,6 @@ async function summary(el, { b, project, cfg, rerender }) {
       <p class="muted small pm-docs-line">${docs.length ? `${docs.length} linked document${docs.length === 1 ? '' : 's'}` : 'No documents linked yet'} · <a href="${projectHref(project.key, 'docs')}">Document library</a></p>
     </section>
     <section class="card"><h2>Coming up</h2>
-      <div class="pm-nums pm-week">${[[week.finished, 'finished'], [week.changed, 'changed'], [week.created, 'added'], [week.due.total, 'due this week']].map(([v, l]) => `<span><strong>${v ?? '—'}</strong> ${l}</span>`).join('')}<span class="muted small">last / next 7 days</span></div>
       ${upcoming.items.length ? `<ul class="pm-mini">${upcoming.items.map((i) => `<li><a href="${itemHref(i.key)}">${esc(i.title)}</a> ${statusChip(cfg.statusById.get(i.status_id))} ${dueChip(i)} ${avatar(b, i.owner_id)}</li>`).join('')}</ul>`
         : '<p class="muted">No milestones or deadlines in the next two weeks, and nothing overdue.</p>'}
       <p><a href="${projectHref(project.key, 'timeline')}">Timeline</a> · <a href="${projectHref(project.key, 'calendar')}">Calendar</a></p>
@@ -162,6 +186,10 @@ function spendCard(b, project, spend, late = []) {
   const left = budget === null ? null : budget - spent - committed;
   const mayEdit = can(b, project.id, 'configure');
   if (!spend.length && budget === null && !mayEdit && !late.length) return '';
+  if (!spend.length && budget === null && !late.length) {
+    return `<section class="card pm-oneline"><h2>Orders &amp; budget</h2><span class="muted small">No Orders requests linked and no budget set.</span>
+      <button type="button" class="btn btn-sm btn-ghost" data-project-budget>Set budget…</button></section>`;
+  }
   return `<section class="card"><h2>Orders &amp; budget</h2>
     ${late.length ? `<div class="alert alert-warning"><strong>Not ordered in time:</strong><ul class="pm-mini">${late.map((w) => `<li><a href="${itemHref(w.key)}">${esc(w.key)}</a> ${esc(w.title)} ${w.start < todayISO() ? 'started' : 'starts'} ${esc(fmtDate(w.start))}; <a href="${esc(appUrl(`orders/#/requests/${encodeURIComponent(w.number)}`))}">${esc(w.number)}</a> is ${esc(w.status)}.</li>`).join('')}</ul></div>` : ''}
     <div class="pm-nums"><span><strong>${esc(fmtMoney(spent))}</strong> spent</span><span><strong>${esc(fmtMoney(committed))}</strong> committed</span><span><strong>${esc(fmtMoney(waiting))}</strong> waiting for approval</span></div>
