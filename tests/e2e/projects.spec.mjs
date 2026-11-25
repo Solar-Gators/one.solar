@@ -1107,4 +1107,29 @@ test.describe('projects', () => {
     await expect(page.locator('[data-wf-pick]')).toHaveValue(/.+/);
     await expect(page.locator('.pm-settings')).toContainText('Used by Bug');
   });
+
+  test('073: an item (and what is under it) and a whole space can be deleted for good', async () => {
+    await signIn(page, ADMIN);
+    const type = await one(page, `select t.id, t.project_id from pm_types t join pm_projects p on p.id = t.project_id where p.key = 'AERO' order by t.level, t.sort limit 1`);
+    const top = (await rpc(page, 'pm_create_item', { p_op: crypto.randomUUID(), p: { project_id: type.project_id, type_id: type.id, title: 'Throwaway' } })).data;
+    await rpc(page, 'pm_create_item', { p_op: crypto.randomUUID(), p: { project_id: type.project_id, type_id: type.id, title: 'Under it', parent_id: top.id } });
+    await open(page, `/projects/#/projects/item/${top.key}`, '.pm-status-btn');
+    await page.locator('.pm-more > summary').click();
+    await page.locator('[data-delete-item]').click();
+    await expect(dialog(page)).toContainText('the 1 item under it');
+    await expect(dialog(page)).toContainText("can't be undone");
+    await save(page, 'Delete');
+    await expect(page.locator('.os-toast')).toContainText(`Deleted ${top.key} and 1 item under it`);
+    expect((await one(page, `select count(*)::int c from pm_items where title in ('Throwaway', 'Under it')`)).c).toBe(0);
+    // the whole space: type its key to confirm
+    await open(page, '/projects/#/projects/p/AERO/settings/details', '[data-delete-space]');
+    await page.locator('[data-delete-space]').click();
+    await dialog(page).locator('#del-key').fill('WRONG');
+    await save(page, 'Delete this space');
+    await expect(dialog(page)).toBeVisible();   // the key doesn't match: nothing happens
+    await dialog(page).locator('#del-key').fill('AERO');
+    await save(page, 'Delete this space');
+    await expect(page.locator('.os-toast')).toContainText('Deleted AERO');
+    expect((await one(page, `select count(*)::int c from pm_projects where key = 'AERO'`)).c).toBe(0);
+  });
 });
