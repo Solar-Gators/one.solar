@@ -12,8 +12,8 @@ import { claimPaletteKey, openPalette } from '../../../../shared/command-palette
 
 
 const PAGES = [
-  ['My work', '#/projects', 'm'], ['All projects', '#/projects/all', 'p'], ['Inbox', '#/projects/inbox', 'i'], ['Boards', '#/projects/boards', 'b'],
-  ['Timeline (every project)', '#/projects/timeline', 't'], ['Calendar', '#/projects/calendar', 'c'], ['All work (search)', '#/projects/list', 'l'], ['Dashboards', '#/projects/dashboards', 'd'], ['Kinds of work', '#/projects/kinds', 'k'],
+  ['My work', '#/projects', 'm'], ['All spaces', '#/projects/all', 'p'], ['Inbox', '#/projects/inbox', 'i'], ['Boards', '#/projects/boards', 'b'],
+  ['Timeline (every space)', '#/projects/timeline', 't'], ['Calendar', '#/projects/calendar', 'c'], ['All work (search)', '#/projects/list', 'l'], ['Dashboards', '#/projects/dashboards', 'd'], ['Kinds of work', '#/projects/kinds', 'k'],
 ];
 const TABS = [['Summary', ''], ['List', 'list'], ['Board', 'board'], ['Backlog', 'backlog'], ['Timeline', 'timeline'], ['Calendar', 'calendar'], ['Documents', 'docs']];
 const RECENT = 'pm.recentItems';
@@ -106,7 +106,7 @@ async function newItem() {
     if (!mine.length) return;
     if (mine.length === 1) project = mine[0];
     else {
-      const id = await openCommandBar({ mode: 'project', title: 'New item in which project?' });
+      const id = await openCommandBar({ mode: 'project', title: 'New item in which space?' });
       project = id && b.projectById.get(id);
     }
   }
@@ -124,7 +124,7 @@ export async function openCommandBar({ mode = 'all', title = 'Go to or do anythi
     const dialog = document.createElement('dialog');
     dialog.className = 'pm-cmd';
     dialog.setAttribute('aria-label', title);
-    dialog.innerHTML = `<input type="search" class="pm-cmd-q" placeholder="${esc(mode === 'project' ? 'Find a project' : 'Type a project, an item (BAT-12 or words), or a page…')}" aria-label="${esc(title)}" autocomplete="off">
+    dialog.innerHTML = `<input type="search" class="pm-cmd-q" placeholder="${esc(mode === 'project' ? 'Find a space' : 'Type a space, an item (BAT-12 or words), or a page…')}" aria-label="${esc(title)}" autocomplete="off">
       <div class="pm-cmd-list" role="listbox"></div>
       <div class="pm-cmd-foot"><span>↑↓ to choose · Enter to open · Esc to close</span>${mode === 'all' ? '<button type="button" class="pm-cmd-help" data-help>Shortcuts (?)</button>' : ''}</div>`;
     document.body.append(dialog);
@@ -146,7 +146,7 @@ export async function openCommandBar({ mode = 'all', title = 'Go to or do anythi
       const needle = q.value.trim().toLowerCase();
       const has = (s) => !needle || s.toLowerCase().includes(needle);
       const projects = b.projects.filter((p) => !p.archived_at && has(`${p.name} ${p.key}`));
-      if (mode === 'project') rows = projects.filter((p) => can(b, p.id, 'create')).map((p) => ({ group: 'Projects', label: p.name, hint: p.key, value: p.id }));
+      if (mode === 'project') rows = projects.filter((p) => can(b, p.id, 'create')).map((p) => ({ group: 'Spaces', label: p.name, hint: p.key, value: p.id }));
       else {
         rows = [
           ...(needle ? [] : recentItems().map((r) => ({ group: 'Recent', label: r.title, hint: r.key, href: itemHref(r.key) }))),
@@ -155,7 +155,7 @@ export async function openCommandBar({ mode = 'all', title = 'Go to or do anythi
           ...(has('new item add create') && !here ? [{ group: 'Do', label: 'New item…', hint: 'C', act: () => newItem() }] : []),
           ...(here ? TABS.filter(([l]) => has(`${here.name} ${here.key} ${l}`)).map(([l, tab]) => ({ group: here.name, label: l, hint: here.key, href: projectHref(here.key, tab) })) : []),
           ...PAGES.filter(([l]) => has(l)).map(([l, href, k]) => ({ group: 'Go to', label: l, hint: `G ${k.toUpperCase()}`, href })),
-          ...projects.slice(0, needle ? 8 : 6).map((p) => ({ group: 'Projects', label: p.name, hint: p.key, href: projectHref(p.key) })),
+          ...projects.slice(0, needle ? 8 : 6).map((p) => ({ group: 'Spaces', label: p.name, hint: p.key, href: projectHref(p.key) })),
           ...(needle ? [{ group: 'Everywhere', label: 'Search all of one.solar', hint: 'Requests, parts, sponsors, events…', act: () => openPalette(q.value.trim()) }] : []),
         ];
       }

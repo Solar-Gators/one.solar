@@ -1269,7 +1269,7 @@ async function projectsPanel(box, r, config) {
   if (!box || Number(config.schemaVersion) < 60 || !PM_PERMS.some((p) => auth.can(p))) return;
   const items = await linkedProjectItems('order', r.id).catch(() => []);   // 068: the shared link helper
   if (!items.length || !box.isConnected) return;
-  box.innerHTML = `<section class="card"><h2>Projects</h2><ul class="plain-list">${items.map((i) =>
+  box.innerHTML = `<section class="card"><h2>Workbench</h2><ul class="plain-list">${items.map((i) =>
     `<li><a href="${esc(appUrl(`projects/#/projects/item/${encodeURIComponent(i.key)}`))}">${esc(i.key)}</a> ${esc(i.title)}</li>`).join('')}</ul>
     <p class="hint">It counts toward ${items.length === 1 ? 'that project' : 'those projects'}' spending (Workbench → Summary).</p></section>`;
 }

@@ -77,7 +77,7 @@ export const APPS = [
     id: 'projects',
     section: 'apps',
     name: 'Workbench',
-    blurb: 'Plan and track the work: your tasks, boards, timelines with dependencies, milestones and documents, set up per project.',
+    blurb: 'Plan and track the work: your tasks, boards, timelines with dependencies, milestones and documents, in a Space for each subsystem.',
     href: 'projects/',
     icon: '📋',
     access: ['projects.view', 'projects.create', 'projects.manage'],

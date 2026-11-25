@@ -91,7 +91,7 @@ export function cycleDialog(b, g = null) {
         <div class="field span-2"><label for="cy-end">Ends</label><input id="cy-end" name="end" type="date" value="${esc(g?.end_date || '')}"></div>
         <div class="field span-4"><label for="cy-desc">Notes</label><textarea id="cy-desc" name="description" rows="2">${esc(g?.description || '')}</textarea></div></div>
       <label class="pm-check"><input type="checkbox" name="current" ${g ? (g.is_current ? 'checked' : '') : (cyclesOf(b).length ? '' : 'checked')}> This is the current car (Workbench opens on it)</label>
-      ${g ? '<label class="pm-check"><input type="checkbox" name="archived"> Archive this car cycle (its projects stay)</label>' : ''}`,
+      ${g ? '<label class="pm-check"><input type="checkbox" name="archived"> Archive this car cycle (its spaces stay)</label>' : ''}`,
     onSubmit: async (f) => {
       const e = f.elements;
       const r = await pm.saveProgram(g?.id || null, { name: e.name.value, vehicle: e.vehicle.value, description: e.description.value, start_date: e.start.value, end_date: e.end.value,
@@ -129,8 +129,8 @@ export function newCycleDialog(b) {
         <div class="field span-2"><label for="nc-start">Starts</label><input id="nc-start" name="start" type="date"></div>
         <div class="field span-2"><label for="nc-end">Ends</label><input id="nc-end" name="end" type="date"></div></div>
       <label class="pm-check"><input type="checkbox" name="current"> Make it the current car now</label>
-      ${fromProjects.length ? `<fieldset class="pm-copy"><legend>Start from ${esc(from.name)}'s projects</legend>
-        <p class="hint">Each one ticked is copied with its set-up, division, subsystem and manager, but no items. You can add or remove projects later.</p>
+      ${fromProjects.length ? `<fieldset class="pm-copy"><legend>Start from ${esc(from.name)}'s spaces</legend>
+        <p class="hint">Each one ticked is copied with its set-up, division, subsystem and manager, but no items. You can add or remove spaces later.</p>
         <label class="pm-check"><input type="checkbox" data-copy-all checked> All of them</label>
         <div class="pm-copy-list">${fromProjects.map((p) => `<label class="pm-copy-row"><input type="checkbox" name="copy" value="${esc(p.id)}" checked>
           <span>${esc(p.name)} <span class="pm-key">${esc(p.key)}</span></span> → <input type="text" class="pm-copy-key" data-key-for="${esc(p.id)}" maxlength="10" aria-label="New key for ${esc(p.name)}" value=""></label>`).join('')}</div></fieldset>` : ''}`,

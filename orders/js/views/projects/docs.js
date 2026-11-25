@@ -30,7 +30,7 @@ export function addDocDialog(b, project, target, { siteUrl = '' } = {}) {
       <div class="pm-doc-read" data-read aria-live="polite"></div>
       <div class="field"><label for="doc-title">Title</label><input id="doc-title" name="title" type="text" maxlength="200" required></div>
       <div class="field"><label for="doc-cat">Category</label><select id="doc-cat" name="category"><option value="">None</option>${docCategories(project).map((c) => `<option>${esc(c)}</option>`).join('')}</select></div>
-      ${target.itemId ? '' : `<div class="field"><label for="doc-sub">For a subsystem (optional)</label><select id="doc-sub" name="subsystem"><option value="">The whole project</option>${b.subsystems.filter((s) => !s.archived_at).map((s) => `<option value="${esc(s.id)}">${esc(s.name)}</option>`).join('')}</select>
+      ${target.itemId ? '' : `<div class="field"><label for="doc-sub">For a subsystem (optional)</label><select id="doc-sub" name="subsystem"><option value="">The whole space</option>${b.subsystems.filter((s) => !s.archived_at).map((s) => `<option value="${esc(s.id)}">${esc(s.name)}</option>`).join('')}</select>
         <div class="hint">Handy for a subsystem's folder in Teams.</div></div>`}
       <p class="hint">one.solar only keeps the link. Who can open the file is still decided in Teams / SharePoint, so link it with "People with existing access" rather than "Anyone with the link".</p>`,
     onOpen(form) {
@@ -74,17 +74,17 @@ export async function renderDocs(el, scope) {
   el.innerHTML = `<div class="pm-toolbar"><div class="pm-filters">
       <input type="search" data-q placeholder="Find a document" aria-label="Find a document" value="${esc(view.q)}">
       <select data-cat aria-label="Category"><option value="">Any category</option>${cats.map((c) => `<option ${view.category === c ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select>
-      <select data-where aria-label="Linked to"><option value="">Linked anywhere</option><option value="project" ${view.where === 'project' ? 'selected' : ''}>The project itself</option>
+      <select data-where aria-label="Linked to"><option value="">Linked anywhere</option><option value="project" ${view.where === 'project' ? 'selected' : ''}>The space itself</option>
         <option value="items" ${view.where === 'items' ? 'selected' : ''}>Items</option>${subs.map((s) => `<option value="${esc(s)}" ${view.where === s ? 'selected' : ''}>${esc(b.subsystemById.get(s)?.name || 'Subsystem')}</option>`).join('')}</select></div>
       ${canAdd ? '<div class="card-actions"><button type="button" class="btn btn-primary" data-add-doc>Link a document</button></div>' : ''}</div>
     ${shown.length ? `<div class="table-wrap"><table class="pm-table"><thead><tr><th>Document</th><th>Category</th><th>Linked to</th><th>Added</th><th></th></tr></thead><tbody>${shown.map((r) => `<tr>
         <td data-label="Document">${docLink(r)}</td><td data-label="Category">${esc(r.category || '—')}</td>
         <td data-label="Linked to">${linksOf(r).map((l) => (l.item_id ? (itemById.get(l.item_id) ? `<a href="${itemHref(itemById.get(l.item_id).key)}">${esc(itemById.get(l.item_id).key)}</a>` : '')
-          : esc(l.subsystem_id ? b.subsystemById.get(l.subsystem_id)?.name || 'A subsystem' : 'The project'))).filter(Boolean).join(', ')}</td>
+          : esc(l.subsystem_id ? b.subsystemById.get(l.subsystem_id)?.name || 'A subsystem' : 'The space'))).filter(Boolean).join(', ')}</td>
         <td data-label="Added">${esc(fmtDate(r.created_at))}<div class="muted small">${esc(personName(b, r.created_by))}</div></td>
         <td>${canAdd ? `<button type="button" class="btn btn-sm btn-ghost" data-edit-doc="${esc(r.id)}">Edit</button>` : ''}</td></tr>`).join('')}</tbody></table></div>`
       : `<div class="empty"><p><strong>${resources.length ? 'No document matches.' : 'No documents linked yet.'}</strong></p>
-        ${resources.length ? '' : '<p>Link the project\'s folder in Teams, its CAD, drawings, analyses and test reports here, so nobody has to ask where things are.</p>'}</div>`}
+        ${resources.length ? '' : '<p>Link the space\'s folder in Teams, its CAD, drawings, analyses and test reports here, so nobody has to ask where things are.</p>'}</div>`}
     <p class="hint">Links open the original file in Microsoft 365 (or wherever it lives). one.solar doesn't copy files and can't tell whether a link still works or who may open it.</p>`;
 
   el.querySelector('[data-q]').oninput = (e) => {
@@ -103,7 +103,7 @@ export async function renderDocs(el, scope) {
       body: `<div class="field"><label for="ed-title">Title</label><input id="ed-title" name="title" type="text" maxlength="200" required value="${esc(r.title)}"></div>
         <div class="field"><label for="ed-cat">Category</label><select id="ed-cat" name="category"><option value="">None</option>${cats.map((c) => `<option ${r.category === c ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select></div>
         <p class="muted small" style="overflow-wrap:anywhere">${esc(r.url)}</p>
-        <label class="pm-check"><input type="checkbox" name="remove"> Remove it from this project (and from every item it's linked to). The file itself isn't touched.</label>`,
+        <label class="pm-check"><input type="checkbox" name="remove"> Remove it from this space (and from every item it's linked to). The file itself isn't touched.</label>`,
       onSubmit: (f) => (f.elements.remove.checked ? pm.saveResource(r.id, null) : pm.saveResource(r.id, { title: f.elements.title.value.trim(), category: f.elements.category.value })) });
     if (res) scope.rerender();
   });

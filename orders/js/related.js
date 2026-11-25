@@ -65,7 +65,7 @@ export async function projectsCard(box, kind, refId) {
   if (!items.length || !box.isConnected) return;
   const live = (await describeLinks(items.map((i) => ({ kind: 'item', ref_id: i.id })))).get('item') || new Map();
   if (!box.isConnected) return;
-  box.innerHTML = `<section class="card"><h2>Projects</h2><ul class="plain-list">${items.map((i) => {
+  box.innerHTML = `<section class="card"><h2>Workbench</h2><ul class="plain-list">${items.map((i) => {
     const d = live.get(i.id);
     return `<li><a href="${esc(appUrl(`projects/#/projects/item/${encodeURIComponent(i.key)}`))}">${esc(i.key)}</a> ${esc(i.title)}${d?.status ? ` <span class="chip-tone tone-${esc(d.tone || 'gray')}">${esc(d.status)}</span>` : ''}</li>`;
   }).join('')}</ul><p class="hint">Project work linked to this ${kind === 'event' ? 'event' : 'sponsor'}.</p></section>`;

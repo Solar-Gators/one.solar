@@ -106,14 +106,17 @@ test.describe('projects', () => {
 
   test('an Admin creates a project from a template', async () => {
     await open(page, '/projects/#/projects/all', '#new-project');
-    await expect(page.locator('.empty')).toContainText('No projects yet');
+    // 072: every subsystem already has its own Space (other test files may have added subsystems); otherwise none yet
+    const auto = await sql(page, `select name from pm_projects where subsystem_id is not null and archived_at is null order by name`);
+    if (auto.length) for (const { name } of auto) await expect(page.locator('.pm-project-grid')).toContainText(name);
+    else await expect(page.locator('.empty')).toContainText('No spaces yet');
     await page.click('#new-project');
     await dialog(page).locator('#np-name').fill('Battery Engineering');
     await expect(dialog(page).locator('#np-key')).toHaveValue('BE');
     await dialog(page).locator('#np-key').fill('BAT');
     await dialog(page).locator('#np-template').selectOption({ label: 'Simple board' });
     await dialog(page).locator('#np-sub').selectOption({ label: 'Battery' });
-    await save(page, 'Create project');
+    await save(page, 'Create space');
     await expect(page.locator('h1')).toContainText('Battery Engineering');
     await expect(page.locator('.pm-key').first()).toHaveText('BAT');
     await expect(page.locator('.os-toast')).toContainText('Project Administrator');
@@ -255,7 +258,7 @@ test.describe('projects', () => {
     await expect(page.locator('.kanban-col h2')).toHaveText(['Draft', 'Working', 'Approved', 'Released']);
     await tap(page, '[data-view-new]');
     await dialog(page).locator('#pm-view-name').fill('Design board');
-    await dialog(page).getByLabel('Everyone in this project').check();
+    await dialog(page).getByLabel('Everyone in this space').check();
     await dialog(page).locator('[name=is_default]').check();
     await save(page);
     await expect(page.locator('[data-view-pick]')).toContainText('Design board');
@@ -767,7 +770,7 @@ test.describe('projects', () => {
     await page.locator('.pm-template', { hasText: 'Battery design process' }).locator('[data-use]').click();
     await dialog(page).locator('#np-name').fill('Battery v2');
     await dialog(page).locator('#np-key').fill('BAT2');
-    await save(page, 'Create project');
+    await save(page, 'Create space');
     await expect(page.locator('h1')).toContainText('Battery v2');
     await open(page, '/projects/#/projects/p/BAT2/board', '.kanban-col');
     await expect(page.locator('.kanban-col h2')).toHaveText(['Draft', 'Working', 'Approved', 'Released']); // the shared board came too, on its own statuses
@@ -782,7 +785,7 @@ test.describe('projects', () => {
     await dialog(page).locator('#np-name').fill('Aerobody Manufacturing');
     await dialog(page).locator('#np-key').fill('AERO');
     await dialog(page).locator('#np-template').selectOption({ label: 'Manufacturing' });
-    await save(page, 'Create project');
+    await save(page, 'Create space');
     await expect(page.locator('h1')).toContainText('Aerobody Manufacturing');
     await open(page, '/projects/#/projects/p/AERO/board', '.kanban-col');
     await expect(page.locator('.kanban-col h2')).toHaveText(['Planned', 'Material Ready', 'In Manufacturing', 'Inspection', 'Complete']);
@@ -832,7 +835,7 @@ test.describe('projects', () => {
     await page.locator('[data-f=owner]').selectOption('me');
     await tap(page, '[data-view-new]');
     await dialog(page).locator('#pm-view-name').fill('Mine in Battery');
-    await expect(dialog(page).getByLabel('Everyone in this project')).toHaveCount(0); // a contributor can't share with the project
+    await expect(dialog(page).getByLabel('Everyone in this space')).toHaveCount(0); // a contributor can't share with the project
     await save(page);
     await expect(page.locator('[data-view-pick]')).toContainText('Mine in Battery');
     expect((await one(page, `select sharing from pm_views where name = 'Mine in Battery'`)).sharing).toBe('private');
@@ -861,13 +864,13 @@ test.describe('projects', () => {
     await dialog(page).locator('#np-name').fill('Sponsor talks');
     await dialog(page).locator('#np-key').fill('SEC');
     await dialog(page).locator('#np-vis').selectOption('private');
-    await save(page, 'Create project');
+    await save(page, 'Create space');
     await expect(page.locator('h1')).toContainText('Sponsor talks');
     await tap(page, '[data-new-item]');
     await dialog(page).locator('#pm-new-title').fill('Confidential offer');
     await save(page, 'Create');
     await open(page, '/projects/#/projects/dashboards', '.pm-dash');
-    const projects = page.locator('.pm-widget', { hasText: 'Projects: progress' });
+    const projects = page.locator('.pm-widget', { hasText: 'Spaces: progress' });
     await expect(projects).toContainText('Sponsor talks');
     await expect(projects).toContainText('Battery Engineering');
     await expect(page.locator('.pm-widget', { hasText: 'Progress by CE division' })).toContainText('Battery');
@@ -882,13 +885,13 @@ test.describe('projects', () => {
 
     await signIn(page, MEMBER);
     await open(page, '/projects/#/projects/dashboards', '.pm-dash');
-    await expect(page.locator('.pm-widget', { hasText: 'Projects: progress' })).toContainText('Battery Engineering');
+    await expect(page.locator('.pm-widget', { hasText: 'Spaces: progress' })).toContainText('Battery Engineering');
     await expect(page.locator('#app')).not.toContainText('Sponsor talks');
     expect(Number(await page.locator('.pm-big span').first().locator('strong').textContent())).toBe(adminOpen - 1);
     await open(page, '/projects/#/projects/all', '.pm-project');
     await expect(page.locator('#app')).not.toContainText('Sponsor talks');
     await page.goto('/projects/#/projects/p/SEC');
-    await expect(page.locator('.no-access')).toContainText('No project "SEC"');
+    await expect(page.locator('.no-access')).toContainText('No space "SEC"');
     const rows = await page.evaluate(async () => {
       const { supabase } = await import('/orders/js/supabase.js');
       const [items, search] = await Promise.all([supabase.from('pm_items').select('title').eq('title', 'Confidential offer'), supabase.rpc('pm_search', { p: { q: 'Confidential' } })]);
@@ -1021,8 +1024,8 @@ test.describe('projects', () => {
     await dialog(page).locator('#kd-name').fill('Calc');
     await dialog(page).locator('#kd-icon').fill('∑');
     await dialog(page).locator('.pm-kind-color', { has: page.locator('input[value="purple"]') }).click();
-    await save(page, 'Add to every project');
-    await expect(toast(page)).toContainText('Calc is now in every project');
+    await save(page, 'Add to every space');
+    await expect(toast(page)).toContainText('Calc is now in every space');
     await expect(page.locator('.pm-kinds')).toContainText('Calc');
     const missing = await sql(page, `select p.key from pm_projects p where p.archived_at is null
       and not exists (select 1 from pm_types t where t.project_id = p.id and t.name = 'Calc' and t.color = 'purple' and t.kind_id is not null)`);
@@ -1042,12 +1045,13 @@ test.describe('projects', () => {
     await dialog(page).locator('#nc-name').fill('Car 8');
     await dialog(page).locator('#nc-start').fill('2027-01-11');
     await dialog(page).locator('[data-copy-all]').uncheck();
-    await dialog(page).locator('.pm-copy-row', { hasText: 'BAT' }).first().locator('input[name=copy]').check();
-    await expect(dialog(page).locator('[data-key-for]').first()).not.toHaveValue('');
-    const newKey = await dialog(page).locator('.pm-copy-row', { hasText: 'BAT' }).first().locator('[data-key-for]').inputValue();
+    const batRow = dialog(page).locator('.pm-copy-row', { has: page.locator('.pm-key', { hasText: /^BAT$/ }) });   // not BATT, the Battery subsystem's own Space (072)
+    await batRow.locator('input[name=copy]').check();
+    await expect(batRow.locator('[data-key-for]')).not.toHaveValue('');
+    const newKey = await batRow.locator('[data-key-for]').inputValue();
     expect(newKey).toBe('BAT8');
     await save(page, 'Start it');
-    await expect(page.locator('.os-toast', { hasText: 'Car 8 is ready with 1 project' })).toBeVisible();
+    await expect(page.locator('.os-toast', { hasText: 'Car 8 is ready with 1 space' })).toBeVisible();
     expect(await one(page, `select g.name car, (select count(*)::int from pm_items i where i.project_id = p.id) items from pm_projects p join pm_programs g on g.id = p.program_id where p.key = 'BAT8'`))
       .toEqual({ car: 'Car 8', items: 0 });
     // the switcher: it now shows Car 8 (just started); Car 7 is still the current car

@@ -145,9 +145,9 @@ export function projectTop(b, project, active, actions = '') {
   noteRecentProject(project.key);
   // W9: the name opens a short list of other projects (recent first); picking one keeps the tab
   const others = b.projects.filter((p) => p.id !== project.id && !p.archived_at).length;
-  const name = others ? `<button type="button" class="pm-switch" data-switch-project="${esc(project.key)}" data-switch-tab="${esc(active || '')}" aria-haspopup="menu" title="Switch to another project">${esc(project.name)} <span class="pm-switch-caret" aria-hidden="true">▾</span></button>` : esc(project.name);
+  const name = others ? `<button type="button" class="pm-switch" data-switch-project="${esc(project.key)}" data-switch-tab="${esc(active || '')}" aria-haspopup="menu" title="Switch to another space">${esc(project.name)} <span class="pm-switch-caret" aria-hidden="true">▾</span></button>` : esc(project.name);
   return `${header(`${name} <span class="pm-key">${esc(project.key)}</span>`,
-    `${project.archived_at ? '<span class="chip-tone tone-gray">Archived</span> ' : ''}${project.visibility === 'private' ? '<span class="chip-tone tone-purple" title="Only its members can see this project">Private</span> ' : ''}${esc(project.description.split('\n')[0] || '')}`, actions)}
+    `${project.archived_at ? '<span class="chip-tone tone-gray">Archived</span> ' : ''}${project.visibility === 'private' ? '<span class="chip-tone tone-purple" title="Only its members can see this space">Private</span> ' : ''}${esc(project.description.split('\n')[0] || '')}`, actions)}
   <nav class="pm-tabs" aria-label="${esc(project.name)}">${PROJECT_TABS.filter(([k]) => (k !== 'settings' || settings) && (!hidden.includes(k) || k === active))
     .map(([k, label]) => `<a href="${projectHref(project.key, k)}" ${k === active ? 'aria-current="page"' : ''}>${label}</a>`).join('')}</nav>`;
 }
@@ -163,7 +163,7 @@ export function friendly(err, item = null) {
   const m = String(err?.message || err || '');
   if (/failed to fetch|networkerror|load failed|network request failed/i.test(m)) return "Couldn't reach one.solar. Check your connection and try again; nothing was changed.";
   if (/jwt expired|invalid jwt|refresh token/i.test(m)) return 'You were signed out. Sign in again, then try once more.';
-  if (/^permission denied|row-level security/i.test(m)) return `You can't change that${item ? ` on ${item.key}` : ''} with your role in this project. Ask its project manager.`;
+  if (/^permission denied|row-level security/i.test(m)) return `You can't change that${item ? ` on ${item.key}` : ''} with your role in this space. Ask its project manager.`;
   return m || 'Something went wrong. Try again.';
 }
 /** Run something that changes data; a failure shows as a notice instead of breaking the page. Returns its result or undefined. */
@@ -429,7 +429,7 @@ export const smartDefaults = (b, project, given = {}) => {
 export async function createItemDialog(b, cfg, given = {}) {
   const defaults = smartDefaults(b, cfg.project, given);
   const types = cfg.types.filter((t) => !t.archived_at);
-  if (!types.length) return toast('This project has no work-item types yet. Add one in Settings → Work types.', 'bad');
+  if (!types.length) return toast('This space has no work-item types yet. Add one in Settings → Work types.', 'bad');
   const parents = await loadParents(cfg.project.id).catch(() => []);
   let typeId = defaults.type_id || (types.find((t) => t.level === 1) || types[0]).id;
   let last = null;
@@ -636,7 +636,7 @@ function conditionFields(b, { fields = [], statuses = [], sprints = [] } = {}) {
     ['been_in', 'Status history', uniq(statuses.map((s) => [s.name, s.name])), 'history'],                   // 069
     ['parent_status', 'Parent\'s status', uniq(statuses.map((s) => [s.name, s.name]))],
     ['division', 'CE division', b.divisions.map((d) => [d.id, d.name])], ['subsystem', 'Subsystem', b.subsystems.map((s) => [s.id, s.name])],
-    ['project', 'Project', b.projects.map((p) => [p.id, p.name])], ['program', 'Program', b.programs.map((p) => [p.id, p.name])],
+    ['project', 'Space', b.projects.map((p) => [p.id, p.name])], ['program', 'Program', b.programs.map((p) => [p.id, p.name])],
     ...(sprints.length ? [['sprint', 'Sprint', sprints.map((s) => [s.id, s.name])]] : []),
     ['labels', 'Label', 'text'], ['title', 'Title', 'text'], ['vehicle', 'Vehicle', 'text'], ['due', 'Due date', 'date'], ['start', 'Start date', 'date'],
     ['created', 'Created', 'date'], ['updated', 'Last changed', 'date'], ['completed', 'Finished on', 'date'], ['estimate', 'Estimate (hours)', 'number'], ['progress', 'Progress %', 'number'],
@@ -774,7 +774,7 @@ export function itemTable(b, items, cfgOf, { columns = ['key', 'title', 'status'
     priority: ['Priority', E('priority')],
     due_date: ['Due', E('due', 'short')],
     start_date: ['Start', E('start', 'short')],
-    project: ['Project', (i) => `<a href="${projectHref(b.projectById.get(i.project_id)?.key || '')}">${esc(b.projectById.get(i.project_id)?.name || '')}</a>`],
+    project: ['Space', (i) => `<a href="${projectHref(b.projectById.get(i.project_id)?.key || '')}">${esc(b.projectById.get(i.project_id)?.name || '')}</a>`],
     subsystem: ['Subsystem', (i) => esc(b.subsystemById.get(i.subsystem_id)?.name || b.divisionById.get(i.division_id)?.name || '—')],
     estimate_hours: ['Estimate', E('estimate')],
     progress: ['Progress', E('progress')],
@@ -804,7 +804,7 @@ const treeToggle = (i, tree) => (tree.kids.has(i.id)
   : '<span class="pm-tree-tog is-leaf" aria-hidden="true"></span>');
 
 export const TABLE_COLUMNS = [['key', 'Key'], ['title', 'Title'], ['status', 'Status'], ['owner', 'Owner'], ['priority', 'Priority'], ['due_date', 'Due'], ['start_date', 'Start'],
-  ['project', 'Project'], ['subsystem', 'Subsystem'], ['estimate_hours', 'Estimate'], ['progress', 'Progress'], ['labels', 'Labels'], ['updated', 'Changed']];
+  ['project', 'Space'], ['subsystem', 'Subsystem'], ['estimate_hours', 'Estimate'], ['progress', 'Progress'], ['labels', 'Labels'], ['updated', 'Changed']];
 
 /** A configuration for items of several projects at once (cross-project pages): each item finds its own project's parts. */
 export async function shapesFor(b, projectIds) {
@@ -902,6 +902,6 @@ document.addEventListener('click', async (e) => {
   const r = btn.getBoundingClientRect();
   openMenu(r.left, r.bottom + 4, [
     ...list.map((p) => ({ label: `${p.name} (${p.key})`, run: () => (location.hash = projectHref(p.key, tab)) })),
-    { label: 'All projects…', run: () => (location.hash = '#/projects/all') },
-  ], 'Switch project');
+    { label: 'All spaces…', run: () => (location.hash = '#/projects/all') },
+  ], 'Switch space');
 });

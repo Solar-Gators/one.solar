@@ -41,13 +41,13 @@ export async function renderProjects(el, { config, rerender }) {
       ${progressBar(pr)}
       <div class="pm-project-nums"><span>${pr.total - pr.done} open</span>${pr.overdue ? `<span class="is-late">${pr.overdue} overdue</span>` : ''}${pr.blocked ? `<span class="is-late">${pr.blocked} blocked</span>` : ''}
         ${pr.nextMs ? `<span title="Next milestone">⚑ ${esc(fmtDate(pr.nextMs))}${pr.nextMs < todayISO() ? ' (late)' : ''}</span>` : ''}</div>
-      ${why.length ? `<div class="pm-attention" title="Why this project may need someone to step in">⚠ ${esc(why.join('; '))}</div>` : ''}</a>`;
+      ${why.length ? `<div class="pm-attention" title="Why this space may need someone to step in">⚠ ${esc(why.join('; '))}</div>` : ''}</a>`;
   };
 
-  el.innerHTML = `${takeFlash()}${header('Projects', 'Every project you can see. What you can change in each one depends on your role in it.',
-    `${canCreateProjects() ? `<button type="button" class="btn" id="new-program">${cycles.length ? 'Start a new car cycle' : 'Add car cycles'}</button><button type="button" class="btn btn-primary" id="new-project">New project</button>` : ''}`)}
+  el.innerHTML = `${takeFlash()}${header('Spaces', 'Every space you can see. What you can change in each one depends on your role in it.',
+    `${canCreateProjects() ? `<button type="button" class="btn" id="new-program">${cycles.length ? 'Start a new car cycle' : 'Add car cycles'}</button><button type="button" class="btn btn-primary" id="new-project">New space</button>` : ''}`)}
     ${cycleSwitch(b)}
-    <div class="pm-filters"><input type="search" id="proj-q" placeholder="Find a project" aria-label="Find a project" value="${esc(view.q)}">
+    <div class="pm-filters"><input type="search" id="proj-q" placeholder="Find a space" aria-label="Find a space" value="${esc(view.q)}">
       <label class="pm-check"><input type="checkbox" id="proj-archived" ${view.archived ? 'checked' : ''}> Archived</label></div>
     ${programs.map((g) => {
       const list = shown.filter((p) => (sectionOf(p) ?? null) === g.id);
@@ -55,9 +55,9 @@ export async function renderProjects(el, { config, rerender }) {
       return `<section class="pm-program">${g.name ? `<h2>${esc(g.name)}${g.is_current && cycles.length > 1 ? ' <span class="pm-cycle-now">now</span>' : ''}${g.vehicle ? ` <span class="muted">${esc(g.vehicle)}</span>` : ''}${g.start_date || g.end_date ? ` <span class="muted small">${esc([g.start_date && fmtDate(g.start_date), g.end_date && fmtDate(g.end_date)].filter(Boolean).join(' – '))}</span>` : ''}
         ${g.id && canCreateProjects() ? `<button type="button" class="btn btn-sm btn-ghost" data-edit-program="${esc(g.id)}">Edit</button>` : ''}</h2>` : ''}
         ${g.description ? `<p class="muted">${esc(g.description)}</p>` : ''}
-        <div class="pm-project-grid">${list.map(card).join('') || '<p class="muted">No projects in this car cycle yet.</p>'}</div></section>`;
+        <div class="pm-project-grid">${list.map(card).join('') || '<p class="muted">No spaces in this car cycle yet.</p>'}</div></section>`;
     }).join('')}
-    ${shown.length ? '' : `<div class="empty"><p><strong>${view.archived ? 'No archived projects.' : q ? 'No project matches.' : 'No projects yet.'}</strong></p>
+    ${shown.length ? '' : `<div class="empty"><p><strong>${view.archived ? 'No archived spaces.' : q ? 'No space matches.' : 'No spaces yet.'}</strong></p>
       ${!view.archived && !q ? `<p>${canCreateProjects() ? 'Start one from a template: it comes with work types, a workflow and a board you can change later.' : 'A Chief Engineer or an Admin can start one.'}</p>` : ''}</div>`}`;
 
   el.querySelector('#proj-q').oninput = (e) => {
@@ -81,7 +81,7 @@ export async function renderProjects(el, { config, rerender }) {
     if (!cycles.length) return void ((await cycleDialog(b)) && rerender());
     const r = await newCycleDialog(b);
     if (!r) return;
-    setFlash(`${r.cycle.name} is ready${r.copied.length ? ` with ${r.copied.length} project${r.copied.length === 1 ? '' : 's'} from the last car (no items)` : ''}.${r.failed.length ? ` Couldn't copy: ${r.failed.map(([k, m]) => `${k} (${m})`).join('; ')}.` : ''}`);
+    setFlash(`${r.cycle.name} is ready${r.copied.length ? ` with ${r.copied.length} space${r.copied.length === 1 ? '' : 's'} from the last car (no items)` : ''}.${r.failed.length ? ` Couldn't copy: ${r.failed.map(([k, m]) => `${k} (${m})`).join('; ')}.` : ''}`);
     rerender();
   });
   bindCycleSwitch(el, b, rerender);
@@ -97,7 +97,7 @@ export async function createProjectDialog(b, templateId = null) {
   if (!templates) return null;
   const keyFrom = (name) => (name.toUpperCase().match(/[A-Z0-9]+/g) || []).map((w, i, all) => (all.length === 1 ? w.slice(0, 4) : w[0])).join('').replace(/^[0-9]+/, '').slice(0, 6);
   return formDialog({
-    title: 'New project', submit: 'Create project', wide: true,
+    title: 'New space', submit: 'Create space', wide: true,
     body: `<div class="form-grid">
         <div class="field span-3"><label for="np-name">Name</label><input id="np-name" name="name" type="text" maxlength="120" required placeholder="Battery Pack Development"></div>
         <div class="field"><label for="np-key">Key</label><input id="np-key" name="key" type="text" maxlength="10" required pattern="[A-Za-z][A-Za-z0-9]{1,9}" placeholder="BAT">
