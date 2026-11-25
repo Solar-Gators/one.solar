@@ -1112,7 +1112,9 @@ test.describe('projects', () => {
     await signIn(page, ADMIN);
     const type = await one(page, `select t.id, t.project_id from pm_types t join pm_projects p on p.id = t.project_id where p.key = 'AERO' order by t.level, t.sort limit 1`);
     const top = (await rpc(page, 'pm_create_item', { p_op: crypto.randomUUID(), p: { project_id: type.project_id, type_id: type.id, title: 'Throwaway' } })).data;
-    await rpc(page, 'pm_create_item', { p_op: crypto.randomUUID(), p: { project_id: type.project_id, type_id: type.id, title: 'Under it', parent_id: top.id } });
+    const sub = await one(page, `select id from pm_types where project_id = $1 and level > (select level from pm_types where id = $2) order by level, sort limit 1`, [type.project_id, type.id]);
+    const under = await rpc(page, 'pm_create_item', { p_op: crypto.randomUUID(), p: { project_id: type.project_id, type_id: sub.id, title: 'Under it', parent_id: top.id } });
+    expect(under.error).toBeFalsy();
     await open(page, `/projects/#/projects/item/${top.key}`, '.pm-status-btn');
     await page.locator('.pm-more > summary').click();
     await page.locator('[data-delete-item]').click();
