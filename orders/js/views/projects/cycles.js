@@ -1,8 +1,8 @@
 /**
- * Projects → car cycles (063). A car cycle is a program with dates; one of them is the current car. The switcher
- * at the top of Projects, the team timeline, Boards, Calendar, All work and Dashboards shows this car, another car,
- * both (this and the next), or everything. Projects not in any car cycle count as the current car's (they were
- * made before there were cycles). The choice is remembered in this browser.
+ * Workbench → car cycles (063, 074). A car cycle is a program with dates; one of them is the current car. Spaces
+ * last across cars; each item has its car (074). The switcher at the top of a Space, the team timeline, Boards,
+ * Calendar, All work and Dashboards shows the work of this car, another car, both (this and the next), or
+ * everything. Items with no car count as the current car's. The choice is remembered in this browser.
  */
 import { esc, fmtDate } from '../../ui.js';
 import { pm } from '../../projects/api.js';
@@ -43,7 +43,25 @@ export function cyclesInView(b) {
   if (c === 'now') return [currentCycle(b).id];
   return [c];
 }
-/** Is this project in the car cycles shown? (Not in any cycle: it's the current car's.) */
+/**
+ * 074: the switcher's choice as a search filter on the item's car, or null for everything. Items with no car count
+ * as the current car's.
+ */
+export function carFilter(b) {
+  const ids = cyclesInView(b);
+  if (!ids) return null;
+  const inCars = { f: 'program', op: 'in', v: ids.length ? ids : ['00000000-0000-0000-0000-000000000000'] };
+  return ids.includes(currentCycle(b)?.id) ? { any: [inCars, { f: 'program', op: 'empty' }] } : inCars;
+}
+/** Is this item in the car cycles shown? (No car: it's the current car's.) */
+export function itemInView(b, item) {
+  const ids = cyclesInView(b);
+  return !ids || ids.includes(item.program_id || currentCycle(b)?.id);
+}
+/** The car an item counts as. */
+export const cycleOfItem = (b, item) => b.programs.find((g) => g.id === item.program_id && !g.archived_at) || currentCycle(b);
+
+/** Is this project in the car cycles shown? (Not in any cycle: it's the current car's.) Spaces (074) have none. */
 export function inView(b, project) {
   const ids = cyclesInView(b);
   if (!ids) return true;
@@ -52,7 +70,7 @@ export function inView(b, project) {
 }
 /** The car cycle a project counts as (its own, or the current car). */
 export const cycleOfProject = (b, project) => b.programs.find((g) => g.id === project.program_id && !g.archived_at) || currentCycle(b);
-/** Where a new project goes: the one car in view, else the current car. */
+/** Where new work goes: the one car in view, else the current car. */
 export function cycleForNew(b) {
   const ids = cyclesInView(b);
   return ids?.length === 1 ? ids[0] : currentCycle(b)?.id || '';
@@ -102,80 +120,26 @@ export function cycleDialog(b, g = null) {
   });
 }
 
-/** A key for a project copied into another car: BAT → BAT8 (the new car's number), made unique. */
-export function copyKey(key, cycleName, taken) {
-  const digits = ((cycleName.match(/\d+/g) || []).pop() || '2').slice(0, 4);
-  const stem = key.replace(/\d+$/, '') || key;   // BAT7 → BAT
-  const make = (suffix) => `${stem.slice(0, 10 - suffix.length)}${suffix}`;
-  let k = make(digits);
-  for (let n = 0; taken.has(k) && n < 26; n++) k = make(`${digits}${String.fromCharCode(65 + n)}`);   // BAT8A, BAT8B…
-  return k;
-}
-
 /**
- * "Start a new car cycle": the cycle, and (optional) last car's projects copied into it: the same set-up (kinds,
- * workflows, fields, boards, rules), division, subsystem, manager and visibility, with no items. Resolves with
- * { cycle, copied: [projects], failed: [[key, message]] } or null.
+ * "Start a new car cycle": its name, dates and whether it's the current car now. Spaces carry on (074); new work
+ * for the new car is added in each Space with the car switcher set to it. Resolves with { cycle } or null.
  */
 export function newCycleDialog(b) {
-  const from = currentCycle(b);
-  const fromProjects = from ? b.projects.filter((p) => !p.archived_at && cycleOfProject(b, p)?.id === from.id) : [];
   return formDialog({
-    title: 'Start a new car cycle', submit: 'Start it', wide: true,
-    body: `<p class="muted">Plan the next car while this one is still being built. The switcher at the top of Workbench shows this car, the next one or both.</p>
+    title: 'Start a new car cycle', submit: 'Start it',
+    body: `<p class="muted">Plan the next car while this one is still being built. Every space carries on; switch to the new car at the top of Workbench to add its work.</p>
       <div class="form-grid">
         <div class="field span-2"><label for="nc-name">Name</label><input id="nc-name" name="name" type="text" maxlength="80" required placeholder="Car 8"></div>
         <div class="field span-2"><label for="nc-vehicle">Vehicle (optional)</label><input id="nc-vehicle" name="vehicle" type="text" maxlength="80"></div>
         <div class="field span-2"><label for="nc-start">Starts</label><input id="nc-start" name="start" type="date"></div>
         <div class="field span-2"><label for="nc-end">Ends</label><input id="nc-end" name="end" type="date"></div></div>
-      <label class="pm-check"><input type="checkbox" name="current"> Make it the current car now</label>
-      ${fromProjects.length ? `<fieldset class="pm-copy"><legend>Start from ${esc(from.name)}'s spaces</legend>
-        <p class="hint">Each one ticked is copied with its set-up, division, subsystem and manager, but no items. You can add or remove spaces later.</p>
-        <label class="pm-check"><input type="checkbox" data-copy-all checked> All of them</label>
-        <div class="pm-copy-list">${fromProjects.map((p) => `<label class="pm-copy-row"><input type="checkbox" name="copy" value="${esc(p.id)}" checked>
-          <span>${esc(p.name)} <span class="pm-key">${esc(p.key)}</span></span> → <input type="text" class="pm-copy-key" data-key-for="${esc(p.id)}" maxlength="10" aria-label="New key for ${esc(p.name)}" value=""></label>`).join('')}</div></fieldset>` : ''}`,
-    onOpen(form) {
-      const taken = new Set(b.projects.map((p) => p.key));
-      const keys = () => {
-        const used = new Set(taken);
-        form.querySelectorAll('[data-key-for]').forEach((i) => {
-          if (i.dataset.typed) return used.add(i.value);
-          const p = b.projectById.get(i.dataset.keyFor);
-          i.value = copyKey(p.key, form.elements.name.value || '', used);
-          used.add(i.value);
-        });
-      };
-      keys();
-      form.elements.name.addEventListener('input', keys);
-      form.querySelectorAll('[data-key-for]').forEach((i) => i.addEventListener('input', () => (i.dataset.typed = '1')));
-      const all = form.querySelector('[data-copy-all]');
-      all?.addEventListener('change', () => form.querySelectorAll('[name=copy]').forEach((c) => (c.checked = all.checked)));
-      form.querySelectorAll('[name=copy]').forEach((c) => c.addEventListener('change', () => (all.checked = [...form.querySelectorAll('[name=copy]')].every((x) => x.checked))));
-    },
+      <label class="pm-check"><input type="checkbox" name="current" ${cyclesOf(b).length ? '' : 'checked'}> Make it the current car now</label>`,
     async onSubmit(form) {
       const e = form.elements;
-      const picked = [...form.querySelectorAll('[name=copy]:checked')].map((c) => b.projectById.get(c.value));
-      for (const p of picked) {
-        const k = form.querySelector(`[data-key-for="${p.id}"]`).value.trim().toUpperCase();
-        if (!/^[A-Z][A-Z0-9]{1,9}$/.test(k)) throw new Error(`The key for ${p.name} is 2 to 10 capital letters or numbers, starting with a letter.`);
-      }
       const cycle = await pm.saveProgram(null, { name: e.name.value, vehicle: e.vehicle.value, start_date: e.start.value, end_date: e.end.value, current: e.current.checked });
-      const copied = [];
-      const failed = [];
-      for (const p of picked) {
-        const key = form.querySelector(`[data-key-for="${p.id}"]`).value.trim().toUpperCase();
-        try {
-          const config = await pm.exportConfig(p.id, false);
-          const made = await pm.saveProject(null, { name: p.name, key, config, include_items: false, start_date: e.start.value || undefined });
-          copied.push(await pm.saveProject(made.id, { program_id: cycle.id, description: p.description, lead_id: p.lead_id, division_id: p.division_id,
-            subsystem_id: p.subsystem_id, visibility: p.visibility }));
-        } catch (err) {
-          failed.push([p.key, err.message]);
-        }
-      }
       invalidate();
       setCycleChoice(e.current.checked ? '' : cycle.id);
-      return { cycle, copied, failed };
+      return { cycle };
     },
   });
 }

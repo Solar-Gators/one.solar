@@ -8,6 +8,7 @@ import { auth } from '../../auth.js';
 import { api } from '../../api.js';
 import { esc, errorBox, fmtDate, renderRichText } from '../../ui.js';
 import { pm } from '../../projects/api.js';
+import { cycleForNew } from './cycles.js';
 import { PRIORITIES, CATEGORIES, newId, fieldLabel, layoutFor, movesFor, moveNeeds, relDay, treeOrder } from '../../projects/core.js';
 import { evalFormula } from '../../projects/formula.js';
 import { todayISO } from '../../projects/schedule.js';
@@ -46,6 +47,7 @@ export function refreshUnread(now = false) {
 /** Projects, programs, people, CE divisions and what I may do in each project. Kept until invalidate(). */
 export async function loadBase({ fresh = false } = {}) {
   refreshUnread();
+  base?.then((b) => (pm.newCar = cycleForNew(b) || null)).catch(() => {});
   if (!commandsOn) {
     commandsOn = true;
     import('./command.js').then((m) => m.installCommands()).catch(() => {});   // Ctrl+K and the shortcuts
@@ -76,6 +78,7 @@ export async function loadBase({ fresh = false } = {}) {
       pm.runScheduled().catch(() => {});
     }
   }
+  base.then((b) => (pm.newCar = cycleForNew(b) || null)).catch(() => {});
   return base;
 }
 /** A project's configuration with lookups. */
@@ -307,6 +310,10 @@ export function fieldInput(key, ctx, { required = false } = {}) {
     case 'estimate_hours': return wrap(`<input id="${id}" name="${name}" type="number" min="0" step="any" value="${esc(item.estimate_hours ?? '')}" ${req}>`, 'Optional. Used for workload and effort-weighted progress.');
     case 'progress': return wrap(`<input id="${id}" name="${name}" type="number" min="0" max="100" step="5" value="${esc(item.progress ?? 0)}">`, 'Percent');
     case 'labels': return wrap(`<input id="${id}" name="${name}" type="text" value="${esc((item.labels || []).join(', '))}" data-list ${req}>`, 'Separate with commas');
+    case 'car': {   // 074: the car cycle this work is for
+      const cars = (b.programs || []).filter((g) => !g.archived_at || g.id === item.program_id);
+      return wrap(`<select id="${id}" name="${name}" ${req}>${opt('', 'No car', !item.program_id)}${cars.map((g) => opt(g.id, g.name, g.id === item.program_id)).join('')}</select>`);
+    }
     case 'sprint': return wrap(`<select id="${id}" name="${name}" ${req}>${opt('', 'Backlog (no sprint)', !item.sprint_id)}${cfg.sprints.filter((s) => s.status !== 'closed' || s.id === item.sprint_id).map((s) => opt(s.id, s.name, s.id === item.sprint_id)).join('')}</select>`);
     case 'parent': return wrap(`<select id="${id}" name="${name}" ${req}>${opt('', 'Nothing (top level)', !item.parent_id)}${(ctx.parents || []).filter((p) => p.id !== item.id).map((p) => opt(p.id, `${p.key} · ${p.title}`, p.id === item.parent_id)).join('')}</select>`);
     case 'blocked': return `<div class="field span-4" data-field="blocked"><label class="pm-check"><input type="checkbox" name="${name}" value="true" ${item.blocked ? 'checked' : ''}> Blocked</label>
@@ -397,6 +404,7 @@ export function readFields(form, cfg) {
     else if (key === 'division') out.division_id = val(key).value || null;
     else if (key === 'subsystem') out.subsystem_id = val(key).value || null;
     else if (key === 'sprint') out.sprint_id = val(key).value || null;
+    else if (key === 'car') out.program_id = val(key).value || null;
     else if (key === 'parent') out.parent_id = val(key).value || null;
     else if (key === 'collaborators') out.collaborators = many(key);
     else if (key === 'labels') out.labels = list(val(key).value);

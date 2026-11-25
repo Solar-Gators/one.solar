@@ -49,7 +49,7 @@ async function details(el, { b, project, cfg, rerender }) {
       <div class="form-grid"><div class="field span-3"><label for="pd-name">Name</label><input id="pd-name" name="name" type="text" maxlength="120" required value="${esc(project.name)}"></div>
         <div class="field"><label>Key</label><output class="pm-formula">${esc(project.key)}</output><div class="hint">Can't change: it's in every item's name.</div></div>
         <div class="field span-4"><label for="pd-desc">About this space</label><textarea id="pd-desc" name="description" rows="3">${esc(project.description)}</textarea></div>
-        <div class="field span-2"><label for="pd-program">Car cycle</label><select id="pd-program" name="program">${opt('', 'None', !project.program_id)}${b.programs.filter((g) => !g.archived_at || g.id === project.program_id).map((g) => opt(g.id, g.name, g.id === project.program_id)).join('')}</select></div>
+
         <div class="field span-2"><label for="pd-lead">Project manager</label>${peopleField('lead', 'pd-lead', b, project.lead_id, { blank: 'Nobody' })}</div>
         <div class="field span-2"><label for="pd-div">Owning CE division</label><select id="pd-div" name="division" data-division>${opt('', '—', !project.division_id)}${b.divisions.filter((d) => !d.archived_at || d.id === project.division_id).map((d) => opt(d.id, d.name, d.id === project.division_id)).join('')}</select></div>
         <div class="field span-2"><label for="pd-sub">Owning subsystem</label><select id="pd-sub" name="subsystem" data-subsystem>${opt('', '—', !project.subsystem_id)}${b.subsystems.filter((s) => !s.archived_at || s.id === project.subsystem_id).map((s) => `<option value="${esc(s.id)}" data-div="${esc(s.division_id)}" ${s.id === project.subsystem_id ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</select></div>
@@ -105,7 +105,7 @@ async function details(el, { b, project, cfg, rerender }) {
     const bad = phases.find((p) => !p.name || !p.start || !p.end || p.end < p.start);
     if (bad) return toast(bad.name ? `"${bad.name}" needs a start and an end, and the end can't be before the start.` : 'Give each phase a name.', 'bad');
     const saved = await attempt(() => pm.saveProject(project.id, {
-      version: project.version, name: f.name.value.trim(), description: f.description.value, program_id: f.program.value || null, lead_id: f.lead.value || null,
+      version: project.version, name: f.name.value.trim(), description: f.description.value, lead_id: f.lead.value || null,
       division_id: f.division.value || null, subsystem_id: f.subsystem.value || null, vehicle: f.vehicle.value,
       participants: [...e.target.querySelectorAll('[name=part]:checked')].map((n) => ({ division_id: n.dataset.div, subsystem_id: n.value })),
       ...(mayShare ? { visibility: f.visibility.value, team_role_id: f.team_role.value || null } : {}), archived: f.archived.checked,

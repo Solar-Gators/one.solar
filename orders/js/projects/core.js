@@ -37,7 +37,7 @@ export const FIELD_TYPES = [
 export const BUILTIN_FIELDS = [
   ['description', 'Description'], ['priority', 'Priority'], ['owner', 'Owner'], ['collaborators', 'Collaborators'], ['division', 'CE division'],
   ['subsystem', 'Subsystem'], ['vehicle', 'Vehicle'], ['start_date', 'Start date'], ['due_date', 'Due date'], ['estimate_hours', 'Estimate (hours)'],
-  ['progress', 'Progress'], ['parent', 'Parent'], ['sprint', 'Sprint'], ['labels', 'Labels'], ['acceptance', 'What "done" means'], ['blocked', 'Blocked'],
+  ['progress', 'Progress'], ['parent', 'Parent'], ['sprint', 'Sprint'], ['car', 'Car cycle'], ['labels', 'Labels'], ['acceptance', 'What "done" means'], ['blocked', 'Blocked'],
 ];
 /** Built-in fields a workflow move can require. */
 export const REQUIRABLE = ['owner', 'description', 'due_date', 'start_date', 'estimate_hours', 'division', 'subsystem', 'parent', 'sprint', 'acceptance', 'labels', 'vehicle'];
@@ -70,7 +70,7 @@ export function layoutFor(cfg, typeId, kind, transitionId = null) {
   const custom = (cfg.fields || []).filter((f) => !f.archived_at && (!f.type_ids?.length || f.type_ids.includes(typeId)));
   const basic = kind === 'create'
     ? ['description', 'owner', 'priority', 'due_date', 'parent']
-    : ['description', 'owner', 'collaborators', 'priority', 'start_date', 'due_date', 'estimate_hours', 'progress', 'division', 'subsystem', 'parent', 'sprint', 'labels', 'acceptance', 'blocked'];
+    : ['description', 'owner', 'collaborators', 'priority', 'start_date', 'due_date', 'estimate_hours', 'progress', 'division', 'subsystem', 'parent', 'sprint', 'car', 'labels', 'acceptance', 'blocked'];
   return [
     { title: 'Details', fields: basic.map((key) => ({ key })) },
     ...(custom.length ? [{ title: 'More', fields: custom.map((f) => ({ key: `cf.${f.key}` })) }] : []),

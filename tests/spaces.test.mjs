@@ -156,4 +156,30 @@ await test('a Space is deleted only by an Admin who types its key; its subsystem
   assert.equal((await by(admin, 'pm_delete_project', loose.id, 'LOOSE')).new_space, null);
 });
 
+console.log('The car is on the work (074)');
+
+await test('a Space has no car; each item has one: given, else its parent\'s, else the current car; the car filter is the item\'s', async () => {
+  const car5 = await by(admin, 'pm_save_program', null, { name: 'Car 5', start_date: '2026-08-01', current: true });
+  const car6 = await by(admin, 'pm_save_program', null, { name: 'Car 6', start_date: '2027-08-01' });
+  const s = await space(battery);
+  assert.equal(s.program_id, null);
+  const type = async (name) => (await one(`select id from pm_types where project_id = $1 and name = $2`, [s.id, name])).id;
+  const now = await by(batt, 'pm_create_item', randomUUID(), { project_id: s.id, type_id: await type('Epic'), title: 'Pack for Car 5' });
+  assert.equal(now.program_id, car5.id, 'the current car when none is given');
+  const next = await by(batt, 'pm_create_item', randomUUID(), { project_id: s.id, type_id: await type('Epic'), title: 'Pack for Car 6', program_id: car6.id });
+  assert.equal(next.program_id, car6.id);
+  const child = await by(batt, 'pm_create_item', randomUUID(), { project_id: s.id, type_id: await type('Task'), title: 'Cells for 6', parent_id: next.id });
+  assert.equal(child.program_id, car6.id, 'under an item: its car');
+  // moved to the other car like any other field
+  const moved = await by(batt, 'pm_update_item', now.id, null, { program_id: car6.id });
+  assert.equal(moved.program_id, car6.id);
+  await by(batt, 'pm_update_item', now.id, null, { program_id: car5.id });
+  // the switcher's filter: by the item's car, in one Space
+  const found = await by(batt, 'pm_search', { project: s.id, filter: { f: 'program', op: 'in', v: [car6.id] } });
+  assert.deepEqual(found.items.map((i) => i.title).sort(), ['Cells for 6', 'Pack for Car 6']);
+  // an archived car can't be given
+  await by(admin, 'pm_save_program', car6.id, { name: 'Car 6', archived: true });
+  await rejects(by(batt, 'pm_update_item', now.id, null, { program_id: car6.id }), /car cycle doesn't exist, or it's archived/);
+});
+
 console.log(`\n${passed} spaces tests passed`);

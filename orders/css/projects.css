@@ -914,3 +914,7 @@ li.pm-add-under-row { list-style: none; padding: 4px 0 4px 28px; }
 .pm-danger-zone { border-color: var(--st-danger-bd); }
 .pm-danger-zone h2 { color: var(--st-danger-fg); }
 .pm-more [data-delete-item], .pm-menu-danger { color: var(--red); }
+/* 074: the car cycles, listed on the Spaces page (spaces last across cars) */
+.pm-cycle-list { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 4px 0 14px; }
+.pm-cycle-chip { display: inline-flex; gap: 6px; align-items: center; border: 1px solid var(--border); border-radius: 999px; padding: 3px 10px; background: var(--surface); font-size: 13.5px; }
+.pm-cycle-chip.is-now { border-color: var(--navy); }

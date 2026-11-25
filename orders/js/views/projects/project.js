@@ -14,7 +14,7 @@ import { progressBar } from './projects.js';
 import { renderList } from './list.js';
 import { alumniShareCard, bindAlumniShare } from './alumni.js';
 import { renderBoard } from './board.js';
-import { cycleSwitch, bindCycleSwitch, inView, cyclesInView } from './cycles.js';
+import { cycleSwitch, bindCycleSwitch, carFilter } from './cycles.js';
 import { bindPeekLinks, openPeek } from '../../peek.js';
 
 /**
@@ -57,9 +57,11 @@ export async function renderProject(el, ctx) {
   }
   const cfg = await loadConfig(b, project.id);
   const scope = { b, project, cfg, cfgOf: () => cfg, statuses: cfg.statuses, types: cfg.types, fields: cfg.fields, projectIds: [project.id],
-    rerender: ctx.rerender, params: { ...ctx.params, sub, sub2 }, base: projectHref(project.key, tab) };
+    rerender: ctx.rerender, params: { ...ctx.params, sub, sub2 }, base: projectHref(project.key, tab), only: carFilter(b) };
   const newBtn = can(b, project.id, 'create') && !project.archived_at ? '<button type="button" class="btn btn-primary" data-new-item>New item</button>' : '';
-  el.innerHTML = `${takeFlash()}${projectTop(b, project, tab, newBtn)}<div data-body></div>`;
+  // 074: a space lasts across cars; the switcher picks which car's work shows (not on Settings or Documents)
+  el.innerHTML = `${takeFlash()}${projectTop(b, project, tab, newBtn)}${['settings', 'docs'].includes(tab) ? '' : cycleSwitch(b)}<div data-body></div>`;
+  bindCycleSwitch(el, b, ctx.rerender);
   el.querySelector('[data-new-item]')?.addEventListener('click', async () => {
     const item = await createItemDialog(b, cfg);
     if (item) ctx.rerender();
@@ -80,16 +82,16 @@ export async function renderAcross(el, ctx) {
   const which = ctx.params.parts[0];
   const b = await loadBase();
   // 063: the car cycles chosen at the top (this car, the next, both, everything)
-  const projectIds = b.projects.filter((p) => !p.archived_at && inView(b, p)).map((p) => p.id);
+  const projectIds = b.projects.filter((p) => !p.archived_at).map((p) => p.id);   // 074: every space; the car filters the work
   const shapes = await shapesFor(b, projectIds);
   const scope = { b, project: null, cfg: null, cfgOf: shapes.cfgOf, statuses: shapes.all.statuses, types: shapes.all.types, fields: [], projectIds,
-    rerender: ctx.rerender, params: ctx.params, base: `#/projects/${which}`, only: cyclesInView(b) ? projectIds : null };
+    rerender: ctx.rerender, params: ctx.params, base: `#/projects/${which}`, only: carFilter(b) };
   const titles = { boards: ['Boards', 'Boards across spaces: statuses with the same name share a column.'], timeline: ['Timeline', 'Every space on one timeline, with the dependencies between them.'],
     calendar: ['Calendar', 'Deadlines, milestones and space events.'], list: ['All work', 'Search every item you can see.'] };
   el.innerHTML = `${takeFlash()}${header(titles[which][0], titles[which][1])}${cycleSwitch(b)}<div data-body></div>`;
   bindCycleSwitch(el, b, ctx.rerender);
   const body = el.querySelector('[data-body]');
-  if (!projectIds.length) return void (body.innerHTML = `<div class="empty"><p><strong>${cyclesInView(b) ? 'No spaces in this car cycle yet.' : 'No spaces yet.'}</strong></p><p><a class="btn btn-primary" href="#/projects/all">Spaces</a></p></div>`);
+  if (!projectIds.length) return void (body.innerHTML = `<div class="empty"><p><strong>No spaces yet.</strong></p><p><a class="btn btn-primary" href="#/projects/all">Spaces</a></p></div>`);
   if (PEEK_TABS.includes(which)) peekItems(body, ctx, `#/projects/${which}`);
   if (which === 'list') return renderList(body, scope);
   if (which === 'boards') return renderBoard(body, scope);

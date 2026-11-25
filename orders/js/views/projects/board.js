@@ -38,7 +38,7 @@ export async function renderBoard(el, scope) {
   // Open work, plus what was finished in the last 30 days (so "Done" doesn't grow for ever).
   const recent = { any: [{ f: 'category', op: 'ne', v: 'done' }, { f: 'completed', op: 'last', v: 30 }] };
   const user = filterOf(st.f);
-  const { items: found, total } = await pm.searchAll({ project: project?.id, projects: scope.only, filter: { all: [recent, ...(user ? [user] : []), ...(st.config.filter ? [st.config.filter] : [])] }, q: st.f.q, sort: 'rank' }, 2000);
+  const { items: found, total } = await pm.searchAll({ project: project?.id, cars: scope.only, filter: { all: [recent, ...(user ? [user] : []), ...(st.config.filter ? [st.config.filter] : [])] }, q: st.f.q, sort: 'rank' }, 2000);
   const byId = new Map(found.map((i) => [i.id, i]));
   const topLevel = (i) => scope.cfgOf(i)?.typeById.get(i.type_id)?.level === 0;
   const items = st.config.show_top ? found : found.filter((i) => !topLevel(i));
