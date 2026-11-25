@@ -241,17 +241,39 @@ const ROUTES = [
 ];
 
 let renderToken = 0;
+let shownPath = null;   // W7: the page on screen, so a redraw of the same page never flashes placeholders
+
+/**
+ * W7: grey placeholder shapes in the layout a Workbench page is about to show (a board's columns, or rows), drawn
+ * when opening another page takes more than a moment, instead of a blank or stale page.
+ */
+function placeholder(path) {
+  const board = /\/(board|boards)$/.test(path);
+  const row = (w) => `<div class="sk-row"><span class="sk sk-dot"></span><span class="sk" style="width:${w}%"></span><span class="sk sk-chip"></span></div>`;
+  const div = document.createElement('div');
+  div.className = 'sk-page';
+  div.setAttribute('aria-busy', 'true');
+  div.setAttribute('aria-label', 'Loading');
+  div.innerHTML = `<span class="sk sk-title"></span><div class="sk-tabs">${'<span class="sk"></span>'.repeat(6)}</div>
+    ${board ? `<div class="sk-cols">${[3, 2, 1, 1].map((n) => `<div class="sk-col">${'<span class="sk sk-card"></span>'.repeat(n)}</div>`).join('')}</div>`
+      : [62, 48, 70, 40, 55, 66, 35, 58].map(row).join('')}`;
+  return div;
+}
 
 export function startRouter(ctx, { onRender } = {}) {
   const render = async () => {
     const token = ++renderToken;
     // A page that takes more than a moment shows a thin bar at the top (apps that style body.is-loading).
     const slow = setTimeout(() => token === renderToken && document.body.classList.add('is-loading'), 250);
+    const path = (location.hash.replace(/^#/, '') || '').split('?')[0];
+    const sk = document.body.dataset.app === 'projects' && path !== shownPath
+      ? setTimeout(() => token === renderToken && document.getElementById('app')?.replaceChildren(placeholder(path)), 300) : null;
     try {
       await renderPage(token);
     } finally {
       clearTimeout(slow);
-      if (token === renderToken) document.body.classList.remove('is-loading');
+      clearTimeout(sk);
+      if (token === renderToken) (document.body.classList.remove('is-loading'), (shownPath = path));
     }
   };
   const renderPage = async (token) => {

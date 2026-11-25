@@ -1,0 +1,282 @@
+<title>Workbench vs Jira</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+<style>
+.prop ul { margin: 4px 0 0; padding-left: 18px } .prop li { margin: 2px 0 }
+/* Layout: a single review column; each proposal is a card with a "now / proposed" pair of sketches drawn in one.solar's own colors. */
+:root {
+  --bg: #f4f6f9; --surface: #ffffff; --surface-2: #f8fafc; --border: #dde3ea; --border-soft: #edf1f5;
+  --text: #1c2733; --muted: #5d6d7e; --navy: #0b2545; --orange: #fa4616; --orange-soft: #fff1eb;
+  --blue: #1f5fbf; --blue-soft: #e6efff; --green: #1d7a46; --green-soft: #e4f5ea; --amber: #8a5a00; --amber-soft: #fff4d6;
+  --gray-soft: #eef1f5; --hi: #fffbe6;
+  --font: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #041327; --surface: #081f3d; --surface-2: #0d2b50; --border: #23486f; --border-soft: #17375c;
+  --text: #f7f9ff; --muted: #a8b8ce; --navy: #e3ebff; --orange: #f26b1d; --orange-soft: #3a1f12;
+  --blue: #9cc0ff; --blue-soft: #15335c; --green: #8fe0ae; --green-soft: #113a26; --amber: #ffd27a; --amber-soft: #3a2e0c;
+  --gray-soft: #13304f; --hi: #2b2a12; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #041327; --surface: #081f3d; --surface-2: #0d2b50; --border: #23486f; --border-soft: #17375c;
+  --text: #f7f9ff; --muted: #a8b8ce; --navy: #e3ebff; --orange: #f26b1d; --orange-soft: #3a1f12;
+  --blue: #9cc0ff; --blue-soft: #15335c; --green: #8fe0ae; --green-soft: #113a26; --amber: #ffd27a; --amber-soft: #3a2e0c;
+  --gray-soft: #13304f; --hi: #2b2a12; color-scheme: dark }
+
+* { box-sizing: border-box }
+body { background: var(--bg); color: var(--text); font: 15px/1.55 var(--font); margin: 0 }
+.wrap { max-width: 980px; margin: 0 auto; padding-block: 32px 64px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)) }
+h1, h2, h3 { color: var(--navy); text-wrap: balance; line-height: 1.25 }
+h1 { font-size: 1.9rem; margin: 0 0 8px }
+h2 { font-size: 1.25rem; margin: 0 }
+h3 { font-size: .78rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 6px; font-weight: 600 }
+p { margin: 0 0 10px; max-width: 70ch }
+.lede { color: var(--muted); font-size: 1rem }
+.top { display: grid; gap: 16px; margin-bottom: 28px }
+.rules { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px }
+.rules ul { margin: 6px 0 0; padding-left: 18px } .rules li { margin: 2px 0 }
+
+table.order { width: 100%; border-collapse: collapse; font-size: .9rem; font-variant-numeric: tabular-nums }
+table.order th, table.order td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--border-soft); vertical-align: top }
+table.order th { color: var(--muted); font-weight: 600; font-size: .78rem; text-transform: uppercase; letter-spacing: .05em }
+.tw { overflow-x: auto; background: var(--surface); border: 1px solid var(--border); border-radius: 10px }
+
+.prop { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin: 18px 0; display: grid; gap: 14px }
+.prop > header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px }
+.id { font-weight: 700; color: var(--orange); font-size: 1.05rem }
+.tags { display: flex; flex-wrap: wrap; gap: 6px; margin-left: auto }
+.tag { font-size: .75rem; padding: 2px 8px; border-radius: 999px; background: var(--gray-soft); color: var(--muted); white-space: nowrap }
+.tag.p1 { background: var(--orange-soft); color: var(--orange); font-weight: 600 }
+.tag.p2 { background: var(--blue-soft); color: var(--blue); font-weight: 600 }
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px 20px; font-size: .9rem }
+.facts > div { min-width: 0 }
+.facts code { font-size: .82rem; word-break: break-word }
+.pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px }
+.pair > figure { margin: 0; min-width: 0 }
+figcaption { font-size: .75rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; margin-bottom: 6px }
+.dropped { opacity: .85; border-style: dashed }
+
+/* sketches of one.solar's own UI */
+.ui { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 12px; font-size: 13px; overflow-x: auto }
+.ui .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px }
+.ui .card + .card { margin-top: 8px }
+.ui b.h { display: block; color: var(--navy); font-size: 14px; margin-bottom: 6px }
+.row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px }
+.row + .row { margin-top: 6px }
+.btn { display: inline-block; border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 6px; padding: 3px 9px; font-size: 12px; font-weight: 600; white-space: nowrap }
+.btn.pri { background: var(--orange); border-color: var(--orange); color: #fff }
+.btn.ghost { border-color: transparent; background: transparent; color: var(--muted) }
+.chip { background: var(--gray-soft); color: var(--muted); border-radius: 999px; padding: 1px 8px; font-size: 11.5px; white-space: nowrap }
+.t-blue { background: var(--blue-soft); color: var(--blue); font-weight: 600 }
+.t-green { background: var(--green-soft); color: var(--green); font-weight: 600 }
+.t-amber { background: var(--amber-soft); color: var(--amber); font-weight: 600 }
+.lnk { color: var(--blue); text-decoration: underline }
+.mut { color: var(--muted); font-size: 12px }
+.new { outline: 2px dashed var(--orange); outline-offset: 2px; border-radius: 6px }
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden }
+.seg span { padding: 3px 9px; font-size: 12px; border-right: 1px solid var(--border); white-space: nowrap }
+.seg span:last-child { border-right: 0 } .seg .on { background: var(--navy); color: var(--surface) }
+.field { display: grid; gap: 3px } .field label { font-weight: 600; font-size: 12px }
+.input { border: 1px solid var(--border); background: var(--surface); border-radius: 6px; padding: 4px 8px; color: var(--muted) }
+.tabs { display: flex; flex-wrap: wrap; gap: 14px; border-bottom: 1px solid var(--border); padding-bottom: 6px; color: var(--muted) }
+.tabs .on { color: var(--navy); font-weight: 600; border-bottom: 2px solid var(--orange); padding-bottom: 4px; margin-bottom: -7px }
+.tabs .off { text-decoration: line-through; opacity: .55 }
+.cal { display: grid; grid-template-columns: repeat(5, minmax(42px, 1fr)); gap: 3px }
+.cal div { background: var(--surface); border: 1px solid var(--border-soft); min-height: 38px; border-radius: 4px; padding: 2px 4px; font-size: 11px; color: var(--muted) }
+.cal .ev { display: block; margin-top: 2px; background: var(--blue-soft); color: var(--blue); border-radius: 3px; padding: 0 3px; font-weight: 600 }
+.calwrap { display: grid; grid-template-columns: minmax(0, 1fr) 120px; gap: 8px }
+.side { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 6px; display: grid; gap: 4px; align-content: start }
+.pill { background: var(--surface-2); border: 1px solid var(--border); border-radius: 4px; padding: 2px 5px; font-size: 11px }
+.cols { display: grid; grid-template-columns: repeat(3, minmax(90px, 1fr)); gap: 6px }
+.col { background: var(--surface-2); border-radius: 6px; padding: 6px; display: grid; gap: 5px; align-content: start }
+.col > i { font-style: normal; font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600 }
+.kc { background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--blue); border-radius: 5px; padding: 5px 6px; display: grid; gap: 3px; font-size: 12px }
+.kc .k { font-size: 10.5px; color: var(--muted) }
+.menu { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; box-shadow: 0 6px 18px rgba(0,0,0,.18); padding: 4px; display: grid; font-size: 12px; width: max-content }
+.menu span { padding: 3px 10px; border-radius: 4px } .menu span:first-child { background: var(--gray-soft) }
+.lrow { display: grid; grid-template-columns: 18px 64px minmax(0, 1fr) 54px; gap: 6px; align-items: center; padding: 4px 6px; border-bottom: 1px solid var(--border-soft); font-size: 12px }
+.lrow.hov { background: var(--hi) }
+.plus { width: 18px; height: 18px; border-radius: 4px; border: 1px solid var(--orange); color: var(--orange); display: grid; place-items: center; font-weight: 700; font-size: 12px }
+.tl { display: grid; grid-template-columns: 90px repeat(6, minmax(30px, 1fr)); gap: 0; font-size: 11px; position: relative }
+.tl > div { border-bottom: 1px solid var(--border-soft); padding: 3px 2px; min-height: 22px }
+.bar { background: var(--blue); border-radius: 3px; height: 10px; margin-top: 3px }
+.band { font-size: 10.5px; font-weight: 600; color: var(--navy); padding: 2px 4px !important; border-radius: 3px }
+.b1 { background: var(--amber-soft) } .b2 { background: var(--green-soft) } .b3 { background: var(--blue-soft) }
+.split { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 8px }
+.slot { border: 1px dashed var(--border); border-radius: 5px; padding: 4px 6px; font-size: 12px; background: var(--surface) }
+.who { display: flex; flex-wrap: wrap; gap: 4px; align-items: center }
+.av { width: 20px; height: 20px; border-radius: 50%; background: var(--navy); color: var(--surface); display: inline-grid; place-items: center; font-size: 9.5px; font-weight: 700 }
+.av.on { outline: 2px solid var(--orange); outline-offset: 1px }
+.dim { opacity: .4 }
+:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px }
+@media (max-width: 520px) { .calwrap, .split { grid-template-columns: 1fr } }
+
+.ui .tabs span { white-space: nowrap }
+</style>
+<div class="wrap">
+<header class="top">
+  <div>
+    <h1>Workbench vs Jira, side by side</h1>
+    <p class="lede">I walked the same battery-pack project through both apps on 2026-11-24, at the same 1366 px window. Workbench ran on latest main (#42) with the fake backend: 4 epics, 11 tasks, 3 subtasks, dates and dependencies. Jira was the Car 6 Battery Pack space from the earlier run. These are proposals only. Nothing changes until you approve each one.</p>
+  </div>
+  <div class="rules">
+    <h3>How to read this</h3>
+    <ul>
+      <li><strong>W1–W9</strong> are new proposals, in priority order. Each one names what Workbench does now, what Jira does, and what I'd change.</li>
+      <li>The <strong>item page</strong> and <strong>workflow editor</strong> gaps are left out, because they're already being built in another session (edit in place, status dropdown, Jira-style layout, shortcuts, per-type workflows, simpler editor).</li>
+      <li>At the end: where Workbench is already ahead of Jira and should stay as it is.</li>
+    </ul>
+  </div>
+</header>
+
+<div class="tw"><table class="order">
+<thead><tr><th>#</th><th>Change</th><th>Where</th><th>Priority</th></tr></thead>
+<tbody>
+<tr><td>W1</td><td>Open items on top of the page you're on, not as a new page</td><td>Board, List, Backlog, Timeline, Calendar</td><td>High</td></tr>
+<tr><td>W2</td><td>Leaner board cards; epics off the board by default</td><td>Board</td><td>High</td></tr>
+<tr><td>W3</td><td>Fix: template fields show on every work type</td><td>Engineering design template</td><td>High (bug)</td></tr>
+<tr><td>W4</td><td>A short New item form with "Create another"</td><td>New item</td><td>High</td></tr>
+<tr><td>W5</td><td>List as a tree: epics fold open to their items</td><td>List</td><td>Medium</td></tr>
+<tr><td>W6</td><td>Summary opens with four clickable 7-day numbers</td><td>Summary</td><td>Medium</td></tr>
+<tr><td>W7</td><td>Grey placeholder rows while a page loads</td><td>Every Workbench page</td><td>Medium</td></tr>
+<tr><td>W8</td><td>Status and Owner columns, and progress on parent bars</td><td>Timeline</td><td>Low</td></tr>
+<tr><td>W9</td><td>Switch projects from the project name</td><td>Project header</td><td>Low</td></tr>
+</tbody></table></div>
+
+<!-- W1 -->
+<section class="prop">
+  <header><span class="id">W1</span><h2>Open items on top of the page you're on</h2><span class="tags"><span class="tag p1">High</span><span class="tag">Visual + behavior</span></span></header>
+  <div class="facts">
+    <div><h3>Now</h3>Clicking a card on the Board (or a row on the List) leaves the board for the full item page. To get back you use the browser's Back button, and the board redraws from the top.</div>
+    <div><h3>Jira</h3>The item opens in a large panel over the board. The address becomes <code>?selectedIssue=KAN-8</code>, so the link can be shared. Esc closes it and you're where you were, with the card still highlighted.</div>
+    <div><h3>Proposed</h3>Board, List, Backlog, Timeline and Calendar open an item in the same peek panel Requests and Inventory got in #37. It shows the whole item page, including edit in place once that lands, plus "Open full page ↗". Esc or ✕ closes it. The link becomes <code>…/board?item=BAT-8</code>.</div>
+    <div><h3>Files</h3><code>views/projects/board.js</code>, <code>list.js</code>, <code>backlog.js</code>, <code>calendar.js</code>, <code>timeline.js</code>, <code>item.js</code> (render into a given element), the shared peek from #37. It should land <em>after</em> the item-page PR, since both touch <code>item.js</code>.</div>
+  </div>
+  <div class="pair">
+    <figure><figcaption>Now: a new page</figcaption><div class="ui"><div class="card"><span class="mut">← Car 6 Battery Pack</span><b class="h">BMS schematic</b><div class="row"><span class="chip t-blue">In Review</span><span class="btn">Edit</span><span class="btn">Move to Approved</span></div><div class="mut" style="margin-top:6px">The board is gone. Back reloads it.</div></div></div></figure>
+    <figure><figcaption>Proposed: on top of the board</figcaption><div class="ui" style="position:relative"><div class="cols dim"><div class="col"><i>Draft</i><div class="kc">Module weld pull test</div></div><div class="col"><i>In design</i><div class="kc">BMS PCB layout</div></div><div class="col"><i>In review</i><div class="kc">BMS schematic</div></div></div>
+      <div class="card new" style="position:absolute;top:8px;right:8px;bottom:8px;width:62%"><div class="row"><span class="mut">BAT-8</span><span class="btn ghost" style="margin-left:auto">Open full page ↗</span><span class="btn ghost">✕</span></div><b class="h">BMS schematic</b><div class="row"><span class="chip t-blue">In Review ▾</span><span class="chip">High</span><span class="av">AA</span></div><div class="mut" style="margin-top:6px">Esc closes. The board stays put.</div></div></div></figure>
+  </div>
+</section>
+
+<!-- W2 -->
+<section class="prop">
+  <header><span class="id">W2</span><h2>Leaner board cards; epics off the board by default</h2><span class="tags"><span class="tag p1">High</span><span class="tag">Visual</span></span></header>
+  <div class="facts">
+    <div><h3>Now</h3>A card is about 130 px tall. It repeats the column's status as a chip ("Draft" in the Draft column), shows a "–" bubble when nothing is set, and puts the key in small print above the title. Epics sit on the board as cards beside their own tasks: 2 of the 11 Draft cards and 2 of the 4 In Design cards are epics.</div>
+    <div><h3>Jira</h3>Cards are about 90–110 px: the title first, then the date and the epic as a chip, then a footer with the type icon, the key, a priority icon and an avatar. There's no status chip, because the column says it. Epics aren't on the board; they show as the chip on each card.</div>
+    <div><h3>Proposed</h3>Title first. One middle line with the due date, parent chip and checklist count. A footer with type icon + key, priority as an icon (only when High or Low), and an avatar. Drop the status chip and the "–" bubble. Hide top-level items (epics) from the board unless "Show epics" is ticked in Columns &amp; cards.</div>
+    <div><h3>Files</h3><code>views/projects/board.js</code> (card markup, board setting), <code>css/projects.css</code>. No database change: the setting goes in the board's saved settings.</div>
+  </div>
+  <div class="pair">
+    <figure><figcaption>Now</figcaption><div class="ui"><div class="kc" style="max-width:230px"><div class="row"><span class="k">✎ BAT-8</span><span class="av" style="margin-left:auto">AA</span></div><b>BMS schematic</b><div class="row"><span class="chip t-amber">High</span><span class="mut">Nov 27, 2026</span></div><div class="row"><span class="chip">↳ BAT-2 BMS</span></div><div class="row"><span class="chip t-blue">In Review</span></div></div></div></figure>
+    <figure><figcaption>Proposed</figcaption><div class="ui"><div class="kc new" style="max-width:230px"><b>BMS schematic</b><div class="row"><span class="mut">Nov 27</span><span class="chip">BMS ▾</span></div><div class="row"><span class="k">✎ BAT-8</span><span class="mut" style="margin-left:auto;color:var(--orange)">▲</span><span class="av">AA</span></div></div></div></figure>
+  </div>
+</section>
+
+<!-- W3 -->
+<section class="prop">
+  <header><span class="id">W3</span><h2>Fix: the Engineering design template puts every field on every type</h2><span class="tags"><span class="tag p1">High</span><span class="tag">Bug</span></span></header>
+  <div class="facts">
+    <div><h3>Now</h3>In a new project from Engineering design, all six template fields have no types set: Requirement, Analysis type, Review date, Test procedure, Measured result, Outcome. So a Design Task's New item form asks for a test procedure and a review date. That's a big part of why the form is so tall.</div>
+    <div><h3>Jira</h3>In a team-managed space, a field belongs to the work type it was added to.</div>
+    <div><h3>Proposed</h3>In the template:
+      <ul>
+        <li>Test procedure, Measured result and Outcome go on Test.</li>
+        <li>Analysis type goes on Analysis.</li>
+        <li>Review date goes on Design Review.</li>
+        <li>Requirement goes on Epic and Design Task.</li>
+      </ul>
+      Existing projects aren't changed automatically. Settings → All fields already lets a lead set this per field.</div>
+    <div><h3>Files</h3>The template data (a migration that updates <code>pm_templates</code>, the next free number, which pairs well with the per-type workflows PR that also edits this template), <code>tests/projectsStage2.test.mjs</code>.</div>
+  </div>
+</section>
+
+<!-- W4 -->
+<section class="prop">
+  <header><span class="id">W4</span><h2>A short New item form with "Create another"</h2><span class="tags"><span class="tag p1">High</span><span class="tag">Visual</span></span></header>
+  <div class="facts">
+    <div><h3>Now</h3>New item is an 818 px dialog: Kind, Title, a Description box, Owner / Priority / Due date / Parent, then a "More" section with every custom field. After Create it closes, so adding five items means opening it five times.</div>
+    <div><h3>Jira</h3>A compact dialog with project and type at the top, a big title, a description line, then one row of chips: Subsystem, Assignee (Automatic), Parent, Priority, Labels. There's a "Create another" tick box next to Create.</div>
+    <div><h3>Proposed</h3>Kind + Title at the top, then a one-line description that grows as you type. Owner, Priority, Due and Parent become a row of small pickers with their current value shown. Required custom fields stay visible; optional ones go under "More fields (n)". A "Create another" tick box keeps the dialog open with Kind and Parent kept.</div>
+    <div><h3>Files</h3><code>views/projects/kit.js</code> (<code>createItemDialog</code>, <code>formSections</code>), <code>css/projects.css</code>. Forms set up in Settings still decide which fields are required.</div>
+  </div>
+  <div class="pair">
+    <figure><figcaption>Now (cut short)</figcaption><div class="ui"><div class="card"><b class="h">New item in Car 6 Battery Pack</b><div class="row"><span class="input">✎ Design Task ▾</span><span class="input" style="flex:1">Title</span></div><div class="input" style="height:40px;margin-top:6px">Description</div><div class="row" style="margin-top:6px"><span class="input">Owner</span><span class="input">Priority</span><span class="input">Due</span><span class="input">Parent</span></div><div class="mut" style="margin-top:6px">More: Requirement · Analysis type · Review date · Test procedure · Measured result · Outcome…</div></div></div></figure>
+    <figure><figcaption>Proposed</figcaption><div class="ui"><div class="card new"><div class="row"><span class="chip">✎ Design Task ▾</span><span class="mut">Car 6 Battery Pack</span></div><b class="h" style="font-size:16px;margin-top:6px">Title</b><div class="mut">Add a description…</div><div class="row" style="margin-top:8px"><span class="chip">👤 Ada Admin</span><span class="chip">↳ BMS</span><span class="chip">Medium</span><span class="chip">📅 Due</span><span class="chip">More fields (1)</span></div><div class="row" style="margin-top:8px;justify-content:flex-end"><span class="mut">☐ Create another</span><span class="btn pri">Create</span></div></div></div></figure>
+  </div>
+</section>
+
+<!-- W5 -->
+<section class="prop">
+  <header><span class="id">W5</span><h2>List as a tree</h2><span class="tags"><span class="tag p2">Medium</span><span class="tag">Visual</span></span></header>
+  <div class="facts">
+    <div><h3>Now</h3>The List is flat, in backlog order: four epics first, then tasks, then subtasks at the bottom with a ↳. To see what's under BMS you read the parent chips row by row.</div>
+    <div><h3>Jira</h3>The List starts with the top-level items, each with a ▸ to fold it open. Children are indented under their parent. Footer: "+ Create" and "7 of 7".</div>
+    <div><h3>Proposed</h3>A "Tree / Flat" switch in the List's ⋯ menu, with Tree as the default. In Tree, epics show ▸ / ▾, children sit indented under them, and the open/closed state is remembered on this device. Sorting or a filter that hides a parent switches to Flat for that view and says so.</div>
+    <div><h3>Files</h3><code>views/projects/list.js</code>, <code>css/projects.css</code>. Saved views keep the setting.</div>
+  </div>
+</section>
+
+<!-- W6 -->
+<section class="prop">
+  <header><span class="id">W6</span><h2>Summary opens with four clickable 7-day numbers</h2><span class="tags"><span class="tag p2">Medium</span><span class="tag">Visual</span></span></header>
+  <div class="facts">
+    <div><h3>Now</h3>The first card is "How it's going": a bar, six counts, and three boxes with explanations in small print ("Estimated hours finished ÷ all estimated hours (6 items have no estimate…)"). The 7-day numbers are a line inside Coming up. Orders &amp; budget and Share with alumni take full cards even when they're empty.</div>
+    <div><h3>Jira</h3>Four tiles across the top: completed, updated, created, due soon (with "in the last 7 days" / "in the next 7 days"). Each tile opens the list filtered to those items. Charts come below.</div>
+    <div><h3>Proposed</h3>
+      <ul>
+        <li>A row of four tiles at the top: Finished, Changed, Added, Due soon. Each opens the List with that filter.</li>
+        <li>The three-ways progress keeps its numbers; its explanations move behind the ⓘ that's already there.</li>
+        <li>Orders &amp; budget and Share with alumni shrink to one line each when there's nothing in them.</li>
+      </ul></div>
+    <div><h3>Files</h3><code>views/projects/project.js</code>, <code>css/projects.css</code>. It uses the ready-made searches from #35 for the links.</div>
+  </div>
+</section>
+
+<!-- W7 -->
+<section class="prop">
+  <header><span class="id">W7</span><h2>Grey placeholder rows while a page loads</h2><span class="tags"><span class="tag p2">Medium</span><span class="tag">Visual</span></span></header>
+  <div class="facts">
+    <div><h3>Now</h3>While a Workbench page fetches its data, the area under the top bar is blank. It looked broken for a few seconds more than once during this run.</div>
+    <div><h3>Jira</h3>Every view first draws grey placeholder shapes in the layout it's about to show (rows, bars, a donut), so you know it's coming and where things will be.</div>
+    <div><h3>Proposed</h3>One small shared helper that draws a few grey placeholder rows or cards matching the view (list rows, board columns, timeline rows). It's shown only if loading takes more than about 200 ms, so quick loads don't flicker.</div>
+    <div><h3>Files</h3><code>views/projects/kit.js</code> (helper), the Workbench router hook, <code>css/projects.css</code>. Reduced-motion users get no shimmer.</div>
+  </div>
+</section>
+
+<!-- W8 -->
+<section class="prop">
+  <header><span class="id">W8</span><h2>Timeline: Status and Owner columns, progress on parent bars</h2><span class="tags"><span class="tag">Low</span><span class="tag">Visual</span></span></header>
+  <div class="facts">
+    <div><h3>Now</h3>The work column shows only names. Epic bars are an outline with no sense of how far along they are.</div>
+    <div><h3>Jira</h3>The left table can show Status (for an epic, a done / in progress / to do bar) and Assignee.</div>
+    <div><h3>Proposed</h3>Two optional columns under Show: Status and Owner, both off by default. A parent's bar fills in from the left by the share of its children that are done.</div>
+    <div><h3>Files</h3><code>views/projects/timeline.js</code>, <code>css/projects.css</code>.</div>
+  </div>
+</section>
+
+<!-- W9 -->
+<section class="prop">
+  <header><span class="id">W9</span><h2>Switch projects from the project name</h2><span class="tags"><span class="tag">Low</span><span class="tag">Visual</span></span></header>
+  <div class="facts">
+    <div><h3>Now</h3>To go to another project you go to Projects, then pick it.</div>
+    <div><h3>Jira</h3>A left sidebar lists starred and recent spaces on every page.</div>
+    <div><h3>Proposed</h3>No sidebar, since that would be a redesign. Instead the project name in the header gets a small ▾ with your recent projects and "All projects", and the current tab is kept (Board → the other project's Board).</div>
+    <div><h3>Files</h3><code>views/projects/kit.js</code> (<code>header</code>), recent list in localStorage.</div>
+  </div>
+</section>
+
+<section class="prop dropped">
+  <header><span class="id">Keep</span><h2>Where Workbench is already ahead</h2></header>
+  <ul style="margin:0;padding-left:18px">
+    <li><strong>Timeline:</strong> dependency arrows, critical path, phases, car cycles, Fit and Present. Jira's opens with the epics folded and a mostly empty chart.</li>
+    <li><strong>Board columns:</strong> a saved mapping. Jira appended new statuses after Done in creation order.</li>
+    <li><strong>Moves:</strong> approvals, required fields and roles are checked by the database. Jira Software has no approval step.</li>
+    <li><strong>Undo</strong> on edits and deletes; Jira has none.</li>
+    <li><strong>Links</strong> to Orders, Inventory, Events and Sponsors with live status.</li>
+    <li><strong>My work</strong> shows blocked items with the reason.</li>
+    <li><strong>Rules</strong> with Try it and a run log, plus the starter templates.</li>
+  </ul>
+</section>
+</div>

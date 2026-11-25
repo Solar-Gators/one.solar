@@ -9,7 +9,7 @@ import { schedule, makeCalendar, toDay, toISO, durationOf, proposeDates, occurre
 import { recognise, resourceIcon, guessCategory } from '../orders/js/projects/links.js';
 import { evalFormula, checkFormula, formulaRefs } from '../orders/js/projects/formula.js';
 import { linkFromUrl, exactFirst } from '../orders/js/linkParse.js';
-import { layoutFor, movesFor, moveTo, moveNeeds, boardColumns, rankBetween, progressOf, attention, workload, findMentions, filterText, fieldLabel, unreachableStatuses } from '../orders/js/projects/core.js';
+import { layoutFor, movesFor, moveTo, moveNeeds, boardColumns, rankBetween, progressOf, attention, workload, findMentions, filterText, fieldLabel, unreachableStatuses, treeOrder } from '../orders/js/projects/core.js';
 
 let passed = 0;
 function test(name, fn) {
@@ -370,6 +370,17 @@ test('069: in the link picker an exact number match comes first', () => {
   const rows = [{ code: 'SG27-9001' }, { code: 'SG27-900' }, { code: 'SG27-90' }];
   assert.deepEqual(exactFirst(rows, 'sg27-900').map((r) => r.code), ['SG27-900', 'SG27-9001', 'SG27-90']);
   assert.deepEqual(exactFirst(rows, 'nickel').map((r) => r.code), rows.map((r) => r.code), 'order kept when nothing matches exactly');
+});
+
+test('W5: the List tree puts items under their parent on the same page, and folds them away', () => {
+  const it = (id, parent = null) => ({ id, parent_id: parent });
+  const page = [it('epic'), it('other'), it('task', 'epic'), it('sub', 'task'), it('away', 'not-on-page')];
+  const t = treeOrder(page);
+  assert.deepEqual(t.items.map((i) => i.id), ['epic', 'task', 'sub', 'other', 'away']);
+  assert.deepEqual([...t.depth.entries()], [['epic', 0], ['task', 1], ['sub', 2], ['other', 0], ['away', 0]]);
+  assert.deepEqual([...t.kids].sort(), ['epic', 'task']);
+  assert.deepEqual([...treeOrder(page, new Set(['epic'])).hidden].sort(), ['sub', 'task'], 'folding the epic hides everything under it');
+  assert.equal(treeOrder([it('a', 'b'), it('b', 'a')]).items.length, 2, 'a loop in the data still shows both');
 });
 
 console.log(`\n${passed} projects module tests passed${process.exitCode ? ', some failed' : ''}`);

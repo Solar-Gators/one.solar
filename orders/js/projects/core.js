@@ -279,3 +279,29 @@ export function starterRules(cfg = {}) {
   ];
   return list.filter(Boolean);
 }
+
+/**
+ * W5: a page of items in tree order: each one followed by the items under it that are on the same page (indented),
+ * keeping the page's order otherwise. Items whose parent isn't on the page stay at the top level.
+ * closed: ids whose children are folded away. Returns { items, depth, kids, hidden, closed }.
+ */
+export function treeOrder(items, closed = new Set()) {
+  const ids = new Set(items.map((i) => i.id));
+  const under = new Map();
+  for (const i of items) if (i.parent_id && ids.has(i.parent_id) && i.parent_id !== i.id) under.set(i.parent_id, [...(under.get(i.parent_id) || []), i]);
+  const out = [];
+  const depth = new Map();
+  const hidden = new Set();
+  const seen = new Set();
+  const walk = (i, d, folded) => {
+    if (seen.has(i.id)) return;
+    seen.add(i.id);
+    out.push(i);
+    depth.set(i.id, d);
+    if (folded) hidden.add(i.id);
+    for (const k of under.get(i.id) || []) walk(k, d + 1, folded || closed.has(i.id));
+  };
+  for (const i of items) if (!i.parent_id || !ids.has(i.parent_id)) walk(i, 0, false);
+  for (const i of items) walk(i, 0, false);   // anything left (a loop in the data) still shows
+  return { items: out, depth, kids: new Set(under.keys()), hidden, closed };
+}

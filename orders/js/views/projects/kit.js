@@ -8,7 +8,7 @@ import { auth } from '../../auth.js';
 import { api } from '../../api.js';
 import { esc, errorBox, fmtDate, renderRichText } from '../../ui.js';
 import { pm } from '../../projects/api.js';
-import { PRIORITIES, CATEGORIES, newId, fieldLabel, layoutFor, movesFor, moveNeeds, relDay } from '../../projects/core.js';
+import { PRIORITIES, CATEGORIES, newId, fieldLabel, layoutFor, movesFor, moveNeeds, relDay, treeOrder } from '../../projects/core.js';
 import { evalFormula } from '../../projects/formula.js';
 import { todayISO } from '../../projects/schedule.js';
 import { pickPerson } from './pick.js';
@@ -142,7 +142,11 @@ export const OPTIONAL_TABS = PROJECT_TABS.filter(([k]) => k && k !== 'settings')
 export function projectTop(b, project, active, actions = '') {
   const settings = ['configure', 'workflows', 'members', 'automations'].some((c) => can(b, project.id, c));
   const hidden = project.settings?.hidden_tabs || [];
-  return `${header(`${esc(project.name)} <span class="pm-key">${esc(project.key)}</span>`,
+  noteRecentProject(project.key);
+  // W9: the name opens a short list of other projects (recent first); picking one keeps the tab
+  const others = b.projects.filter((p) => p.id !== project.id && !p.archived_at).length;
+  const name = others ? `<button type="button" class="pm-switch" data-switch-project="${esc(project.key)}" data-switch-tab="${esc(active || '')}" aria-haspopup="menu" title="Switch to another project">${esc(project.name)} <span class="pm-switch-caret" aria-hidden="true">▾</span></button>` : esc(project.name);
+  return `${header(`${name} <span class="pm-key">${esc(project.key)}</span>`,
     `${project.archived_at ? '<span class="chip-tone tone-gray">Archived</span> ' : ''}${project.visibility === 'private' ? '<span class="chip-tone tone-purple" title="Only its members can see this project">Private</span> ' : ''}${esc(project.description.split('\n')[0] || '')}`, actions)}
   <nav class="pm-tabs" aria-label="${esc(project.name)}">${PROJECT_TABS.filter(([k]) => (k !== 'settings' || settings) && (!hidden.includes(k) || k === active))
     .map(([k, label]) => `<a href="${projectHref(project.key, k)}" ${k === active ? 'aria-current="page"' : ''}>${label}</a>`).join('')}</nav>`;
@@ -427,34 +431,66 @@ export async function createItemDialog(b, cfg, given = {}) {
   const types = cfg.types.filter((t) => !t.archived_at);
   if (!types.length) return toast('This project has no work-item types yet. Add one in Settings → Work types.', 'bad');
   const parents = await loadParents(cfg.project.id).catch(() => []);
-  const opId = newId();
   let typeId = defaults.type_id || (types.find((t) => t.level === 1) || types[0]).id;
+  let last = null;
+  /*
+   * W4: a short form, like Jira's. Title, then the description, then one row of the everyday fields (owner, priority,
+   * dates, parent). Any other field the form asks for comes next if it's required, and under "More fields" if not.
+   * The project's form (Settings) still decides which fields there are and which are required.
+   */
   const fields = () => {
     const type = cfg.typeById.get(typeId);
     const allowed = parents.filter((p) => {
       const pt = cfg.typeById.get(p.type_id);
       return pt && (type.parent_type_ids?.length ? type.parent_type_ids.includes(pt.id) : pt.level < type.level);
     });
-    return formSections(layoutFor(cfg, typeId, 'create'), { b, cfg, item: { ...type.defaults, ...defaults, custom: defaults.custom || {} }, parents: allowed, collaborators: [] });
+    const ctx = { b, cfg, item: { ...type.defaults, ...defaults, custom: defaults.custom || {} }, parents: allowed, collaborators: [] };
+    const all = layoutFor(cfg, typeId, 'create').flatMap((s) => s.fields);
+    const input = (f) => fieldInput(f.key, ctx, { required: !!f.required });
+    const desc = all.find((f) => f.key === 'description');
+    const picks = all.filter((f) => CREATE_PICKS.includes(f.key));
+    const rest = all.filter((f) => f !== desc && !picks.includes(f));
+    const must = rest.filter((f) => f.required);
+    const more = rest.filter((f) => !f.required);
+    return `${desc ? `<div class="pm-create-desc">${input(desc)}</div>` : ''}
+      ${picks.length ? `<div class="form-grid pm-create-picks">${picks.map(input).join('')}</div>` : ''}
+      ${must.length ? `<div class="form-grid">${must.map(input).join('')}</div>` : ''}
+      ${more.length ? `<details class="pm-create-more"><summary>More fields (${more.length})</summary><div class="form-grid">${more.map(input).join('')}</div></details>` : ''}`;
   };
-  return formDialog({
+  const res = await formDialog({
     title: `New item in ${esc(cfg.project.name)}`, submit: 'Create', wide: true,
-    body: `<div class="form-grid">
-        <div class="field"><label for="pm-new-type">Kind</label><select id="pm-new-type">${types.map((t) => opt(t.id, `${t.icon ? `${t.icon} ` : ''}${t.name}`, t.id === typeId)).join('')}</select></div>
-        <div class="field span-3"><label for="pm-new-title">Title</label><input id="pm-new-title" name="title" type="text" maxlength="200" required value="${esc(defaults.title || '')}"></div>
-      </div><div data-fields>${fields()}</div>`,
+    body: `<div class="pm-create-head"><label class="sr-only" for="pm-new-type">Kind</label><select id="pm-new-type" class="pm-create-kind">${types.map((t) => opt(t.id, `${t.icon ? `${t.icon} ` : ''}${t.name}`, t.id === typeId)).join('')}</select>
+        <label class="sr-only" for="pm-new-title">Title</label><input id="pm-new-title" class="pm-create-title" name="title" type="text" maxlength="200" required placeholder="Title" value="${esc(defaults.title || '')}"></div>
+      <div data-fields>${fields()}</div>
+      <label class="pm-check pm-create-again"><input type="checkbox" name="again"> Create another <span class="muted small">(keeps the kind and parent)</span></label>`,
     onOpen(form) {
-      bindOrgPickers(form);
-      form.querySelector('#pm-new-type').onchange = (e) => {
-        typeId = e.target.value;
+      form.closest('dialog').classList.add('pm-create');
+      const grow = () => form.querySelectorAll('.pm-create-desc textarea').forEach((t) => ((t.rows = 2), (t.style.height = ''), (t.style.height = `${Math.min(t.scrollHeight + 2, 320)}px`)));
+      const drawFields = () => {
         form.querySelector('[data-fields]').innerHTML = fields();
         bindOrgPickers(form);
+        form.querySelectorAll('.pm-create-desc textarea').forEach((t) => ((t.placeholder = 'Add a description…'), t.addEventListener('input', grow)));
+        grow();
       };
+      drawFields();
+      form.querySelector('#pm-new-type').onchange = (e) => ((typeId = e.target.value), drawFields());
       form.querySelector('#pm-new-title').focus();
     },
-    onSubmit: (form) => pm.createItem(opId, { ...defaults, ...readFields(form, cfg), project_id: cfg.project.id, type_id: typeId, title: form.elements.title.value.trim() }),
+    async onSubmit(form) {
+      const made = await pm.createItem(newId(), { ...defaults, ...readFields(form, cfg), project_id: cfg.project.id, type_id: typeId, title: form.elements.title.value.trim() });
+      last = made;
+      if (!form.elements.again.checked) return made;
+      // keep the dialog open for the next one: same kind and parent, a fresh title and description
+      toast(`Created ${made.key}. Type the next one.`);
+      form.elements.title.value = '';
+      form.querySelectorAll('.pm-create-desc textarea').forEach((t) => ((t.value = ''), (t.style.height = '')));
+      form.elements.title.focus();
+      throw Object.assign(new Error(''), { stay: true });
+    },
   });
+  return res && res !== true ? res : last;
 }
+const CREATE_PICKS = ['owner', 'priority', 'start_date', 'due_date', 'parent'];
 
 /**
  * Make a workflow move. If the move needs fields or a comment (the project's configuration says so), a dialog
@@ -725,12 +761,14 @@ export function conditionDialog(b, current, ctx = {}, title = 'Filter') {
 }
 
 /** Rows of items as a table. columns: keys from COLS. `cfgOf(item)` gives the item's project configuration (or null). */
-export function itemTable(b, items, cfgOf, { columns = ['key', 'title', 'status', 'owner', 'priority', 'due_date'], select = false, empty = 'Nothing here.', inline = true, foot = '', addUnder = null } = {}) {
+export { treeOrder };
+
+export function itemTable(b, items, cfgOf, { columns = ['key', 'title', 'status', 'owner', 'priority', 'due_date'], select = false, empty = 'Nothing here.', inline = true, foot = '', addUnder = null, tree = null } = {}) {
   if (!items.length) return `<div class="empty">${empty}</div>${foot}`;
   const E = (field, look) => (i, c) => (inline ? ie(b, c, i, field, look) : ieInner(b, c, i, field, look));
   const COLS = {
     key: ['Key', (i) => `<a href="${itemHref(i.key)}" class="pm-keylink">${esc(i.key)}</a>`],
-    title: ['Title', (i, c) => `${addUnder ? addUnder(c, i) : ''}${typeBadge(c?.typeById.get(i.type_id))} <a href="${itemHref(i.key)}">${esc(i.title)}</a>${i.blocked ? ' <span class="chip-tone tone-red" title="Blocked">⛔ Blocked</span>' : ''}${Number(i.open_deps) ? ` <span class="chip-tone tone-amber" title="Waiting on ${i.open_deps} other item(s)">⏳ ${i.open_deps}</span>` : ''}${Number(i.children) ? ` <span class="muted small" title="Items under it done">${i.children_done}/${i.children}</span>` : ''}`],
+    title: ['Title', (i, c) => `${tree ? treeToggle(i, tree) : ''}${addUnder ? addUnder(c, i) : ''}${typeBadge(c?.typeById.get(i.type_id))} <a href="${itemHref(i.key)}">${esc(i.title)}</a>${i.blocked ? ' <span class="chip-tone tone-red" title="Blocked">⛔ Blocked</span>' : ''}${Number(i.open_deps) ? ` <span class="chip-tone tone-amber" title="Waiting on ${i.open_deps} other item(s)">⏳ ${i.open_deps}</span>` : ''}${Number(i.children) ? ` <span class="muted small" title="Items under it done">${i.children_done}/${i.children}</span>` : ''}`],
     status: ['Status', E('status')],
     owner: ['Owner', E('owner', 'name')],
     priority: ['Priority', E('priority')],
@@ -755,10 +793,16 @@ export function itemTable(b, items, cfgOf, { columns = ['key', 'title', 'status'
   return `<div class="table-wrap"><table class="pm-table"><thead><tr>${select ? '<th class="pm-sel-cell"><input type="checkbox" data-select-all aria-label="Select all"></th>' : ''}${cols
     .map(([k, label]) => `<th data-col="${esc(k)}">${esc(label)}</th>`).join('')}</tr></thead><tbody>${items.map((i) => {
     const c = cfgOf(i);
-    return `<tr data-item="${esc(i.id)}" tabindex="-1" class="${i.category === 'done' ? 'is-done' : ''}">${select ? `<td class="pm-sel-cell"><input type="checkbox" data-select="${esc(i.id)}" aria-label="Select ${esc(i.key)}"></td>` : ''}${cols
+    const depth = tree?.depth.get(i.id) || 0;
+    return `<tr data-item="${esc(i.id)}" tabindex="-1" class="${i.category === 'done' ? 'is-done' : ''}${tree ? ' pm-tree-row' : ''}"${tree ? ` style="--depth:${depth}"${tree.hidden.has(i.id) ? ' hidden' : ''}` : ''}>${select ? `<td class="pm-sel-cell"><input type="checkbox" data-select="${esc(i.id)}" aria-label="Select ${esc(i.key)}"></td>` : ''}${cols
       .map(([k, label, fn]) => `<td data-label="${esc(label)}" data-col="${esc(k)}">${fn(i, c)}</td>`).join('')}</tr>`;
   }).join('')}</tbody></table></div>${foot}`;
 }
+/** W5: the ▸ / ▾ before a title in the List's tree (a spacer when nothing on this page is under it). */
+const treeToggle = (i, tree) => (tree.kids.has(i.id)
+  ? `<button type="button" class="pm-tree-tog" data-tree-tog="${esc(i.id)}" aria-expanded="${!tree.closed.has(i.id)}" aria-label="${tree.closed.has(i.id) ? 'Show' : 'Hide'} the items under ${esc(i.key)}">${tree.closed.has(i.id) ? '▸' : '▾'}</button>`
+  : '<span class="pm-tree-tog is-leaf" aria-hidden="true"></span>');
+
 export const TABLE_COLUMNS = [['key', 'Key'], ['title', 'Title'], ['status', 'Status'], ['owner', 'Owner'], ['priority', 'Priority'], ['due_date', 'Due'], ['start_date', 'Start'],
   ['project', 'Project'], ['subsystem', 'Subsystem'], ['estimate_hours', 'Estimate'], ['progress', 'Progress'], ['labels', 'Labels'], ['updated', 'Changed']];
 
@@ -831,3 +875,33 @@ export function choiceChips(f, v) {
  */
 export const infoTip = (html, label = 'More about this') =>
   `<details class="pm-info"><summary aria-label="${esc(label)}" title="${esc(label)}">ⓘ</summary><div class="pm-info-body">${html}</div></details>`;
+
+// ---- W9: switch projects from the project's name --------------------------------------------------------
+const RECENT_PROJECTS = 'pm.recentProjects';
+function recentProjectKeys() {
+  try {
+    return JSON.parse(localStorage.getItem(RECENT_PROJECTS) || '[]');
+  } catch {
+    return [];
+  }
+}
+function noteRecentProject(key) {
+  try {
+    localStorage.setItem(RECENT_PROJECTS, JSON.stringify([key, ...recentProjectKeys().filter((k) => k !== key)].slice(0, 8)));
+  } catch { /* private window: not remembered */ }
+}
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest?.('[data-switch-project]');
+  if (!btn) return;
+  const b = await loadBase();
+  const here = btn.dataset.switchProject;
+  const tab = btn.dataset.switchTab;
+  const open = b.projects.filter((p) => !p.archived_at && p.key !== here);
+  const rank = new Map(recentProjectKeys().map((k, n) => [k, n]));
+  const list = open.sort((x, y) => (rank.get(x.key) ?? 99) - (rank.get(y.key) ?? 99) || x.name.localeCompare(y.name)).slice(0, 8);
+  const r = btn.getBoundingClientRect();
+  openMenu(r.left, r.bottom + 4, [
+    ...list.map((p) => ({ label: `${p.name} (${p.key})`, run: () => (location.hash = projectHref(p.key, tab)) })),
+    { label: 'All projects…', run: () => (location.hash = '#/projects/all') },
+  ], 'Switch project');
+});

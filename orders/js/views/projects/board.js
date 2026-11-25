@@ -38,12 +38,15 @@ export async function renderBoard(el, scope) {
   // Open work, plus what was finished in the last 30 days (so "Done" doesn't grow for ever).
   const recent = { any: [{ f: 'category', op: 'ne', v: 'done' }, { f: 'completed', op: 'last', v: 30 }] };
   const user = filterOf(st.f);
-  const { items, total } = await pm.searchAll({ project: project?.id, projects: scope.only, filter: { all: [recent, ...(user ? [user] : []), ...(st.config.filter ? [st.config.filter] : [])] }, q: st.f.q, sort: 'rank' }, 2000);
-  const byId = new Map(items.map((i) => [i.id, i]));
+  const { items: found, total } = await pm.searchAll({ project: project?.id, projects: scope.only, filter: { all: [recent, ...(user ? [user] : []), ...(st.config.filter ? [st.config.filter] : [])] }, q: st.f.q, sort: 'rank' }, 2000);
+  const byId = new Map(found.map((i) => [i.id, i]));
+  const topLevel = (i) => scope.cfgOf(i)?.typeById.get(i.type_id)?.level === 0;
+  const items = st.config.show_top ? found : found.filter((i) => !topLevel(i));
+  const hiddenTop = found.length - items.length;
   // V8b: each card's parent, also when the parent isn't on this board
   const showParent = !st.config.hide_parent && lane !== 'parent';
   const away = showParent ? [...new Set(items.map((i) => i.parent_id).filter((id) => id && !byId.has(id)))] : [];
-  const parentById = new Map([...items, ...(away.length ? await pm.itemsByIds(away).catch(() => []) : [])].map((p) => [p.id, p]));
+  const parentById = new Map([...found, ...(away.length ? await pm.itemsByIds(away).catch(() => []) : [])].map((p) => [p.id, p]));
   // V9: stand-up, one person at a time
   if (st.tick) clearInterval(st.tick);
   const su = st.su;
@@ -75,15 +78,16 @@ export async function renderBoard(el, scope) {
     const edit = mayEditItem(b, i);
     const parent = showParent && i.parent_id ? parentById.get(i.parent_id) : null;
     const dim = su && (i.owner_id || '') !== suWho;
-    return `<article class="kcard pm-card tone-edge-${esc(c?.typeById.get(i.type_id)?.color || 'gray')}${dim ? ' is-dim' : ''}" data-card="${esc(i.id)}" ${drag ? 'draggable="true"' : ''} tabindex="-1">
-      <div class="kcard-meta"><span>${pickBox(i)}${typeBadge(c?.typeById.get(i.type_id))} <a class="pm-keylink" href="${itemHref(i.key)}">${esc(i.key)}</a></span>
-        <span class="pm-card-end">${ie(b, c, i, 'owner', 'avatar')}<button type="button" class="btn btn-sm btn-ghost pm-card-menu" data-card-menu="${esc(i.id)}" aria-label="More for ${esc(i.key)}">⋯</button></span></div>
-      <a class="kcard-name" href="${itemHref(i.key)}">${esc(i.title)}</a>
-      <div class="kcard-tags">${i.priority !== 'medium' || edit ? ie(b, c, i, 'priority', 'quiet') : ''}${i.due_date || edit ? ie(b, c, i, 'due', 'short') : ''}${i.blocked ? `<span class="chip-tone tone-red" title="${esc(i.blocked_reason || 'Blocked')}">⛔ Blocked</span>` : ''}
+    const facts = `${i.due_date ? ie(b, c, i, 'due', 'short') : ''}${i.blocked ? `<span class="chip-tone tone-red" title="${esc(i.blocked_reason || 'Blocked')}">⛔ Blocked</span>` : ''}
         ${Number(i.open_deps) ? `<span class="chip-tone tone-amber" title="Waiting on ${i.open_deps} other item(s)">⏳ ${i.open_deps}</span>` : ''}
         ${Number(i.children) ? `<span class="chip" title="Items under it that are done">☑ ${i.children_done}/${i.children}</span>` : ''}${extra}
-        ${parent ? `<button type="button" class="chip pm-parent-chip" data-parent-filter="${esc(parent.id)}" title="${esc(`Under ${parent.key} ${parent.title}. Click to see only the items under it.`)}">↳ ${esc(parent.key)} ${esc(parent.title)}</button>` : ''}</div>
-      ${drag ? `<div class="kcard-foot">${ie(b, c, i, 'status')}</div>` : ''}
+        ${parent ? `<button type="button" class="chip pm-parent-chip" data-parent-filter="${esc(parent.id)}" title="${esc(`Under ${parent.key} ${parent.title}. Click to see only the items under it.`)}">${esc(parent.title)}</button>` : ''}`;
+    return `<article class="kcard pm-card tone-edge-${esc(c?.typeById.get(i.type_id)?.color || 'gray')}${dim ? ' is-dim' : ''}" data-card="${esc(i.id)}" ${drag ? 'draggable="true"' : ''} tabindex="-1">
+      <div class="kcard-head"><a class="kcard-name" href="${itemHref(i.key)}">${esc(i.title)}</a>
+        <button type="button" class="btn btn-sm btn-ghost pm-card-menu" data-card-menu="${esc(i.id)}" aria-label="More for ${esc(i.key)}">⋯</button></div>
+      ${facts.trim() ? `<div class="kcard-tags">${facts}</div>` : ''}
+      <div class="kcard-meta pm-card-foot"><span>${pickBox(i)}${typeBadge(c?.typeById.get(i.type_id))} <a class="pm-keylink" href="${itemHref(i.key)}">${esc(i.key)}</a></span>
+        <span class="pm-card-end">${i.priority !== 'medium' ? ie(b, c, i, 'priority', 'quiet') : ''}<span class="pm-card-owner${i.owner_id ? '' : ' is-empty'}">${ie(b, c, i, 'owner', 'avatar')}</span></span></div>
     </article>`;
   };
   const column = (c, ci, laneId) => {
@@ -115,7 +119,8 @@ export async function renderBoard(el, scope) {
       <label class="pm-check"><input type="checkbox" data-su-timer ${su.timer ? 'checked' : ''}> 2-minute timer</label>
       <span class="card-actions"><button type="button" class="btn btn-sm" data-su-step="-1" ${su.n ? '' : 'disabled'}>Back</button>
         <button type="button" class="btn btn-sm btn-primary" data-su-step="1">${su.n === su.order.length - 1 ? 'Finish' : 'Next'}</button></span></div>` : ''}
-    ${total > items.length ? `<p class="alert alert-info">Showing the first ${items.length} of ${total} items. Narrow the filter to see the rest.</p>` : ''}
+    ${hiddenTop ? `<p class="muted small pm-top-note">${hiddenTop} top-level item${hiddenTop === 1 ? ' (an epic) isn\'t' : 's (epics) aren\'t'} shown as cards: they're the name on each card under them. <button type="button" class="btn btn-sm btn-ghost" data-show-top>Show them</button></p>` : ''}
+    ${total > found.length ? `<p class="alert alert-info">Showing the first ${found.length} of ${total} items. Narrow the filter to see the rest.</p>` : ''}
     ${lanes.map((l) => `${lane ? `<details class="pm-lane" ${st.closed.has(l) ? '' : 'open'} data-lane-id="${esc(l)}"><summary>${esc(laneName(l))} <span class="muted">${items.filter((i) => laneKey(i) === l).length}</span></summary>` : ''}
       <div class="kanban pm-kanban">${columns.map((c, ci) => column(c, ci, l)).join('')}</div>${lane ? '</details>' : ''}`).join('')}
     ${stray.length ? `<details class="card"><summary>${stray.length} item${stray.length === 1 ? ' is' : 's are'} in a status that no column shows</summary>
@@ -256,6 +261,9 @@ export async function renderBoard(el, scope) {
     if (e.target.closest('[data-board-settings]')) {
       const next = await boardSettings(scope, columns, st.config);
       if (next) ((st.config = next), changed());
+    } else if (t?.dataset.showTop !== undefined) {
+      st.config = { ...st.config, show_top: true };
+      changed();
     } else if (t?.dataset.cardMenu) {
       const r = t.getBoundingClientRect();
       cardMenu(t.dataset.cardMenu, r.left, r.bottom + 4);
@@ -310,7 +318,7 @@ function boardSettings(scope, columns, config) {
     title: 'Columns and cards', submit: 'Apply', wide: true,
     body: `<p class="muted">A column can hold several statuses. A limit warns when a column has too much in it at once. Apply, then "Save" or "Save as…" to keep it.</p>
       <div data-cols></div><p class="hint" data-missing></p><p><button type="button" class="btn btn-sm" data-add-col>+ Column</button></p>
-      <fieldset class="pm-section"><legend>Also show on each card</legend><div class="pm-checks"><label class="pm-check"><input type="checkbox" name="show_parent" ${config.hide_parent ? '' : 'checked'}> Parent</label>${extras.map(([k, l]) => `<label class="pm-check"><input type="checkbox" name="extra" value="${esc(k)}" ${(config.card_fields || []).includes(k) ? 'checked' : ''}> ${esc(l)}</label>`).join('')}</div></fieldset>`,
+      <fieldset class="pm-section"><legend>Also show on each card</legend><div class="pm-checks"><label class="pm-check"><input type="checkbox" name="show_parent" ${config.hide_parent ? '' : 'checked'}> Parent</label><label class="pm-check"><input type="checkbox" name="show_top" ${config.show_top ? 'checked' : ''}> Top-level items (epics) as cards of their own</label>${extras.map(([k, l]) => `<label class="pm-check"><input type="checkbox" name="extra" value="${esc(k)}" ${(config.card_fields || []).includes(k) ? 'checked' : ''}> ${esc(l)}</label>`).join('')}</div></fieldset>`,
     onOpen(form) {
       draw(form);
       form.addEventListener('input', (e) => {
@@ -340,7 +348,7 @@ function boardSettings(scope, columns, config) {
     },
     onSubmit(form) {
       if (!model.length) throw new Error('A board needs at least one column.');
-      return { ...config, columns: model.map((c) => ({ name: c.name.trim() || 'Column', wip: c.wip, status_ids: c.status_ids })), card_fields: [...form.querySelectorAll('[name=extra]:checked')].map((n) => n.value), hide_parent: !form.elements.show_parent.checked };
+      return { ...config, columns: model.map((c) => ({ name: c.name.trim() || 'Column', wip: c.wip, status_ids: c.status_ids })), card_fields: [...form.querySelectorAll('[name=extra]:checked')].map((n) => n.value), hide_parent: !form.elements.show_parent.checked, show_top: form.elements.show_top.checked };
     },
   });
 }

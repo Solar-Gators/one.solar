@@ -69,7 +69,7 @@ window.addEventListener('resize', () => {
   resizeTimer = setTimeout(() => onResize?.(), 200);
 });
 const DENSITY = { comfortable: { row: 40, bar: 22 }, compact: { row: 30, bar: 16 } };
-const SHOW = { deps: 'Dependencies', progress: 'Progress', labels: 'Labels on bars', sums: 'Dates on summary bars', keys: 'Item keys', owners: 'Owners', team: 'Team dates', cycles: 'Car cycles' };
+const SHOW = { deps: 'Dependencies', progress: 'Progress', labels: 'Labels on bars', sums: 'Dates on summary bars', keys: 'Item keys', status: 'Status', owners: 'Owners', team: 'Team dates', cycles: 'Car cycles' };
 /** What a bar's label says (Show → Labels on bars). */
 const BAR_TEXT = { name: 'Name', dates: 'Dates', both: 'Name and dates', owner: 'Owner', progress: 'Progress' };
 /** Rows, top to bottom: what they're grouped by, and the order inside a group. */
@@ -77,7 +77,7 @@ const GROUP_BY = { structure: 'What\'s under what', owner: 'Owner', type: 'Kind 
 const SORT_BY = { rank: 'As planned', start: 'Start date', end: 'End date', deps: 'What waits on what' };
 const DEFAULTS = { px: 18, fit: '', colorBy: 'type', density: 'comfortable', labelW: 280, barText: 'name',
   groupBy: 'structure', sortBy: 'rank', pack: false, merge: true, hideOutside: false, closed: [], level: '',
-  show: { deps: true, progress: true, labels: false, sums: true, keys: false, owners: false, team: true, cycles: true },
+  show: { deps: true, progress: true, labels: false, sums: true, keys: false, status: false, owners: false, team: true, cycles: true },
   plan: { forecast: false, critical: false, whatIf: false, baseline: '' } };
 
 const prefKey = (key) => `pm.gantt.${key || 'all'}`;
@@ -703,6 +703,15 @@ export async function renderTimeline(el, scope) {
   };
   const slipped = baseline ? items.map((i) => ({ i, s: slipOf(i) })).filter((v) => v.s).sort((a, z) => z.s - a.s) : [];
   const divTone = (id) => TONE[PALETTE[Math.max(0, divOrder.findIndex((d) => d.id === id)) % PALETTE.length]];
+  // W8: Show → Status: an item's status, or for one with items under it, how much of that is done
+  const statusCell = (i, r) => {
+    if (r.children) {
+      const inf = infoOf((kids.get(i.id) || []).flatMap(leavesOf));
+      return inf ? `<span class="pm-g-stat" title="${inf.pct}% of what's under it is done"><i style="width:${inf.pct}%"></i></span>` : '';
+    }
+    const s = scope.cfgOf(i)?.statusById.get(i.status_id);
+    return s ? `<span class="chip-tone tone-${esc(s.color)} pm-g-status">${esc(s.name)}</span>` : '';
+  };
   const label = (r, n) => {
     if (r.lane) {
       return `<div class="pm-g-label is-lane" data-ri="${n}" style="height:${ROW}px;padding-left:${6 + r.depth * 18}px"><span class="pm-g-grip is-empty"></span><span class="pm-g-toggle"></span>
@@ -739,7 +748,7 @@ export async function renderTimeline(el, scope) {
       <span class="pm-g-dot${i.is_milestone ? ' is-ms' : ''}" style="--c:${c.hex}" title="${esc(c.name)}"></span>
       <span class="pm-g-name">${r.prefix ? `<a class="pm-g-prefix" href="${projectHref(r.prefix.key, 'timeline')}" title="${esc(r.prefix.name)}: its only item is ${esc(i.title)}">${esc(r.prefix.name)}</a><span class="pm-g-crumb-sep" aria-hidden="true">›</span>` : ''}${st.show.keys ? `<a class="pm-g-key" href="${itemHref(i.key)}">${esc(i.key)}</a>` : ''}<span class="pm-g-title${i.category === 'done' ? ' is-done' : ''}" ${mayEdit ? `data-rename="${esc(i.id)}" title="${esc(i.key)} ${esc(i.title)}${undated(i) ? ' (no dates yet: drag across its row)' : ''} (double-click to rename)"` : `title="${esc(i.key)} ${esc(i.title)}"`}>${esc(i.title)}</span></span>
       ${slipChip(i)}${(ordersFor.get(i.id) || []).length ? `<span class="pm-g-chip is-warn" title="${esc(ordersFor.get(i.id).map((w) => `${w.number} is ${w.status}, not ordered yet`).join('\n'))}">order ⚠</span>` : ''}
-      <span class="pm-g-label-end">${st.show.owners ? avatar(b, i.owner_id) : ''}<button type="button" class="pm-g-more" data-menu="${esc(i.id)}" aria-label="More for ${esc(i.key)}" title="More">⋯</button></span></div>`;
+      <span class="pm-g-label-end">${st.show.status ? statusCell(i, r) : ''}${st.show.owners ? avatar(b, i.owner_id) : ''}<button type="button" class="pm-g-more" data-menu="${esc(i.id)}" aria-label="More for ${esc(i.key)}" title="More">⋯</button></span></div>`;
   };
 
   // ---- the toolbar and its menus
