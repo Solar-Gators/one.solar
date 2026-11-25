@@ -106,7 +106,10 @@ test.describe('projects', () => {
 
   test('an Admin creates a project from a template', async () => {
     await open(page, '/projects/#/projects/all', '#new-project');
-    await expect(page.locator('.empty')).toContainText('No spaces yet');
+    // 072: every subsystem already has its own Space (other test files may have added subsystems); otherwise none yet
+    const auto = await sql(page, `select name from pm_projects where subsystem_id is not null and archived_at is null order by name`);
+    if (auto.length) for (const { name } of auto) await expect(page.locator('.pm-project-grid')).toContainText(name);
+    else await expect(page.locator('.empty')).toContainText('No spaces yet');
     await page.click('#new-project');
     await dialog(page).locator('#np-name').fill('Battery Engineering');
     await expect(dialog(page).locator('#np-key')).toHaveValue('BE');
@@ -1042,9 +1045,10 @@ test.describe('projects', () => {
     await dialog(page).locator('#nc-name').fill('Car 8');
     await dialog(page).locator('#nc-start').fill('2027-01-11');
     await dialog(page).locator('[data-copy-all]').uncheck();
-    await dialog(page).locator('.pm-copy-row', { hasText: 'BAT' }).first().locator('input[name=copy]').check();
-    await expect(dialog(page).locator('[data-key-for]').first()).not.toHaveValue('');
-    const newKey = await dialog(page).locator('.pm-copy-row', { hasText: 'BAT' }).first().locator('[data-key-for]').inputValue();
+    const batRow = dialog(page).locator('.pm-copy-row', { has: page.locator('.pm-key', { hasText: /^BAT$/ }) });   // not BATT, the Battery subsystem's own Space (072)
+    await batRow.locator('input[name=copy]').check();
+    await expect(batRow.locator('[data-key-for]')).not.toHaveValue('');
+    const newKey = await batRow.locator('[data-key-for]').inputValue();
     expect(newKey).toBe('BAT8');
     await save(page, 'Start it');
     await expect(page.locator('.os-toast', { hasText: 'Car 8 is ready with 1 space' })).toBeVisible();
