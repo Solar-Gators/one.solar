@@ -277,6 +277,8 @@ test.describe('projects', () => {
     await save(page, 'Create');
     await expect(dialog(page)).toBeVisible(); // Chemistry is required: the form doesn't go
     await dialog(page).locator('[name="f:cf.chemistry"]').selectOption('NMC');
+    // W4: optional fields wait under "More fields"; required ones (Chemistry) stay in view
+    await dialog(page).locator('.pm-create-more > summary').click();
     await dialog(page).locator('[name="f:cf.cell_count"]').fill('416');
     await save(page, 'Create');
     await expect(page.locator('.kcard', { hasText: 'Pack layout' })).toBeVisible();
@@ -787,6 +789,8 @@ test.describe('projects', () => {
     await tap(page, '[data-new-item]');
     await dialog(page).locator('#pm-new-type').selectOption({ label: '⚙ Manufacturing Job' });
     await dialog(page).locator('#pm-new-title').fill('Top shell mold');
+    await expect(dialog(page).locator('.pm-create-more > summary')).toContainText('More fields');
+    await dialog(page).locator('.pm-create-more > summary').click();
     await expect(dialog(page).locator('[data-field="cf.process"]')).toBeVisible();
     await expect(dialog(page).locator('[data-field="cf.chemistry"]')).toHaveCount(0);
     await save(page, 'Create');

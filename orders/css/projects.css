@@ -882,13 +882,13 @@ li.pm-add-under-row { list-style: none; padding: 4px 0 4px 28px; }
 .pm-oneline > .btn { margin-left: auto; }
 
 /* W7: placeholders while a page loads */
-.sk-page { display: grid; gap: 12px; padding-top: 8px; }
+.sk-page { display: grid; gap: 12px; padding-top: 8px; max-width: 100%; overflow: hidden; }
 .sk { display: block; height: 12px; border-radius: 6px; background: var(--surface-2, #eef1f5);
   background-image: linear-gradient(90deg, transparent, color-mix(in srgb, var(--surface, #fff) 70%, transparent), transparent);
   background-size: 200% 100%; background-repeat: no-repeat; animation: sk-shine 1.4s ease-in-out infinite; }
 .sk-title { width: 240px; max-width: 60%; height: 22px; }
 .sk-tabs { display: flex; gap: 16px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
-.sk-tabs .sk { width: 56px; }
+.sk-tabs .sk { flex: 0 1 56px; min-width: 0; }
 .sk-row { display: grid; grid-template-columns: 16px 1fr 70px; gap: 12px; align-items: center; padding: 8px 4px; border-bottom: 1px solid var(--border-soft, var(--border)); }
 .sk-row .sk-dot { width: 16px; height: 16px; border-radius: 4px; }
 .sk-row .sk-chip { height: 18px; border-radius: 999px; }
