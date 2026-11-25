@@ -12,7 +12,7 @@ export const CAPS = [
   ['assign', 'Assign people', 'Make someone else the owner of an item.'],
   ['transition', 'Move items between statuses', 'Make the moves the workflow allows (each move can still be limited to some roles).'],
   ['approve', 'Approve', 'Approve moves that need approval, and formally accept finished work.'],
-  ['delete', 'Archive items', 'Archive and restore items, and remove other people\'s comments.'],
+  ['delete', 'Archive and delete items', 'Archive and restore items, delete them for good, and remove other people\'s comments.'],
   ['plan', 'Plan and schedule', 'Dependencies, sprints, baselines, rescheduling and calendar events.'],
   ['boards', 'Shared boards and views', 'Save boards, views and dashboards that everyone in the space sees.'],
   ['automations', 'Automation rules', 'Create and change the space\'s rules.'],

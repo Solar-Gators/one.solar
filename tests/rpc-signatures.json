@@ -964,9 +964,19 @@
   "returns": "void",
   "anon": false
  },
+ "pm_delete_item": {
+  "args": "p_id uuid, p_dry_run boolean",
+  "returns": "jsonb",
+  "anon": false
+ },
  "pm_delete_key_date": {
   "args": "p_id uuid",
   "returns": "void",
+  "anon": false
+ },
+ "pm_delete_project": {
+  "args": "p_id uuid, p_key text",
+  "returns": "jsonb",
   "anon": false
  },
  "pm_delete_role": {

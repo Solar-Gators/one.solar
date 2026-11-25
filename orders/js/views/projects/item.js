@@ -196,6 +196,7 @@ export async function renderItem(el, { config, params, rerender }) {
     mayEdit ? `<button type="button" data-block="${item.blocked ? '0' : '1'}">${item.blocked ? 'Not blocked any more' : 'Mark as blocked…'}</button>` : '',
     mayShare && shared === null ? '<button type="button" data-share-alumni>Share with alumni…</button>' : '',
     may('delete') ? `<button type="button" data-archive>${item.archived_at ? 'Restore' : 'Archive'}</button>` : '',
+    may('delete') ? '<button type="button" class="pm-menu-danger" data-delete-item>Delete…</button>' : '',
   ].filter(Boolean).join('');
 
   el.innerHTML = `${takeFlash()}<a class="back-link" href="${projectHref(project.key, 'list')}">← ${esc(project.name)}</a>
@@ -448,7 +449,18 @@ export async function renderItem(el, { config, params, rerender }) {
     }
     if (d.editDesc !== undefined) editDescription();
     else if (d.watch !== undefined) fresh(() => pm.watch(item.id, !watchers.includes(b.me)));
-    else if (d.archive !== undefined) confirm(item.archived_at ? `Restore ${item.key}?` : `Archive ${item.key} and everything under it? It can be restored.`) && fresh(() => pm.archiveItem(item.id, !item.archived_at));
+    else if (d.deleteItem !== undefined) {
+      const count = await attempt(() => pm.deleteItem(item.id, true));
+      if (!count) return;
+      const under = count.items - 1;
+      const ok = await formDialog({ title: `Delete ${esc(item.key)} for good?`, submit: 'Delete', danger: true,
+        body: `<p><strong>${esc(item.title)}</strong>${under ? ` and the <strong>${under} item${under === 1 ? '' : 's'} under it</strong>` : ''} will be deleted, with ${under ? 'their' : 'its'} comments, history, checklist, links and files.</p>
+          <p class="alert alert-error">This can't be undone. To keep it but get it out of the way, use Archive instead.</p>`,
+        onSubmit: () => pm.deleteItem(item.id) });
+      if (!ok) return;
+      setFlash(`Deleted ${item.key}${under ? ` and ${under} item${under === 1 ? '' : 's'} under it` : ''}.`);
+      location.hash = projectHref(project.key, 'list');
+    } else if (d.archive !== undefined) confirm(item.archived_at ? `Restore ${item.key}?` : `Archive ${item.key} and everything under it? It can be restored.`) && fresh(() => pm.archiveItem(item.id, !item.archived_at));
     else if (d.approve || d.reject) {
       const note = d.reject ? await askText({ title: 'Send it back', label: 'Why isn\'t it approved?', ok: 'Send back', multiline: true }) : '';
       if (d.reject && !note) return;

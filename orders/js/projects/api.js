@@ -163,6 +163,9 @@ export const pm = {
   updateItem: (id, version, p) => call('pm_update_item', { p_id: id, p_version: version, p }),
   bulkUpdate: (ids, p) => call('pm_bulk_update', { p_ids: ids, p }),
   archiveItem: (id, archived) => call('pm_archive_item', { p_id: id, p_archived: archived }),
+  /** 073: for good. dryRun only counts what would go (the item and everything under it). */
+  deleteItem: (id, dryRun = false) => call('pm_delete_item', { p_id: id, p_dry_run: dryRun }),
+  deleteProject: (id, key) => call('pm_delete_project', { p_id: id, p_key: key }),
   moveItem: (id, p) => call('pm_move_item', { p_id: id, p }),
   transition: (id, transitionId, p = {}) => call('pm_transition', { p_id: id, p_transition: transitionId, p }),
   decideApproval: (id, approve, note) => call('pm_decide_approval', { p_id: id, p_approve: approve, p_note: note }),
