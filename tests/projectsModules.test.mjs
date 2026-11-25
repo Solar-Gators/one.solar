@@ -9,7 +9,7 @@ import { schedule, makeCalendar, toDay, toISO, durationOf, proposeDates, occurre
 import { recognise, resourceIcon, guessCategory } from '../orders/js/projects/links.js';
 import { evalFormula, checkFormula, formulaRefs } from '../orders/js/projects/formula.js';
 import { linkFromUrl, exactFirst } from '../orders/js/linkParse.js';
-import { layoutFor, movesFor, moveTo, moveNeeds, boardColumns, rankBetween, progressOf, attention, workload, findMentions, filterText, fieldLabel, unreachableStatuses, treeOrder } from '../orders/js/projects/core.js';
+import { layoutFor, movesFor, moveTo, moveNeeds, boardColumns, rankBetween, progressOf, attention, workload, findMentions, filterText, fieldLabel, unreachableStatuses, treeOrder, spaceWords } from '../orders/js/projects/core.js';
 
 let passed = 0;
 function test(name, fn) {
@@ -381,6 +381,15 @@ test('W5: the List tree puts items under their parent on the same page, and fold
   assert.deepEqual([...t.kids].sort(), ['epic', 'task']);
   assert.deepEqual([...treeOrder(page, new Set(['epic'])).hidden].sort(), ['sub', 'task'], 'folding the epic hides everything under it');
   assert.equal(treeOrder([it('a', 'b'), it('b', 'a')]).items.length, 2, 'a loop in the data still shows both');
+});
+
+await test('072: the database\'s "project" reads "Space" on the website, except role names and quoted names', () => {
+  assert.equal(spaceWords('Another project already uses the key BAT.'), 'Another space already uses the key BAT.');
+  assert.equal(spaceWords('Projects you can see'), 'Spaces you can see');
+  assert.equal(spaceWords('Your role can\'t open Projects (it needs "See projects").'), 'Your role can\'t open Workbench (it needs "See projects").');
+  assert.equal(spaceWords('The project manager has to be someone on the team.'), 'The project manager has to be someone on the team.');
+  assert.equal(spaceWords('Only a Project Administrator can do that.'), 'Only a Project Administrator can do that.');
+  assert.equal(spaceWords(''), '');
 });
 
 console.log(`\n${passed} projects module tests passed${process.exitCode ? ', some failed' : ''}`);

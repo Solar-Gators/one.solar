@@ -53,8 +53,8 @@ export function bindQuickAdd(root, { b, done }) {
     const types = cfg.types.filter((t) => !t.archived_at && (!parentType || (t.parent_type_ids?.length ? t.parent_type_ids.includes(parentType.id) : t.level > parentType.level)))
       .sort((x, y) => x.level - y.level || x.sort - y.sort);
     const type = types.find((t) => t.id === ctx.type_id) || (parentType ? types[0] : types.find((t) => t.level === 1)) || types[0];
-    if (!type && parentType) return toast(`Nothing can go under a ${parentType.name} in this project (Settings → Work types).`, 'bad');
-    if (!type) return toast('This project has no kinds of work yet. Add one in Settings → Work types.', 'bad');
+    if (!type && parentType) return toast(`Nothing can go under a ${parentType.name} in this space (Settings → Work types).`, 'bad');
+    if (!type) return toast('This space has no kinds of work yet. Add one in Settings → Work types.', 'bad');
     // a board column's status only if this kind of item's workflow has it
     const status = ctx.status_ids?.find((sid) => cfg.statusById.get(sid)?.workflow_id === type.workflow_id) || (cfg.statusById.get(ctx.status_id)?.workflow_id === type.workflow_id ? ctx.status_id : undefined);
     const p = { ...smartDefaults(b, project, given), project_id: projectId, type_id: type.id, title, ...(status ? { status_id: status } : {}) };

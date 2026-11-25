@@ -21,7 +21,7 @@ import { quickAdd, bindQuickAdd } from './quick.js';
 
 const states = new Map();
 const stateOf = (key) => states.get(key) || states.set(key, { f: { q: '', owner: '', category: '', priority: '', type: '', more: null }, view: undefined, config: {}, dirty: false, closed: new Set() }).get(key);
-const LANES = [['', 'No swimlanes'], ['owner', 'Owner'], ['subsystem', 'Subsystem'], ['priority', 'Priority'], ['parent', 'Parent (epic)'], ['type', 'Kind'], ['project', 'Project']];
+const LANES = [['', 'No swimlanes'], ['owner', 'Owner'], ['subsystem', 'Subsystem'], ['priority', 'Priority'], ['parent', 'Parent (epic)'], ['type', 'Kind'], ['project', 'Space']];
 const CARD_EXTRAS = [['estimate_hours', 'Estimate'], ['labels', 'Labels'], ['subsystem', 'Subsystem'], ['progress', 'Progress']];
 const SU_SECONDS = 120;   // V9: the stand-up's optional timer
 let standupKeys = null;   // V9: Esc / arrows while a stand-up runs (one listener for the page)
@@ -126,7 +126,7 @@ export async function renderBoard(el, scope) {
     ${stray.length ? `<details class="card"><summary>${stray.length} item${stray.length === 1 ? ' is' : 's are'} in a status that no column shows</summary>
       <ul class="pm-mini">${stray.map((i) => `<li><a href="${itemHref(i.key)}">${esc(i.key)} · ${esc(i.title)}</a> <span class="muted">${esc(scope.statuses.find((s) => s.id === i.status_id)?.name || '')}</span></li>`).join('')}</ul>
       <p class="hint">Add the status to a column in "Columns &amp; cards".</p></details>` : ''}
-    ${items.length ? '' : `<div class="empty"><p><strong>No items on this board.</strong></p><p>${project ? 'Type a title under a column and press Enter to add one there.' : 'Items show here once they\'re added to a project.'}${Object.values(st.f).some(Boolean) ? ' Or change the filter.' : ''}</p></div>`}`;
+    ${items.length ? '' : `<div class="empty"><p><strong>No items on this board.</strong></p><p>${project ? 'Type a title under a column and press Enter to add one there.' : 'Items show here once they\'re added to a space.'}${Object.values(st.f).some(Boolean) ? ' Or change the filter.' : ''}</p></div>`}`;
 
   const changed = () => ((st.dirty = true), scope.rerender());
   // V9: the stand-up's clock, and Esc / arrow keys while it runs

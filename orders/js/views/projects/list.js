@@ -84,8 +84,8 @@ export async function renderList(el, scope) {
       ${st.tree && !treeOn && page.items.length ? '<span class="pm-tip">Sorted this way the list is flat; Backlog order shows items under their parents.</span>' : ''}</p>
     ${itemTable(b, shown, scope.cfgOf, { columns, select: canBulk, tree, addUnder: (c, i) => addUnderButton(b, c, i),
       empty: Object.values(st.f).some((v) => v && v !== 'open') ? '<p><strong>No items match.</strong></p><p><button type="button" class="btn btn-sm" data-clear-filters>Clear the filter</button></p>'
-        : project ? '<p><strong>No open items in this project yet.</strong></p><p>Type a title below and press Enter. You can fill in the rest later, right in the list.</p>'
-          : '<p><strong>Nothing open that you can see.</strong></p><p>Items show here once they\'re added to a project.</p>',
+        : project ? '<p><strong>No open items in this space yet.</strong></p><p>Type a title below and press Enter. You can fill in the rest later, right in the list.</p>'
+          : '<p><strong>Nothing open that you can see.</strong></p><p>Items show here once they\'re added to a space.</p>',
       foot: project && can(b, project.id, 'create') && !project.archived_at ? quickAdd(b, { project_id: project.id }, { placeholder: '+ Add an item (Enter to add, Shift+Enter for the full form)', cls: 'pm-qa-table' }) : '' })}
     ${pages > 1 ? `<nav class="pm-pages" aria-label="Pages"><button type="button" class="btn btn-sm" data-page="${st.page - 1}" ${st.page ? '' : 'disabled'}>← Previous</button>
       <span>Page ${st.page + 1} of ${pages}</span><button type="button" class="btn btn-sm" data-page="${st.page + 1}" ${st.page + 1 < pages ? '' : 'disabled'}>Next →</button></nav>` : ''}`;
@@ -157,7 +157,7 @@ function downloadCsv(b, items, scope, name) {
     if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
     return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
-  const head = ['Key', 'Title', 'Project', 'Kind', 'Status', 'Priority', 'Owner', 'CE division', 'Subsystem', 'Start', 'Due', 'Estimate (h)', 'Progress %', 'Blocked', 'Labels', 'Finished'];
+  const head = ['Key', 'Title', 'Space', 'Kind', 'Status', 'Priority', 'Owner', 'CE division', 'Subsystem', 'Start', 'Due', 'Estimate (h)', 'Progress %', 'Blocked', 'Labels', 'Finished'];
   const lines = items.map((i) => {
     const c = scope.cfgOf(i);
     return [i.key, i.title, b.projectById.get(i.project_id)?.name, c?.typeById.get(i.type_id)?.name, c?.statusById.get(i.status_id)?.name, i.priority, b.personById.get(i.owner_id)?.full_name,

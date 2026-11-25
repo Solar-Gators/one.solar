@@ -447,7 +447,7 @@ function moveDialog(b, cfg, m, tr, { fixed = false } = {}) {
         <div class="field"><label for="mv-to">To</label><select id="mv-to" name="to" required ${fixed ? 'disabled' : ''}>${m.statuses.map((s) => opt(s.id, s.name, tr?.to_status === s.id)).join('')}</select></div>
         <div class="field span-4"><label for="mv-desc">Explanation shown when making the move (optional)</label><input id="mv-desc" name="description" type="text" maxlength="500" value="${esc(tr?.description || '')}"></div></div>
       <fieldset class="pm-section"><legend>Who can make it</legend><div class="pm-checks">${cfg.roles.map((r) => `<label class="pm-check"><input type="checkbox" name="role" value="${esc(r.id)}" ${tr?.role_ids?.includes(r.id) ? 'checked' : ''}> ${esc(r.name)}</label>`).join('')}</div>
-        <p class="hint">None ticked: anyone whose project role may move items.</p></fieldset>
+        <p class="hint">None ticked: anyone whose space role may move items.</p></fieldset>
       <fieldset class="pm-section"><legend>What it needs first</legend><div class="pm-checks">${fields.map(([k, l]) => `<label class="pm-check"><input type="checkbox" name="req" value="${esc(k)}" ${tr?.require_fields?.includes(k) ? 'checked' : ''}> ${esc(l)}</label>`).join('')}</div>
         <div class="pm-checks" style="margin-top:8px"><label class="pm-check"><input type="checkbox" name="comment" ${tr?.require_comment ? 'checked' : ''}> A comment</label>
           <label class="pm-check"><input type="checkbox" name="approval" ${tr?.require_approval ? 'checked' : ''}> Approval by someone whose role may approve</label>

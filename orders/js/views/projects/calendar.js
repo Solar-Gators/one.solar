@@ -119,7 +119,7 @@ export async function renderCalendar(el, scope) {
     <div class="pm-toolbar pm-tbar">${filterBar(b, st.f, { types: scope.types })}
       <div class="card-actions"><label class="pm-check" title="Also show items on every day between their start and due date"><input type="checkbox" data-work ${st.work ? 'checked' : ''}> Show scheduled work</label></div></div>
     ${body}
-    <p class="hint">⚑ milestone · ▶ start · plain: due · 📅 project event. Drag a deadline to another day to change it (or use Agenda → "Change date").</p>`;
+    <p class="hint">⚑ milestone · ▶ start · plain: due · 📅 space event. Drag a deadline to another day to change it (or use Agenda → "Change date").</p>`;
 
   const again = () => scope.rerender();
   bindFilterBar(el, b, st.f, again, { fields: scope.fields, statuses: scope.statuses });
@@ -167,7 +167,7 @@ export async function renderCalendar(el, scope) {
       const ev = events.find((x) => x.id === d.event);
       if (ev && !can(b, ev.project_id, 'plan')) return toast(`${ev.title}${ev.notes ? `: ${ev.notes}` : ''}`);
       const res = await formDialog({ title: ev ? 'Edit event' : 'New event', submit: 'Save',
-        body: `${ev || planIn.length === 1 ? '' : `<div class="field"><label for="ev-project">Project</label><select id="ev-project" name="project">${planIn.map((id) => `<option value="${esc(id)}">${esc(b.projectById.get(id).name)}</option>`).join('')}</select></div>`}
+        body: `${ev || planIn.length === 1 ? '' : `<div class="field"><label for="ev-project">Space</label><select id="ev-project" name="project">${planIn.map((id) => `<option value="${esc(id)}">${esc(b.projectById.get(id).name)}</option>`).join('')}</select></div>`}
           <div class="field"><label for="ev-title">What</label><input id="ev-title" name="title" type="text" maxlength="120" required value="${esc(ev?.title || '')}" placeholder="Design review day"></div>
           <div class="form-grid"><div class="field span-2"><label for="ev-start">From</label><input id="ev-start" name="start" type="date" required value="${esc(ev?.starts_on || st.at)}"></div>
             <div class="field span-2"><label for="ev-end">To (optional)</label><input id="ev-end" name="end" type="date" value="${esc(ev?.ends_on || '')}"></div>

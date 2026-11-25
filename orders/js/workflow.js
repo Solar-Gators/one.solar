@@ -26,7 +26,7 @@ export const EVENTS = [
   { key: 'items_changed', label: 'Items changed', who: 'The requester, when the Treasurer changes the items on an approved / ordered request' },
   { key: 'request_update', label: 'Watched request changed', who: 'People watching the request (not the requester)' },
   { key: 'sponsor_update', app: 'Sponsors', label: 'Sponsor card updated', who: 'People watching the card (Sponsors board)' },
-  { key: 'project_update', app: 'Workbench', label: 'Project updates', who: "Whoever is given an item, mentioned, asked to approve or reminded of a deadline, plus (if they chose it in Workbench → Inbox) people on an item that changes. Projects' own inbox always works" },
+  { key: 'project_update', app: 'Workbench', label: 'Space updates', who: "Whoever is given an item, mentioned, asked to approve or reminded of a deadline, plus (if they chose it in Workbench → Inbox) people on an item that changes. Workbench's own inbox always works" },
   { key: 'eval_update', app: 'Solar Evals', label: 'Evaluation updates', who: 'The CE when a member submits a self-eval; the member when their meeting is scheduled and when their eval is shared' },
   { key: 'event_invite', app: 'Events', label: 'Event invitations', emailOnly: true, emailOnlyWhy: 'Email only: invitations also show in Events', schema: 64,
     who: 'The people invited to an event, when its host ticks "Email the people invited" while saving it' },

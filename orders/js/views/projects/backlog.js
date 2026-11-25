@@ -96,7 +96,7 @@ export async function renderBacklog(el, scope) {
       return place(id, item.sprint_id && open.some((s) => s.id === item.sprint_id) ? item.sprint_id : '', t.dataset.up ? list[n - 1].id : list[n + 2]?.id);
     }
     const sprint = cfg.sprints.find((s) => s.id === t.closest('[data-sprint]')?.dataset.sprint);
-    if (t.dataset.sprintsOn !== undefined) (await attempt(() => pm.saveProject(project.id, { settings: { sprints: true } }), 'Sprints are on for this project.')) && (invalidate(), again());
+    if (t.dataset.sprintsOn !== undefined) (await attempt(() => pm.saveProject(project.id, { settings: { sprints: true } }), 'Sprints are on for this space.')) && (invalidate(), again());
     else if (t.dataset.newSprint !== undefined || t.dataset.editSprint !== undefined) (await sprintDialog(project, sprint, cfg.sprints.length)) && reload();
     else if (t.dataset.startSprint !== undefined) (await attempt(() => pm.saveSprint(project.id, sprint.id, { status: 'active' }), `${sprint.name} has started.`)) && reload();
     else if (t.dataset.closeSprint !== undefined) {

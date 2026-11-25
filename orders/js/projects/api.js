@@ -5,9 +5,10 @@
  */
 import { supabase } from '../supabase.js';
 import { allPages } from '../api.js';
+import { spaceWords } from './core.js';
 
 function toError(e) {
-  const err = new Error(e.message || 'Something went wrong.');
+  const err = new Error(spaceWords(e.message) || 'Something went wrong.');
   err.code = e.code || '';
   err.conflict = e.code === 'OS409';   // someone else changed it first
   err.duplicate = e.code === 'OS412';

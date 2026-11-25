@@ -14,7 +14,7 @@ import { loadViews, viewsFor, pickView, viewPicker, bindViewPicker } from './sav
 import { cycleSwitch, bindCycleSwitch, inView, cyclesOf } from './cycles.js';
 
 const WIDGETS = {
-  numbers: 'Open, overdue, blocked, unassigned', projects: 'Projects: progress and who needs help', subsystems: 'Progress by CE division and subsystem', status: 'Items by status',
+  numbers: 'Open, overdue, blocked, unassigned', projects: 'Spaces: progress and who needs help', subsystems: 'Progress by CE division and subsystem', status: 'Items by status',
   priority: 'Open items by priority', milestones: 'Upcoming milestones', overdue: 'Overdue items', blocked: 'Blocked items and cross-subsystem blockers', schedule: 'Schedule slippage and critical path',
   workload: 'Workload by member', trend: 'Finished per week', risks: 'Open risks', activity: 'Recent activity', filter: 'Results of a saved list view',
 };
@@ -44,7 +44,7 @@ export async function renderDashboards(el, { config, params, rerender }) {
   const li = (i, extra = '') => `<li><a href="${itemHref(i.key)}">${esc(i.key)} · ${esc(i.title)}</a> ${dueChip(i)} ${avatar(b, i.owner_id)} ${extra}</li>`;
   const none = (text) => `<p class="muted">${esc(text)}</p>`;
   const scopeBar = `<div class="pm-filters"><select data-scope="program" aria-label="Car cycle"><option value="">${cyclesOf(b).length > 1 ? 'The car chosen above' : 'Every car cycle'}</option>${cyclesOf(b).map((g) => `<option value="${esc(g.id)}" ${sc.program === g.id ? 'selected' : ''}>${esc(g.name)}${g.vehicle ? ` (${esc(g.vehicle)})` : ''}</option>`).join('')}</select>
-    <select data-scope="project" aria-label="Project"><option value="">Every project</option>${b.projects.filter((p) => !p.archived_at).map((p) => `<option value="${esc(p.id)}" ${sc.project === p.id ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select>
+    <select data-scope="project" aria-label="Project"><option value="">Every space</option>${b.projects.filter((p) => !p.archived_at).map((p) => `<option value="${esc(p.id)}" ${sc.project === p.id ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select>
     <select data-scope="division" aria-label="CE division"><option value="">Every CE division</option>${b.divisions.filter((d) => !d.archived_at).map((d) => `<option value="${esc(d.id)}" ${sc.division === d.id ? 'selected' : ''}>${esc(d.name)}</option>`).join('')}</select></div>`;
   const tabs = `<nav class="pm-tabs" aria-label="Dashboards">${[['', 'Dashboard'], ['workload', 'Workload'], ['review', 'Weekly review']].map(([k, l]) => `<a href="#/projects/dashboards${k ? `/${k}` : ''}" ${(k || 'board') === tab ? 'aria-current="page"' : ''}>${l}</a>`).join('')}</nav>`;
   const bindScope = () => (bindCycleSwitch(el, b, rerender), el.querySelectorAll('[data-scope]')).forEach((n) => (n.onchange = () => ((st.config = { ...st.config, scope: { ...sc, [n.dataset.scope]: n.value || undefined } }), (st.dirty = true), rerender())));
@@ -99,7 +99,7 @@ export async function renderDashboards(el, { config, params, rerender }) {
     el.innerHTML = `${header('Dashboards', 'A summary to walk through at the weekly program review.', '<button type="button" class="btn" data-copy>Copy as text</button>')}${cycleSwitch(b)}${tabs}${scopeBar}
       <div class="pm-filters"><label class="inline-field">Looking back <select data-days>${[7, 14, 30].map((n) => `<option value="${n}" ${st.days === n ? 'selected' : ''}>${n} days</option>`).join('')}</select></label></div>
       <div class="pm-review">${parts.map(([title, rows, empty]) => `<section class="card"><h2>${esc(title)} <span class="muted">${rows.length}</span></h2>${rows.length ? `<ul class="pm-mini">${rows.join('')}</ul>` : none(empty)}</section>`).join('')}</div>
-      <p class="hint">Label an item <code>decision</code> to bring it to this list. Only projects you can see are included.</p>`;
+      <p class="hint">Label an item <code>decision</code> to bring it to this list. Only spaces you can see are included.</p>`;
     bindScope();
     el.querySelector('[data-days]').onchange = (e) => ((st.days = Number(e.target.value)), rerender());
     el.querySelector('[data-copy]').onclick = () => {
@@ -131,13 +131,13 @@ export async function renderDashboards(el, { config, params, rerender }) {
         <span class="${total.overdue ? 'is-late' : ''}"><strong>${total.overdue}</strong> overdue</span><span class="${total.blocked ? 'is-late' : ''}"><strong>${total.blocked}</strong> blocked</span><span><strong>${total.unassigned}</strong> without an owner</span>
         <span><strong>${total.done}</strong> done</span></div>${progressBar(total)}
         <div class="pm-metrics">${[['by items', total.byCount], ['by effort', total.byEffort], ['by milestones', total.byMilestones]].map(([l, m]) => `<div class="pm-metric" title="${esc(m.how)}"><strong>${m.value === null ? '—' : `${m.value}%`}</strong><span>${l}</span><small>${esc(m.how)}</small></div>`).join('')}</div>`;
-      case 'projects': return projects.length ? `<div class="table-wrap"><table class="pm-table"><thead><tr><th>Project</th><th>Progress</th><th title="Items finished ÷ all items">Items</th><th title="Estimated hours finished ÷ all estimated hours">Effort</th><th title="Milestones reached ÷ all milestones">Milestones</th><th>Next milestone</th><th>Needs attention</th></tr></thead><tbody>${projects.map((p) => {
+      case 'projects': return projects.length ? `<div class="table-wrap"><table class="pm-table"><thead><tr><th>Space</th><th>Progress</th><th title="Items finished ÷ all items">Items</th><th title="Estimated hours finished ÷ all estimated hours">Effort</th><th title="Milestones reached ÷ all milestones">Milestones</th><th>Next milestone</th><th>Needs attention</th></tr></thead><tbody>${projects.map((p) => {
         const pr = progressOf(groups.filter((g) => g.project_id === p.id));
         const why = attention(pr);
         const pct = (m) => (m.value === null ? '<span class="muted">—</span>' : `${m.value}%`);
         return `<tr><td><a href="${projectHref(p.key)}"><strong>${esc(p.name)}</strong></a></td><td class="pm-bar-cell">${progressBar(pr)}</td><td>${pct(pr.byCount)}</td><td>${pct(pr.byEffort)}</td><td>${pct(pr.byMilestones)}</td>
           <td>${pr.nextMs ? `<span class="${pr.nextMs < today ? 'is-late' : ''}">${esc(fmtDate(pr.nextMs))}</span>` : '<span class="muted">—</span>'}</td><td>${why.length ? `<span class="is-late">⚠ ${esc(why.join('; '))}</span>` : '<span class="muted">No</span>'}</td></tr>`;
-      }).join('')}</tbody></table></div>` : none('No projects in scope.');
+      }).join('')}</tbody></table></div>` : none('No spaces in scope.');
       case 'subsystems': {
         const keys = [...new Set(groups.map((g) => `${g.division_id || ''}|${g.subsystem_id || ''}`))];
         return keys.length ? `<div class="table-wrap"><table class="pm-table"><thead><tr><th>CE division</th><th>Subsystem</th><th>Progress</th><th>Open</th><th>Overdue</th><th>Blocked</th></tr></thead><tbody>${keys.sort().map((k) => {
@@ -170,7 +170,7 @@ export async function renderDashboards(el, { config, params, rerender }) {
         const blocked = items.filter((i) => i.blocked);
         const cross = deps.filter((d) => byId.has(d.to_item) && byId.has(d.from_item) && (byId.get(d.from_item).subsystem_id || byId.get(d.from_item).project_id) !== (byId.get(d.to_item).subsystem_id || byId.get(d.to_item).project_id));
         return `${blocked.length ? `<ul class="pm-mini">${blocked.slice(0, 8).map((i) => li(i, `<span class="is-late">${esc(i.blocked_reason || '')}</span>`)).join('')}</ul>` : none('Nothing is marked blocked.')}
-          <h3>Waiting on another subsystem or project</h3>${cross.length ? `<ul class="pm-mini">${cross.slice(0, 8).map((d) => `<li><a href="${itemHref(byId.get(d.to_item).key)}">${esc(byId.get(d.to_item).key)}</a> waits on <a href="${itemHref(byId.get(d.from_item).key)}">${esc(byId.get(d.from_item).key)} · ${esc(byId.get(d.from_item).title)}</a>
+          <h3>Waiting on another subsystem or space</h3>${cross.length ? `<ul class="pm-mini">${cross.slice(0, 8).map((d) => `<li><a href="${itemHref(byId.get(d.to_item).key)}">${esc(byId.get(d.to_item).key)}</a> waits on <a href="${itemHref(byId.get(d.from_item).key)}">${esc(byId.get(d.from_item).key)} · ${esc(byId.get(d.from_item).title)}</a>
             <span class="muted small">${esc(b.subsystemById.get(byId.get(d.from_item).subsystem_id)?.name || b.projectById.get(byId.get(d.from_item).project_id)?.name || '')}</span> ${dueChip(byId.get(d.from_item))}</li>`).join('')}</ul>` : none('None.')}`;
       }
       case 'schedule': {
@@ -181,7 +181,7 @@ export async function renderDashboards(el, { config, params, rerender }) {
           const worst = late.sort((x, y) => y.days - x.days)[0];
           return { p, plan, late, worst, its };
         }).filter((r) => r.its.length);
-        return rows.length ? `<div class="table-wrap"><table class="pm-table"><thead><tr><th>Project</th><th>Forecast finish</th><th>Forecast to finish late</th><th>Worst slip</th><th>Critical path</th></tr></thead><tbody>${rows.map((r) => `<tr>
+        return rows.length ? `<div class="table-wrap"><table class="pm-table"><thead><tr><th>Space</th><th>Forecast finish</th><th>Forecast to finish late</th><th>Worst slip</th><th>Critical path</th></tr></thead><tbody>${rows.map((r) => `<tr>
           <td><a href="${projectHref(r.p.key, 'timeline')}">${esc(r.p.name)}</a></td><td>${esc(fmtDate(r.plan.finish))}</td><td class="${r.late.length ? 'is-late' : ''}">${r.late.length} item${r.late.length === 1 ? '' : 's'}</td>
           <td>${r.worst ? `<a href="${itemHref(r.its.find((i) => i.id === r.worst.id).key)}">${esc(r.its.find((i) => i.id === r.worst.id).key)}</a> ${r.worst.days} working day${r.worst.days === 1 ? '' : 's'}` : '<span class="muted">—</span>'}</td>
           <td>${r.plan.critical.length ? r.plan.critical.slice(0, 5).map((id) => `<a href="${itemHref(r.its.find((i) => i.id === id).key)}">${esc(r.its.find((i) => i.id === id).key)}</a>`).join(' → ') + (r.plan.critical.length > 5 ? ' …' : '') : '<span class="muted">No chain yet</span>'}</td></tr>`).join('')}</tbody></table></div>
@@ -198,11 +198,11 @@ export async function renderDashboards(el, { config, params, rerender }) {
         for (const t of rollup.trend.filter((x) => projectIds.includes(x.project_id))) weeks.set(t.week, (weeks.get(t.week) || 0) + Number(t.done));
         const most = Math.max(1, ...weeks.values());
         return weeks.size ? `<div class="pm-vbars">${[...weeks].sort().map(([wk, n]) => `<div title="Week of ${esc(fmtDate(wk))}: ${n} finished"><span style="height:${Math.round((n / most) * 100)}%"></span><small>${esc(fmtDate(wk).replace(/,? \d{4}$/, ''))}</small><b>${n}</b></div>`).join('')}</div>
-          <p class="hint">Items finished each week over the last 12 weeks${sc.division ? ' (all divisions of the projects in scope)' : ''}.</p>` : none('Nothing finished in the last 12 weeks.');
+          <p class="hint">Items finished each week over the last 12 weeks${sc.division ? ' (all divisions of the spaces in scope)' : ''}.</p>` : none('Nothing finished in the last 12 weeks.');
       }
       case 'risks': {
         const risks = items.filter((i) => /risk/i.test(shapes.cfgOf(i)?.typeById.get(i.type_id)?.name || ''));
-        return risks.length ? `<ul class="pm-mini">${risks.slice(0, 12).map((i) => li(i, statusChip(shapes.cfgOf(i)?.statusById.get(i.status_id)))).join('')}</ul>` : none('No open items of a "Risk" type. Add a work type called Risk to a project to track them here.');
+        return risks.length ? `<ul class="pm-mini">${risks.slice(0, 12).map((i) => li(i, statusChip(shapes.cfgOf(i)?.statusById.get(i.status_id)))).join('')}</ul>` : none('No open items of a "Risk" type. Add a work type called Risk to a space to track them here.');
       }
       case 'activity': return events.length ? `<ul class="pm-activity">${events.map((e) => `<li><span class="muted small">${esc(fmtDateTime(e.created_at))}</span> <strong>${esc(e.actor_name)}</strong> ${esc(e.summary)}
         ${evItems.get(e.item_id) ? `<a href="${itemHref(evItems.get(e.item_id).key)}">${esc(evItems.get(e.item_id).key)}</a>` : ''}</li>`).join('')}</ul>` : none('Nothing yet.');
@@ -214,7 +214,7 @@ export async function renderDashboards(el, { config, params, rerender }) {
     }
   };
   const wide = new Set(['numbers', 'projects', 'subsystems', 'schedule']);
-  el.innerHTML = `${header('Dashboards', 'Progress across the projects you can see. Hover a number to see how it was worked out.')}${cycleSwitch(b)}${tabs}
+  el.innerHTML = `${header('Dashboards', 'Progress across the spaces you can see. Hover a number to see how it was worked out.')}${cycleSwitch(b)}${tabs}
     <div class="pm-toolbar">${viewPicker(b, views, current, { noun: 'dashboard', dirty: st.dirty })}<div class="card-actions"><button type="button" class="btn btn-sm${st.edit ? ' is-on' : ''}" data-edit-widgets>${st.edit ? 'Done editing' : 'Edit widgets'}</button></div></div>
     ${scopeBar}
     <div class="pm-dash">${widgets.map((w, n) => `<section class="card pm-widget${wide.has(w.type) ? ' pm-wide' : ''}" data-widget="${n}"><div class="pm-widget-head"><h2>${esc(w.title || WIDGETS[w.type] || w.type)}</h2>
@@ -231,7 +231,7 @@ export async function renderDashboards(el, { config, params, rerender }) {
     if (!type) return;
     if (type !== 'filter') return set([...widgets, { type }]);
     const lists = (await loadViews()).filter((v) => v.kind === 'list');
-    if (!lists.length) return toast('Save a list view first (a project\'s List → "Save as…"), then add it here.', 'bad');
+    if (!lists.length) return toast('Save a list view first (a space\'s List → "Save as…"), then add it here.', 'bad');
     const pick = await formDialog({ title: 'Which saved list?', submit: 'Add', body: `<div class="field"><label for="wf-view">Saved list view</label><select id="wf-view" name="view">${lists.map((v) => `<option value="${esc(v.id)}">${esc(v.name)}</option>`).join('')}</select></div>`,
       onSubmit: (f) => ({ id: f.elements.view.value, name: f.elements.view.selectedOptions[0].textContent }) });
     if (pick) set([...widgets, { type, view_id: pick.id, title: pick.name }]);

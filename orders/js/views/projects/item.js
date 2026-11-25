@@ -29,7 +29,7 @@ export async function renderItem(el, { config, params, rerender }) {
   const b = await loadBase();
   const item = await pm.itemByKey(params.id.toUpperCase());
   if (!item) {
-    el.innerHTML = `<section class="card no-access"><h1>No item "${esc(params.id)}"</h1><p>It doesn't exist, or it's in a project you can't see.</p>
+    el.innerHTML = `<section class="card no-access"><h1>No item "${esc(params.id)}"</h1><p>It doesn't exist, or it's in a space you can't see.</p>
       <div class="form-actions"><a class="btn btn-primary" href="#/projects">My work</a></div></section>`;
     return;
   }
@@ -154,7 +154,7 @@ export async function renderItem(el, { config, params, rerender }) {
   const depRow = (d, otherId, mine) => {
     const o = otherById.get(otherId);
     return `<li>${o ? `<a href="${itemHref(o.key)}">${esc(o.key)} · ${esc(o.title)}</a> ${o.category === 'done' ? '<span class="chip-tone tone-green">Done</span>' : o.due_date ? `<span class="muted small">due ${esc(fmtDate(o.due_date))}</span>` : ''}
-        ${o.project_id !== project.id ? `<span class="chip">${esc(b.projectById.get(o.project_id)?.name || 'another project')}</span>` : ''}` : '<span class="muted">An item in a project you can\'t see</span>'}
+        ${o.project_id !== project.id ? `<span class="chip">${esc(b.projectById.get(o.project_id)?.name || 'another space')}</span>` : ''}` : '<span class="muted">An item in a space you can\'t see</span>'}
       <span class="muted small">${esc(DEP_KINDS[d.kind])}${d.lag_days ? `, ${d.lag_days > 0 ? '+' : ''}${d.lag_days} working day${Math.abs(d.lag_days) === 1 ? '' : 's'}` : ''}</span>
       ${mine && may('plan') ? `<button type="button" class="btn btn-sm btn-ghost" data-unlink="${esc(d.id)}" aria-label="Remove this dependency">✕</button>` : ''}</li>`;
   };
@@ -192,7 +192,7 @@ export async function renderItem(el, { config, params, rerender }) {
   const menu = [
     '<button type="button" data-copy-link>Copy link</button>',
     may('create') && !project.archived_at ? '<button type="button" data-copy-item>Copy this item</button>' : '',
-    may('edit') && !item.archived_at ? '<button type="button" data-move-project>Move to another project</button>' : '',
+    may('edit') && !item.archived_at ? '<button type="button" data-move-project>Move to another space</button>' : '',
     mayEdit ? `<button type="button" data-block="${item.blocked ? '0' : '1'}">${item.blocked ? 'Not blocked any more' : 'Mark as blocked…'}</button>` : '',
     mayShare && shared === null ? '<button type="button" data-share-alumni>Share with alumni…</button>' : '',
     may('delete') ? `<button type="button" data-archive>${item.archived_at ? 'Restore' : 'Archive'}</button>` : '',
@@ -498,7 +498,7 @@ function depDialog(b, item) {
   let found = [];
   return formDialog({
     title: `Add a dependency to ${esc(item.key)}`, submit: 'Add',
-    body: `<div class="field"><label for="dep-q">Find the other item</label><input id="dep-q" type="search" placeholder="Title or key, in any project you can see" autocomplete="off">
+    body: `<div class="field"><label for="dep-q">Find the other item</label><input id="dep-q" type="search" placeholder="Title or key, in any space you can see" autocomplete="off">
         <select name="other" size="6" required aria-label="Matching items"></select></div>
       <fieldset class="pm-section"><legend>Which comes first?</legend>
         <label class="pm-check"><input type="radio" name="dir" value="in" checked> ${esc(item.key)} waits on the other item</label>
@@ -599,14 +599,14 @@ export async function refDialog(item, first) {
 /** Move to another project: pick the project, then what kind of item it becomes there. */
 async function moveDialog(b, item) {
   const targets = b.projects.filter((p) => p.id !== item.project_id && !p.archived_at && can(b, p.id, 'create'));
-  if (!targets.length) return toast('There\'s no other project you can add items to.', 'bad'), null;
+  if (!targets.length) return toast('There\'s no other space you can add items to.', 'bad'), null;
   const shapes = new Map();
   const typesOf = async (id) => shapes.get(id) || shapes.set(id, (await pm.shapes([id])).types.filter((t) => !t.archived_at)).get(id);
   return formDialog({
-    title: `Move ${esc(item.key)} to another project`, submit: 'Move it',
-    body: `<p class="muted">It gets the other project's next number; its old name still opens it. History, comments, checklist, documents and links come along. Items under it stay here.
-        Custom fields the other project doesn't have are kept in the history only.</p>
-      <div class="field"><label for="mv-project">Project</label><select id="mv-project" name="project">${targets.map((p) => `<option value="${esc(p.id)}">${esc(p.name)} (${esc(p.key)})</option>`).join('')}</select></div>
+    title: `Move ${esc(item.key)} to another space`, submit: 'Move it',
+    body: `<p class="muted">It gets the other space's next number; its old name still opens it. History, comments, checklist, documents and links come along. Items under it stay here.
+        Custom fields the other space doesn't have are kept in the history only.</p>
+      <div class="field"><label for="mv-project">Space</label><select id="mv-project" name="project">${targets.map((p) => `<option value="${esc(p.id)}">${esc(p.name)} (${esc(p.key)})</option>`).join('')}</select></div>
       <div class="field"><label for="mv-type">It becomes a</label><select id="mv-type" name="type" required></select></div>`,
     onOpen(form) {
       const fill = async () => (form.elements.type.innerHTML = (await typesOf(form.elements.project.value)).map((t) => `<option value="${esc(t.id)}">${esc(t.name)}</option>`).join(''));

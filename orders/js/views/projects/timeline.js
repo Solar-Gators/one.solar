@@ -392,7 +392,7 @@ export async function renderTimeline(el, scope) {
       ${path.map(([k, id], n) => ` <span class="pm-g-crumb-sep" aria-hidden="true">›</span> ${crumb(k, id, n === path.length - 1)}`).join('')}
       ${focus?.id !== mine && mine && nodes.some((n) => n.sub === mine) ? ` <button type="button" class="pm-g-crumb-mine" data-focus="subsystem:${esc(mine)}">My subsystem</button>` : ''}</nav>`;
   };
-  const LEVELS = [['division', 'Divisions'], ['subsystem', 'Subsystems'], ['project', 'Projects'], ['work', 'Work']]
+  const LEVELS = [['division', 'Divisions'], ['subsystem', 'Subsystems'], ['project', 'Spaces'], ['work', 'Work']]
     .filter(([k]) => k === 'project' || k === 'work' || levels.includes(k));
   const setLevel = (lv) => {
     const depthOf = { division: 0, subsystem: 1, project: 2, work: 3 }[lv];
@@ -732,7 +732,7 @@ export async function renderTimeline(el, scope) {
       if (h.kind !== 'project') {
         return `<div class="pm-g-label is-group is-header is-level is-${h.kind}" data-ri="${n}" style="height:${HROW}px;padding-left:${6 + r.depth * 18}px${h.kind === 'division' ? `;--dc:${divTone(h.id)}` : ''}">${toggle}
           <button type="button" class="pm-g-title pm-g-level" data-focus="${h.kind}:${esc(h.id)}" title="Show only ${esc(h.name)}">${esc(h.name)}</button>
-          <span class="pm-g-label-end">${late}<span class="muted small">${h.count} project${h.count === 1 ? '' : 's'}</span></span></div>`;
+          <span class="pm-g-label-end">${late}<span class="muted small">${h.count} space${h.count === 1 ? '' : 's'}</span></span></div>`;
       }
       return `<div class="pm-g-label is-group is-header" data-ri="${n}" style="height:${HROW}px;padding-left:${6 + r.depth * 18}px">
         ${toggle}
@@ -764,7 +764,7 @@ export async function renderTimeline(el, scope) {
     ${pick('data-group-by', GROUP_BY, st.groupBy, 'Group by')}
     ${pick('data-sort-by', SORT_BY, st.sortBy, 'Order')}
     ${check('data-row-opt', 'pack', 'Pack rows', st.pack, 'Things side by side in time share a row, so the chart is shorter')}
-    ${!project && !grouped ? check('data-row-opt', 'merge', 'One row for a project with one item', st.merge, '"Battery Pack › Cell Selection" on one row instead of two') : ''}
+    ${!project && !grouped ? check('data-row-opt', 'merge', 'One row for a space with one item', st.merge, '"Battery Pack › Cell Selection" on one row instead of two') : ''}
     <label class="pm-pop-check" title="${fixedWindow ? 'Only rows with something between the dates in Fit' : 'Pick dates under Fit first (e.g. Next 3 months)'}"><input type="checkbox" data-row-opt="hideOutside" ${st.hideOutside ? 'checked' : ''} ${fixedWindow ? '' : 'disabled'}> Hide rows outside the fitted dates</label>`);
   const planMenu = pop('plan', `Plan${trying || st.plan.forecast || st.plan.critical || st.plan.baseline || st.plan.whatIf ? ' •' : ''} ▾`, `
     ${check('data-plan', 'forecast', 'Forecast', st.plan.forecast, 'Dashed outlines: where the scheduling engine expects each item to really fall, from dependencies, working days and what has happened')}
@@ -799,7 +799,7 @@ export async function renderTimeline(el, scope) {
       <span class="pm-g-spacer"></span>
       ${rows.length ? pop('more', '⋯', '<button type="button" class="pm-pop-item" data-present>Present (full screen, PNG, print)</button>') : ''}
       ${project && can(b, project.id, 'create') ? `<button type="button" class="btn btn-sm btn-primary" data-add-root="${esc(project.id)}">+ Add</button>` : ''}
-      ${!project && canCreateProjects() ? '<button type="button" class="btn btn-sm btn-primary" data-new-project>+ New project</button>' : ''}</div>
+      ${!project && canCreateProjects() ? '<button type="button" class="btn btn-sm btn-primary" data-new-project>+ New space</button>' : ''}</div>
     ${st.filters ? `<div class="pm-g-filters">${filterBar(b, st.f, { types: scope.types })}
       <label class="pm-check" title="Only items without a start or due date (and what they're under)"><input type="checkbox" data-opt="undated" ${st.undated ? 'checked' : ''}> Only undated${undatedCount ? ` (${undatedCount})` : ''}</label></div>` : ''}`;
 
@@ -840,7 +840,7 @@ export async function renderTimeline(el, scope) {
               <marker id="pm-g-tip-c" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L8 4 L0 8 z"/></marker></defs>${arrows()}</svg>
           </div></div>
         <button type="button" class="pm-g-offtoday" data-today hidden></button></div>
-      <div class="pm-g-legend">${legendHtml}${hiddenOutside ? `<button type="button" class="pm-g-leg pm-g-leg-add" data-show-outside title="Rows → Hide rows outside the fitted dates">${hiddenOutside} outside these dates · show them</button>` : ''}${st.colorBy === 'type' && canEditKinds() ? '<button type="button" class="pm-g-leg pm-g-leg-add" data-new-kind title="Add a kind of work to every project (Calc, Test plan…)">+ New kind</button>' : ''}<span class="pm-g-spacer"></span><span class="muted small">${seasonNote}${st.plan.forecast ? `${seasonNote ? ' · ' : ''}Forecast finish: <strong>${esc(fmtDate(plan.finish))}</strong>` : ''}</span></div>
+      <div class="pm-g-legend">${legendHtml}${hiddenOutside ? `<button type="button" class="pm-g-leg pm-g-leg-add" data-show-outside title="Rows → Hide rows outside the fitted dates">${hiddenOutside} outside these dates · show them</button>` : ''}${st.colorBy === 'type' && canEditKinds() ? '<button type="button" class="pm-g-leg pm-g-leg-add" data-new-kind title="Add a kind of work to every space (Calc, Test plan…)">+ New kind</button>' : ''}<span class="pm-g-spacer"></span><span class="muted small">${seasonNote}${st.plan.forecast ? `${seasonNote ? ' · ' : ''}Forecast finish: <strong>${esc(fmtDate(plan.finish))}</strong>` : ''}</span></div>
       ${project && can(b, project.id, 'create') && !project.archived_at ? quickAdd(b, { project_id: project.id }, { placeholder: '+ Add an item (Enter; then drag across its row to give it dates)', cls: 'pm-qa-gantt' }) : ''}
       <div data-panel-slot></div></div>`
       : st.undated ? '<div class="empty"><p><strong>Every open item has dates.</strong></p></div>'
@@ -852,7 +852,7 @@ export async function renderTimeline(el, scope) {
       ${st.plan.critical ? `<section class="card"><h2>Critical path</h2>
         ${plan.critical.filter((id) => byId.has(id)).length ? `<ol class="pm-crit">${plan.critical.filter((id) => byId.has(id)).map((id) => `<li><a href="${itemHref(byId.get(id).key)}">${esc(byId.get(id).key)} · ${esc(byId.get(id).title)}</a> <span class="muted small">${esc(fmtDate(plan.byId.get(id).start))} – ${esc(fmtDate(plan.byId.get(id).finish))}</span></li>`).join('')}</ol>
           <p class="hint">These have no slack: a day lost on any of them is a day lost at the end.</p>` : '<p class="muted">Nothing is linked into a chain yet. Drag from the dot at the end of a bar onto another bar to link them.</p>'}
-        <p class="hint">Working days: ${(settings.working_days?.length ? settings.working_days : [1, 2, 3, 4, 5]).map((d) => ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d]).join(', ')}${(settings.holidays || []).length ? `; ${settings.holidays.length} day(s) off` : ''}${project ? '' : ' (across projects the standard week is used)'}.</p></section>` : ''}
+        <p class="hint">Working days: ${(settings.working_days?.length ? settings.working_days : [1, 2, 3, 4, 5]).map((d) => ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d]).join(', ')}${(settings.holidays || []).length ? `; ${settings.holidays.length} day(s) off` : ''}${project ? '' : ' (across spaces the standard week is used)'}.</p></section>` : ''}
       ${baseline ? `<section class="card"><h2>Moved since the baseline <span class="muted">${slipped.length}</span></h2>
         ${slipped.length ? `<ul class="pm-mini">${slipped.slice(0, 40).map(({ i, s }) => `<li><a href="${itemHref(i.key)}">${esc(i.key)}</a> ${esc(i.title)} <strong class="${s > 0 ? 'text-bad' : ''}">${s > 0 ? '+' : '−'}${Math.abs(s)} day${Math.abs(s) === 1 ? '' : 's'}</strong></li>`).join('')}</ul>` : '<p class="muted">Nothing: every item still finishes when the baseline said.</p>'}</section>` : ''}
     </div>` : ''}`;
@@ -1058,13 +1058,13 @@ export async function renderTimeline(el, scope) {
   const addItem = async (pid, parent) => {
     const cfg = scope.cfgOf({ project_id: pid });
     const kinds = kindsUnder(cfg, parent);
-    if (!kinds.length) return toast(parent ? `Nothing can go under a ${cfg?.typeById.get(parent.type_id)?.name || 'this'} in this project (Settings → Work types).` : 'This project has no work-item types yet. Add one in Settings → Work types.', 'bad');
+    if (!kinds.length) return toast(parent ? `Nothing can go under a ${cfg?.typeById.get(parent.type_id)?.name || 'this'} in this space (Settings → Work types).` : 'This space has no work-item types yet. Add one in Settings → Work types.', 'bad');
     const start = (parent && (target(parent).start || plan.byId.get(parent.id)?.start)) || today;
     const pt = parent && target(parent);
     const due = pt?.due && pt.due >= start ? (toDay(pt.due) - toDay(start) < 7 ? pt.due : toISO(toDay(start) + 6)) : toISO(toDay(start) + 6);
     const opId = newId();
     return formDialog({
-      title: parent ? `Add under ${esc(parent.key)}` : `Add to ${esc(b.projectById.get(pid)?.name || 'the project')}`, submit: 'Add',
+      title: parent ? `Add under ${esc(parent.key)}` : `Add to ${esc(b.projectById.get(pid)?.name || 'the space')}`, submit: 'Add',
       body: `${parent ? `<p class="muted">${esc(parent.title)}</p>` : ''}<div class="form-grid">
           <div class="field"><label for="ga-kind">Kind</label><select id="ga-kind" name="kind">${kinds.map((t) => `<option value="${esc(t.id)}">${esc(`${t.icon ? `${t.icon} ` : ''}${t.name}`)}</option>`).join('')}</select></div>
           <div class="field span-3"><label for="ga-title">Title</label><input id="ga-title" name="title" type="text" maxlength="200" required></div>
@@ -1194,7 +1194,7 @@ export async function renderTimeline(el, scope) {
     else if (d.newKind !== undefined) {
       const { kindDialog } = await import('./kinds.js');
       const k = await kindDialog(b);
-      if (k) (toast(`${k.name} is now a kind of work in every project.`), again());
+      if (k) (toast(`${k.name} is now a kind of work in every space.`), again());
     }
     else if (d.keyDates !== undefined) (await keyDatesDialog(keyDates)) && again();
     else if (d.addRoot) (await addItem(d.addRoot, null)) && again();
@@ -1498,7 +1498,7 @@ export async function renderTimeline(el, scope) {
   function renderPresent() {
     const dark = siteDark();
     const seasonName = seasonRow?.name || '';
-    if (st.title === null) st.title = project ? project.name : 'Projects';
+    if (st.title === null) st.title = project ? project.name : 'Spaces';
     if (st.subtitle === null) st.subtitle = `${seasonName ? `${seasonName} / ` : ''}${project ? `${project.name} roadmap` : 'Roadmap'}`;
     el.innerHTML = `<div class="pm-present${dark ? ' is-dark' : ''}">
       <div class="pm-present-tools">
@@ -1654,7 +1654,7 @@ function keyDatesDialog(list) {
   let changed = false;
   return formDialog({
     title: 'Team dates', submit: 'Add this date', wide: true,
-    body: `<p class="muted">Competitions, design reviews, breaks… Every project's timeline shows them. A <strong>Season start</strong> numbers the timeline's weeks from it (week 01).</p>
+    body: `<p class="muted">Competitions, design reviews, breaks… Every space's timeline shows them. A <strong>Season start</strong> numbers the timeline's weeks from it (week 01).</p>
       <ul class="pm-mini" data-key-list>${list.length ? list.map((k) => `<li>${esc(fmtDate(k.day))}${k.end_day && k.end_day !== k.day ? ` – ${esc(fmtDate(k.end_day))}` : ''} <strong>${esc(k.name)}</strong>
         <span class="muted small">${esc(KEY_KINDS[k.kind] || k.kind)}${k.note ? ` · ${esc(k.note)}` : ''}</span>
         <button type="button" class="btn btn-sm btn-ghost" data-del-key="${esc(k.id)}" aria-label="Remove ${esc(k.name)}">✕</button></li>`).join('') : '<li class="muted">None yet.</li>'}</ul>

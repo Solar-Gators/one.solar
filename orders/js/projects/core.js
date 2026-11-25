@@ -5,18 +5,18 @@
 
 /** What a project role can be allowed to do (pm_roles.caps), with the words the pages use. */
 export const CAPS = [
-  ['view', 'See the project', 'Open the project and read everything in it.'],
+  ['view', 'See the space', 'Open the space and read everything in it.'],
   ['comment', 'Comment', 'Write comments and mention people.'],
   ['create', 'Create items', 'Add work items, link documents, and edit items that are theirs.'],
-  ['edit', 'Edit items', 'Change any item in the project.'],
+  ['edit', 'Edit items', 'Change any item in the space.'],
   ['assign', 'Assign people', 'Make someone else the owner of an item.'],
   ['transition', 'Move items between statuses', 'Make the moves the workflow allows (each move can still be limited to some roles).'],
   ['approve', 'Approve', 'Approve moves that need approval, and formally accept finished work.'],
   ['delete', 'Archive items', 'Archive and restore items, and remove other people\'s comments.'],
   ['plan', 'Plan and schedule', 'Dependencies, sprints, baselines, rescheduling and calendar events.'],
-  ['boards', 'Shared boards and views', 'Save boards, views and dashboards that everyone in the project sees.'],
-  ['automations', 'Automation rules', 'Create and change the project\'s rules.'],
-  ['configure', 'Project settings, types and fields', 'Project details, work-item types, custom fields and form layouts.'],
+  ['boards', 'Shared boards and views', 'Save boards, views and dashboards that everyone in the space sees.'],
+  ['automations', 'Automation rules', 'Create and change the space\'s rules.'],
+  ['configure', 'Space settings, types and fields', 'Space details, work-item types, custom fields and form layouts.'],
   ['workflows', 'Workflows', 'Statuses and the moves between them.'],
   ['members', 'Members and roles', 'Add people, change their role, and edit roles.'],
 ];
@@ -304,4 +304,15 @@ export function treeOrder(items, closed = new Set()) {
   for (const i of items) if (!i.parent_id || !ids.has(i.parent_id)) walk(i, 0, false);
   for (const i of items) walk(i, 0, false);   // anything left (a loop in the data) still shows
   return { items: out, depth, kids: new Set(under.keys()), hidden, closed };
+}
+
+/**
+ * The database still says "project" (pm_projects); the website calls them Spaces (072). api.js rewords its
+ * messages once, for every Workbench call. Role names (Project Administrator, Project Manager) and anything quoted
+ * (a permission's name, "See projects") stay as they are.
+ */
+export function spaceWords(message) {
+  return String(message || '').replace(/open Projects\b/g, 'open Workbench').split(/("[^"]*")/).map((part, n) => (n % 2 ? part
+    : part.replace(/\b(Project Administrator|Project Manager|project manager)\b|\b(Projects?|projects?)\b/g, (m, role, w) => role
+      || ({ Project: 'Space', Projects: 'Spaces', project: 'space', projects: 'spaces' })[w]))).join('');
 }

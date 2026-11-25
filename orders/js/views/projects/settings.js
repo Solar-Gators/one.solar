@@ -21,7 +21,7 @@ const TRIGGERS = [['created', 'An item is created'], ['updated', 'An item is cha
 export async function renderSettings(el, scope) {
   const { b, project } = scope;
   const tabs = TABS.filter(([, , cap]) => can(b, project.id, cap));
-  if (!tabs.length) return void (el.innerHTML = '<div class="empty"><p><strong>Your role in this project can\'t change its settings.</strong></p><p>Ask the project manager.</p></div>');
+  if (!tabs.length) return void (el.innerHTML = '<div class="empty"><p><strong>Your role in this space can\'t change its settings.</strong></p><p>Ask the project manager.</p></div>');
   const tab = tabs.find(([k]) => k === scope.params.sub) ? scope.params.sub : tabs[0][0];
   const base = projectHref(project.key, 'settings');
   const under = tabs.find(([k]) => k === tab)[3];
@@ -47,7 +47,7 @@ async function details(el, { b, project, cfg, rerender }) {
   el.innerHTML = `<form class="card" data-details><h2>Details</h2>
       <div class="form-grid"><div class="field span-3"><label for="pd-name">Name</label><input id="pd-name" name="name" type="text" maxlength="120" required value="${esc(project.name)}"></div>
         <div class="field"><label>Key</label><output class="pm-formula">${esc(project.key)}</output><div class="hint">Can't change: it's in every item's name.</div></div>
-        <div class="field span-4"><label for="pd-desc">About this project</label><textarea id="pd-desc" name="description" rows="3">${esc(project.description)}</textarea></div>
+        <div class="field span-4"><label for="pd-desc">About this space</label><textarea id="pd-desc" name="description" rows="3">${esc(project.description)}</textarea></div>
         <div class="field span-2"><label for="pd-program">Car cycle</label><select id="pd-program" name="program">${opt('', 'None', !project.program_id)}${b.programs.filter((g) => !g.archived_at || g.id === project.program_id).map((g) => opt(g.id, g.name, g.id === project.program_id)).join('')}</select></div>
         <div class="field span-2"><label for="pd-lead">Project manager</label>${peopleField('lead', 'pd-lead', b, project.lead_id, { blank: 'Nobody' })}</div>
         <div class="field span-2"><label for="pd-div">Owning CE division</label><select id="pd-div" name="division" data-division>${opt('', '—', !project.division_id)}${b.divisions.filter((d) => !d.archived_at || d.id === project.division_id).map((d) => opt(d.id, d.name, d.id === project.division_id)).join('')}</select></div>
@@ -57,22 +57,22 @@ async function details(el, { b, project, cfg, rerender }) {
         <div class="pm-checks">${b.subsystems.filter((s) => !s.archived_at).map((s) => `<label class="pm-check"><input type="checkbox" name="part" value="${esc(s.id)}" data-div="${esc(s.division_id)}" ${project.participants.some((p) => p.subsystem_id === s.id) ? 'checked' : ''}> ${esc(s.name)}</label>`).join('')}</div></details></fieldset>
       <fieldset class="pm-section"><legend>Who can see it</legend>
         <label class="pm-check"><input type="radio" name="visibility" value="team" ${project.visibility === 'team' ? 'checked' : ''} ${mayShare ? '' : 'disabled'}> The whole team</label>
-        <label class="pm-check"><input type="radio" name="visibility" value="private" ${project.visibility === 'private' ? 'checked' : ''} ${mayShare ? '' : 'disabled'}> Only the people added to it (a sensitive project)</label>
+        <label class="pm-check"><input type="radio" name="visibility" value="private" ${project.visibility === 'private' ? 'checked' : ''} ${mayShare ? '' : 'disabled'}> Only the people added to it (a sensitive space)</label>
         <div class="field" style="max-width:340px;margin-top:8px"><label for="pd-team-role">Role for team members who haven't been added</label>
           <select id="pd-team-role" name="team_role" ${mayShare ? '' : 'disabled'}>${opt('', 'Viewer only (can see, nothing more)', !project.team_role_id)}${cfg.roles.map((r) => opt(r.id, r.name, r.id === project.team_role_id)).join('')}</select>
-          <div class="hint">Only for a project the whole team can see. People added to the project get the role you give them.</div></div></fieldset>
+          <div class="hint">Only for a space the whole team can see. People added to the space get the role you give them.</div></div></fieldset>
       <fieldset class="pm-section"><legend>Working days (for the timeline's forecast)</legend><div class="pm-checks">${['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map((d, n) => `<label class="pm-check"><input type="checkbox" name="wd" value="${n}" ${days.includes(n) ? 'checked' : ''}> ${d}</label>`).join('')}</div>
         <div class="field" style="margin-top:8px"><label for="pd-off">Days off (one date per line, e.g. 2027-03-15)</label><textarea id="pd-off" name="holidays" rows="3" placeholder="2027-03-15">${esc((st.holidays || []).join('\n'))}</textarea></div></fieldset>
       <fieldset class="pm-section"><legend>Planning</legend><label class="pm-check"><input type="checkbox" name="sprints" ${st.sprints ? 'checked' : ''}> Plan in sprints (optional; leave off for a continuous board)</label>
         <div class="field" style="max-width:220px;margin-top:8px"><label for="pd-sprint-days">A sprint lasts (days)</label><input id="pd-sprint-days" name="sprint_days" type="number" min="1" max="90" value="${esc(st.sprint_days || 14)}"></div></fieldset>
-      <fieldset class="pm-section"><legend>Tabs</legend><p class="hint" style="margin-top:0">Hide the ones this project doesn't use. Summary and Settings always show; a hidden tab still opens from a link.</p>
+      <fieldset class="pm-section"><legend>Tabs</legend><p class="hint" style="margin-top:0">Hide the ones this space doesn't use. Summary and Settings always show; a hidden tab still opens from a link.</p>
         <div class="pm-checks">${OPTIONAL_TABS.map(([k, l]) => `<label class="pm-check"><input type="checkbox" name="tab" value="${esc(k)}" ${(st.hidden_tabs || []).includes(k) ? '' : 'checked'}> ${esc(l)}</label>`).join('')}</div></fieldset>
       <fieldset class="pm-section"><legend>Phases (shaded on the timeline) ${infoTip('Named stretches of time, like Design, Build and Test. They only show on the timeline; they never move items.')}</legend>
         <div data-phases class="pm-phases">${(st.phases || []).map(phaseRow).join('')}</div>
         <p><button type="button" class="btn btn-sm" data-add-phase>+ Phase</button></p></fieldset>
       <fieldset class="pm-section"><legend>Document categories</legend><div class="field"><label for="pd-cats">One per line</label><textarea id="pd-cats" name="cats" rows="4">${esc((st.doc_categories?.length ? st.doc_categories : DOC_CATEGORIES).join('\n'))}</textarea></div></fieldset>
-      ${can(b, project.id, 'configure') ? `<p class="muted small">Reuse this set-up in other projects, or bring one in: <a href="${projectHref(project.key, 'settings/templates')}">Templates…</a></p>` : ''}
-      <label class="pm-check"><input type="checkbox" name="archived" ${project.archived_at ? 'checked' : ''}> Archive this project (nothing is deleted; no new items until it's restored)</label>
+      ${can(b, project.id, 'configure') ? `<p class="muted small">Reuse this set-up in other spaces, or bring one in: <a href="${projectHref(project.key, 'settings/templates')}">Templates…</a></p>` : ''}
+      <label class="pm-check"><input type="checkbox" name="archived" ${project.archived_at ? 'checked' : ''}> Archive this space (nothing is deleted; no new items until it's restored)</label>
       <div class="form-actions"><button type="submit" class="btn btn-primary">Save</button></div></form>`;
   bindOrgPickers(el);
   const phasesBox = el.querySelector('[data-phases]');
@@ -109,14 +109,14 @@ async function people(el, { b, project, cfg, reload }) {
   const roleOpts = (sel) => cfg.roles.map((r) => `<option value="${esc(r.id)}" ${r.id === sel ? 'selected' : ''} ${r.caps.every((c) => mine.has(c)) ? '' : 'disabled'}>${esc(r.name)}</option>`).join('');
   const outside = b.people.filter((p) => !cfg.members.some((m) => m.user_id === p.id));
   el.innerHTML = `<section class="card"><h2>People</h2>
-      <p class="muted">${project.visibility === 'team' ? 'The whole team can see this project. People listed here can do more, by their role.' : 'Only these people (and anyone who manages all projects) can see this project.'}</p>
-      <div class="table-wrap"><table class="pm-table"><thead><tr><th>Person</th><th>Role in this project</th><th></th></tr></thead><tbody>${cfg.members.map((m) => `<tr data-user="${esc(m.user_id)}">
+      <p class="muted">${project.visibility === 'team' ? 'The whole team can see this space. People listed here can do more, by their role.' : 'Only these people (and anyone who manages all spaces) can see this space.'}</p>
+      <div class="table-wrap"><table class="pm-table"><thead><tr><th>Person</th><th>Role in this space</th><th></th></tr></thead><tbody>${cfg.members.map((m) => `<tr data-user="${esc(m.user_id)}">
         <td>${avatar(b, m.user_id)} ${esc(personName(b, m.user_id))}</td><td><select data-role aria-label="Role of ${esc(personName(b, m.user_id))}">${roleOpts(m.role_id)}</select></td>
         <td><button type="button" class="btn btn-sm btn-ghost" data-remove>Remove</button></td></tr>`).join('')}</tbody></table></div>
       <form data-add class="pm-filters" style="margin-top:10px">${peopleField('user', 'pm-add-member', b, null, { blank: 'Add someone…', required: true, among: outside.map((p) => p.id) })}
         <select name="role" aria-label="Their role">${roleOpts(cfg.roles.find((r) => r.key === 'contributor')?.id)}</select><button type="submit" class="btn">Add</button></form>
       <p class="hint">You can only hand out roles that can do no more than your own.</p></section>
-    <section class="card"><h2>Roles</h2><p class="muted">What each role can do in this project. Change them, or make your own.</p>
+    <section class="card"><h2>Roles</h2><p class="muted">What each role can do in this space. Change them, or make your own.</p>
       <div class="table-wrap"><table class="pm-table pm-caps"><thead><tr><th>Can…</th>${cfg.roles.map((r) => `<th>${esc(r.name)}</th>`).join('')}</tr></thead><tbody>
         ${CAPS.map(([cap, label, about]) => `<tr><td title="${esc(about)}">${esc(label)}<div class="muted small">${esc(about)}</div></td>${cfg.roles.map((r) => `<td><input type="checkbox" data-cap="${cap}" data-role-id="${esc(r.id)}" ${r.caps.includes(cap) ? 'checked' : ''}
           ${cap === 'view' || !mine.has(cap) || !r.caps.every((c) => mine.has(c)) ? 'disabled' : ''} aria-label="${esc(r.name)}: ${esc(label)}"></td>`).join('')}</tr>`).join('')}
@@ -135,7 +135,7 @@ async function people(el, { b, project, cfg, reload }) {
     const t = e.target.closest('button');
     if (!t) return;
     const user = t.closest('[data-user]')?.dataset.user;
-    if (t.dataset.remove !== undefined && confirm(`Remove ${personName(b, user)} from this project? Their items and history stay.`)) (await attempt(() => pm.setMember(project.id, user, null), 'Removed.')) && (invalidate(), reload());
+    if (t.dataset.remove !== undefined && confirm(`Remove ${personName(b, user)} from this space? Their items and history stay.`)) (await attempt(() => pm.setMember(project.id, user, null), 'Removed.')) && (invalidate(), reload());
     else if (t.dataset.newRole !== undefined || t.dataset.rename) {
       const r = cfg.roles.find((x) => x.id === t.dataset.rename);
       const res = await formDialog({ title: r ? 'Rename role' : 'New role', submit: 'Save',
@@ -157,8 +157,8 @@ async function types(el, { b, project, cfg, reload }) {
   const mayFlows = can(b, project.id, 'workflows');
   const sharing = (t) => cfg.types.filter((x) => !x.archived_at && x.workflow_id === t.workflow_id).length;
   const list = [...cfg.types].sort((x, y) => !!x.archived_at - !!y.archived_at || x.level - y.level || x.sort - y.sort);
-  el.innerHTML = `<section class="card"><h2>Work-item types ${infoTip(`Each type has its own workflow, its own forms and its place in the hierarchy. The ones marked <span class="chip">Team</span> are on the whole team's list (<a href="#/projects/kinds">Kinds of work</a>): their name, icon and color are the same in every project, and only leads change them. You can still hide one here, and pick its workflow and what it goes under. Level 0 is the top (an epic); an item can go under any item of a lower-numbered level, or only under the types you name.`)}</h2>
-    <p class="muted">The kinds of work this project has.</p>
+  el.innerHTML = `<section class="card"><h2>Work-item types ${infoTip(`Each type has its own workflow, its own forms and its place in the hierarchy. The ones marked <span class="chip">Team</span> are on the whole team's list (<a href="#/projects/kinds">Kinds of work</a>): their name, icon and color are the same in every space, and only leads change them. You can still hide one here, and pick its workflow and what it goes under. Level 0 is the top (an epic); an item can go under any item of a lower-numbered level, or only under the types you name.`)}</h2>
+    <p class="muted">The kinds of work this space has.</p>
     <div class="table-wrap"><table class="pm-table"><thead><tr><th>Type</th><th>Level</th><th>Goes under</th><th>Workflow</th><th></th></tr></thead><tbody>${list.map((t) => `<tr class="${t.archived_at ? 'is-done' : ''}">
       <td>${typeBadge(t)} <strong>${esc(t.name)}</strong>${t.kind_id ? ' <span class="chip" title="On the whole team\'s list of kinds of work">Team</span>' : ''}${t.is_milestone ? ' <span class="chip">Milestone</span>' : ''}${t.archived_at ? ` <span class="chip-tone tone-gray">${t.kind_id ? 'Hidden here' : 'Archived'}</span>` : ''}<div class="muted small">${esc(t.description)}</div></td>
       <td>${t.level}</td><td>${t.parent_type_ids.length ? t.parent_type_ids.map((id) => esc(cfg.typeById.get(id)?.name || '')).join(', ') : t.level === 0 ? '<span class="muted">Top level</span>' : '<span class="muted">Anything higher up</span>'}</td>
@@ -177,7 +177,7 @@ async function types(el, { b, project, cfg, reload }) {
     if (!t || (t.dataset.newType === undefined && !t.dataset.editType)) return;
     const ty = cfg.typeById.get(t.dataset.editType);
     const res = await formDialog({ title: ty ? `Work type: ${esc(ty.name)}` : 'New work type', submit: 'Save', wide: true,
-      body: `${ty?.kind_id ? '<p class="alert alert-info">On the whole team\'s list: its name, icon and color are changed in <a href="#/projects/kinds">Kinds of work</a> (leads), for every project at once.</p>' : ''}<div class="form-grid"><div class="field span-2"><label for="ty-name">Name</label><input id="ty-name" name="name" type="text" maxlength="40" required value="${esc(ty?.name || '')}" placeholder="Design Review" ${ty?.kind_id ? 'readonly' : ''}></div>
+      body: `${ty?.kind_id ? '<p class="alert alert-info">On the whole team\'s list: its name, icon and color are changed in <a href="#/projects/kinds">Kinds of work</a> (leads), for every space at once.</p>' : ''}<div class="form-grid"><div class="field span-2"><label for="ty-name">Name</label><input id="ty-name" name="name" type="text" maxlength="40" required value="${esc(ty?.name || '')}" placeholder="Design Review" ${ty?.kind_id ? 'readonly' : ''}></div>
           <div class="field"><label for="ty-icon">Icon (a symbol or emoji)</label><input id="ty-icon" name="icon" type="text" maxlength="4" value="${esc(ty?.icon || '')}" placeholder="☑" ${ty?.kind_id ? 'readonly' : ''}></div>
           <div class="field"><label for="ty-color">Color</label><select id="ty-color" name="color" ${ty?.kind_id ? 'disabled' : ''}>${TONES.map((c) => opt(c, c, (ty?.color || 'blue') === c)).join('')}</select></div>
           <div class="field span-4"><label for="ty-desc">What it's for</label><input id="ty-desc" name="description" type="text" maxlength="500" value="${esc(ty?.description || '')}"></div>
@@ -190,7 +190,7 @@ async function types(el, { b, project, cfg, reload }) {
           <div class="field span-4"><label for="ty-body">Description (a starting outline)</label><textarea id="ty-body" name="body" rows="2">${esc(ty?.defaults?.description || '')}</textarea></div>
           <div class="field span-4"><label for="ty-acc">What "done" means</label><textarea id="ty-acc" name="acceptance" rows="2">${esc(ty?.defaults?.acceptance || '')}</textarea></div></div></fieldset>
         <label class="pm-check"><input type="checkbox" name="milestone" ${ty?.is_milestone ? 'checked' : ''}> A milestone (a date, not a stretch of work)</label>
-        ${ty ? `<label class="pm-check"><input type="checkbox" name="archived" ${ty.archived_at ? 'checked' : ''}> ${ty.kind_id ? 'Hidden in this project (existing items stay; no new ones here)' : 'Archived (existing items stay; no new ones)'}</label>` : ''}
+        ${ty ? `<label class="pm-check"><input type="checkbox" name="archived" ${ty.archived_at ? 'checked' : ''}> ${ty.kind_id ? 'Hidden in this space (existing items stay; no new ones here)' : 'Archived (existing items stay; no new ones)'}</label>` : ''}
         <div data-mapping></div>`,
       async onSubmit(f) {
         const x = f.elements;
@@ -358,8 +358,8 @@ async function forms(el, { b, project, cfg, reload }) {
     el.querySelector('[data-save-form]').classList.toggle('btn-primary', dirty);
   };
   const KINDS = [['create', 'When creating an item'], ['edit', 'When editing an item'], ['view', 'On the item\'s page'], ['transition', 'When making a move']];
-  el.innerHTML = `<section class="card"><h2>Forms ${infoTip("A work type without its own form uses the project's; without that, the standard form.")}</h2><p class="muted">Which fields each form shows, in what order, and which are required.</p>
-      <div class="pm-filters"><label class="inline-field">For <select data-form-type>${opt('', 'Every type (the project\'s form)', !st.type)}${cfg.types.filter((t) => !t.archived_at).map((t) => opt(t.id, t.name, t.id === st.type)).join('')}</select></label>
+  el.innerHTML = `<section class="card"><h2>Forms ${infoTip("A work type without its own form uses the space's; without that, the standard form.")}</h2><p class="muted">Which fields each form shows, in what order, and which are required.</p>
+      <div class="pm-filters"><label class="inline-field">For <select data-form-type>${opt('', 'Every type (the space\'s form)', !st.type)}${cfg.types.filter((t) => !t.archived_at).map((t) => opt(t.id, t.name, t.id === st.type)).join('')}</select></label>
         <label class="inline-field">Form <select data-form-kind>${KINDS.map(([k, l]) => opt(k, l, k === st.kind)).join('')}</select></label>
         ${st.kind === 'transition' ? `<label class="inline-field">Move <select data-form-move>${moves.map((t) => opt(t.id, `${t.name} → ${cfg.statusById.get(t.to_status)?.name}`, t.id === st.transition)).join('') || '<option value="">No moves</option>'}</select></label>` : ''}
         <span class="chip-tone tone-${own ? 'blue' : 'gray'}">${own ? 'Has its own form' : 'Using the default'}</span></div>
@@ -501,13 +501,13 @@ async function rules(el, { b, project, cfg, reload }) {
 async function templates(el, { b, project, reload }) {
   const [list] = await Promise.all([pm.templates()]);
   const others = b.projects.filter((p) => p.id !== project.id && !p.archived_at);
-  el.innerHTML = `<section class="card"><h2>Reuse this project's set-up</h2>
-      <p>Save how this project works (roles, workflows, work types, fields, forms, shared boards, rules and settings) as a template for new projects, or download it as a file.</p>
+  el.innerHTML = `<section class="card"><h2>Reuse this space's set-up</h2>
+      <p>Save how this space works (roles, workflows, work types, fields, forms, shared boards, rules and settings) as a template for new spaces, or download it as a file.</p>
       <div class="card-actions"><button type="button" class="btn btn-primary" data-save-template>Save as a template…</button><button type="button" class="btn" data-export>Download the configuration</button></div></section>
-    <section class="card"><h2>Bring a set-up into this project</h2>
-      <p>From a template or another project. You choose the parts and see exactly what would change first. It only adds and updates: nothing is removed and no item is touched.</p>
+    <section class="card"><h2>Bring a set-up into this space</h2>
+      <p>From a template or another space. You choose the parts and see exactly what would change first. It only adds and updates: nothing is removed and no item is touched.</p>
       <div class="pm-filters"><select data-from aria-label="Take it from"><optgroup label="Templates">${list.map((t) => opt(`t:${t.id}`, t.name)).join('')}</optgroup>
-        ${others.length ? `<optgroup label="Other projects">${others.map((p) => opt(`p:${p.id}`, p.name)).join('')}</optgroup>` : ''}</select>
+        ${others.length ? `<optgroup label="Other spaces">${others.map((p) => opt(`p:${p.id}`, p.name)).join('')}</optgroup>` : ''}</select>
         <button type="button" class="btn" data-apply>Choose parts and preview…</button></div>
       <p class="hint"><a href="#/projects/templates">All templates</a></p></section>`;
   el.addEventListener('click', async (e) => {
@@ -517,9 +517,9 @@ async function templates(el, { b, project, reload }) {
       const res = await formDialog({ title: 'Save as a template', submit: 'Save template',
         body: `<div class="field"><label for="st-name">Template name</label><input id="st-name" name="name" type="text" maxlength="80" required value="${esc(project.name)} set-up"></div>
           <div class="field"><label for="st-desc">What it's for</label><textarea id="st-desc" name="description" rows="2"></textarea></div>
-          <label class="pm-check"><input type="checkbox" name="items"> Include this project's items as starter items</label>`,
+          <label class="pm-check"><input type="checkbox" name="items"> Include this space's items as starter items</label>`,
         onSubmit: (f) => pm.saveTemplate(null, { name: f.elements.name.value.trim(), description: f.elements.description.value, from_project: project.id, include_items: f.elements.items.checked }) });
-      if (res) toast('Template saved. New projects can start from it.');
+      if (res) toast('Template saved. New spaces can start from it.');
     } else if (t.dataset.export !== undefined) {
       const cfg2 = await attempt(() => pm.exportConfig(project.id, false));
       if (cfg2) download(`${project.key.toLowerCase()}.onesolar-project.json`, { onesolar: 'project-template', name: `${project.name} set-up`, description: '', config: cfg2 });

@@ -51,8 +51,8 @@ export async function renderProject(el, ctx) {
   const b = await loadBase();
   const project = b.projectByKey.get(key.toUpperCase());
   if (!project) {
-    el.innerHTML = `<section class="card no-access"><h1>No project "${esc(key)}"</h1><p>It doesn't exist, or it's private and you haven't been added to it.</p>
-      <div class="form-actions"><a class="btn btn-primary" href="#/projects/all">All projects</a></div></section>`;
+    el.innerHTML = `<section class="card no-access"><h1>No space "${esc(key)}"</h1><p>It doesn't exist, or it's private and you haven't been added to it.</p>
+      <div class="form-actions"><a class="btn btn-primary" href="#/projects/all">All spaces</a></div></section>`;
     return;
   }
   const cfg = await loadConfig(b, project.id);
@@ -84,12 +84,12 @@ export async function renderAcross(el, ctx) {
   const shapes = await shapesFor(b, projectIds);
   const scope = { b, project: null, cfg: null, cfgOf: shapes.cfgOf, statuses: shapes.all.statuses, types: shapes.all.types, fields: [], projectIds,
     rerender: ctx.rerender, params: ctx.params, base: `#/projects/${which}`, only: cyclesInView(b) ? projectIds : null };
-  const titles = { boards: ['Boards', 'Boards across projects: statuses with the same name share a column.'], timeline: ['Timeline', 'Every project on one timeline, with the dependencies between them.'],
-    calendar: ['Calendar', 'Deadlines, milestones and project events.'], list: ['All work', 'Search every item you can see.'] };
+  const titles = { boards: ['Boards', 'Boards across spaces: statuses with the same name share a column.'], timeline: ['Timeline', 'Every space on one timeline, with the dependencies between them.'],
+    calendar: ['Calendar', 'Deadlines, milestones and space events.'], list: ['All work', 'Search every item you can see.'] };
   el.innerHTML = `${takeFlash()}${header(titles[which][0], titles[which][1])}${cycleSwitch(b)}<div data-body></div>`;
   bindCycleSwitch(el, b, ctx.rerender);
   const body = el.querySelector('[data-body]');
-  if (!projectIds.length) return void (body.innerHTML = `<div class="empty"><p><strong>${cyclesInView(b) ? 'No projects in this car cycle yet.' : 'No projects yet.'}</strong></p><p><a class="btn btn-primary" href="#/projects/all">Projects</a></p></div>`);
+  if (!projectIds.length) return void (body.innerHTML = `<div class="empty"><p><strong>${cyclesInView(b) ? 'No spaces in this car cycle yet.' : 'No spaces yet.'}</strong></p><p><a class="btn btn-primary" href="#/projects/all">Spaces</a></p></div>`);
   if (PEEK_TABS.includes(which)) peekItems(body, ctx, `#/projects/${which}`);
   if (which === 'list') return renderList(body, scope);
   if (which === 'boards') return renderBoard(body, scope);
@@ -101,7 +101,7 @@ async function summary(el, { b, project, cfg, rerender }) {
   const [rollup, upcoming, events, docs, alumniCard, spend, late] = await Promise.all([
     pm.rollup(), pm.search({ project: project.id, filter: { all: [{ f: 'category', op: 'ne', v: 'done' }, { any: [{ f: 'milestone' }, { f: 'due', op: 'within', v: 14 }, { f: 'overdue' }] }] }, sort: 'due', limit: 12 }),
     pm.events({ projectIds: [project.id], limit: 15 }), pm.resources(project.id).catch(() => []),
-    project.archived_at ? '' : alumniShareCard({ projectId: project.id, mayEdit: can(b, project.id, 'edit'), what: 'this project', heading: 'h2', compact: true }),
+    project.archived_at ? '' : alumniShareCard({ projectId: project.id, mayEdit: can(b, project.id, 'edit'), what: 'this space', heading: 'h2', compact: true }),
     pm.projectSpend(project.id).catch(() => null),   // 060
     pm.orderWarnings(project.id).catch(() => []),   // 061
   ]);
@@ -120,7 +120,7 @@ async function summary(el, { b, project, cfg, rerender }) {
   const roleName = (m) => cfg.roles.find((r) => r.id === m.role_id)?.name || '';
   el.innerHTML = `<div class="pm-summary">
     <div class="pm-tiles pm-wide" role="list">${tile(week.finished, 'finished', 'in the last 7 days', 'finished')}${tile(week.changed, 'changed', 'in the last 7 days', 'changed')}${tile(week.created, 'added', 'in the last 7 days', 'added')}${tile(week.due.total, 'due soon', 'in the next 7 days', 'due')}</div>
-    <section class="card"><h2>How it's going ${infoTip('Three ways of measuring the same project. They rarely agree: finishing many small items moves the first, finishing the big ones moves the second, and only reaching milestones moves the third. By items: items finished ÷ all items. By effort: estimated hours finished ÷ all estimated hours. By milestones: milestones reached ÷ all milestones. Point at a number to see its figures.')}</h2>
+    <section class="card"><h2>How it's going ${infoTip('Three ways of measuring the same space. They rarely agree: finishing many small items moves the first, finishing the big ones moves the second, and only reaching milestones moves the third. By items: items finished ÷ all items. By effort: estimated hours finished ÷ all estimated hours. By milestones: milestones reached ÷ all milestones. Point at a number to see its figures.')}</h2>
       ${why.length ? `<div class="alert alert-info pm-attention-box">⚠ May need someone to step in: ${esc(why.join('; '))}.</div>` : ''}
       ${progressBar(p)}
       <div class="pm-nums"><a href="${projectHref(project.key, 'list')}"><strong>${p.total - p.done}</strong> open</a><span><strong>${p.doing}</strong> in progress</span><span><strong>${p.done}</strong> done</span>
@@ -137,7 +137,7 @@ async function summary(el, { b, project, cfg, rerender }) {
     ${project.description ? `<section class="card"><h2>About</h2><div class="pm-rich">${rich(project.description)}</div></section>` : ''}
     <section class="card"><h2>People</h2>
       <p class="muted small">${project.lead_id ? `Project manager: ${esc(personName(b, project.lead_id))}. ` : ''}${project.visibility === 'team'
-        ? `Everyone on the team can see this project${project.team_role_id ? ` as ${esc(cfg.roles.find((r) => r.id === project.team_role_id)?.name || 'a viewer')}` : ''}.` : 'Only these people can see this project.'}</p>
+        ? `Everyone on the team can see this space${project.team_role_id ? ` as ${esc(cfg.roles.find((r) => r.id === project.team_role_id)?.name || 'a viewer')}` : ''}.` : 'Only these people can see this space.'}</p>
       <ul class="pm-mini">${cfg.members.map((m) => `<li>${avatar(b, m.user_id)} ${esc(personName(b, m.user_id))} <span class="muted">${esc(roleName(m))}</span></li>`).join('')}</ul>
       ${can(b, project.id, 'members') ? `<p><a href="${projectHref(project.key, 'settings/people')}">Add people or change roles</a></p>` : ''}
     </section>
@@ -154,8 +154,8 @@ async function summary(el, { b, project, cfg, rerender }) {
     el.querySelectorAll('[data-prog-pane]').forEach((p) => (p.hidden = p.dataset.progPane !== progressTab));
   }));
   el.querySelector('[data-project-budget]')?.addEventListener('click', async () => {
-    const v = await askText({ title: 'Project budget', label: 'Budget ($)', placeholder: '1500', required: false, ok: 'Save', value: project.settings?.budget ?? '',
-      hint: 'What this project may spend on Orders. Leave it empty for none. Shown next to what its linked requests cost.' });
+    const v = await askText({ title: 'Space budget', label: 'Budget ($)', placeholder: '1500', required: false, ok: 'Save', value: project.settings?.budget ?? '',
+      hint: 'What this space may spend on Orders. Leave it empty for none. Shown next to what its linked requests cost.' });
     if (v === null) return;
     const n = v.trim() === '' ? null : Number(v.replace(/[$,\s]/g, ''));
     if (n !== null && !(n >= 0)) return alert('Enter a dollar amount, or leave it empty.');
@@ -193,7 +193,7 @@ function spendCard(b, project, spend, late = []) {
   return `<section class="card"><h2>Orders &amp; budget</h2>
     ${late.length ? `<div class="alert alert-warning"><strong>Not ordered in time:</strong><ul class="pm-mini">${late.map((w) => `<li><a href="${itemHref(w.key)}">${esc(w.key)}</a> ${esc(w.title)} ${w.start < todayISO() ? 'started' : 'starts'} ${esc(fmtDate(w.start))}; <a href="${esc(appUrl(`orders/#/requests/${encodeURIComponent(w.number)}`))}">${esc(w.number)}</a> is ${esc(w.status)}.</li>`).join('')}</ul></div>` : ''}
     <div class="pm-nums"><span><strong>${esc(fmtMoney(spent))}</strong> spent</span><span><strong>${esc(fmtMoney(committed))}</strong> committed</span><span><strong>${esc(fmtMoney(waiting))}</strong> waiting for approval</span></div>
-    <p>${budget === null ? '<span class="muted">No project budget set.</span>'
+    <p>${budget === null ? '<span class="muted">No space budget set.</span>'
       : `Budget <strong>${esc(fmtMoney(budget))}</strong> · <span class="${left < 0 ? 'is-late' : ''}">${left < 0 ? `${esc(fmtMoney(-left))} over` : `${esc(fmtMoney(left))} left`}</span>`}
       ${mayEdit ? ' <button type="button" class="btn btn-sm btn-ghost" data-project-budget>Set budget…</button>' : ''}</p>
     <p class="muted small">Orders not placed are flagged ${esc(String(project.settings?.order_lead_days ?? 7))} days before their item starts.${mayEdit ? ' <button type="button" class="btn btn-sm btn-ghost" data-order-lead>Change…</button>' : ''}</p>

@@ -10,7 +10,7 @@ import { pm } from '../../projects/api.js';
 import { needsDatabase, loadBase, invalidate, can, header, formDialog, attempt, toast, personName, projectHref } from './kit.js';
 import { createProjectDialog } from './projects.js';
 
-export const PARTS = [['roles', 'Project roles'], ['workflows', 'Workflows (statuses and moves)'], ['types', 'Work-item types'], ['fields', 'Custom fields'], ['layouts', 'Form layouts'],
+export const PARTS = [['roles', 'Space roles'], ['workflows', 'Workflows (statuses and moves)'], ['types', 'Work-item types'], ['fields', 'Custom fields'], ['layouts', 'Form layouts'],
   ['views', 'Shared boards and views'], ['automations', 'Automation rules'], ['settings', 'Working days and other settings']];
 
 export async function renderTemplates(el, { config, rerender }) {
@@ -20,14 +20,14 @@ export async function renderTemplates(el, { config, rerender }) {
   const mine = (t) => t.created_by === b.me || auth.can('projects.manage');
   const configurable = b.projects.filter((p) => !p.archived_at && can(b, p.id, 'configure'));
 
-  el.innerHTML = `${takeFlash()}${header('Templates', 'Reusable project set-ups. A new project starts from one; a running project can take parts of one.',
+  el.innerHTML = `${takeFlash()}${header('Templates', 'Reusable space set-ups. A new space starts from one; a running space can take parts of one.',
     `<label class="btn">Import a file<input type="file" id="tpl-import" accept=".json,application/json" hidden></label>
-     ${configurable.length ? '<button type="button" class="btn btn-primary" id="tpl-new">Save a project as a template</button>' : ''}`)}
+     ${configurable.length ? '<button type="button" class="btn btn-primary" id="tpl-new">Save a space as a template</button>' : ''}`)}
     <div class="pm-project-grid">${templates.map((t) => `<section class="card pm-template" data-template="${esc(t.id)}">
       <h3>${esc(t.name)}</h3><p>${esc(t.description || 'No description.')}</p>
       <p class="muted small">Version ${t.version}${t.created_by ? ` · by ${esc(personName(b, t.created_by))}` : ' · built in'} · changed ${esc(fmtDate(t.updated_at))}</p>
-      <div class="card-actions"><button type="button" class="btn btn-sm btn-primary" data-use>New project</button>
-        ${configurable.length ? '<button type="button" class="btn btn-sm" data-apply>Apply to a project…</button>' : ''}
+      <div class="card-actions"><button type="button" class="btn btn-sm btn-primary" data-use>New space</button>
+        ${configurable.length ? '<button type="button" class="btn btn-sm" data-apply>Apply to a space…</button>' : ''}
         <button type="button" class="btn btn-sm" data-export>Export</button>
         ${mine(t) ? '<button type="button" class="btn btn-sm btn-ghost" data-edit>Edit</button>' : ''}</div></section>`).join('')}</div>
     <p class="hint">A template is a checked document, not code: importing one can't run anything, and a broken one is refused before it's saved.</p>`;
@@ -37,11 +37,11 @@ export async function renderTemplates(el, { config, rerender }) {
     const t = e.target.closest('button');
     if (!t) return;
     if (t.id === 'tpl-new') {
-      const saved = await formDialog({ title: 'Save a project as a template', submit: 'Save template',
-        body: `<div class="field"><label for="tn-project">Project</label><select id="tn-project" name="project">${configurable.map((p) => `<option value="${esc(p.id)}">${esc(p.name)}</option>`).join('')}</select></div>
+      const saved = await formDialog({ title: 'Save a space as a template', submit: 'Save template',
+        body: `<div class="field"><label for="tn-project">Space</label><select id="tn-project" name="project">${configurable.map((p) => `<option value="${esc(p.id)}">${esc(p.name)}</option>`).join('')}</select></div>
           <div class="field"><label for="tn-name">Template name</label><input id="tn-name" name="name" type="text" maxlength="80" required></div>
           <div class="field"><label for="tn-desc">What it's for</label><textarea id="tn-desc" name="description" rows="2"></textarea></div>
-          <label class="pm-check"><input type="checkbox" name="items"> Include its items as starter items (their dates are kept as days from the project's start)</label>`,
+          <label class="pm-check"><input type="checkbox" name="items"> Include its items as starter items (their dates are kept as days from the space's start)</label>`,
         onSubmit: (f) => pm.saveTemplate(null, { name: f.elements.name.value.trim(), description: f.elements.description.value, from_project: f.elements.project.value, include_items: f.elements.items.checked }) });
       if (saved) (toast('Template saved.'), rerender());
       return;
@@ -65,9 +65,9 @@ export async function renderTemplates(el, { config, rerender }) {
       const saved = await formDialog({ title: 'Edit template', submit: 'Save',
         body: `<div class="field"><label for="te-name">Name</label><input id="te-name" name="name" type="text" maxlength="80" required value="${esc(tpl.name)}"></div>
           <div class="field"><label for="te-desc">What it's for</label><textarea id="te-desc" name="description" rows="2">${esc(tpl.description)}</textarea></div>
-          ${configurable.length ? `<div class="field"><label for="te-from">Replace its contents with a project's current set-up</label><select id="te-from" name="from"><option value="">Keep as it is</option>${configurable.map((p) => `<option value="${esc(p.id)}">${esc(p.name)}</option>`).join('')}</select>
-            <div class="hint">Projects already made from this template don't change. To bring the update into one, use "Apply to a project…".</div></div>` : ''}
-          <label class="pm-check"><input type="checkbox" name="archived"> Archive this template (projects made from it are untouched)</label>`,
+          ${configurable.length ? `<div class="field"><label for="te-from">Replace its contents with a space's current set-up</label><select id="te-from" name="from"><option value="">Keep as it is</option>${configurable.map((p) => `<option value="${esc(p.id)}">${esc(p.name)}</option>`).join('')}</select>
+            <div class="hint">Spaces already made from this template don't change. To bring the update into one, use "Apply to a space…".</div></div>` : ''}
+          <label class="pm-check"><input type="checkbox" name="archived"> Archive this template (spaces made from it are untouched)</label>`,
         onSubmit: (f) => pm.saveTemplate(tpl.id, { name: f.elements.name.value.trim(), description: f.elements.description.value, version: tpl.version,
           ...(f.elements.from?.value ? { from_project: f.elements.from.value } : {}), ...(f.elements.archived.checked ? { archived: true } : {}) }) });
       if (saved) (toast('Saved.'), rerender());
@@ -76,18 +76,18 @@ export async function renderTemplates(el, { config, rerender }) {
   el.querySelector('#tpl-import').onchange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    if (file.size > 2_000_000) return toast('That file is too big to be a project template.', 'bad');
+    if (file.size > 2_000_000) return toast('That file is too big to be a space template.', 'bad');
     let doc;
     try {
       doc = JSON.parse(await file.text());
     } catch {
-      return toast('That file isn\'t a one.solar project template (it isn\'t JSON).', 'bad');
+      return toast('That file isn\'t a one.solar space template (it isn\'t JSON).', 'bad');
     }
     const cfg = doc?.onesolar === 'project-template' ? doc.config : doc;
     const saved = await formDialog({ title: 'Import a template', submit: 'Import',
       body: `<div class="field"><label for="ti-name">Name</label><input id="ti-name" name="name" type="text" maxlength="80" required value="${esc(doc?.name || file.name.replace(/\.[^.]+$/, ''))}"></div>
         <div class="field"><label for="ti-desc">What it's for</label><textarea id="ti-desc" name="description" rows="2">${esc(doc?.description || '')}</textarea></div>
-        <p class="hint">The file is checked by trying it on a scratch project that's thrown away. If any part of it is wrong, nothing is imported.</p>`,
+        <p class="hint">The file is checked by trying it on a scratch space that's thrown away. If any part of it is wrong, nothing is imported.</p>`,
       onSubmit: (f) => pm.saveTemplate(null, { name: f.elements.name.value.trim(), description: f.elements.description.value, config: cfg }) });
     e.target.value = '';
     if (saved) (toast('Imported.'), rerender());
@@ -109,9 +109,9 @@ export function applyConfigDialog(b, projects, source, sourceName) {
   const picked = (f) => [...f.querySelectorAll('[name=part]:checked')].map((n) => n.value);
   return formDialog({
     title: `Apply ${esc(sourceName)}`, submit: 'Preview', wide: true,
-    body: `<div class="field" ${projects.length === 1 ? 'hidden' : ''}><label for="ac-project">To the project</label><select id="ac-project" name="project">${projects.map((p) => `<option value="${esc(p.id)}">${esc(p.name)}</option>`).join('')}</select></div>
+    body: `<div class="field" ${projects.length === 1 ? 'hidden' : ''}><label for="ac-project">To the space</label><select id="ac-project" name="project">${projects.map((p) => `<option value="${esc(p.id)}">${esc(p.name)}</option>`).join('')}</select></div>
       <fieldset class="pm-section"><legend>Bring in</legend><div class="pm-checks" style="flex-direction:column">${PARTS.map(([k, l]) => `<label class="pm-check"><input type="checkbox" name="part" value="${k}" ${['fields', 'types', 'workflows'].includes(k) ? 'checked' : ''}> ${esc(l)}</label>`).join('')}</div></fieldset>
-      <p class="hint">Things are matched by name (roles and fields by key): what the project already has is updated, the rest is added. Nothing is removed, and existing items aren't touched.
+      <p class="hint">Things are matched by name (roles and fields by key): what the space already has is updated, the rest is added. Nothing is removed, and existing items aren't touched.
         Work types bring their workflow with them; a type that already has items keeps its current workflow.</p>
       <div data-preview aria-live="polite"></div>`,
     onOpen(form) {

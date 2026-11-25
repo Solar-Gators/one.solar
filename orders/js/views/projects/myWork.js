@@ -42,7 +42,7 @@ export async function renderMyWork(el, { config, rerender }) {
   const open = mine.filter((i) => i.category !== 'done');
   const done = mine.filter((i) => i.category === 'done' && (i.completed_at || '') >= recent).sort((a, c) => (a.completed_at < c.completed_at ? 1 : -1));
   const sections = view.group === 'project'
-    ? [...new Set(open.map((i) => i.project_id))].map((id) => [b.projectById.get(id)?.name || 'Project', open.filter((i) => i.project_id === id), ''])
+    ? [...new Set(open.map((i) => i.project_id))].map((id) => [b.projectById.get(id)?.name || 'Space', open.filter((i) => i.project_id === id), ''])
     : view.group === 'status'
       ? [['In progress', open.filter((i) => i.category === 'doing'), ''], ['Not started', open.filter((i) => i.category === 'todo'), '']]
       : [
@@ -77,10 +77,10 @@ export async function renderMyWork(el, { config, rerender }) {
   };
 
   el.innerHTML = `${header('My work', `${open.length} open item${open.length === 1 ? '' : 's'} where you're the owner or a collaborator.`,
-    `<a class="btn" href="#/projects/all">All projects</a>`)}
+    `<a class="btn" href="#/projects/all">All spaces</a>`)}
     <div class="pm-filters">
       <label class="inline-field">Group by <select id="mw-group"><option value="when" ${view.group === 'when' ? 'selected' : ''}>What needs you first</option>
-        <option value="project" ${view.group === 'project' ? 'selected' : ''}>Project</option><option value="status" ${view.group === 'status' ? 'selected' : ''}>Status</option></select></label>
+        <option value="project" ${view.group === 'project' ? 'selected' : ''}>Space</option><option value="status" ${view.group === 'status' ? 'selected' : ''}>Status</option></select></label>
       <a class="btn btn-sm" href="#/projects/list">Search all work</a>
     </div>
     ${quickAdd(b, {}, { placeholder: '+ Add something to do (it\'s yours; Enter to add)', label: 'Add an item for yourself', cls: 'pm-qa-mine' })}
@@ -128,8 +128,8 @@ function emptyState(b) {
   const where = sub ? b.subsystemById.get(sub)?.name : div ? b.divisionById.get(div)?.name : '';
   return `<div class="empty"><p><strong>Nothing assigned to you right now.</strong></p>
     <p>When someone makes you the owner of an item, or adds you as a collaborator, it shows here. You can also add something for yourself above.</p>
-    ${near.length ? `<p>${esc(where)}'s projects:</p><p class="pm-empty-links">${near.map((p) => `<a class="btn btn-sm" href="${projectHref(p.key)}">${esc(p.name)}</a>`).join(' ')}</p>` : ''}
-    <p><a class="btn btn-primary" href="#/projects/all">Look at the projects</a> <button type="button" class="btn btn-ghost" data-shortcuts>Keyboard shortcuts</button></p></div>`;
+    ${near.length ? `<p>${esc(where)}'s spaces:</p><p class="pm-empty-links">${near.map((p) => `<a class="btn btn-sm" href="${projectHref(p.key)}">${esc(p.name)}</a>`).join(' ')}</p>` : ''}
+    <p><a class="btn btn-primary" href="#/projects/all">Look at the spaces</a> <button type="button" class="btn btn-ghost" data-shortcuts>Keyboard shortcuts</button></p></div>`;
 }
 
 /**

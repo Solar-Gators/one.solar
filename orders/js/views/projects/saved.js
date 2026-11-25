@@ -16,7 +16,7 @@ export const viewsFor = (all, kind, projectId) => all.filter((v) => v.kind === k
 export const pickView = (views, wanted, me) =>
   views.find((v) => v.id === wanted) || (wanted === 'none' ? null : views.find((v) => v.is_default && v.owner_id === me) || views.find((v) => v.is_default && v.sharing !== 'private') || null);
 
-const SHARING = { private: 'Just me', project: 'Everyone in this project', team: 'The whole team', people: 'People I pick', ready: 'Ready-made' };
+const SHARING = { private: 'Just me', project: 'Everyone in this space', team: 'The whole team', people: 'People I pick', ready: 'Ready-made' };
 const mayChange = (b, v) => !v.ready && (v.owner_id === b.me || (v.sharing === 'project' && can(b, v.project_id, 'boards')) || auth.can('projects.manage'));
 
 /**
@@ -88,7 +88,7 @@ const refreshed = async (id) => (await loadViews({ fresh: true })).find((v) => v
 /** Name it and say who sees it. */
 export function saveAsDialog(b, { kind, projectId, config, noun = 'view' }) {
   const options = [['private', 'Just me'],
-    ...(projectId && can(b, projectId, 'boards') ? [['project', 'Everyone in this project']] : []),
+    ...(projectId && can(b, projectId, 'boards') ? [['project', 'Everyone in this space']] : []),
     ...(!projectId && canCreateProjects() ? [['team', 'The whole team']] : []),
     ['people', 'People I pick']];
   return formDialog({
@@ -96,7 +96,7 @@ export function saveAsDialog(b, { kind, projectId, config, noun = 'view' }) {
     body: `<div class="field"><label for="pm-view-name">Name</label><input id="pm-view-name" name="name" type="text" maxlength="80" required></div>
       <fieldset class="pm-section"><legend>Who sees it</legend>${options.map(([v, l], i) => `<label class="pm-check"><input type="radio" name="sharing" value="${v}" ${i === 0 ? 'checked' : ''}> ${esc(l)}</label>`).join('')}
         <div data-share-people hidden>${peopleField('who', 'pm-view-who', b, [], { multi: true, among: b.people.filter((p) => p.id !== b.me).map((p) => p.id) })}</div>
-        <p class="hint">People only ever see items of projects they're allowed into, whatever a shared ${esc(noun)} asks for.</p></fieldset>
+        <p class="hint">People only ever see items of spaces they're allowed into, whatever a shared ${esc(noun)} asks for.</p></fieldset>
       <label class="pm-check"><input type="checkbox" name="is_default"> Open this one first</label>`,
     onOpen(form) {
       form.addEventListener('change', () => (form.querySelector('[data-share-people]').hidden = form.elements.sharing.value !== 'people'));
