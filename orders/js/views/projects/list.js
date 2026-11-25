@@ -63,7 +63,7 @@ export async function renderList(el, scope) {
 
   let page;
   try {
-    page = await pm.search({ project: project?.id, projects: scope.only, filter: filterOf(st.f), q: st.f.q, sort: st.sort, dir: st.dir, limit: PAGE, offset: st.page * PAGE });
+    page = await pm.search({ project: project?.id, cars: scope.only, filter: filterOf(st.f), q: st.f.q, sort: st.sort, dir: st.dir, limit: PAGE, offset: st.page * PAGE });
   } catch (err) {
     el.innerHTML = `<div class="alert alert-error">${esc(err.message)}</div><p><button type="button" class="btn" data-reset>Clear the filter</button></p>`;
     el.querySelector('[data-reset]').onclick = () => (states.delete(project?.id || ''), scope.rerender());
@@ -123,7 +123,7 @@ export async function renderList(el, scope) {
     tog.textContent = closed.has(id) ? '▸' : '▾';
   });
   el.querySelector('[data-csv]').onclick = async () => {
-    const all = await attempt(() => pm.searchAll({ project: project?.id, projects: scope.only, filter: filterOf(st.f), q: st.f.q, sort: st.sort, dir: st.dir }));
+    const all = await attempt(() => pm.searchAll({ project: project?.id, cars: scope.only, filter: filterOf(st.f), q: st.f.q, sort: st.sort, dir: st.dir }));
     if (all) downloadCsv(b, all.items, scope, `${project?.key || 'projects'}-items.csv`);
   };
 

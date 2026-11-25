@@ -29,9 +29,8 @@ function unwrap({ data, error }) {
 }
 const rows = async (build) => unwrap(await allPages(build));
 const call = async (fn, args) => unwrap(await supabase.rpc(fn, args));
-/** 063: { projects: [ids] } (the car cycles shown) as a filter on the project; one project (p.project) wins. */
-const only = ({ projects, ...p }) => (!projects || p.project ? p
-  : { ...p, filter: { all: [...(p.filter ? [p.filter] : []), { f: 'project', op: 'in', v: projects.length ? projects : ['00000000-0000-0000-0000-000000000000'] }] } });
+/** 074: { cars: filter } (the car cycles chosen at the top, cycles.js carFilter) added to the search's filter. */
+const only = ({ cars, ...p }) => (!cars ? p : { ...p, filter: { all: [...(p.filter ? [p.filter] : []), cars] } });
 const of = (table, projectId, order = 'id') => rows(() => supabase.from(table).select('*').eq('project_id', projectId).order(order).order('id'));
 
 export const pm = {
@@ -159,10 +158,15 @@ export const pm = {
   runScheduled: () => call('pm_run_scheduled'),
 
   // ---- items ----
-  createItem: (op, p) => call('pm_create_item', { p_op: op, p }),
+  /** 074: new work is for the car chosen at the top (newCar, set by kit.js loadBase) unless it says, or has a parent (whose car it gets). */
+  newCar: null,
+  createItem: (op, p) => call('pm_create_item', { p_op: op, p: p.program_id === undefined && !p.parent_id && pm.newCar ? { ...p, program_id: pm.newCar } : p }),
   updateItem: (id, version, p) => call('pm_update_item', { p_id: id, p_version: version, p }),
   bulkUpdate: (ids, p) => call('pm_bulk_update', { p_ids: ids, p }),
   archiveItem: (id, archived) => call('pm_archive_item', { p_id: id, p_archived: archived }),
+  /** 073: for good. dryRun only counts what would go (the item and everything under it). */
+  deleteItem: (id, dryRun = false) => call('pm_delete_item', { p_id: id, p_dry_run: dryRun }),
+  deleteProject: (id, key) => call('pm_delete_project', { p_id: id, p_key: key }),
   moveItem: (id, p) => call('pm_move_item', { p_id: id, p }),
   transition: (id, transitionId, p = {}) => call('pm_transition', { p_id: id, p_transition: transitionId, p }),
   decideApproval: (id, approve, note) => call('pm_decide_approval', { p_id: id, p_approve: approve, p_note: note }),

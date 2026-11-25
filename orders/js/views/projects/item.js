@@ -102,6 +102,7 @@ export async function renderItem(el, { config, params, rerender }) {
       case 'progress': return `<progress max="100" value="${Number(item.progress)}"></progress> ${Number(item.progress)}%`;
       case 'parent': return otherById.get(item.parent_id) ? `<a href="${itemHref(otherById.get(item.parent_id).key)}">${esc(otherById.get(item.parent_id).key)} · ${esc(otherById.get(item.parent_id).title)}</a>` : '';
       case 'sprint': return esc(cfg.sprints.find((s) => s.id === item.sprint_id)?.name || '');
+      case 'car': return b.programs.some((g) => !g.archived_at) ? esc(b.programs.find((g) => g.id === item.program_id)?.name || '') : null;   // 074; hidden with no car cycles
       case 'labels': return (item.labels || []).map((l) => `<span class="chip">${esc(l)}</span>`).join(' ');
       case 'vehicle': return esc(item.vehicle || '');
       default: return null; // description, acceptance and blocked have their own places on the page
@@ -196,11 +197,12 @@ export async function renderItem(el, { config, params, rerender }) {
     mayEdit ? `<button type="button" data-block="${item.blocked ? '0' : '1'}">${item.blocked ? 'Not blocked any more' : 'Mark as blocked…'}</button>` : '',
     mayShare && shared === null ? '<button type="button" data-share-alumni>Share with alumni…</button>' : '',
     may('delete') ? `<button type="button" data-archive>${item.archived_at ? 'Restore' : 'Archive'}</button>` : '',
+    may('delete') ? '<button type="button" class="pm-menu-danger" data-delete-item>Delete…</button>' : '',
   ].filter(Boolean).join('');
 
   el.innerHTML = `${takeFlash()}<a class="back-link" href="${projectHref(project.key, 'list')}">← ${esc(project.name)}</a>
     ${header(`${typeBadge(type)} ${mayEdit ? `<span class="pm-title-edit" data-rename-title tabindex="0" role="button" title="Click to rename (E)">${esc(item.title)}</span>` : esc(item.title)}`,
-      `<button type="button" class="pm-key pm-key-copy" data-copy-link title="Copy a link to ${esc(item.key)}">${esc(item.key)}</button> · ${esc(type?.name || '')}
+      `<button type="button" class="pm-key pm-key-copy" data-copy-link title="Copy a link to ${esc(item.key)}">${esc(item.key)}</button> · ${esc(type?.name || '')}${item.program_id && b.programs.find((g) => g.id === item.program_id) ? ` · <span class="pm-item-car" title="The car cycle this is for">${esc(b.programs.find((g) => g.id === item.program_id).name)}</span>` : ''}
         ${item.archived_at ? '<span class="chip-tone tone-gray">Archived</span>' : ''}`,
       `<span class="pm-status-btn">${ie(b, cfg, item, 'status', 'button')}</span>
        <button type="button" class="btn btn-ghost pm-watch${iWatch ? ' is-on' : ''}" data-watch aria-pressed="${iWatch}" title="${esc(watchTitle)}" aria-label="${esc(watchTitle)}"><span aria-hidden="true">👁</span> ${watchers.length}</button>
@@ -448,7 +450,18 @@ export async function renderItem(el, { config, params, rerender }) {
     }
     if (d.editDesc !== undefined) editDescription();
     else if (d.watch !== undefined) fresh(() => pm.watch(item.id, !watchers.includes(b.me)));
-    else if (d.archive !== undefined) confirm(item.archived_at ? `Restore ${item.key}?` : `Archive ${item.key} and everything under it? It can be restored.`) && fresh(() => pm.archiveItem(item.id, !item.archived_at));
+    else if (d.deleteItem !== undefined) {
+      const count = await attempt(() => pm.deleteItem(item.id, true));
+      if (!count) return;
+      const under = count.items - 1;
+      const ok = await formDialog({ title: `Delete ${esc(item.key)} for good?`, submit: 'Delete', danger: true,
+        body: `<p><strong>${esc(item.title)}</strong>${under ? ` and the <strong>${under} item${under === 1 ? '' : 's'} under it</strong>` : ''} will be deleted, with ${under ? 'their' : 'its'} comments, history, checklist, links and files.</p>
+          <p class="alert alert-error">This can't be undone. To keep it but get it out of the way, use Archive instead.</p>`,
+        onSubmit: () => pm.deleteItem(item.id) });
+      if (!ok) return;
+      setFlash(`Deleted ${item.key}${under ? ` and ${under} item${under === 1 ? '' : 's'} under it` : ''}.`);
+      location.hash = projectHref(project.key, 'list');
+    } else if (d.archive !== undefined) confirm(item.archived_at ? `Restore ${item.key}?` : `Archive ${item.key} and everything under it? It can be restored.`) && fresh(() => pm.archiveItem(item.id, !item.archived_at));
     else if (d.approve || d.reject) {
       const note = d.reject ? await askText({ title: 'Send it back', label: 'Why isn\'t it approved?', ok: 'Send back', multiline: true }) : '';
       if (d.reject && !note) return;
@@ -654,7 +667,7 @@ function copyDialog(b, cfg, item, checklist) {
       project_id: item.project_id, type_id: item.type_id, title: f.elements.title.value.trim(),
       description: item.description || '', acceptance: item.acceptance || '', priority: item.priority, owner_id: item.owner_id || null,
       division_id: item.division_id || null, subsystem_id: item.subsystem_id || null, vehicle: item.vehicle || '', estimate_hours: item.estimate_hours,
-      labels: item.labels || [], custom: item.custom || {},
+      labels: item.labels || [], custom: item.custom || {}, program_id: item.program_id || null,
       ...(f.elements.parent?.checked ? { parent_id: item.parent_id } : {}),
       ...(f.elements.dates.checked ? { start_date: item.start_date, due_date: item.due_date } : {}),
       checklist: f.elements.checklist.checked ? checklist.map((c) => c.text) : [],

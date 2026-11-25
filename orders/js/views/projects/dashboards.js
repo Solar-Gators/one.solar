@@ -11,7 +11,7 @@ import { schedule, todayISO } from '../../projects/schedule.js';
 import { needsDatabase, loadBase, shapesFor, header, itemHref, projectHref, personName, avatar, formDialog, toast, dueChip, statusChip, filterOf } from './kit.js';
 import { progressBar } from './projects.js';
 import { loadViews, viewsFor, pickView, viewPicker, bindViewPicker } from './saved.js';
-import { cycleSwitch, bindCycleSwitch, inView, cyclesOf } from './cycles.js';
+import { cycleSwitch, bindCycleSwitch, carFilter, cyclesOf } from './cycles.js';
 
 const WIDGETS = {
   numbers: 'Open, overdue, blocked, unassigned', projects: 'Spaces: progress and who needs help', subsystems: 'Progress by CE division and subsystem', status: 'Items by status',
@@ -31,11 +31,12 @@ export async function renderDashboards(el, { config, params, rerender }) {
   const current = views.find((v) => v.id === st.view) || null;
   const sc = st.config.scope || {};
 
-  // what's in scope: by car cycle (a dashboard's own, else the switcher at the top), project and CE division
-  const projects = b.projects.filter((p) => !p.archived_at && (sc.program ? p.program_id === sc.program : inView(b, p)) && (!sc.project || p.id === sc.project));
+  // what's in scope: space and CE division; the work by car cycle (a dashboard's own, else the switcher at the top; 074)
+  const projects = b.projects.filter((p) => !p.archived_at && (!sc.project || p.id === sc.project));
+  const cars = sc.program ? { f: 'program', op: 'in', v: [sc.program] } : carFilter(b);
   const projectIds = projects.map((p) => p.id);
   const inScope = (x) => projectIds.includes(x.project_id) && (!sc.division || x.division_id === sc.division);
-  const scopeFilter = { all: [{ f: 'project', op: 'in', v: projectIds.length ? projectIds : ['00000000-0000-0000-0000-000000000000'] }, ...(sc.division ? [{ f: 'division', v: sc.division }] : [])] };
+  const scopeFilter = { all: [{ f: 'project', op: 'in', v: projectIds.length ? projectIds : ['00000000-0000-0000-0000-000000000000'] }, ...(sc.division ? [{ f: 'division', v: sc.division }] : []), ...(cars ? [cars] : [])] };
   const [rollup, open, shapes, prefs] = await Promise.all([pm.rollup(), pm.searchAll({ filter: { all: [scopeFilter, { f: 'category', op: 'ne', v: 'done' }] }, sort: 'due' }, 3000), shapesFor(b, projectIds), pm.prefs().catch(() => [])]);
   const groups = rollup.groups.filter(inScope);
   const items = open.items;

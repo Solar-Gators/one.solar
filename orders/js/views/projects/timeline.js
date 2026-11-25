@@ -38,7 +38,7 @@ import { filterBar, bindFilterBar, filterOf, can, canEditKinds, formDialog, atte
 import { bindInline, saveField } from './inline.js';
 import { bindSelection, pickBox } from './select.js';
 import { quickAdd, bindQuickAdd } from './quick.js';
-import { cyclesInView, cyclesOf, cycleOfProject } from './cycles.js';
+import { cyclesInView, cyclesOf } from './cycles.js';
 
 /** Kinds of item that can go under `parent` (an item) or at the top (null), highest level first. */
 export function kindsUnder(cfg, parent) {
@@ -129,9 +129,9 @@ export async function renderTimeline(el, scope) {
   const tday = toDay(today);
   const filter = filterOf(st.f);
   const [{ items: all, total }, deps, baselines, scenarios, shown, keyDates, orderWarnings] = await Promise.all([
-    pm.searchAll({ project: project?.id, projects: scope.only, sort: 'rank' }, 3000), pm.deps(scope.projectIds),
+    pm.searchAll({ project: project?.id, cars: scope.only, sort: 'rank' }, 3000), pm.deps(scope.projectIds),
     project ? pm.baselines(project.id) : [], project ? pm.scenarios(project.id) : [],
-    filter || st.f.q ? pm.searchAll({ project: project?.id, projects: scope.only, filter, q: st.f.q }, 3000).then((r) => new Set(r.items.map((i) => i.id))) : null,
+    filter || st.f.q ? pm.searchAll({ project: project?.id, cars: scope.only, filter, q: st.f.q }, 3000).then((r) => new Set(r.items.map((i) => i.id))) : null,
     pm.keyDates().catch(() => []),
     Promise.all(scope.projectIds.map((pid) => pm.orderWarnings(pid).catch(() => []))).then((x) => x.flat()),
   ]);
@@ -284,11 +284,10 @@ export async function renderTimeline(el, scope) {
 
   // ---- across projects: the levels above them (Car → CE division → subsystem), and where it opens
   const lateIn = (pids) => items.filter((i) => pids.includes(i.project_id) && i.category !== 'done' && i.due_date && i.due_date < today).length;
-  const carsShown = cyclesInView(b);
-  const multiCar = carsShown ? carsShown.length > 1 : cyclesOf(b).length > 1;
+  const multiCar = false;   // 074: a space lasts across cars, so the car isn't a level above spaces (the switcher filters the work)
   const nodes = project ? [] : live.map((pid) => {
     const p = b.projectById.get(pid);
-    return { pid, p, car: multiCar ? cycleOfProject(b, p)?.id || '' : '', div: p.division_id || b.subsystemById.get(p.subsystem_id)?.division_id || '', sub: p.subsystem_id || '' };
+    return { pid, p, car: '', div: p.division_id || b.subsystemById.get(p.subsystem_id)?.division_id || '', sub: p.subsystem_id || '' };
   });
   const sortOf = (list, id) => { const at = list.findIndex((x) => x.id === id); return at < 0 ? 1e9 : at; };
   const divOrder = [...b.divisions].sort((a, z) => (a.sort - z.sort) || a.name.localeCompare(z.name));
@@ -490,8 +489,7 @@ export async function renderTimeline(el, scope) {
   // end date runs until the next one starts (or the end of the chart).
   const allCycles = cyclesOf(b).filter((g) => g.start_date);
   const cycleEnd = (g) => g.end_date || (allCycles[allCycles.indexOf(g) + 1] ? toISO(toDay(allCycles[allCycles.indexOf(g) + 1].start_date) - 1) : toISO(last));
-  const cyclesShown = !st.show.cycles ? [] : (project ? [cycleOfProject(b, project)].filter(Boolean)
-    : cyclesInView(b) ? allCycles.filter((g) => cyclesInView(b).includes(g.id)) : allCycles)
+  const cyclesShown = !st.show.cycles ? [] : (cyclesInView(b) ? allCycles.filter((g) => cyclesInView(b).includes(g.id)) : allCycles)
     .filter((g) => g.start_date).map((g) => ({ ...g, end_date: cycleEnd(g) }))
     .filter((g) => toDay(g.end_date) >= first && toDay(g.start_date) <= last)
     .map((g) => ({ ...g, start_date: toISO(Math.max(first, toDay(g.start_date))), end_date: toISO(Math.min(last, toDay(g.end_date))), starts: toDay(g.start_date) >= first }));

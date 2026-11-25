@@ -1033,48 +1033,59 @@ test.describe('projects', () => {
     await open(page, '/projects/#/projects/p/BAT/settings/types', '.pm-table');
     await expect(page.locator('.pm-table tr', { hasText: 'Calc' }).first()).toContainText('Team');   // C7: Fields share this page now
 
-    // car cycles: the first one is the current car; the next is started from it, its projects copied without items
+    // car cycles (074): spaces last across cars; each item has its car, and the switcher filters the work
+    const epicType = await one(page, `select t.id, t.project_id from pm_types t join pm_projects p on p.id = t.project_id where p.key = 'BAT' and t.name = 'Epic'`);
+    await rpc(page, 'pm_create_item', { p_op: crypto.randomUUID(), p: { project_id: epicType.project_id, type_id: epicType.id, title: 'Before cars' } });   // no car cycles yet: no car
     await open(page, '/projects/#/projects/all', '#new-program');
-    await expect(page.locator('.pm-cycles')).toHaveCount(0);   // nothing to switch between yet
+    await expect(page.locator('.pm-cycles')).toHaveCount(0);   // no switcher on the Spaces page
     await page.click('#new-program');
     await dialog(page).locator('#cy-name').fill('Car 7');
     await dialog(page).locator('#cy-start').fill('2025-08-20');
     await save(page);
-    await expect(page.locator('.pm-program h2', { hasText: 'Car 7' })).toBeVisible();
+    await expect(page.locator('.pm-cycle-chip', { hasText: 'Car 7' })).toBeVisible();
     await page.click('#new-program');
     await dialog(page).locator('#nc-name').fill('Car 8');
     await dialog(page).locator('#nc-start').fill('2027-01-11');
-    await dialog(page).locator('[data-copy-all]').uncheck();
-    const batRow = dialog(page).locator('.pm-copy-row', { has: page.locator('.pm-key', { hasText: /^BAT$/ }) });   // not BATT, the Battery subsystem's own Space (072)
-    await batRow.locator('input[name=copy]').check();
-    await expect(batRow.locator('[data-key-for]')).not.toHaveValue('');
-    const newKey = await batRow.locator('[data-key-for]').inputValue();
-    expect(newKey).toBe('BAT8');
     await save(page, 'Start it');
-    await expect(page.locator('.os-toast', { hasText: 'Car 8 is ready with 1 space' })).toBeVisible();
-    expect(await one(page, `select g.name car, (select count(*)::int from pm_items i where i.project_id = p.id) items from pm_projects p join pm_programs g on g.id = p.program_id where p.key = 'BAT8'`))
-      .toEqual({ car: 'Car 8', items: 0 });
-    // the switcher: it now shows Car 8 (just started); Car 7 is still the current car
+    await expect(page.locator('.os-toast', { hasText: 'Car 8 is ready' })).toBeVisible();
+    await expect(page.locator('.pm-project[data-project="BAT"]')).toBeVisible();   // nothing copied: the same spaces
+    await expect(page.locator('.pm-project[data-project="AERO"]')).toBeVisible();
+    expect((await one(page, `select count(*)::int c from pm_projects where program_id is not null`)).c).toBe(0);
+    // in a space, the switcher shows Car 8 (just started): BAT's work so far has no car, so it's the current car's (Car 7)
+    await open(page, '/projects/#/projects/p/BAT/list', '.pm-cycles');
     await expect(page.locator('[data-cycle]', { hasText: 'Car 8' })).toHaveAttribute('aria-pressed', 'true');
-    await expect(page.locator('.pm-project[data-project="BAT8"]')).toBeVisible();
-    await expect(page.locator('.pm-project[data-project="AERO"]')).toHaveCount(0);
+    await expect(page.locator('main')).not.toContainText('Before cars');
+    // new work here is for Car 8
+    await tap(page, '[data-new-item]');
+    await dialog(page).locator('#pm-new-type').selectOption({ label: '◆ Epic' });
+    await dialog(page).locator('#pm-new-title').fill('Pack for Car 8');
+    await save(page, 'Create');
+    expect((await one(page, `select g.name from pm_items i join pm_programs g on g.id = i.program_id where i.title = 'Pack for Car 8'`)).name).toBe('Car 8');
+    await expect(page.locator('main')).toContainText('Pack for Car 8');
     await page.locator('[data-cycle]', { hasText: 'Car 7' }).click();
-    await expect(page.locator('.pm-project[data-project="AERO"]')).toBeVisible();   // made before there were cycles: the current car's
-    await expect(page.locator('.pm-project[data-project="BAT8"]')).toHaveCount(0);
+    await expect(page.locator('main')).toContainText('Before cars');
+    await expect(page.locator('main')).not.toContainText('Pack for Car 8');
     await page.locator('[data-cycle="both"]').click();
-    await expect(page.locator('.pm-program h2', { hasText: 'Car 8' })).toBeVisible();
+    await expect(page.locator('main')).toContainText('Pack for Car 8');
+    await expect(page.locator('main')).toContainText('Before cars');
     await shot(page, 'car-cycles');
+    // the item says its car, and it can move to the other car right there
+    const k8 = (await one(page, `select key from pm_items where title = 'Pack for Car 8'`)).key;
+    await open(page, `/projects/#/projects/item/${k8}`, '.pm-status-btn');
+    await expect(page.locator('.pm-item-car')).toHaveText('Car 8');
+    await page.locator('[data-edit-field="car"]').click();
+    await page.locator('[name="f:car"]').selectOption({ label: 'Car 7' });
+    await expect.poll(async () => (await one(page, `select g.name from pm_items i join pm_programs g on g.id = i.program_id where i.key = $1`, [k8])).name).toBe('Car 7');
 
     // levels: BAT is the Battery subsystem's; I'm in Battery, so the team timeline opens there
     const { id: battery, division_id: elec } = await one(page, `select id, division_id from org_subsystems where name = 'Battery'`);
-    await sql(page, `update pm_projects set subsystem_id = $1, division_id = $2 where key in ('BAT', 'BAT8')`, [battery, elec]);
+    await sql(page, `update pm_projects set subsystem_id = $1, division_id = $2 where key = 'BAT'`, [battery, elec]);
     const { id: me } = await one(page, `select id from auth.users where email = $1`, [ADMIN.email]);
     await sql(page, `insert into person_org (user_id, division_id, subsystem_id, main) values ($1, $2, $3, true) on conflict do nothing`, [me, elec, battery]);
     await page.goto('/projects/#/projects/timeline');
     await page.reload();   // a fresh start for the timeline (it remembers where you were while the page is open)
     await expect(page.locator('.pm-g-crumbs')).toContainText('Battery', { timeout: 30000 });
-    await expect(page.locator('.pm-g-label.is-car', { hasText: 'Car 7' })).toBeVisible();
-    await expect(page.locator('.pm-g-label.is-car', { hasText: 'Car 8' })).toBeVisible();
+    await expect(page.locator('.pm-g-label.is-car')).toHaveCount(0);   // 074: cars aren't a level above spaces any more
     // each car cycle is a band behind the chart, named in the header (Car 7 has no end: it runs until Car 8 starts)
     await expect(page.locator('.pm-g-keyhead.is-cycle', { hasText: 'Car 7' })).toBeVisible();
     await expect(page.locator('.pm-g-cycle').first()).toBeAttached();
@@ -1106,5 +1117,32 @@ test.describe('projects', () => {
     await page.locator('.pm-settings tr', { hasText: 'Bug' }).getByRole('link', { name: 'Bug workflow' }).click();
     await expect(page.locator('[data-wf-pick]')).toHaveValue(/.+/);
     await expect(page.locator('.pm-settings')).toContainText('Used by Bug');
+  });
+
+  test('073: an item (and what is under it) and a whole space can be deleted for good', async () => {
+    await signIn(page, ADMIN);
+    const type = await one(page, `select t.id, t.project_id from pm_types t join pm_projects p on p.id = t.project_id where p.key = 'AERO' order by t.level, t.sort limit 1`);
+    const top = (await rpc(page, 'pm_create_item', { p_op: crypto.randomUUID(), p: { project_id: type.project_id, type_id: type.id, title: 'Throwaway' } })).data;
+    const sub = await one(page, `select id from pm_types where project_id = $1 and level > (select level from pm_types where id = $2) order by level, sort limit 1`, [type.project_id, type.id]);
+    const under = await rpc(page, 'pm_create_item', { p_op: crypto.randomUUID(), p: { project_id: type.project_id, type_id: sub.id, title: 'Under it', parent_id: top.id } });
+    expect(under.error).toBeFalsy();
+    await open(page, `/projects/#/projects/item/${top.key}`, '.pm-status-btn');
+    await page.locator('.pm-more > summary').click();
+    await page.locator('[data-delete-item]').click();
+    await expect(dialog(page)).toContainText('the 1 item under it');
+    await expect(dialog(page)).toContainText("can't be undone");
+    await save(page, 'Delete');
+    await expect(page.locator('.os-toast')).toContainText(`Deleted ${top.key} and 1 item under it`);
+    expect((await one(page, `select count(*)::int c from pm_items where title in ('Throwaway', 'Under it')`)).c).toBe(0);
+    // the whole space: type its key to confirm
+    await open(page, '/projects/#/projects/p/AERO/settings/details', '[data-delete-space]');
+    await page.locator('[data-delete-space]').click();
+    await dialog(page).locator('#del-key').fill('WRONG');
+    await save(page, 'Delete this space');
+    await expect(dialog(page)).toBeVisible();   // the key doesn't match: nothing happens
+    await dialog(page).locator('#del-key').fill('AERO');
+    await save(page, 'Delete this space');
+    await expect(page.locator('.os-toast')).toContainText('Deleted AERO');
+    expect((await one(page, `select count(*)::int c from pm_projects where key = 'AERO'`)).c).toBe(0);
   });
 });

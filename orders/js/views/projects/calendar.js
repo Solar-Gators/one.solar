@@ -36,11 +36,11 @@ export async function renderCalendar(el, scope) {
   const inRange = (f) => ({ all: [{ f, op: 'gte', v: fromISO }, { f, op: 'lte', v: toISO_ }] });
   const side = st.mode !== 'agenda';   // V6: open items with no due date, beside the month and week
   const [{ items }, events, keyDates, undated] = await Promise.all([
-    pm.searchAll({ project: project?.id, projects: scope.only, q: st.f.q, sort: 'due',
+    pm.searchAll({ project: project?.id, cars: scope.only, q: st.f.q, sort: 'due',
       filter: { all: [...(user ? [user] : []), { any: [inRange('due'), inRange('start'), ...(st.work ? [{ all: [{ f: 'start', op: 'lte', v: toISO_ }, { f: 'due', op: 'gte', v: fromISO }] }] : [])] }] } }, 2000),
     pm.calendarEvents(scope.projectIds),
     pm.keyDates().catch(() => []),   // 061: the team's dates
-    side ? pm.searchAll({ project: project?.id, projects: scope.only, q: st.f.q,   // in backlog order
+    side ? pm.searchAll({ project: project?.id, cars: scope.only, q: st.f.q,   // in backlog order
       filter: { all: [...(user ? [user] : []), { f: 'due', op: 'empty' }, { f: 'category', op: 'ne', v: 'done' }] } }, 500).then((r) => r.items).catch(() => []) : [],
   ]);
   const byId = new Map([...items, ...undated].map((i) => [i.id, i]));

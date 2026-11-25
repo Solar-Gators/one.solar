@@ -3,7 +3,8 @@
  * never in code. Details, People & roles, Work types, Workflows, Fields, Forms, Rules, Templates. Each part
  * shows only to people whose project role may change it, and the database checks every save again.
  */
-import { esc, fmtDateTime } from '../../ui.js';
+import { esc, fmtDateTime, setFlash } from '../../ui.js';
+import { auth } from '../../auth.js';
 import { pm } from '../../projects/api.js';
 import { CAPS, TONES, FIELD_TYPES, BUILTIN_FIELDS, PRIORITIES, DOC_CATEGORIES, fieldLabel, layoutFor, filterText, starterRules, newId } from '../../projects/core.js';
 import { checkFormula, FORMULA_FUNCTIONS, FORMULA_BUILTINS } from '../../projects/formula.js';
@@ -48,7 +49,7 @@ async function details(el, { b, project, cfg, rerender }) {
       <div class="form-grid"><div class="field span-3"><label for="pd-name">Name</label><input id="pd-name" name="name" type="text" maxlength="120" required value="${esc(project.name)}"></div>
         <div class="field"><label>Key</label><output class="pm-formula">${esc(project.key)}</output><div class="hint">Can't change: it's in every item's name.</div></div>
         <div class="field span-4"><label for="pd-desc">About this space</label><textarea id="pd-desc" name="description" rows="3">${esc(project.description)}</textarea></div>
-        <div class="field span-2"><label for="pd-program">Car cycle</label><select id="pd-program" name="program">${opt('', 'None', !project.program_id)}${b.programs.filter((g) => !g.archived_at || g.id === project.program_id).map((g) => opt(g.id, g.name, g.id === project.program_id)).join('')}</select></div>
+
         <div class="field span-2"><label for="pd-lead">Project manager</label>${peopleField('lead', 'pd-lead', b, project.lead_id, { blank: 'Nobody' })}</div>
         <div class="field span-2"><label for="pd-div">Owning CE division</label><select id="pd-div" name="division" data-division>${opt('', '—', !project.division_id)}${b.divisions.filter((d) => !d.archived_at || d.id === project.division_id).map((d) => opt(d.id, d.name, d.id === project.division_id)).join('')}</select></div>
         <div class="field span-2"><label for="pd-sub">Owning subsystem</label><select id="pd-sub" name="subsystem" data-subsystem>${opt('', '—', !project.subsystem_id)}${b.subsystems.filter((s) => !s.archived_at || s.id === project.subsystem_id).map((s) => `<option value="${esc(s.id)}" data-div="${esc(s.division_id)}" ${s.id === project.subsystem_id ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</select></div>
@@ -73,8 +74,21 @@ async function details(el, { b, project, cfg, rerender }) {
       <fieldset class="pm-section"><legend>Document categories</legend><div class="field"><label for="pd-cats">One per line</label><textarea id="pd-cats" name="cats" rows="4">${esc((st.doc_categories?.length ? st.doc_categories : DOC_CATEGORIES).join('\n'))}</textarea></div></fieldset>
       ${can(b, project.id, 'configure') ? `<p class="muted small">Reuse this set-up in other spaces, or bring one in: <a href="${projectHref(project.key, 'settings/templates')}">Templates…</a></p>` : ''}
       <label class="pm-check"><input type="checkbox" name="archived" ${project.archived_at ? 'checked' : ''}> Archive this space (nothing is deleted; no new items until it's restored)</label>
-      <div class="form-actions"><button type="submit" class="btn btn-primary">Save</button></div></form>`;
+      <div class="form-actions"><button type="submit" class="btn btn-primary">Save</button></div></form>
+    ${auth.can('projects.manage') ? `<section class="card pm-danger-zone"><h2>Delete this space</h2>
+      <p class="muted">Deletes ${esc(project.name)} and everything in it for good: items, comments, history, workflows, boards and files.${project.subsystem_id ? ' Its subsystem gets a fresh, empty space right away.' : ''} To keep it but hide it, archive it above instead.</p>
+      <button type="button" class="btn btn-danger" data-delete-space>Delete this space…</button></section>` : ''}`;
   bindOrgPickers(el);
+  el.querySelector('[data-delete-space]')?.addEventListener('click', async () => {
+    const res = await formDialog({ title: `Delete ${esc(project.name)} for good?`, submit: 'Delete this space', danger: true,
+      body: `<p class="alert alert-error">Everything in <strong>${esc(project.name)}</strong> is deleted: every item, comment, history, workflow, board and file. This can't be undone.</p>
+        <div class="field"><label for="del-key">Type its key, <strong>${esc(project.key)}</strong>, to confirm</label><input id="del-key" name="key" type="text" autocomplete="off" required pattern="${esc(project.key)}|${esc(project.key.toLowerCase())}"></div>`,
+      onSubmit: (f) => pm.deleteProject(project.id, f.elements.key.value) });
+    if (!res) return;
+    setFlash(`Deleted ${res.key}${res.items ? ` and its ${res.items} item${res.items === 1 ? '' : 's'}` : ''}.${res.new_space ? ` Its subsystem has a fresh, empty space: ${res.new_space}.` : ''}`);
+    invalidate();
+    location.hash = '#/projects/all';
+  });
   const phasesBox = el.querySelector('[data-phases]');
   el.querySelector('[data-add-phase]').onclick = () => {
     if (phasesBox.children.length >= 20) return toast('Up to 20 phases.', 'bad');
@@ -91,7 +105,7 @@ async function details(el, { b, project, cfg, rerender }) {
     const bad = phases.find((p) => !p.name || !p.start || !p.end || p.end < p.start);
     if (bad) return toast(bad.name ? `"${bad.name}" needs a start and an end, and the end can't be before the start.` : 'Give each phase a name.', 'bad');
     const saved = await attempt(() => pm.saveProject(project.id, {
-      version: project.version, name: f.name.value.trim(), description: f.description.value, program_id: f.program.value || null, lead_id: f.lead.value || null,
+      version: project.version, name: f.name.value.trim(), description: f.description.value, lead_id: f.lead.value || null,
       division_id: f.division.value || null, subsystem_id: f.subsystem.value || null, vehicle: f.vehicle.value,
       participants: [...e.target.querySelectorAll('[name=part]:checked')].map((n) => ({ division_id: n.dataset.div, subsystem_id: n.value })),
       ...(mayShare ? { visibility: f.visibility.value, team_role_id: f.team_role.value || null } : {}), archived: f.archived.checked,

@@ -389,7 +389,7 @@ await test('hierarchy: parents have to be higher up, in the same project, and ne
   assert.ok((await item(grand.id)).archived_at);
   await by(pmgr, 'pm_archive_item', epic.id, false);
   assert.equal((await item(grand.id)).archived_at, null);
-  await rejects(by(member, 'pm_archive_item', epic.id, true), /Archive items/, '42501');
+  await rejects(by(member, 'pm_archive_item', epic.id, true), /Archive and delete items/, '42501');
 });
 
 // ---- workflow engine -----------------------------------------------------------------------------------
